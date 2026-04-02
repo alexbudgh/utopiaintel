@@ -1,4 +1,8 @@
+import { appendFile } from "fs/promises";
+import path from "path";
 import { NextRequest, NextResponse } from "next/server";
+
+const LOG_FILE = path.join(process.cwd(), "intel.jsonl");
 
 interface IntelData {
   data_html: string;
@@ -35,9 +39,8 @@ export async function POST(request: NextRequest) {
     key: formData.get("key") as string,
   };
 
-  //
-  // Your parse functions here — use `data` object
-  //
+  const entry = { ...data, received_at: new Date().toISOString() };
+  await appendFile(LOG_FILE, JSON.stringify(entry) + "\n");
 
   return NextResponse.json({ success: true });
 }
