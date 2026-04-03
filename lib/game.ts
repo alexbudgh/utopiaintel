@@ -44,17 +44,23 @@ export const BUILDINGS = [
 ];
 export const BUILDING_GROUP = BUILDINGS.join("|");
 
+// Current science system (18 sciences across 3 groups)
+// Economy: Alchemy, Tools, Housing, Production, Bookkeeping, Artisan
+// Military: Strategy, Siege, Tactics, Valor, Heroism, Resilience
+// Arcane Arts: Crime, Channeling, Shielding, Cunning, Sorcery, Finesse
 export const SCIENCES = [
-  "Alchemy", "Tools", "Housing", "Food",
-  "Military", "Crime", "Channeling",
+  "Alchemy", "Tools", "Housing", "Production", "Bookkeeping", "Artisan",
+  "Strategy", "Siege", "Tactics", "Valor", "Heroism", "Resilience",
+  "Crime", "Channeling", "Shielding", "Cunning", "Sorcery", "Finesse",
 ];
-// Angel-format alternate names
+// Legacy / alternate names (Angel addon format, old science names)
 export const SCIENCE_ALTS: Record<string, string> = {
   Income: "Alchemy",
   "Building Effectiveness": "Tools",
   "Population Limits": "Housing",
-  "Food Production": "Food",
-  "Gains in Combat": "Military",
+  Food: "Production",
+  "Food Production": "Production",
+  "Gains in Combat": "Strategy",
   "Thievery Effectiveness": "Crime",
   "Magic Effectiveness & Rune Production": "Channeling",
   "Magic Effectiveness": "Channeling",
