@@ -13,10 +13,10 @@ export interface RaceData {
   eliteDefStr: number;
 }
 
-// Age 114 unit stats. Spec names for Dark Elf are TBD (no SoM intel observed yet).
+// Age 114 unit stats.
 export const RACES: RaceData[] = [
   { name: "Avian",    shortName: "AV", offSpec: "Griffins",              defSpec: "Harpies",            elite: "Drakes",             soldierStr: 3, offSpecStr: 13, defSpecStr:  9, eliteOffStr: 16, eliteDefStr:  6 },
-  { name: "Dark Elf", shortName: "DE", offSpec: "Dark Elf Specialists",  defSpec: "Dark Elf Guards",    elite: "Dark Elf Elites",    soldierStr: 3, offSpecStr: 15, defSpecStr:  8, eliteOffStr:  4, eliteDefStr: 12 },
+  { name: "Dark Elf", shortName: "DE", offSpec: "Night Rangers",         defSpec: "Druids",             elite: "Drows",              soldierStr: 3, offSpecStr: 15, defSpecStr:  8, eliteOffStr:  4, eliteDefStr: 12 },
   { name: "Dwarf",    shortName: "DW", offSpec: "Warriors",              defSpec: "Axemen",             elite: "Berserkers",         soldierStr: 3, offSpecStr: 10, defSpecStr: 11, eliteOffStr: 15, eliteDefStr:  9 },
   { name: "Elf",      shortName: "EL", offSpec: "Rangers",               defSpec: "Archers",            elite: "Elf Lords",          soldierStr: 3, offSpecStr: 10, defSpecStr: 13, eliteOffStr: 14, eliteDefStr:  6 },
   { name: "Faery",    shortName: "FA", offSpec: "Magicians",             defSpec: "Druids",             elite: "Beastmasters",       soldierStr: 3, offSpecStr: 10, defSpecStr: 10, eliteOffStr:  8, eliteDefStr: 15 },
