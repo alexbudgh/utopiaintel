@@ -1,6 +1,6 @@
 import type { IntelType } from "./types";
 
-// Detect intel type from the URL sent by the browser extension
+// Detect intel type from the URL sent by the game client
 export function detectIntelType(url: string): IntelType | null {
   const lower = url.toLowerCase();
 
