@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import Link from "next/link";
 import { getKingdoms } from "@/lib/db";
 import { freshnessColor, timeAgo } from "@/lib/ui";
