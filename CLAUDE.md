@@ -1,6 +1,6 @@
 # Utopia Intel
 
-Next.js API endpoint that receives game data from utopia-game.com browser extension.
+Next.js API endpoint that receives game data from utopia-game.com.
 
 ## Setup
 
@@ -26,11 +26,23 @@ curl -X POST http://localhost:3000/api/intel \
   --data-urlencode "key=abc123"
 ```
 
-Should return `{"success":true}`. Check `intel.jsonl` for logged data.
+Should return `{"success":true,"parsed":false,...}` (test data won't match a real intel type).
+
+## Debug logging
+
+Capture raw payloads (no data_html) for test development:
+
+```bash
+INTEL_DEBUG=1 npm run dev     # dev
+INTEL_DEBUG=1 npm start       # prod
+```
+
+Writes to `intel_debug.jsonl`.
 
 ## Build & deploy
 
 ```bash
 npm run build
-# standalone output in .next/standalone/
+rsync -avz .next/standalone/ ecosystem.config.js utopiaintel:~/utopiaintel/
+ssh utopiaintel "cd ~/utopiaintel && pm2 start ecosystem.config.js"
 ```
