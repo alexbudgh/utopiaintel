@@ -1,3 +1,5 @@
+import { appendFile } from "fs/promises";
+import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { parseIntel } from "@/lib/parsers";
 import {
@@ -26,6 +28,9 @@ const REQUIRED_FIELDS: (keyof IntelFields)[] = [
   "key",
 ];
 
+const DEBUG_LOG = process.env.INTEL_DEBUG === "1";
+const LOG_FILE = path.join(process.cwd(), "intel_debug.jsonl");
+
 // Run TTL cleanup roughly once per 100 requests
 let requestCount = 0;
 
@@ -47,6 +52,16 @@ export async function POST(request: NextRequest) {
     prov: formData.get("prov") as string,
     key: formData.get("key") as string,
   };
+
+  if (DEBUG_LOG) {
+    const entry = {
+      url: fields.url,
+      prov: fields.prov,
+      data_simple: fields.data_simple,
+      received_at: new Date().toISOString(),
+    };
+    appendFile(LOG_FILE, JSON.stringify(entry) + "\n").catch(() => {});
+  }
 
   const result = parseIntel(fields.url, fields.data_simple);
   if (!result) {
