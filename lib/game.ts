@@ -13,15 +13,17 @@ export interface RaceData {
   eliteDefStr: number;
 }
 
+// Age 114 unit stats. Spec names for Dark Elf are TBD (no SoM intel observed yet).
 export const RACES: RaceData[] = [
-  { name: "Elf", shortName: "EL", offSpec: "Rangers", defSpec: "Archers", elite: "Elf Lords", soldierStr: 2, offSpecStr: 6, defSpecStr: 6, eliteOffStr: 5, eliteDefStr: 5 },
-  { name: "Dwarf", shortName: "DW", offSpec: "Warriors", defSpec: "Axemen", elite: "Berserkers", soldierStr: 3, offSpecStr: 5, defSpecStr: 5, eliteOffStr: 6, eliteDefStr: 6 },
-  { name: "Halfling", shortName: "HA", offSpec: "Strongarms", defSpec: "Slingers", elite: "Brutes", soldierStr: 2, offSpecStr: 5, defSpecStr: 5, eliteOffStr: 5, eliteDefStr: 7 },
-  { name: "Undead", shortName: "UD", offSpec: "Skeletons", defSpec: "Zombies", elite: "Ghouls", soldierStr: 3, offSpecStr: 5, defSpecStr: 6, eliteOffStr: 6, eliteDefStr: 6 },
-  { name: "Orc", shortName: "OR", offSpec: "Goblins", defSpec: "Trolls", elite: "Ogres", soldierStr: 3, offSpecStr: 6, defSpecStr: 6, eliteOffStr: 7, eliteDefStr: 2 },
-  { name: "Faery", shortName: "FA", offSpec: "Magicians", defSpec: "Druids", elite: "Beastmasters", soldierStr: 2, offSpecStr: 5, defSpecStr: 5, eliteOffStr: 6, eliteDefStr: 5 },
-  { name: "Avian", shortName: "AV", offSpec: "Griffins", defSpec: "Harpies", elite: "Drakes", soldierStr: 3, offSpecStr: 6, defSpecStr: 6, eliteOffStr: 6, eliteDefStr: 3 },
-  { name: "Human", shortName: "HU", offSpec: "Swordsmen", defSpec: "Archers", elite: "Knights", soldierStr: 2, offSpecStr: 5, defSpecStr: 5, eliteOffStr: 6, eliteDefStr: 6 },
+  { name: "Avian",    shortName: "AV", offSpec: "Griffins",              defSpec: "Harpies",            elite: "Drakes",             soldierStr: 3, offSpecStr: 13, defSpecStr:  9, eliteOffStr: 16, eliteDefStr:  6 },
+  { name: "Dark Elf", shortName: "DE", offSpec: "Dark Elf Specialists",  defSpec: "Dark Elf Guards",    elite: "Dark Elf Elites",    soldierStr: 3, offSpecStr: 15, defSpecStr:  8, eliteOffStr:  4, eliteDefStr: 12 },
+  { name: "Dwarf",    shortName: "DW", offSpec: "Warriors",              defSpec: "Axemen",             elite: "Berserkers",         soldierStr: 3, offSpecStr: 10, defSpecStr: 11, eliteOffStr: 15, eliteDefStr:  9 },
+  { name: "Elf",      shortName: "EL", offSpec: "Rangers",               defSpec: "Archers",            elite: "Elf Lords",          soldierStr: 3, offSpecStr: 10, defSpecStr: 13, eliteOffStr: 14, eliteDefStr:  6 },
+  { name: "Faery",    shortName: "FA", offSpec: "Magicians",             defSpec: "Druids",             elite: "Beastmasters",       soldierStr: 3, offSpecStr: 10, defSpecStr: 10, eliteOffStr:  8, eliteDefStr: 15 },
+  { name: "Halfling", shortName: "HA", offSpec: "Strongarms",            defSpec: "Slingers",           elite: "Brutes",             soldierStr: 3, offSpecStr: 10, defSpecStr: 11, eliteOffStr: 10, eliteDefStr: 13 },
+  { name: "Human",    shortName: "HU", offSpec: "Swordsmen",             defSpec: "Archers",            elite: "Knights",            soldierStr: 3, offSpecStr: 12, defSpecStr: 10, eliteOffStr: 14, eliteDefStr:  9 },
+  { name: "Orc",      shortName: "OR", offSpec: "Goblins",               defSpec: "Trolls",             elite: "Ogres",              soldierStr: 3, offSpecStr: 13, defSpecStr: 10, eliteOffStr: 20, eliteDefStr:  1 },
+  { name: "Undead",   shortName: "UD", offSpec: "Skeletons",             defSpec: "Zombies",            elite: "Ghouls",             soldierStr: 3, offSpecStr: 11, defSpecStr: 10, eliteOffStr: 16, eliteDefStr:  7 },
 ];
 
 export const RACE_NAMES = RACES.flatMap((r) => [r.name, r.shortName]);
@@ -67,19 +69,22 @@ export const SCIENCE_ALTS: Record<string, string> = {
 };
 export const SCIENCE_GROUP = [...SCIENCES, ...Object.keys(SCIENCE_ALTS)].join("|");
 
+// Age 114 personalities. "Hero" is what appears after "the " in SoT ruler text
+// (the full design name is "War Hero" but the game displays just "Hero").
 export const PERSONALITIES = [
-  "Merchant", "Shepherd", "Sage", "Rogue",
-  "Mystic", "Warrior", "Tactician", "Cleric",
+  "Artisan", "Paladin", "Heretic", "Mystic",
+  "Rogue", "Tactician", "Warrior", "Necromancer",
+  "General", "Hero",
 ];
 export const PERSONALITY_GROUP = PERSONALITIES.join("|");
 
 export const HONOR_TITLES = [
   "Peasant", "Knight", "Lord", "Baron", "Viscount",
-  "Count", "Marquis", "Duke", "Prince",
+  "Count", "Marquis", "Duke", "Prince", "King",
   // Female variants
   "Mr.", "Mrs.", "Sir", "Lady", "Noble Lady",
   "Baroness", "Viscountess", "Countess", "Marchioness",
-  "Duchess", "Princess",
+  "Duchess", "Princess", "Queen",
 ];
 export const HONOR_TITLE_GROUP = HONOR_TITLES.join("|");
 
