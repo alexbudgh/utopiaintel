@@ -32,6 +32,16 @@ const REQUIRED_FIELDS: (keyof IntelFields)[] = [
 const DEBUG_LOG = process.env.INTEL_DEBUG === "1";
 const LOG_FILE = path.join(process.cwd(), "intel_debug.jsonl");
 
+const TABLES: Record<string, string[]> = {
+  sot:     ["province_overview", "total_military_points", "province_troops", "province_resources", "province_status"],
+  survey:  ["survey_intel", "survey_buildings"],
+  som:     ["home_military_points", "province_troops", "military_intel", "som_armies"],
+  sos:     ["sos_intel", "sos_sciences"],
+  sod:     ["home_military_points"],
+  kingdom: ["kingdom_intel", "kingdom_provinces", "province_overview"],
+  state:   ["province_overview", "province_resources", "province_troops"],
+};
+
 // Run TTL cleanup roughly once per 100 requests
 let requestCount = 0;
 
@@ -66,6 +76,7 @@ export async function POST(request: NextRequest) {
 
   const result = parseIntel(fields.url, fields.data_simple, fields.prov);
   if (!result) {
+    console.log(`[intel] unrecognized  from=${fields.prov}  url=${fields.url}`);
     return NextResponse.json({
       success: true,
       parsed: false,
@@ -74,6 +85,10 @@ export async function POST(request: NextRequest) {
   }
 
   const savedBy = fields.prov;
+
+  const province = "name" in result.data ? result.data.name : "—";
+  const kingdom  = "kingdom" in result.data ? result.data.kingdom : "—";
+  console.log(`[intel] ${result.type.padEnd(7)}  ${province} (${kingdom})  from=${savedBy}  → ${TABLES[result.type]?.join(", ")}`);
 
   switch (result.type) {
     case "sot":
