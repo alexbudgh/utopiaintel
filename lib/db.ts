@@ -7,6 +7,7 @@ import type {
   SoSData,
   SoDData,
   KingdomData,
+  StateData,
 } from "./parsers/types";
 
 const DB_PATH = path.join(process.cwd(), "intel.db");
@@ -387,6 +388,31 @@ export function storeKingdom(data: KingdomData, savedBy: string) {
         VALUES (?, ?, NULL, ?, ?, ?, 'kingdom', ?)
       `).run(provId, p.race, p.honorTitle, p.land, p.networth, savedBy);
     }
+  })();
+}
+
+export function storeState(data: StateData, savedBy: string) {
+  const db = getDb();
+  db.transaction(() => {
+    const provId = ensureProvince(db, data.name, data.kingdom);
+
+    // Overview: land and networth (no race/personality from council_state)
+    db.prepare(`
+      INSERT INTO province_overview (province_id, land, networth, source, saved_by, accuracy)
+      VALUES (?, ?, ?, 'state', ?, 100)
+    `).run(provId, data.land, data.networth, savedBy);
+
+    // Resources: thieves and wizards (self-intel is always 100% accurate)
+    db.prepare(`
+      INSERT INTO province_resources (province_id, thieves, wizards, source, saved_by, accuracy)
+      VALUES (?, ?, ?, 'state', ?, 100)
+    `).run(provId, data.thieves, data.wizards, savedBy);
+
+    // Peasants live in province_troops
+    db.prepare(`
+      INSERT INTO province_troops (province_id, peasants, source, saved_by, accuracy)
+      VALUES (?, ?, 'state', ?, 100)
+    `).run(provId, data.peasants, savedBy);
   })();
 }
 

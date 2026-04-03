@@ -9,6 +9,7 @@ import {
   storeSoS,
   storeSoD,
   storeKingdom,
+  storeState,
   cleanupExpired,
 } from "@/lib/db";
 
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
     appendFile(LOG_FILE, JSON.stringify(entry) + "\n").catch(() => {});
   }
 
-  const result = parseIntel(fields.url, fields.data_simple);
+  const result = parseIntel(fields.url, fields.data_simple, fields.prov);
   if (!result) {
     return NextResponse.json({
       success: true,
@@ -92,6 +93,9 @@ export async function POST(request: NextRequest) {
       break;
     case "kingdom":
       storeKingdom(result.data, savedBy);
+      break;
+    case "state":
+      storeState(result.data, savedBy);
       break;
   }
 

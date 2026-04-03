@@ -23,13 +23,12 @@ function splitNums(s: string): number[] {
   return s.trim().split(/\s+/).map((v) => (v === "-" ? 0 : parseNum(v)));
 }
 
-export function parseSoM(text: string): SoMData | null {
+export function parseSoM(text: string, selfProv?: string): SoMData | null {
   const provMatch = PROVINCE_RE.exec(text);
-  // Self-SoM won't have province match
-  if (!provMatch) return null;
+  if (!provMatch && !selfProv) return null;
 
-  const name = provMatch[1].trim();
-  const kingdom = provMatch[2];
+  const name = provMatch ? provMatch[1].trim() : selfProv!;
+  const kingdom = provMatch ? provMatch[2] : "";
   const accuracy = parseAccuracy(text);
 
   const netOffMatch = NET_OFF_RE.exec(text);

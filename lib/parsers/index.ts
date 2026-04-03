@@ -5,11 +5,12 @@ import { parseSoM } from "./som";
 import { parseSoS } from "./sos";
 import { parseSoD } from "./sod";
 import { parseKingdom } from "./kingdom";
+import { parseState } from "./state";
 import type { ParseResult } from "./types";
 
 export type { ParseResult } from "./types";
 
-export function parseIntel(url: string, dataSimple: string): ParseResult | null {
+export function parseIntel(url: string, dataSimple: string, selfProv?: string): ParseResult | null {
   const type = detectIntelType(url);
   if (!type) return null;
 
@@ -23,11 +24,11 @@ export function parseIntel(url: string, dataSimple: string): ParseResult | null 
       return data ? { type: "survey", data } : null;
     }
     case "som": {
-      const data = parseSoM(dataSimple);
+      const data = parseSoM(dataSimple, selfProv);
       return data ? { type: "som", data } : null;
     }
     case "sos": {
-      const data = parseSoS(dataSimple);
+      const data = parseSoS(dataSimple, selfProv);
       return data ? { type: "sos", data } : null;
     }
     case "sod": {
@@ -37,6 +38,11 @@ export function parseIntel(url: string, dataSimple: string): ParseResult | null 
     case "kingdom": {
       const data = parseKingdom(dataSimple);
       return data ? { type: "kingdom", data } : null;
+    }
+    case "state": {
+      if (!selfProv) return null;
+      const data = parseState(dataSimple, selfProv);
+      return data ? { type: "state", data } : null;
     }
   }
 }

@@ -10,13 +10,12 @@ const SCIENCE_RE = new RegExp(
   "gi",
 );
 
-export function parseSoS(text: string): SoSData | null {
+export function parseSoS(text: string, selfProv?: string): SoSData | null {
   const provMatch = PROVINCE_RE.exec(text);
-  // Self-SoS won't have province — skip for now
-  if (!provMatch) return null;
+  if (!provMatch && !selfProv) return null;
 
-  const name = provMatch[1].trim();
-  const kingdom = provMatch[2];
+  const name = provMatch ? provMatch[1].trim() : selfProv!;
+  const kingdom = provMatch ? provMatch[2] : "";
   const accuracy = parseAccuracy(text);
 
   const sciences: ScienceEntry[] = [];
