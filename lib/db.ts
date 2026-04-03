@@ -416,6 +416,61 @@ export function storeState(data: StateData, savedBy: string) {
   })();
 }
 
+// ── Read queries ────────────────────────────────────────────────────────────
+
+export interface KingdomRow {
+  location: string;
+  province_count: number;
+  last_seen: string | null;
+}
+
+export function getKingdoms(): KingdomRow[] {
+  const db = getDb();
+  return db.prepare(`
+    SELECT p.kingdom AS location,
+           COUNT(DISTINCT p.id) AS province_count,
+           MAX(po.received_at) AS last_seen
+    FROM provinces p
+    LEFT JOIN province_overview po ON po.province_id = p.id
+    WHERE p.kingdom != ''
+    GROUP BY p.kingdom
+    ORDER BY last_seen DESC
+  `).all() as KingdomRow[];
+}
+
+export interface ProvinceRow {
+  id: number;
+  name: string;
+  kingdom: string;
+  race: string | null;
+  land: number | null;
+  networth: number | null;
+  overview_age: string | null;
+  off_points: number | null;
+  def_points: number | null;
+  military_age: string | null;
+}
+
+export function getKingdomProvinces(kingdom: string): ProvinceRow[] {
+  const db = getDb();
+  return db.prepare(`
+    SELECT p.id, p.name, p.kingdom,
+           po.race, po.land, po.networth, po.received_at AS overview_age,
+           tmp.off_points, tmp.def_points, tmp.received_at AS military_age
+    FROM provinces p
+    LEFT JOIN province_overview po ON po.id = (
+      SELECT id FROM province_overview
+      WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1
+    )
+    LEFT JOIN total_military_points tmp ON tmp.id = (
+      SELECT id FROM total_military_points
+      WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1
+    )
+    WHERE p.kingdom = ?
+    ORDER BY po.networth DESC NULLS LAST
+  `).all(kingdom) as ProvinceRow[];
+}
+
 export function cleanupExpired() {
   const db = getDb();
   const cutoff = `datetime('now', '-${TTL_DAYS} days')`;
