@@ -240,6 +240,12 @@ function initSchema(db: Database.Database) {
       honor_title TEXT
     );
   `);
+
+  // Additive migrations
+  const hasCol = (table: string, col: string) =>
+    (db.prepare(`SELECT COUNT(*) as n FROM pragma_table_info('${table}') WHERE name='${col}'`).get() as { n: number }).n > 0;
+  if (!hasCol("survey_intel", "thievery_effectiveness")) db.exec("ALTER TABLE survey_intel ADD COLUMN thievery_effectiveness REAL");
+  if (!hasCol("survey_intel", "thief_prevent_chance"))   db.exec("ALTER TABLE survey_intel ADD COLUMN thief_prevent_chance REAL");
 }
 
 // Get or create province identity, return ID
@@ -371,9 +377,9 @@ export function storeSurvey(data: SurveyData, savedBy: string, keyHash: string) 
     recordSubmission(db, keyHash, provId);
 
     const result = db.prepare(`
-      INSERT INTO survey_intel (province_id, saved_by, accuracy)
-      VALUES (?, ?, ?)
-    `).run(provId, savedBy, data.accuracy);
+      INSERT INTO survey_intel (province_id, saved_by, accuracy, thievery_effectiveness, thief_prevent_chance)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(provId, savedBy, data.accuracy, data.thieveryEffectiveness ?? null, data.thiefPreventChance ?? null);
 
     const surveyId = result.lastInsertRowid;
     const ins = db.prepare("INSERT INTO survey_buildings (survey_intel_id, building, built, in_progress) VALUES (?, ?, ?, ?)");
@@ -487,6 +493,11 @@ export interface ProvinceRow {
   ome: number | null;
   dme: number | null;
   som_age: string | null;
+  sciences_age: string | null;
+  crime_effect: number | null;
+  survey_age: string | null;
+  watch_towers_effect: number | null;
+  thieves_dens_effect: number | null;
 }
 
 export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceRow[] {
@@ -497,7 +508,12 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
            tmp.off_points, tmp.def_points, tmp.received_at AS military_age,
            pt.soldiers, pt.off_specs, pt.def_specs, pt.elites, pt.peasants, pt.received_at AS troops_age, pt.source AS troops_source,
            pr.thieves, pr.wizards, pr.received_at AS resources_age, pr.source AS resources_source,
-           mi.ome, mi.dme, mi.received_at AS som_age
+           mi.ome, mi.dme, mi.received_at AS som_age,
+           (SELECT si.received_at FROM sos_intel si WHERE si.province_id = p.id ORDER BY si.received_at DESC LIMIT 1) AS sciences_age,
+           (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND ss.science = 'Crime' ORDER BY si.received_at DESC LIMIT 1) AS crime_effect,
+           (SELECT si.received_at FROM survey_intel si WHERE si.province_id = p.id ORDER BY si.received_at DESC LIMIT 1) AS survey_age,
+           (SELECT si.thief_prevent_chance FROM survey_intel si WHERE si.province_id = p.id ORDER BY si.received_at DESC LIMIT 1) AS watch_towers_effect,
+           (SELECT si.thievery_effectiveness FROM survey_intel si WHERE si.province_id = p.id ORDER BY si.received_at DESC LIMIT 1) AS thieves_dens_effect
     FROM provinces p
     LEFT JOIN province_overview po ON po.id = (
       SELECT id FROM province_overview

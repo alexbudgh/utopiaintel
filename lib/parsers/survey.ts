@@ -1,6 +1,6 @@
 import { BUILDING_GROUP } from "../game";
 import type { SurveyData, SurveyBuilding } from "./types";
-import { INT, KDLOC, parseNum, parseAccuracy } from "./util";
+import { INT, KDLOC, parseNum, parseFloat_, parseAccuracy } from "./util";
 
 const PROVINCE_RE = new RegExp(`Our thieves scour the lands of ([^(]+)${KDLOC}`);
 const BUILDING_RE = new RegExp(`(${BUILDING_GROUP})\\s+((?:${INT}(?:\\s+|\\*))+)`, "gi");
@@ -35,5 +35,12 @@ export function parseSurvey(text: string): SurveyData | null {
     }
   }
 
-  return { name, kingdom, buildings, accuracy };
+  const THIEF_EFFECT_RE = /([\d.]+)% higher thievery effectiveness/i;
+  const PREVENT_RE = /([\d.]+)% chance of preventing enemy thief missions/i;
+  const thieveryMatch = THIEF_EFFECT_RE.exec(text);
+  const preventMatch = PREVENT_RE.exec(text);
+  const thieveryEffectiveness = thieveryMatch ? parseFloat_(thieveryMatch[1]) : null;
+  const thiefPreventChance = preventMatch ? parseFloat_(preventMatch[1]) : null;
+
+  return { name, kingdom, buildings, thieveryEffectiveness, thiefPreventChance, accuracy };
 }

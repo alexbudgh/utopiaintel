@@ -4,7 +4,7 @@ import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import type { ProvinceRow } from "@/lib/db";
-import { freshnessColor, formatNum, timeAgo, formatTimestamp } from "@/lib/ui";
+import { freshnessColor, formatNum, timeAgo, formatTimestamp, sameTick } from "@/lib/ui";
 
 function Tooltip({ content, children }: { content: string; children: React.ReactNode }) {
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
@@ -62,6 +62,10 @@ const COLUMNS = [
   { key: "thieves",     label: "Thieves",     group: "Resources", desc: "Thieves"                                     },
   { key: "wizards",     label: "Wizards",     group: "Resources", desc: "Wizards"                                     },
   { key: "age",         label: "Age",         group: "Overview",  desc: "Most recent intel across all sources\nOther columns may have older data — hover them to check"    },
+  { key: "rtpa",        label: "rTPA",        group: "TPA",       desc: "Raw TPA = thieves / land\nNeeds: Infiltrate Thieves' Dens + SoT (same tick)"                   },
+  { key: "mtpa",        label: "mTPA",        group: "TPA",       desc: "Modified TPA = rTPA × (1 + Crime%)\nNeeds: rTPA sources + SoS (same tick)"                     },
+  { key: "otpa",        label: "oTPA",        group: "TPA",       desc: "Offensive TPA = mTPA × (1 + Thieves' Den%)\nNeeds: mTPA sources + Survey (same tick)"          },
+  { key: "dtpa",        label: "dTPA",        group: "TPA",       desc: "Defensive TPA = mTPA × (1 + Watch Tower prevent%)\nNeeds: mTPA sources + Survey (same tick)"   },
 ] as const;
 
 type ColKey = (typeof COLUMNS)[number]["key"];
@@ -72,12 +76,42 @@ const DEFAULT_VISIBLE = new Set<ColKey>([
 
 const STORAGE_KEY = "province-columns";
 
+function computeRtpa(p: ProvinceRow): number | null {
+  if (p.thieves == null || !p.land) return null;
+  if (!sameTick(p.resources_age, p.overview_age)) return null;
+  return p.thieves / p.land;
+}
+
+function computeMtpa(p: ProvinceRow): number | null {
+  const rtpa = computeRtpa(p);
+  if (rtpa == null || p.crime_effect == null) return null;
+  if (!sameTick(p.resources_age, p.overview_age, p.sciences_age)) return null;
+  return rtpa * (1 + p.crime_effect / 100);
+}
+
+function computeOtpa(p: ProvinceRow): number | null {
+  const mtpa = computeMtpa(p);
+  if (mtpa == null || p.thieves_dens_effect == null) return null;
+  if (!sameTick(p.resources_age, p.overview_age, p.sciences_age, p.survey_age)) return null;
+  return mtpa * (1 + p.thieves_dens_effect / 100);
+}
+
+function computeDtpa(p: ProvinceRow): number | null {
+  const mtpa = computeMtpa(p);
+  if (mtpa == null || p.watch_towers_effect == null) return null;
+  if (!sameTick(p.resources_age, p.overview_age, p.sciences_age, p.survey_age)) return null;
+  return mtpa * (1 + p.watch_towers_effect / 100);
+}
+
 function ageFor(p: ProvinceRow, key: ColKey): string | null {
   if (key === "age") return p.overview_age ?? p.military_age;
   if (["soldiers", "off_specs", "def_specs", "elites", "peasants"].includes(key)) return p.troops_age;
   if (["thieves", "wizards"].includes(key)) return p.resources_age;
   if (["ome", "dme"].includes(key)) return p.som_age;
   if (["off_points", "def_points"].includes(key)) return p.military_age;
+  if (key === "rtpa") return p.resources_age ?? p.overview_age;
+  if (key === "mtpa") return p.sciences_age;
+  if (key === "otpa" || key === "dtpa") return p.survey_age;
   return p.overview_age;
 }
 
@@ -87,7 +121,16 @@ function sourceFor(p: ProvinceRow, key: ColKey): string | null {
   if (["ome", "dme"].includes(key)) return "som";
   if (["off_points", "def_points"].includes(key)) return "sot";
   if (key === "age") return p.overview_source ?? (p.military_age ? "sot" : null);
+  if (["rtpa", "mtpa", "otpa", "dtpa"].includes(key)) return null;
   return p.overview_source;
+}
+
+function tpaStaleReason(p: ProvinceRow, needSoS: boolean, needSurvey: boolean): string {
+  const ages = [p.resources_age, p.overview_age];
+  if (needSoS) ages.push(p.sciences_age);
+  if (needSurvey) ages.push(p.survey_age);
+  if (ages.some((a) => !a)) return "missing data";
+  return "data not from same tick";
 }
 
 function tipFor(p: ProvinceRow, key: ColKey): string {
@@ -97,6 +140,36 @@ function tipFor(p: ProvinceRow, key: ColKey): string {
     if (p.overview_age) lines.push(`overview (${p.overview_source ?? "?"}): ${timeAgo(p.overview_age)} · ${formatTimestamp(p.overview_age)}`);
     if (p.military_age) lines.push(`military (sot): ${timeAgo(p.military_age)} · ${formatTimestamp(p.military_age)}`);
     return lines.join("\n");
+  }
+  if (key === "rtpa") {
+    if (p.thieves == null || !p.land) return "No thieves or land data";
+    const ok = sameTick(p.resources_age, p.overview_age);
+    const val = ok ? (p.thieves / p.land).toFixed(2) : "—";
+    return `rTPA = ${formatNum(p.thieves)} ÷ ${formatNum(p.land)} = ${val}` + (ok ? "" : `\n(${tpaStaleReason(p, false, false)})`);
+  }
+  if (key === "mtpa") {
+    const rtpa = computeRtpa(p);
+    if (rtpa == null) return tipFor(p, "rtpa");
+    if (p.crime_effect == null) return `rTPA = ${rtpa.toFixed(2)}\nNo Crime science data`;
+    const ok = sameTick(p.resources_age, p.overview_age, p.sciences_age);
+    const val = ok ? (rtpa * (1 + p.crime_effect / 100)).toFixed(2) : "—";
+    return `mTPA = ${rtpa.toFixed(2)} × (1 + ${p.crime_effect.toFixed(1)}% Crime) = ${val}` + (ok ? "" : `\n(${tpaStaleReason(p, true, false)})`);
+  }
+  if (key === "otpa") {
+    const mtpa = computeMtpa(p);
+    if (mtpa == null) return tipFor(p, "mtpa");
+    if (p.thieves_dens_effect == null) return `mTPA = ${mtpa.toFixed(2)}\nNo Survey data`;
+    const ok = sameTick(p.resources_age, p.overview_age, p.sciences_age, p.survey_age);
+    const val = ok ? computeOtpa(p)?.toFixed(2) ?? "—" : "—";
+    return `oTPA = ${mtpa.toFixed(2)} × (1 + ${p.thieves_dens_effect.toFixed(1)}% Thieves' Den) = ${val}` + (ok ? "" : `\n(${tpaStaleReason(p, true, true)})`);
+  }
+  if (key === "dtpa") {
+    const mtpa = computeMtpa(p);
+    if (mtpa == null) return tipFor(p, "mtpa");
+    if (p.watch_towers_effect == null) return `mTPA = ${mtpa.toFixed(2)}\nNo Survey data`;
+    const ok = sameTick(p.resources_age, p.overview_age, p.sciences_age, p.survey_age);
+    const val = ok ? computeDtpa(p)?.toFixed(2) ?? "—" : "—";
+    return `dTPA = ${mtpa.toFixed(2)} × (1 + ${p.watch_towers_effect.toFixed(1)}% Watch Tower) = ${val}` + (ok ? "" : `\n(${tpaStaleReason(p, true, true)})`);
   }
   const age = ageFor(p, key);
   const source = sourceFor(p, key);
@@ -125,6 +198,10 @@ function cellValue(p: ProvinceRow, key: ColKey): React.ReactNode {
       const a = p.overview_age ?? p.military_age;
       return <span className={freshnessColor(a)}>{timeAgo(a)}</span>;
     }
+    case "rtpa": { const v = computeRtpa(p); return v != null ? v.toFixed(2) : "—"; }
+    case "mtpa": { const v = computeMtpa(p); return v != null ? v.toFixed(2) : "—"; }
+    case "otpa": { const v = computeOtpa(p); return v != null ? v.toFixed(2) : "—"; }
+    case "dtpa": { const v = computeDtpa(p); return v != null ? v.toFixed(2) : "—"; }
   }
 }
 

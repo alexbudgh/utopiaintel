@@ -4,6 +4,14 @@ function parseUtc(iso: string): number {
   return new Date(iso.replace(" ", "T") + "Z").getTime();
 }
 
+// Returns true when all non-null timestamps are within one game tick (1 hour) of each other
+export function sameTick(...ages: (string | null)[]): boolean {
+  const valid = ages.filter(Boolean) as string[];
+  if (valid.length < 2) return false;
+  const times = valid.map(parseUtc);
+  return Math.max(...times) - Math.min(...times) < 3_600_000;
+}
+
 export function freshnessColor(age: string | null): string {
   if (!age) return "text-gray-600";
   const hrs = (Date.now() - parseUtc(age)) / 3_600_000;

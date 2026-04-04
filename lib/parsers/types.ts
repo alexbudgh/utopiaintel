@@ -47,6 +47,8 @@ export interface SurveyBuilding {
 
 export interface SurveyData extends ProvinceId {
   buildings: SurveyBuilding[];
+  thieveryEffectiveness: number | null; // "X% higher thievery effectiveness" (Thieves' Dens)
+  thiefPreventChance: number | null;    // "X% chance of preventing enemy thief missions" (Watch Towers)
   accuracy: number;
 }
 
