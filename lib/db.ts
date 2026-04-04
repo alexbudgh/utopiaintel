@@ -465,20 +465,36 @@ export interface ProvinceRow {
   name: string;
   kingdom: string;
   race: string | null;
+  personality: string | null;
   land: number | null;
   networth: number | null;
   overview_age: string | null;
   off_points: number | null;
   def_points: number | null;
   military_age: string | null;
+  soldiers: number | null;
+  off_specs: number | null;
+  def_specs: number | null;
+  elites: number | null;
+  peasants: number | null;
+  troops_age: string | null;
+  thieves: number | null;
+  wizards: number | null;
+  resources_age: string | null;
+  ome: number | null;
+  dme: number | null;
+  som_age: string | null;
 }
 
 export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceRow[] {
   const db = getDb();
   return db.prepare(`
     SELECT p.id, p.name, p.kingdom,
-           po.race, po.land, po.networth, po.received_at AS overview_age,
-           tmp.off_points, tmp.def_points, tmp.received_at AS military_age
+           po.race, po.personality, po.land, po.networth, po.received_at AS overview_age,
+           tmp.off_points, tmp.def_points, tmp.received_at AS military_age,
+           pt.soldiers, pt.off_specs, pt.def_specs, pt.elites, pt.peasants, pt.received_at AS troops_age,
+           pr.thieves, pr.wizards, pr.received_at AS resources_age,
+           mi.ome, mi.dme, mi.received_at AS som_age
     FROM provinces p
     LEFT JOIN province_overview po ON po.id = (
       SELECT id FROM province_overview
@@ -486,6 +502,18 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
     )
     LEFT JOIN total_military_points tmp ON tmp.id = (
       SELECT id FROM total_military_points
+      WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1
+    )
+    LEFT JOIN province_troops pt ON pt.id = (
+      SELECT id FROM province_troops
+      WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1
+    )
+    LEFT JOIN province_resources pr ON pr.id = (
+      SELECT id FROM province_resources
+      WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1
+    )
+    LEFT JOIN military_intel mi ON mi.id = (
+      SELECT id FROM military_intel
       WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1
     )
     WHERE p.kingdom = ?

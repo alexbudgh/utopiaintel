@@ -5,19 +5,66 @@ import type { ProvinceRow } from "@/lib/db";
 import { freshnessColor, formatNum, timeAgo } from "@/lib/ui";
 
 const COLUMNS = [
-  { key: "race",     label: "Race" },
-  { key: "land",     label: "Land" },
-  { key: "networth", label: "NW"   },
-  { key: "off",      label: "Off"  },
-  { key: "def",      label: "Def"  },
-  { key: "age",      label: "Age"  },
+  { key: "race",        label: "Race",        group: "Overview"  },
+  { key: "personality", label: "Personality", group: "Overview"  },
+  { key: "land",        label: "Land",        group: "Overview"  },
+  { key: "networth",    label: "NW",          group: "Overview"  },
+  { key: "off_points",  label: "Off",         group: "Military"  },
+  { key: "def_points",  label: "Def",         group: "Military"  },
+  { key: "soldiers",    label: "Soldiers",    group: "Troops"    },
+  { key: "off_specs",   label: "Off specs",   group: "Troops"    },
+  { key: "def_specs",   label: "Def specs",   group: "Troops"    },
+  { key: "elites",      label: "Elites",      group: "Troops"    },
+  { key: "peasants",    label: "Peasants",    group: "Troops"    },
+  { key: "ome",         label: "OME",         group: "Military"  },
+  { key: "dme",         label: "DME",         group: "Military"  },
+  { key: "thieves",     label: "Thieves",     group: "Resources" },
+  { key: "wizards",     label: "Wizards",     group: "Resources" },
+  { key: "age",         label: "Age",         group: "Overview"  },
 ] as const;
 
 type ColKey = (typeof COLUMNS)[number]["key"];
 
-const ALL_KEYS = COLUMNS.map((c) => c.key);
+const DEFAULT_VISIBLE = new Set<ColKey>([
+  "race", "land", "networth", "off_points", "def_points", "age",
+]);
+
 const STORAGE_KEY = "province-columns";
-const DEFAULT_VISIBLE = new Set<ColKey>(ALL_KEYS);
+
+function ageFor(p: ProvinceRow, key: ColKey): string | null {
+  if (key === "age") return p.overview_age ?? p.military_age;
+  if (["soldiers", "off_specs", "def_specs", "elites", "peasants"].includes(key)) return p.troops_age;
+  if (["thieves", "wizards"].includes(key)) return p.resources_age;
+  if (["ome", "dme"].includes(key)) return p.som_age;
+  if (["off_points", "def_points"].includes(key)) return p.military_age;
+  return p.overview_age;
+}
+
+function cellValue(p: ProvinceRow, key: ColKey): React.ReactNode {
+  switch (key) {
+    case "race":        return <span className="font-mono text-gray-400">{p.race ?? "—"}</span>;
+    case "personality": return <span className="text-gray-400">{p.personality ?? "—"}</span>;
+    case "land":        return formatNum(p.land);
+    case "networth":    return formatNum(p.networth);
+    case "off_points":  return formatNum(p.off_points);
+    case "def_points":  return formatNum(p.def_points);
+    case "soldiers":    return formatNum(p.soldiers);
+    case "off_specs":   return formatNum(p.off_specs);
+    case "def_specs":   return formatNum(p.def_specs);
+    case "elites":      return formatNum(p.elites);
+    case "peasants":    return formatNum(p.peasants);
+    case "ome":         return p.ome != null ? p.ome.toFixed(1) + "%" : "—";
+    case "dme":         return p.dme != null ? p.dme.toFixed(1) + "%" : "—";
+    case "thieves":     return formatNum(p.thieves);
+    case "wizards":     return formatNum(p.wizards);
+    case "age": {
+      const a = p.overview_age ?? p.military_age;
+      return <span className={freshnessColor(a)}>{timeAgo(a)}</span>;
+    }
+  }
+}
+
+const TEXT_LEFT = new Set<ColKey>(["race", "personality"]);
 
 export function ProvinceTable({
   kingdom,
@@ -58,11 +105,11 @@ export function ProvinceTable({
       return next;
     });
 
-  const show = (key: ColKey) => visible.has(key);
+  const visibleCols = COLUMNS.filter((c) => visible.has(c.key));
 
   return (
     <div>
-      <div className="flex gap-2 mb-3">
+      <div className="flex flex-wrap gap-1.5 mb-4">
         {COLUMNS.map((col) => (
           <button
             key={col.key}
@@ -83,30 +130,37 @@ export function ProvinceTable({
           <thead>
             <tr className="text-left text-gray-400 border-b border-gray-700">
               <th className="py-2 pr-4 font-medium">Province</th>
-              {show("race")     && <th className="py-2 pr-4 font-medium">Race</th>}
-              {show("land")     && <th className="py-2 pr-4 font-medium text-right">Land</th>}
-              {show("networth") && <th className="py-2 pr-4 font-medium text-right">NW</th>}
-              {show("off")      && <th className="py-2 pr-4 font-medium text-right">Off</th>}
-              {show("def")      && <th className="py-2 pr-4 font-medium text-right">Def</th>}
-              {show("age")      && <th className="py-2 font-medium text-right">Age</th>}
+              {visibleCols.map((col) => (
+                <th
+                  key={col.key}
+                  className={`py-2 pr-4 font-medium ${TEXT_LEFT.has(col.key) ? "" : "text-right"}`}
+                >
+                  {col.label}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {provinces.map((p) => {
-              const ageCol = p.overview_age ?? p.military_age;
-              const fc = freshnessColor(ageCol);
+              const dotAge = p.overview_age ?? p.military_age;
               return (
                 <tr key={p.id} className="border-b border-gray-800 hover:bg-gray-800/40">
                   <td className="py-2 pr-4">
-                    <span className={`mr-1.5 ${fc}`}>●</span>
+                    <span className={`mr-1.5 ${freshnessColor(dotAge)}`}>●</span>
                     {p.name}
                   </td>
-                  {show("race")     && <td className="py-2 pr-4 font-mono text-gray-400">{p.race ?? "—"}</td>}
-                  {show("land")     && <td className="py-2 pr-4 text-right tabular-nums">{formatNum(p.land)}</td>}
-                  {show("networth") && <td className="py-2 pr-4 text-right tabular-nums">{formatNum(p.networth)}</td>}
-                  {show("off")      && <td className="py-2 pr-4 text-right tabular-nums">{formatNum(p.off_points)}</td>}
-                  {show("def")      && <td className="py-2 pr-4 text-right tabular-nums">{formatNum(p.def_points)}</td>}
-                  {show("age")      && <td className={`py-2 text-right tabular-nums ${fc}`}>{timeAgo(ageCol)}</td>}
+                  {visibleCols.map((col) => {
+                    const age = ageFor(p, col.key);
+                    const fc = col.key === "age" ? "" : freshnessColor(age);
+                    return (
+                      <td
+                        key={col.key}
+                        className={`py-2 pr-4 tabular-nums ${TEXT_LEFT.has(col.key) ? "" : "text-right"} ${fc}`}
+                      >
+                        {cellValue(p, col.key)}
+                      </td>
+                    );
+                  })}
                 </tr>
               );
             })}
