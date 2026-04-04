@@ -4,6 +4,7 @@ import { parseSurvey } from "./survey";
 import { parseSoM } from "./som";
 import { parseSoS } from "./sos";
 import { parseSoD } from "./sod";
+import { parseInfiltrate } from "./infiltrate";
 import { parseKingdom } from "./kingdom";
 import { parseState } from "./state";
 import type { ParseResult } from "./types";
@@ -34,6 +35,10 @@ export function parseIntel(url: string, dataSimple: string, selfProv?: string): 
     case "sod": {
       const data = parseSoD(dataSimple);
       return data ? { type: "sod", data } : null;
+    }
+    case "infiltrate": {
+      const data = parseInfiltrate(dataSimple);
+      return data ? { type: "infiltrate", data } : null;
     }
     case "kingdom": {
       const data = parseKingdom(dataSimple);

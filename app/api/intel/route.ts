@@ -9,6 +9,7 @@ import {
   storeSoM,
   storeSoS,
   storeSoD,
+  storeInfiltrate,
   storeKingdom,
   storeState,
   cleanupExpired,
@@ -34,13 +35,14 @@ const DEBUG_LOG = process.env.INTEL_DEBUG === "1";
 const LOG_FILE = path.join(process.cwd(), "intel_debug.jsonl");
 
 const TABLES: Record<string, string[]> = {
-  sot:     ["province_overview", "total_military_points", "province_troops", "province_resources", "province_status"],
-  survey:  ["survey_intel", "survey_buildings"],
-  som:     ["home_military_points", "province_troops", "military_intel", "som_armies"],
-  sos:     ["sos_intel", "sos_sciences"],
-  sod:     ["home_military_points"],
-  kingdom: ["kingdom_intel", "kingdom_provinces", "province_overview"],
-  state:   ["province_overview", "province_resources", "province_troops"],
+  sot:        ["province_overview", "total_military_points", "province_troops", "province_resources", "province_status"],
+  survey:     ["survey_intel", "survey_buildings"],
+  som:        ["home_military_points", "province_troops", "military_intel", "som_armies"],
+  sos:        ["sos_intel", "sos_sciences"],
+  sod:        ["home_military_points"],
+  infiltrate: ["province_resources"],
+  kingdom:    ["kingdom_intel", "kingdom_provinces", "province_overview"],
+  state:      ["province_overview", "province_resources", "province_troops"],
 };
 
 // Run TTL cleanup roughly once per 100 requests
@@ -107,6 +109,9 @@ export async function POST(request: NextRequest) {
       break;
     case "sod":
       storeSoD(result.data, savedBy, keyHash);
+      break;
+    case "infiltrate":
+      storeInfiltrate(result.data, savedBy, keyHash);
       break;
     case "kingdom":
       storeKingdom(result.data, savedBy, keyHash);

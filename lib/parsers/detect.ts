@@ -17,6 +17,7 @@ export function detectIntelType(url: string): IntelType | null {
   if (lower.includes("spy_on_military") || lower.includes("train_army") || lower.includes("army_training")) return "som";
   if (lower.includes("spy_on_sciences")) return "sos";
   if (lower.includes("spy_on_defense")) return "sod";
+  if (lower.includes("infiltrate")) return "infiltrate";
 
   // Non-thievery pages
   if (lower.includes("survey")) return "survey";

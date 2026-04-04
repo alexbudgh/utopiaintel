@@ -5,6 +5,7 @@ import { parseSurvey } from "../lib/parsers/survey.ts";
 import { parseSoS } from "../lib/parsers/sos.ts";
 import { parseSoM } from "../lib/parsers/som.ts";
 import { parseSoD } from "../lib/parsers/sod.ts";
+import { parseInfiltrate } from "../lib/parsers/infiltrate.ts";
 import { parseKingdom } from "../lib/parsers/kingdom.ts";
 
 // ---------------------------------------------------------------------------
@@ -153,6 +154,18 @@ Honor and Glory - Personality Passive Effect
 Early indications show that our operation was a success and we have 100% confidence in the information retrieved. Our thieves have infiltrated the military ranks of Obsidian (7:5). We were able to determine there is currently 92,910 defense points defending their lands.
 Target kingdom is Unnamed kingdom (7:5)`;
 
+const INFILTRATE_TEXT = `You descend into an underground area of your castle and enter the Guild of Thieves. An organization created under your leadership, the Guild trains the lowest classes of people to learn the tools of the trade. Trained by your military, your thieves stand ready at your service to do what is needed.
+
+Number of thieves\t7,713 (3.124 per acre)\tStealth\t88%
+Uniques -
+Activation
+Plaguebearers - Race Passive Effect
+Honor and Glory - Personality Passive Effect
+
+
+Early indications show that our operation was a success and we have 100% confidence in the information retrieved. Our thieves have infiltrated the Thieves' Guilds of Obsidian (7:5). They appear to have about 4,038 thieves employed across their lands.
+Target kingdom is Unnamed kingdom (7:5)`;
+
 const KINGDOM_TEXT = `
 The Glorious kingdom of Space (5:9)
 < Previous Random Next >
@@ -278,6 +291,15 @@ test("parseSoD — Obsidian (7:5)", () => {
   assert.equal(r.name, "Obsidian");
   assert.equal(r.kingdom, "7:5");
   assert.equal(r.defPoints, 92910);
+  assert.equal(r.accuracy, 100);
+});
+
+test("parseInfiltrate — Obsidian (7:5)", () => {
+  const r = parseInfiltrate(INFILTRATE_TEXT);
+  assert.ok(r, "should parse successfully");
+  assert.equal(r.name, "Obsidian");
+  assert.equal(r.kingdom, "7:5");
+  assert.equal(r.thieves, 4038);
   assert.equal(r.accuracy, 100);
 });
 

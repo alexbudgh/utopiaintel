@@ -6,6 +6,7 @@ import type {
   SoMData,
   SoSData,
   SoDData,
+  InfiltrateData,
   KingdomData,
   StateData,
 } from "./parsers/types";
@@ -308,6 +309,18 @@ export function storeSoD(data: SoDData, savedBy: string, keyHash: string) {
       INSERT INTO home_military_points (province_id, mod_off_at_home, mod_def_at_home, source, saved_by, accuracy)
       VALUES (?, NULL, ?, 'sod', ?, ?)
     `).run(provId, data.defPoints, savedBy, data.accuracy);
+  })();
+}
+
+export function storeInfiltrate(data: InfiltrateData, savedBy: string, keyHash: string) {
+  const db = getDb();
+  db.transaction(() => {
+    const provId = ensureProvince(db, data.name, data.kingdom);
+    recordSubmission(db, keyHash, provId);
+    db.prepare(`
+      INSERT INTO province_resources (province_id, thieves, source, saved_by, accuracy)
+      VALUES (?, ?, 'infiltrate', ?, ?)
+    `).run(provId, data.thieves, savedBy, data.accuracy);
   })();
 }
 

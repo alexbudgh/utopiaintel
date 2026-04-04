@@ -1,6 +1,6 @@
 // Shared types for all parsers
 
-export type IntelType = "sot" | "survey" | "som" | "sos" | "sod" | "kingdom" | "state";
+export type IntelType = "sot" | "survey" | "som" | "sos" | "sod" | "infiltrate" | "kingdom" | "state";
 
 export interface ProvinceId {
   name: string;
@@ -105,6 +105,11 @@ export interface SoDData extends ProvinceId {
   accuracy: number;
 }
 
+export interface InfiltrateData extends ProvinceId {
+  thieves: number;
+  accuracy: number;
+}
+
 // Self-intel from council_state: land, networth, population counts
 export interface StateData extends ProvinceId {
   land: number;
@@ -120,5 +125,6 @@ export type ParseResult =
   | { type: "som"; data: SoMData }
   | { type: "sos"; data: SoSData }
   | { type: "sod"; data: SoDData }
+  | { type: "infiltrate"; data: InfiltrateData }
   | { type: "kingdom"; data: KingdomData }
   | { type: "state"; data: StateData };
