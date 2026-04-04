@@ -158,6 +158,105 @@ test("resources: infiltrate after SoT does not shadow SoT money/food/runes", () 
 });
 
 // ---------------------------------------------------------------------------
+// Troop column split: SoT (total) vs SoM (at home) sourced independently
+// ---------------------------------------------------------------------------
+
+function makeTroopsDb() {
+  const db = new Database(":memory:");
+  db.exec(`
+    CREATE TABLE provinces (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL, kingdom TEXT NOT NULL,
+      UNIQUE(name, kingdom)
+    );
+    CREATE TABLE province_troops (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      province_id INTEGER NOT NULL REFERENCES provinces(id),
+      soldiers INTEGER,
+      off_specs INTEGER,
+      def_specs INTEGER,
+      elites INTEGER,
+      peasants INTEGER,
+      source TEXT NOT NULL DEFAULT 'sot',
+      received_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+  return db;
+}
+
+// The two-join query mirroring getKingdomProvinces
+function queryTroops(db: ReturnType<typeof makeTroopsDb>, provId: number) {
+  return db.prepare(`
+    SELECT pt.soldiers, pt.off_specs, pt.peasants, pt.source AS troops_source,
+           pt_home.soldiers AS soldiers_home, pt_home.off_specs AS off_specs_home
+    FROM provinces p
+    LEFT JOIN province_troops pt ON pt.id = (
+      SELECT id FROM province_troops WHERE province_id = p.id AND source IN ('sot','state') ORDER BY received_at DESC LIMIT 1
+    )
+    LEFT JOIN province_troops pt_home ON pt_home.id = (
+      SELECT id FROM province_troops WHERE province_id = p.id AND source = 'som' ORDER BY received_at DESC LIMIT 1
+    )
+    WHERE p.id = ?
+  `).get(provId) as { soldiers: number | null; off_specs: number | null; peasants: number | null; troops_source: string | null; soldiers_home: number | null; off_specs_home: number | null };
+}
+
+test("troops: SoT and SoM coexist — total and home populated independently", () => {
+  const db = makeTroopsDb();
+  db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();
+  const { id } = db.prepare("SELECT id FROM provinces WHERE name='Alpha'").get() as { id: number };
+
+  db.prepare("INSERT INTO province_troops (province_id, soldiers, off_specs, peasants, source) VALUES (?, 10000, 3000, 8000, 'sot')").run(id);
+  db.prepare("INSERT INTO province_troops (province_id, soldiers, off_specs, source) VALUES (?, 7000, 2000, 'som')").run(id);
+
+  const row = queryTroops(db, id);
+  assert.equal(row.soldiers, 10000, "total soldiers from SoT");
+  assert.equal(row.off_specs, 3000, "total off_specs from SoT");
+  assert.equal(row.peasants, 8000, "peasants from SoT");
+  assert.equal(row.soldiers_home, 7000, "at-home soldiers from SoM");
+  assert.equal(row.off_specs_home, 2000, "at-home off_specs from SoM");
+  db.close();
+});
+
+test("troops: SoM record does not populate total columns", () => {
+  const db = makeTroopsDb();
+  db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();
+  const { id } = db.prepare("SELECT id FROM provinces WHERE name='Alpha'").get() as { id: number };
+
+  db.prepare("INSERT INTO province_troops (province_id, soldiers, off_specs, source) VALUES (?, 7000, 2000, 'som')").run(id);
+
+  const row = queryTroops(db, id);
+  assert.equal(row.soldiers, null, "no SoT → total soldiers null");
+  assert.equal(row.soldiers_home, 7000, "SoM soldiers present");
+  db.close();
+});
+
+test("troops: SoT record does not populate home columns", () => {
+  const db = makeTroopsDb();
+  db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();
+  const { id } = db.prepare("SELECT id FROM provinces WHERE name='Alpha'").get() as { id: number };
+
+  db.prepare("INSERT INTO province_troops (province_id, soldiers, off_specs, peasants, source) VALUES (?, 10000, 3000, 8000, 'sot')").run(id);
+
+  const row = queryTroops(db, id);
+  assert.equal(row.soldiers, 10000, "SoT soldiers present");
+  assert.equal(row.soldiers_home, null, "no SoM → home soldiers null");
+  db.close();
+});
+
+test("troops: most recent SoT wins over older SoT", () => {
+  const db = makeTroopsDb();
+  db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();
+  const { id } = db.prepare("SELECT id FROM provinces WHERE name='Alpha'").get() as { id: number };
+
+  db.prepare("INSERT INTO province_troops (province_id, soldiers, source, received_at) VALUES (?, 8000, 'sot', '2026-04-04 17:00:00')").run(id);
+  db.prepare("INSERT INTO province_troops (province_id, soldiers, source, received_at) VALUES (?, 9500, 'sot', '2026-04-04 18:00:00')").run(id);
+
+  const row = queryTroops(db, id);
+  assert.equal(row.soldiers, 9500, "most recent SoT used");
+  db.close();
+});
+
+// ---------------------------------------------------------------------------
 // Multi-tenancy: intel_partitions isolation
 //
 // KEY_A and KEY_B are stand-ins for two distinct sha256 key hashes.

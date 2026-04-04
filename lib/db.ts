@@ -500,6 +500,14 @@ export interface ProvinceRow {
   peasants: number | null;
   troops_age: string | null;
   troops_source: string | null;
+  soldiers_home: number | null;
+  off_specs_home: number | null;
+  def_specs_home: number | null;
+  elites_home: number | null;
+  troops_home_age: string | null;
+  off_home: number | null;
+  def_home: number | null;
+  home_mil_age: string | null;
   money: number | null;
   food: number | null;
   runes: number | null;
@@ -527,9 +535,11 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
            po.race, po.personality, po.land, po.networth, po.received_at AS overview_age, po.source AS overview_source,
            tmp.off_points, tmp.def_points, tmp.received_at AS military_age,
            pt.soldiers, pt.off_specs, pt.def_specs, pt.elites, pt.war_horses, pt.peasants, pt.received_at AS troops_age, pt.source AS troops_source,
+           pt_home.soldiers AS soldiers_home, pt_home.off_specs AS off_specs_home, pt_home.def_specs AS def_specs_home, pt_home.elites AS elites_home, pt_home.received_at AS troops_home_age,
            pr.money, pr.food, pr.runes, pr.prisoners, pr.trade_balance, pr.wizards, pr.received_at AS resources_age, pr.source AS resources_source,
            (SELECT p2.thieves FROM province_resources p2 WHERE p2.province_id = p.id AND p2.thieves IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS thieves,
            (SELECT p2.received_at FROM province_resources p2 WHERE p2.province_id = p.id AND p2.thieves IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS thieves_age,
+           hmp.mod_off_at_home AS off_home, hmp.mod_def_at_home AS def_home, hmp.received_at AS home_mil_age,
            mi.ome, mi.dme, mi.received_at AS som_age,
            (SELECT si.received_at FROM sos_intel si WHERE si.province_id = p.id ORDER BY si.received_at DESC LIMIT 1) AS sciences_age,
            (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND ss.science = 'Crime' ORDER BY si.received_at DESC LIMIT 1) AS crime_effect,
@@ -547,11 +557,19 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
     )
     LEFT JOIN province_troops pt ON pt.id = (
       SELECT id FROM province_troops
-      WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1
+      WHERE province_id = p.id AND source IN ('sot', 'state') ORDER BY received_at DESC LIMIT 1
+    )
+    LEFT JOIN province_troops pt_home ON pt_home.id = (
+      SELECT id FROM province_troops
+      WHERE province_id = p.id AND source = 'som' ORDER BY received_at DESC LIMIT 1
     )
     LEFT JOIN province_resources pr ON pr.id = (
       SELECT id FROM province_resources
       WHERE province_id = p.id AND source != 'infiltrate' ORDER BY received_at DESC LIMIT 1
+    )
+    LEFT JOIN home_military_points hmp ON hmp.id = (
+      SELECT id FROM home_military_points
+      WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1
     )
     LEFT JOIN military_intel mi ON mi.id = (
       SELECT id FROM military_intel

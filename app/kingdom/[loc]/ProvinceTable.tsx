@@ -52,12 +52,18 @@ const COLUMNS = [
   { key: "networth",    label: "NW",          group: "Overview",  desc: "Networth"                                    },
   { key: "off_points",  label: "Off",         group: "Military",  desc: "Total modified offense (province-wide, SoT)" },
   { key: "def_points",  label: "Def",         group: "Military",  desc: "Total modified defense (province-wide, SoT)" },
-  { key: "soldiers",    label: "Soldiers",    group: "Troops",    desc: "Soldiers at home"                            },
-  { key: "off_specs",   label: "Off specs",   group: "Troops",    desc: "Offensive specialists at home"               },
-  { key: "def_specs",   label: "Def specs",   group: "Troops",    desc: "Defensive specialists at home"               },
-  { key: "elites",      label: "Elites",      group: "Troops",    desc: "Elites at home"                              },
-  { key: "war_horses",  label: "Horses",      group: "Troops",    desc: "War horses at home"                          },
+  { key: "soldiers",    label: "Soldiers",    group: "Troops",    desc: "Total soldiers (SoT)"                        },
+  { key: "off_specs",   label: "Off specs",   group: "Troops",    desc: "Total off specs (SoT)"                       },
+  { key: "def_specs",   label: "Def specs",   group: "Troops",    desc: "Total def specs (SoT)"                       },
+  { key: "elites",      label: "Elites",      group: "Troops",    desc: "Total elites (SoT)"                          },
+  { key: "war_horses",  label: "Horses",      group: "Troops",    desc: "Total war horses (SoT)"                      },
   { key: "peasants",    label: "Peasants",    group: "Troops",    desc: "Peasants"                                    },
+  { key: "soldiers_home",  label: "SolHome",  group: "Troops",    desc: "Soldiers at home (SoM)"                      },
+  { key: "off_specs_home", label: "OSpec Home", group: "Troops",  desc: "Off specs at home (SoM)"                     },
+  { key: "def_specs_home", label: "DSpec Home", group: "Troops",  desc: "Def specs at home (SoM)"                     },
+  { key: "elites_home",    label: "EliHome",  group: "Troops",    desc: "Elites at home (SoM)"                        },
+  { key: "off_home",       label: "OffHome",  group: "Military",  desc: "Modified offense at home (SoM)"              },
+  { key: "def_home",       label: "DefHome",  group: "Military",  desc: "Modified defense at home (SoM/SoD)"          },
   { key: "ome",         label: "OME",         group: "Military",  desc: "Offensive military effectiveness % (SoM)"    },
   { key: "dme",         label: "DME",         group: "Military",  desc: "Defensive military effectiveness % (SoM)"    },
   { key: "money",         label: "Gold",          group: "Resources", desc: "Gold on hand"                            },
@@ -78,7 +84,7 @@ type ColKey = (typeof COLUMNS)[number]["key"];
 
 const VIEWS: Record<string, ColKey[]> = {
   Overview:  ["race", "personality", "land", "networth", "age"],
-  Military:  ["land", "off_points", "def_points", "ome", "dme", "soldiers", "off_specs", "def_specs", "elites", "peasants", "age"],
+  Military:  ["land", "off_points", "def_points", "off_home", "def_home", "ome", "dme", "soldiers_home", "off_specs_home", "def_specs_home", "elites_home", "peasants", "age"],
   Resources: ["land", "networth", "money", "food", "runes", "prisoners", "trade_balance", "war_horses", "peasants", "thieves", "wizards", "age"],
   TPA:       ["land", "rtpa", "mtpa", "otpa", "dtpa", "age"],
 };
@@ -123,10 +129,12 @@ function computeDtpa(p: ProvinceRow): number | null {
 function ageFor(p: ProvinceRow, key: ColKey): string | null {
   if (key === "age") return p.overview_age ?? p.military_age;
   if (["soldiers", "off_specs", "def_specs", "elites", "war_horses", "peasants"].includes(key)) return p.troops_age;
+  if (["soldiers_home", "off_specs_home", "def_specs_home", "elites_home"].includes(key)) return p.troops_home_age;
   if (["money", "food", "runes", "prisoners", "trade_balance", "wizards"].includes(key)) return p.resources_age;
   if (key === "thieves") return p.thieves_age;
   if (["ome", "dme"].includes(key)) return p.som_age;
   if (["off_points", "def_points"].includes(key)) return p.military_age;
+  if (["off_home", "def_home"].includes(key)) return p.home_mil_age;
   if (key === "rtpa") return p.thieves_age ?? p.overview_age;
   if (key === "mtpa") return p.sciences_age;
   if (key === "otpa" || key === "dtpa") return p.survey_age;
@@ -135,9 +143,11 @@ function ageFor(p: ProvinceRow, key: ColKey): string | null {
 
 function sourceFor(p: ProvinceRow, key: ColKey): string | null {
   if (["soldiers", "off_specs", "def_specs", "elites", "war_horses", "peasants"].includes(key)) return p.troops_source;
+  if (["soldiers_home", "off_specs_home", "def_specs_home", "elites_home"].includes(key)) return "som";
   if (["money", "food", "runes", "prisoners", "trade_balance", "thieves", "wizards"].includes(key)) return p.resources_source;
   if (["ome", "dme"].includes(key)) return "som";
   if (["off_points", "def_points"].includes(key)) return "sot";
+  if (["off_home", "def_home"].includes(key)) return p.home_mil_age ? "som/sod" : null;
   if (key === "age") return p.overview_source ?? (p.military_age ? "sot" : null);
   if (["rtpa", "mtpa", "otpa", "dtpa"].includes(key)) return null;
   return p.overview_source;
@@ -207,8 +217,14 @@ function cellValue(p: ProvinceRow, key: ColKey): React.ReactNode {
     case "off_specs":   return formatNum(p.off_specs);
     case "def_specs":   return formatNum(p.def_specs);
     case "elites":        return formatNum(p.elites);
-    case "war_horses":    return formatNum(p.war_horses);
-    case "peasants":      return formatNum(p.peasants);
+    case "war_horses":      return formatNum(p.war_horses);
+    case "peasants":        return formatNum(p.peasants);
+    case "soldiers_home":   return formatNum(p.soldiers_home);
+    case "off_specs_home":  return formatNum(p.off_specs_home);
+    case "def_specs_home":  return formatNum(p.def_specs_home);
+    case "elites_home":     return formatNum(p.elites_home);
+    case "off_home":        return formatNum(p.off_home);
+    case "def_home":        return formatNum(p.def_home);
     case "ome":         return p.ome != null ? p.ome.toFixed(1) + "%" : "—";
     case "dme":         return p.dme != null ? p.dme.toFixed(1) + "%" : "—";
     case "money":         return formatNum(p.money);
