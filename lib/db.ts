@@ -525,6 +525,130 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
   `).all(kingdom, keyHash) as ProvinceRow[];
 }
 
+export interface ArmyRow {
+  armyType: string;
+  generals: number;
+  soldiers: number;
+  offSpecs: number;
+  defSpecs: number;
+  elites: number;
+  warHorses: number;
+  thieves: number;
+  landGained: number;
+  returnDays: number | null;
+}
+
+export interface BuildingRow {
+  building: string;
+  built: number;
+  inProgress: number;
+}
+
+export interface ScienceRow {
+  science: string;
+  books: number;
+  effect: number;
+}
+
+export interface ProvinceDetail {
+  province: { id: number; name: string; kingdom: string } | null;
+  overview: { race: string | null; personality: string | null; honorTitle: string | null; land: number | null; networth: number | null; source: string; savedBy: string | null; receivedAt: string } | null;
+  totalMilitary: { offPoints: number | null; defPoints: number | null; receivedAt: string } | null;
+  homeMilitary: { modOffAtHome: number | null; modDefAtHome: number | null; source: string; receivedAt: string } | null;
+  troops: { soldiers: number | null; offSpecs: number | null; defSpecs: number | null; elites: number | null; warHorses: number | null; peasants: number | null; source: string; receivedAt: string } | null;
+  resources: { money: number | null; food: number | null; runes: number | null; prisoners: number | null; tradeBalance: number | null; buildingEfficiency: number | null; thieves: number | null; stealth: number | null; wizards: number | null; mana: number | null; receivedAt: string } | null;
+  status: { plagued: boolean; overpopulated: boolean; hitStatus: string | null; war: boolean; receivedAt: string } | null;
+  militaryIntel: { ome: number | null; dme: number | null; receivedAt: string; armies: ArmyRow[] } | null;
+  survey: { receivedAt: string; buildings: BuildingRow[] } | null;
+  sciences: { receivedAt: string; sciences: ScienceRow[] } | null;
+}
+
+export function getProvinceDetail(name: string, kingdom: string, keyHash: string): ProvinceDetail {
+  const db = getDb();
+
+  const prov = db.prepare(
+    "SELECT id, name, kingdom FROM provinces WHERE name = ? AND kingdom = ?"
+  ).get(name, kingdom) as { id: number; name: string; kingdom: string } | undefined;
+
+  if (!prov) return { province: null, overview: null, totalMilitary: null, homeMilitary: null, troops: null, resources: null, status: null, militaryIntel: null, survey: null, sciences: null };
+
+  // Auth check
+  const allowed = db.prepare(
+    "SELECT 1 FROM intel_partitions WHERE key_hash = ? AND province_id = ?"
+  ).get(keyHash, prov.id);
+  if (!allowed) return { province: null, overview: null, totalMilitary: null, homeMilitary: null, troops: null, resources: null, status: null, militaryIntel: null, survey: null, sciences: null };
+
+  const id = prov.id;
+
+  const overviewRaw = db.prepare(
+    "SELECT race, personality, honor_title, land, networth, source, saved_by, received_at FROM province_overview WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
+  ).get(id) as any;
+  const overview = overviewRaw ? { race: overviewRaw.race, personality: overviewRaw.personality, honorTitle: overviewRaw.honor_title, land: overviewRaw.land, networth: overviewRaw.networth, source: overviewRaw.source, savedBy: overviewRaw.saved_by, receivedAt: overviewRaw.received_at } : null;
+
+  const tmRaw = db.prepare(
+    "SELECT off_points, def_points, received_at FROM total_military_points WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
+  ).get(id) as any;
+  const totalMilitary = tmRaw ? { offPoints: tmRaw.off_points, defPoints: tmRaw.def_points, receivedAt: tmRaw.received_at } : null;
+
+  const hmRaw = db.prepare(
+    "SELECT mod_off_at_home, mod_def_at_home, source, received_at FROM home_military_points WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
+  ).get(id) as any;
+  const homeMilitary = hmRaw ? { modOffAtHome: hmRaw.mod_off_at_home, modDefAtHome: hmRaw.mod_def_at_home, source: hmRaw.source, receivedAt: hmRaw.received_at } : null;
+
+  const troopsRaw = db.prepare(
+    "SELECT soldiers, off_specs, def_specs, elites, war_horses, peasants, source, received_at FROM province_troops WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
+  ).get(id) as any;
+  const troops = troopsRaw ? { soldiers: troopsRaw.soldiers, offSpecs: troopsRaw.off_specs, defSpecs: troopsRaw.def_specs, elites: troopsRaw.elites, warHorses: troopsRaw.war_horses, peasants: troopsRaw.peasants, source: troopsRaw.source, receivedAt: troopsRaw.received_at } : null;
+
+  const resRaw = db.prepare(
+    "SELECT money, food, runes, prisoners, trade_balance, building_efficiency, thieves, stealth, wizards, mana, received_at FROM province_resources WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
+  ).get(id) as any;
+  const resources = resRaw ? { money: resRaw.money, food: resRaw.food, runes: resRaw.runes, prisoners: resRaw.prisoners, tradeBalance: resRaw.trade_balance, buildingEfficiency: resRaw.building_efficiency, thieves: resRaw.thieves, stealth: resRaw.stealth, wizards: resRaw.wizards, mana: resRaw.mana, receivedAt: resRaw.received_at } : null;
+
+  const statusRaw = db.prepare(
+    "SELECT plagued, overpopulated, hit_status, war, received_at FROM province_status WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
+  ).get(id) as any;
+  const status = statusRaw ? { plagued: !!statusRaw.plagued, overpopulated: !!statusRaw.overpopulated, hitStatus: statusRaw.hit_status, war: !!statusRaw.war, receivedAt: statusRaw.received_at } : null;
+
+  const miRaw = db.prepare(
+    "SELECT id, ome, dme, received_at FROM military_intel WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
+  ).get(id) as any;
+  let militaryIntel = null;
+  if (miRaw) {
+    const armies = db.prepare(
+      "SELECT army_type, generals, soldiers, off_specs, def_specs, elites, war_horses, thieves, land_gained, return_days FROM som_armies WHERE military_intel_id = ?"
+    ).all(miRaw.id) as any[];
+    militaryIntel = {
+      ome: miRaw.ome, dme: miRaw.dme, receivedAt: miRaw.received_at,
+      armies: armies.map((a) => ({ armyType: a.army_type, generals: a.generals, soldiers: a.soldiers, offSpecs: a.off_specs, defSpecs: a.def_specs, elites: a.elites, warHorses: a.war_horses, thieves: a.thieves, landGained: a.land_gained, returnDays: a.return_days })),
+    };
+  }
+
+  const surveyRaw = db.prepare(
+    "SELECT id, received_at FROM survey_intel WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
+  ).get(id) as any;
+  let survey = null;
+  if (surveyRaw) {
+    const buildings = db.prepare(
+      "SELECT building, built, in_progress FROM survey_buildings WHERE survey_intel_id = ? ORDER BY built DESC"
+    ).all(surveyRaw.id) as any[];
+    survey = { receivedAt: surveyRaw.received_at, buildings: buildings.map((b) => ({ building: b.building, built: b.built, inProgress: b.in_progress })) };
+  }
+
+  const sosRaw = db.prepare(
+    "SELECT id, received_at FROM sos_intel WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
+  ).get(id) as any;
+  let sciences = null;
+  if (sosRaw) {
+    const sciRows = db.prepare(
+      "SELECT science, books, effect FROM sos_sciences WHERE sos_intel_id = ? ORDER BY books DESC"
+    ).all(sosRaw.id) as any[];
+    sciences = { receivedAt: sosRaw.received_at, sciences: sciRows.map((s) => ({ science: s.science, books: s.books, effect: s.effect })) };
+  }
+
+  return { province: prov, overview, totalMilitary, homeMilitary, troops, resources, status, militaryIntel, survey, sciences };
+}
+
 export function cleanupExpired() {
   const db = getDb();
   const cutoff = `datetime('now', '-${TTL_DAYS} days')`;

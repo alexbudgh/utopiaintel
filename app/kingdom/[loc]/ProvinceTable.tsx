@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import type { ProvinceRow } from "@/lib/db";
 import { freshnessColor, formatNum, timeAgo } from "@/lib/ui";
 
@@ -147,7 +148,12 @@ export function ProvinceTable({
                 <tr key={p.id} className="border-b border-gray-800 hover:bg-gray-800/40">
                   <td className="py-2 pr-4">
                     <span className={`mr-1.5 ${freshnessColor(dotAge)}`}>●</span>
-                    {p.name}
+                    <Link
+                      href={`/kingdom/${encodeURIComponent(kingdom)}/${encodeURIComponent(p.name)}`}
+                      className="hover:text-blue-400 transition-colors"
+                    >
+                      {p.name}
+                    </Link>
                   </td>
                   {visibleCols.map((col) => {
                     const age = ageFor(p, col.key);
