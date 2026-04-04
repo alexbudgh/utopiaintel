@@ -64,7 +64,7 @@ export default async function ProvincePage({
     <main className="p-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="mb-6 flex items-center gap-4">
-        <Link href={`/kingdom/${encodeURIComponent(loc)}`} className="text-gray-400 hover:text-gray-200 text-sm">
+        <Link href={`/kingdom/${loc}`} className="text-gray-400 hover:text-gray-200 text-sm">
           ← {kingdom}
         </Link>
         <h1 className="text-xl font-bold text-gray-100 font-mono">{name}</h1>

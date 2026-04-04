@@ -149,7 +149,7 @@ export function ProvinceTable({
                   <td className="py-2 pr-4">
                     <span className={`mr-1.5 ${freshnessColor(dotAge)}`}>●</span>
                     <Link
-                      href={`/kingdom/${encodeURIComponent(kingdom)}/${encodeURIComponent(p.name)}`}
+                      href={`/kingdom/${kingdom}/${encodeURIComponent(p.name)}`}
                       className="hover:text-blue-400 transition-colors"
                     >
                       {p.name}
