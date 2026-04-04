@@ -1,4 +1,5 @@
 import { appendFile } from "fs/promises";
+import { createHash } from "crypto";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { parseIntel } from "@/lib/parsers";
@@ -85,6 +86,7 @@ export async function POST(request: NextRequest) {
   }
 
   const savedBy = fields.prov;
+  const keyHash = createHash("sha256").update(fields.key).digest("hex");
 
   const province = "name" in result.data ? result.data.name : "—";
   const kingdom  = "kingdom" in result.data ? result.data.kingdom : "—";
@@ -92,25 +94,25 @@ export async function POST(request: NextRequest) {
 
   switch (result.type) {
     case "sot":
-      storeSoT(result.data, savedBy);
+      storeSoT(result.data, savedBy, keyHash);
       break;
     case "survey":
-      storeSurvey(result.data, savedBy);
+      storeSurvey(result.data, savedBy, keyHash);
       break;
     case "som":
-      storeSoM(result.data, savedBy);
+      storeSoM(result.data, savedBy, keyHash);
       break;
     case "sos":
-      storeSoS(result.data, savedBy);
+      storeSoS(result.data, savedBy, keyHash);
       break;
     case "sod":
-      storeSoD(result.data, savedBy);
+      storeSoD(result.data, savedBy, keyHash);
       break;
     case "kingdom":
-      storeKingdom(result.data, savedBy);
+      storeKingdom(result.data, savedBy, keyHash);
       break;
     case "state":
-      storeState(result.data, savedBy);
+      storeState(result.data, savedBy, keyHash);
       break;
   }
 

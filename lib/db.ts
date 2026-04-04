@@ -210,6 +210,13 @@ function initSchema(db: Database.Database) {
       effect REAL NOT NULL DEFAULT 0
     );
 
+    -- Auth partitioning: maps key_hash → province_id
+    CREATE TABLE IF NOT EXISTS intel_partitions (
+      key_hash TEXT NOT NULL,
+      province_id INTEGER NOT NULL REFERENCES provinces(id),
+      PRIMARY KEY (key_hash, province_id)
+    );
+
     -- Kingdom-level intel
     CREATE TABLE IF NOT EXISTS kingdom_intel (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -242,10 +249,15 @@ function ensureProvince(db: Database.Database, name: string, kingdom: string): n
   return row.id;
 }
 
-export function storeSoT(data: SoTData, savedBy: string) {
+function recordSubmission(db: Database.Database, keyHash: string, provinceId: number) {
+  db.prepare("INSERT OR IGNORE INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(keyHash, provinceId);
+}
+
+export function storeSoT(data: SoTData, savedBy: string, keyHash: string) {
   const db = getDb();
   db.transaction(() => {
     const provId = ensureProvince(db, data.name, data.kingdom);
+    recordSubmission(db, keyHash, provId);
 
     // 1. Overview
     db.prepare(`
@@ -279,10 +291,11 @@ export function storeSoT(data: SoTData, savedBy: string) {
   })();
 }
 
-export function storeSoD(data: SoDData, savedBy: string) {
+export function storeSoD(data: SoDData, savedBy: string, keyHash: string) {
   const db = getDb();
   db.transaction(() => {
     const provId = ensureProvince(db, data.name, data.kingdom);
+    recordSubmission(db, keyHash, provId);
 
     // SoD returns net modified def at home
     db.prepare(`
@@ -292,10 +305,11 @@ export function storeSoD(data: SoDData, savedBy: string) {
   })();
 }
 
-export function storeSoM(data: SoMData, savedBy: string) {
+export function storeSoM(data: SoMData, savedBy: string, keyHash: string) {
   const db = getDb();
   db.transaction(() => {
     const provId = ensureProvince(db, data.name, data.kingdom);
+    recordSubmission(db, keyHash, provId);
 
     // Troops at home from SoM home army
     const homeArmy = data.armies.find((a) => a.armyType === "home");
@@ -331,10 +345,11 @@ export function storeSoM(data: SoMData, savedBy: string) {
   })();
 }
 
-export function storeSoS(data: SoSData, savedBy: string) {
+export function storeSoS(data: SoSData, savedBy: string, keyHash: string) {
   const db = getDb();
   db.transaction(() => {
     const provId = ensureProvince(db, data.name, data.kingdom);
+    recordSubmission(db, keyHash, provId);
 
     const result = db.prepare(`
       INSERT INTO sos_intel (province_id, saved_by, accuracy)
@@ -349,10 +364,11 @@ export function storeSoS(data: SoSData, savedBy: string) {
   })();
 }
 
-export function storeSurvey(data: SurveyData, savedBy: string) {
+export function storeSurvey(data: SurveyData, savedBy: string, keyHash: string) {
   const db = getDb();
   db.transaction(() => {
     const provId = ensureProvince(db, data.name, data.kingdom);
+    recordSubmission(db, keyHash, provId);
 
     const result = db.prepare(`
       INSERT INTO survey_intel (province_id, saved_by, accuracy)
@@ -367,7 +383,7 @@ export function storeSurvey(data: SurveyData, savedBy: string) {
   })();
 }
 
-export function storeKingdom(data: KingdomData, savedBy: string) {
+export function storeKingdom(data: KingdomData, savedBy: string, keyHash: string) {
   const db = getDb();
   db.transaction(() => {
     const result = db.prepare(`
@@ -380,6 +396,7 @@ export function storeKingdom(data: KingdomData, savedBy: string) {
 
     for (const p of data.provinces) {
       const provId = ensureProvince(db, p.name, data.location);
+      recordSubmission(db, keyHash, provId);
       ins.run(kdId, p.name, p.race, p.land, p.networth, p.honorTitle);
 
       // Also write to province_overview
@@ -391,10 +408,11 @@ export function storeKingdom(data: KingdomData, savedBy: string) {
   })();
 }
 
-export function storeState(data: StateData, savedBy: string) {
+export function storeState(data: StateData, savedBy: string, keyHash: string) {
   const db = getDb();
   db.transaction(() => {
     const provId = ensureProvince(db, data.name, data.kingdom);
+    recordSubmission(db, keyHash, provId);
 
     // Overview: land and networth (no race/personality from council_state)
     db.prepare(`
@@ -424,7 +442,7 @@ export interface KingdomRow {
   last_seen: string | null;
 }
 
-export function getKingdoms(): KingdomRow[] {
+export function getKingdoms(keyHash: string): KingdomRow[] {
   const db = getDb();
   return db.prepare(`
     SELECT p.kingdom AS location,
@@ -433,9 +451,13 @@ export function getKingdoms(): KingdomRow[] {
     FROM provinces p
     LEFT JOIN province_overview po ON po.province_id = p.id
     WHERE p.kingdom != ''
+      AND EXISTS (
+        SELECT 1 FROM intel_partitions
+        WHERE key_hash = ? AND province_id = p.id
+      )
     GROUP BY p.kingdom
     ORDER BY last_seen DESC
-  `).all() as KingdomRow[];
+  `).all(keyHash) as KingdomRow[];
 }
 
 export interface ProvinceRow {
@@ -451,7 +473,7 @@ export interface ProvinceRow {
   military_age: string | null;
 }
 
-export function getKingdomProvinces(kingdom: string): ProvinceRow[] {
+export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceRow[] {
   const db = getDb();
   return db.prepare(`
     SELECT p.id, p.name, p.kingdom,
@@ -467,8 +489,12 @@ export function getKingdomProvinces(kingdom: string): ProvinceRow[] {
       WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1
     )
     WHERE p.kingdom = ?
+      AND EXISTS (
+        SELECT 1 FROM intel_partitions
+        WHERE key_hash = ? AND province_id = p.id
+      )
     ORDER BY po.networth DESC NULLS LAST
-  `).all(kingdom) as ProvinceRow[];
+  `).all(kingdom, keyHash) as ProvinceRow[];
 }
 
 export function cleanupExpired() {

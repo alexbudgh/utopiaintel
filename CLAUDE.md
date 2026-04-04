@@ -43,6 +43,7 @@ Writes to `intel_debug.jsonl`.
 
 ```bash
 npm run build
-rsync -avz .next/standalone/ ecosystem.config.js utopiaintel:~/utopiaintel/
-ssh utopiaintel "cd ~/utopiaintel && pm2 start ecosystem.config.js"
+rsync -avz --exclude=intel.db .next/standalone/ ecosystem.config.js utopiaintel:~/utopiaintel/
+rsync -avz .next/static/ utopiaintel:~/utopiaintel/.next/static/
+ssh utopiaintel "cd ~/utopiaintel && pm2 reload ecosystem.config.js --update-env"
 ```

@@ -26,7 +26,7 @@ You can verify it in Chrome's Network tab in Developer Tools.
 
 ```bash
 npm run build
-rsync -avz .next/standalone/ ecosystem.config.js utopiaintel:~/utopiaintel/
+rsync -avz --exclude=intel.db .next/standalone/ ecosystem.config.js utopiaintel:~/utopiaintel/
 rsync -avz .next/static/ utopiaintel:~/utopiaintel/.next/static/
 ```
 

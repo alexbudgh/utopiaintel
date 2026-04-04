@@ -1,6 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { createHash } from "crypto";
 import { getKingdomProvinces } from "@/lib/db";
 import { freshnessColor, formatNum, timeAgo } from "@/lib/ui";
 
@@ -11,7 +13,9 @@ export default async function KingdomPage({
 }) {
   const { loc } = await params;
   const kingdom = decodeURIComponent(loc);
-  const provinces = getKingdomProvinces(kingdom);
+  const key = (await cookies()).get("auth")?.value ?? "";
+  const keyHash = createHash("sha256").update(key).digest("hex");
+  const provinces = getKingdomProvinces(kingdom, keyHash);
 
   return (
     <main className="p-6">
