@@ -4,12 +4,12 @@ function parseUtc(iso: string): number {
   return new Date(iso.replace(" ", "T") + "Z").getTime();
 }
 
-// Returns true when all non-null timestamps are within one game tick (1 hour) of each other
+// Returns true when all non-null timestamps share the same UTC hour (game tick boundary)
 export function sameTick(...ages: (string | null)[]): boolean {
   const valid = ages.filter(Boolean) as string[];
   if (valid.length < 2) return false;
-  const times = valid.map(parseUtc);
-  return Math.max(...times) - Math.min(...times) < 3_600_000;
+  const hours = valid.map((iso) => Math.floor(parseUtc(iso) / 3_600_000));
+  return hours.every((h) => h === hours[0]);
 }
 
 export function freshnessColor(age: string | null): string {

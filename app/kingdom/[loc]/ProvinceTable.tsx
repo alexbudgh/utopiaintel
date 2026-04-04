@@ -95,38 +95,39 @@ const STORAGE_COLS_KEY = "province-columns";
 
 function computeRtpa(p: ProvinceRow): number | null {
   if (p.thieves == null || !p.land) return null;
-  if (!sameTick(p.resources_age, p.overview_age)) return null;
+  if (!sameTick(p.thieves_age, p.overview_age)) return null;
   return p.thieves / p.land;
 }
 
 function computeMtpa(p: ProvinceRow): number | null {
   const rtpa = computeRtpa(p);
   if (rtpa == null || p.crime_effect == null) return null;
-  if (!sameTick(p.resources_age, p.overview_age, p.sciences_age)) return null;
+  if (!sameTick(p.thieves_age, p.overview_age, p.sciences_age)) return null;
   return rtpa * (1 + p.crime_effect / 100);
 }
 
 function computeOtpa(p: ProvinceRow): number | null {
   const mtpa = computeMtpa(p);
   if (mtpa == null || p.thieves_dens_effect == null) return null;
-  if (!sameTick(p.resources_age, p.overview_age, p.sciences_age, p.survey_age)) return null;
+  if (!sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age)) return null;
   return mtpa * (1 + p.thieves_dens_effect / 100);
 }
 
 function computeDtpa(p: ProvinceRow): number | null {
   const mtpa = computeMtpa(p);
   if (mtpa == null || p.watch_towers_effect == null) return null;
-  if (!sameTick(p.resources_age, p.overview_age, p.sciences_age, p.survey_age)) return null;
+  if (!sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age)) return null;
   return mtpa * (1 + p.watch_towers_effect / 100);
 }
 
 function ageFor(p: ProvinceRow, key: ColKey): string | null {
   if (key === "age") return p.overview_age ?? p.military_age;
   if (["soldiers", "off_specs", "def_specs", "elites", "war_horses", "peasants"].includes(key)) return p.troops_age;
-  if (["money", "food", "runes", "prisoners", "trade_balance", "thieves", "wizards"].includes(key)) return p.resources_age;
+  if (["money", "food", "runes", "prisoners", "trade_balance", "wizards"].includes(key)) return p.resources_age;
+  if (key === "thieves") return p.thieves_age;
   if (["ome", "dme"].includes(key)) return p.som_age;
   if (["off_points", "def_points"].includes(key)) return p.military_age;
-  if (key === "rtpa") return p.resources_age ?? p.overview_age;
+  if (key === "rtpa") return p.thieves_age ?? p.overview_age;
   if (key === "mtpa") return p.sciences_age;
   if (key === "otpa" || key === "dtpa") return p.survey_age;
   return p.overview_age;
@@ -143,7 +144,7 @@ function sourceFor(p: ProvinceRow, key: ColKey): string | null {
 }
 
 function tpaStaleReason(p: ProvinceRow, needSoS: boolean, needSurvey: boolean): string {
-  const ages = [p.resources_age, p.overview_age];
+  const ages = [p.thieves_age, p.overview_age];
   if (needSoS) ages.push(p.sciences_age);
   if (needSurvey) ages.push(p.survey_age);
   if (ages.some((a) => !a)) return "missing data";
@@ -160,7 +161,7 @@ function tipFor(p: ProvinceRow, key: ColKey): string {
   }
   if (key === "rtpa") {
     if (p.thieves == null || !p.land) return "No thieves or land data";
-    const ok = sameTick(p.resources_age, p.overview_age);
+    const ok = sameTick(p.thieves_age, p.overview_age);
     const val = ok ? (p.thieves / p.land).toFixed(2) : "—";
     return `rTPA = ${formatNum(p.thieves)} ÷ ${formatNum(p.land)} = ${val}` + (ok ? "" : `\n(${tpaStaleReason(p, false, false)})`);
   }
@@ -168,7 +169,7 @@ function tipFor(p: ProvinceRow, key: ColKey): string {
     const rtpa = computeRtpa(p);
     if (rtpa == null) return tipFor(p, "rtpa");
     if (p.crime_effect == null) return `rTPA = ${rtpa.toFixed(2)}\nNo Crime science data`;
-    const ok = sameTick(p.resources_age, p.overview_age, p.sciences_age);
+    const ok = sameTick(p.thieves_age, p.overview_age, p.sciences_age);
     const val = ok ? (rtpa * (1 + p.crime_effect / 100)).toFixed(2) : "—";
     return `mTPA = ${rtpa.toFixed(2)} × (1 + ${p.crime_effect.toFixed(1)}% Crime) = ${val}` + (ok ? "" : `\n(${tpaStaleReason(p, true, false)})`);
   }
@@ -176,7 +177,7 @@ function tipFor(p: ProvinceRow, key: ColKey): string {
     const mtpa = computeMtpa(p);
     if (mtpa == null) return tipFor(p, "mtpa");
     if (p.thieves_dens_effect == null) return `mTPA = ${mtpa.toFixed(2)}\nNo Survey data`;
-    const ok = sameTick(p.resources_age, p.overview_age, p.sciences_age, p.survey_age);
+    const ok = sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age);
     const val = ok ? computeOtpa(p)?.toFixed(2) ?? "—" : "—";
     return `oTPA = ${mtpa.toFixed(2)} × (1 + ${p.thieves_dens_effect.toFixed(1)}% Thieves' Den) = ${val}` + (ok ? "" : `\n(${tpaStaleReason(p, true, true)})`);
   }
@@ -184,7 +185,7 @@ function tipFor(p: ProvinceRow, key: ColKey): string {
     const mtpa = computeMtpa(p);
     if (mtpa == null) return tipFor(p, "mtpa");
     if (p.watch_towers_effect == null) return `mTPA = ${mtpa.toFixed(2)}\nNo Survey data`;
-    const ok = sameTick(p.resources_age, p.overview_age, p.sciences_age, p.survey_age);
+    const ok = sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age);
     const val = ok ? computeDtpa(p)?.toFixed(2) ?? "—" : "—";
     return `dTPA = ${mtpa.toFixed(2)} × (1 + ${p.watch_towers_effect.toFixed(1)}% Watch Tower) = ${val}` + (ok ? "" : `\n(${tpaStaleReason(p, true, true)})`);
   }
