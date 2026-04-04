@@ -496,9 +496,15 @@ export interface ProvinceRow {
   off_specs: number | null;
   def_specs: number | null;
   elites: number | null;
+  war_horses: number | null;
   peasants: number | null;
   troops_age: string | null;
   troops_source: string | null;
+  money: number | null;
+  food: number | null;
+  runes: number | null;
+  prisoners: number | null;
+  trade_balance: number | null;
   thieves: number | null;
   wizards: number | null;
   resources_age: string | null;
@@ -519,8 +525,8 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
     SELECT p.id, p.name, p.kingdom,
            po.race, po.personality, po.land, po.networth, po.received_at AS overview_age, po.source AS overview_source,
            tmp.off_points, tmp.def_points, tmp.received_at AS military_age,
-           pt.soldiers, pt.off_specs, pt.def_specs, pt.elites, pt.peasants, pt.received_at AS troops_age, pt.source AS troops_source,
-           pr.thieves, pr.wizards, pr.received_at AS resources_age, pr.source AS resources_source,
+           pt.soldiers, pt.off_specs, pt.def_specs, pt.elites, pt.war_horses, pt.peasants, pt.received_at AS troops_age, pt.source AS troops_source,
+           pr.money, pr.food, pr.runes, pr.prisoners, pr.trade_balance, pr.thieves, pr.wizards, pr.received_at AS resources_age, pr.source AS resources_source,
            mi.ome, mi.dme, mi.received_at AS som_age,
            (SELECT si.received_at FROM sos_intel si WHERE si.province_id = p.id ORDER BY si.received_at DESC LIMIT 1) AS sciences_age,
            (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND ss.science = 'Crime' ORDER BY si.received_at DESC LIMIT 1) AS crime_effect,

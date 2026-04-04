@@ -56,9 +56,15 @@ const COLUMNS = [
   { key: "off_specs",   label: "Off specs",   group: "Troops",    desc: "Offensive specialists at home"               },
   { key: "def_specs",   label: "Def specs",   group: "Troops",    desc: "Defensive specialists at home"               },
   { key: "elites",      label: "Elites",      group: "Troops",    desc: "Elites at home"                              },
+  { key: "war_horses",  label: "Horses",      group: "Troops",    desc: "War horses at home"                          },
   { key: "peasants",    label: "Peasants",    group: "Troops",    desc: "Peasants"                                    },
   { key: "ome",         label: "OME",         group: "Military",  desc: "Offensive military effectiveness % (SoM)"    },
   { key: "dme",         label: "DME",         group: "Military",  desc: "Defensive military effectiveness % (SoM)"    },
+  { key: "money",         label: "Gold",          group: "Resources", desc: "Gold on hand"                            },
+  { key: "food",          label: "Food",          group: "Resources", desc: "Food on hand"                            },
+  { key: "runes",         label: "Runes",         group: "Resources", desc: "Runes on hand"                           },
+  { key: "prisoners",     label: "Prisoners",     group: "Resources", desc: "Prisoners"                               },
+  { key: "trade_balance", label: "Trade bal.",    group: "Resources", desc: "Trade balance"                           },
   { key: "thieves",     label: "Thieves",     group: "Resources", desc: "Thieves"                                     },
   { key: "wizards",     label: "Wizards",     group: "Resources", desc: "Wizards"                                     },
   { key: "age",         label: "Age",         group: "Overview",  desc: "Most recent intel across all sources\nOther columns may have older data — hover them to check"    },
@@ -73,7 +79,7 @@ type ColKey = (typeof COLUMNS)[number]["key"];
 const VIEWS: Record<string, ColKey[]> = {
   Overview:  ["race", "personality", "land", "networth", "age"],
   Military:  ["land", "off_points", "def_points", "ome", "dme", "soldiers", "off_specs", "def_specs", "elites", "peasants", "age"],
-  Resources: ["land", "thieves", "wizards", "age"],
+  Resources: ["land", "networth", "money", "food", "runes", "prisoners", "trade_balance", "war_horses", "peasants", "thieves", "wizards", "age"],
   TPA:       ["land", "rtpa", "mtpa", "otpa", "dtpa", "age"],
 };
 const VIEW_NAMES = Object.keys(VIEWS);
@@ -116,8 +122,8 @@ function computeDtpa(p: ProvinceRow): number | null {
 
 function ageFor(p: ProvinceRow, key: ColKey): string | null {
   if (key === "age") return p.overview_age ?? p.military_age;
-  if (["soldiers", "off_specs", "def_specs", "elites", "peasants"].includes(key)) return p.troops_age;
-  if (["thieves", "wizards"].includes(key)) return p.resources_age;
+  if (["soldiers", "off_specs", "def_specs", "elites", "war_horses", "peasants"].includes(key)) return p.troops_age;
+  if (["money", "food", "runes", "prisoners", "trade_balance", "thieves", "wizards"].includes(key)) return p.resources_age;
   if (["ome", "dme"].includes(key)) return p.som_age;
   if (["off_points", "def_points"].includes(key)) return p.military_age;
   if (key === "rtpa") return p.resources_age ?? p.overview_age;
@@ -127,8 +133,8 @@ function ageFor(p: ProvinceRow, key: ColKey): string | null {
 }
 
 function sourceFor(p: ProvinceRow, key: ColKey): string | null {
-  if (["soldiers", "off_specs", "def_specs", "elites", "peasants"].includes(key)) return p.troops_source;
-  if (["thieves", "wizards"].includes(key)) return p.resources_source;
+  if (["soldiers", "off_specs", "def_specs", "elites", "war_horses", "peasants"].includes(key)) return p.troops_source;
+  if (["money", "food", "runes", "prisoners", "trade_balance", "thieves", "wizards"].includes(key)) return p.resources_source;
   if (["ome", "dme"].includes(key)) return "som";
   if (["off_points", "def_points"].includes(key)) return "sot";
   if (key === "age") return p.overview_source ?? (p.military_age ? "sot" : null);
@@ -199,10 +205,16 @@ function cellValue(p: ProvinceRow, key: ColKey): React.ReactNode {
     case "soldiers":    return formatNum(p.soldiers);
     case "off_specs":   return formatNum(p.off_specs);
     case "def_specs":   return formatNum(p.def_specs);
-    case "elites":      return formatNum(p.elites);
-    case "peasants":    return formatNum(p.peasants);
+    case "elites":        return formatNum(p.elites);
+    case "war_horses":    return formatNum(p.war_horses);
+    case "peasants":      return formatNum(p.peasants);
     case "ome":         return p.ome != null ? p.ome.toFixed(1) + "%" : "—";
     case "dme":         return p.dme != null ? p.dme.toFixed(1) + "%" : "—";
+    case "money":         return formatNum(p.money);
+    case "food":          return formatNum(p.food);
+    case "runes":         return formatNum(p.runes);
+    case "prisoners":     return formatNum(p.prisoners);
+    case "trade_balance": return p.trade_balance != null ? (p.trade_balance >= 0 ? "+" : "") + formatNum(p.trade_balance) : "—";
     case "thieves":     return formatNum(p.thieves);
     case "wizards":     return formatNum(p.wizards);
     case "age": {
