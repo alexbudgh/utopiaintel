@@ -1,13 +1,17 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { createHash } from "crypto";
 import { getKingdoms } from "@/lib/db";
 import { freshnessColor, timeAgo } from "@/lib/ui";
 import { logout } from "@/app/logout/action";
 
 export default async function Home() {
+  const hdrs = await headers();
+  const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host") ?? "";
+  const proto = hdrs.get("x-forwarded-proto") ?? "https";
+  const baseUrl = `${proto}://${host}`;
   const key = (await cookies()).get("auth")?.value ?? "";
   const keyHash = createHash("sha256").update(key).digest("hex");
   const kingdoms = getKingdoms(keyHash);
@@ -33,7 +37,7 @@ export default async function Home() {
             <li>In-game, go to <span className="text-gray-200">Preferences</span>.</li>
             <li>
               Find <span className="text-gray-200">Send intel to your own Intel site</span> and
-              set the URL to <code className="text-gray-100 bg-gray-700 px-1 rounded">https://{"{your-domain}"}/api/intel</code>.
+              set the URL to <code className="text-gray-100 bg-gray-700 px-1 rounded">{baseUrl}/api/intel</code>.
             </li>
             <li>
               Set the <span className="text-gray-200">key</span> to the same value you used to log
