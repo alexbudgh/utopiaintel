@@ -70,11 +70,22 @@ const COLUMNS = [
 
 type ColKey = (typeof COLUMNS)[number]["key"];
 
-const DEFAULT_VISIBLE = new Set<ColKey>([
-  "race", "land", "networth", "off_points", "def_points", "age",
-]);
+const VIEWS: Record<string, ColKey[]> = {
+  Overview:  ["race", "personality", "land", "networth", "age"],
+  Military:  ["land", "off_points", "def_points", "ome", "dme", "soldiers", "off_specs", "def_specs", "elites", "peasants", "age"],
+  Resources: ["land", "thieves", "wizards", "age"],
+  TPA:       ["land", "rtpa", "mtpa", "otpa", "dtpa", "age"],
+};
+const VIEW_NAMES = Object.keys(VIEWS);
 
-const STORAGE_KEY = "province-columns";
+// Columns grouped for the dropdown panel
+const COLUMN_GROUPS = COLUMNS.reduce((acc, col) => {
+  (acc[col.group] ??= []).push(col);
+  return acc;
+}, {} as Record<string, (typeof COLUMNS)[number][]>);
+
+const STORAGE_VIEW_KEY = "province-view";
+const STORAGE_COLS_KEY = "province-columns";
 
 function computeRtpa(p: ProvinceRow): number | null {
   if (p.thieves == null || !p.land) return null;
@@ -215,20 +226,50 @@ export function ProvinceTable({
   initial: ProvinceRow[];
 }) {
   const [provinces, setProvinces] = useState(initial);
-  const [visible, setVisible] = useState<Set<ColKey>>(DEFAULT_VISIBLE);
+  const [activeView, setActiveView] = useState<string | null>("Overview");
+  const [customCols, setCustomCols] = useState<Set<ColKey>>(new Set(VIEWS.Overview));
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const colsBtnRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Load column prefs from localStorage after mount (SSR-safe)
+  // Derived: visible cols from active view or custom set
+  const visible: Set<ColKey> = activeView ? new Set(VIEWS[activeView]) : customCols;
+
+  // Load prefs from localStorage after mount (SSR-safe)
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) setVisible(new Set(JSON.parse(saved) as ColKey[]));
+      const savedView = localStorage.getItem(STORAGE_VIEW_KEY);
+      const savedCols = localStorage.getItem(STORAGE_COLS_KEY);
+      if (savedView && VIEWS[savedView]) {
+        setActiveView(savedView);
+      } else if (savedCols) {
+        setCustomCols(new Set(JSON.parse(savedCols) as ColKey[]));
+        setActiveView(null);
+      }
     } catch {}
   }, []);
 
-  // Persist column prefs
+  // Persist prefs
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([...visible]));
-  }, [visible]);
+    localStorage.setItem(STORAGE_VIEW_KEY, activeView ?? "");
+    if (!activeView) {
+      localStorage.setItem(STORAGE_COLS_KEY, JSON.stringify([...customCols]));
+    }
+  }, [activeView, customCols]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    function handleDown(e: MouseEvent) {
+      if (
+        dropdownRef.current?.contains(e.target as Node) ||
+        colsBtnRef.current?.contains(e.target as Node)
+      ) return;
+      setDropdownOpen(false);
+    }
+    document.addEventListener("mousedown", handleDown);
+    return () => document.removeEventListener("mousedown", handleDown);
+  }, [dropdownOpen]);
 
   // Poll every 30s
   useEffect(() => {
@@ -239,32 +280,82 @@ export function ProvinceTable({
     return () => clearInterval(id);
   }, [kingdom]);
 
-  const toggle = (key: ColKey) =>
-    setVisible((prev) => {
+  const selectView = (name: string) => {
+    setActiveView(name);
+    setDropdownOpen(false);
+  };
+
+  const toggleCustomCol = (key: ColKey) => {
+    setActiveView(null);
+    setCustomCols((prev) => {
       const next = new Set(prev);
       next.has(key) ? next.delete(key) : next.add(key);
       return next;
     });
+  };
 
   const visibleCols = COLUMNS.filter((c) => visible.has(c.key));
 
+  const btnBase = "px-2.5 py-1 rounded text-xs border transition-colors";
+  const btnActive = "border-blue-500 text-blue-300 bg-blue-950/40";
+  const btnInactive = "border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300";
+
   return (
     <div>
-      <div className="flex flex-wrap gap-1.5 mb-4">
-        {COLUMNS.map((col) => (
+      <div className="flex items-center gap-1.5 mb-4 flex-wrap">
+        {VIEW_NAMES.map((name) => (
           <button
-            key={col.key}
-            onClick={() => toggle(col.key)}
-            className={`px-2 py-0.5 rounded text-xs border transition-colors ${
-              visible.has(col.key)
-                ? "border-gray-500 text-gray-200"
-                : "border-gray-700 text-gray-600"
-            }`}
+            key={name}
+            onClick={() => selectView(name)}
+            className={`${btnBase} ${activeView === name ? btnActive : btnInactive}`}
           >
-            {col.label}
+            {name}
           </button>
         ))}
+        <div className="w-px h-4 bg-gray-700 mx-1" />
+        <button
+          ref={colsBtnRef}
+          onClick={() => setDropdownOpen((o) => !o)}
+          className={`${btnBase} ${!activeView || dropdownOpen ? btnActive : btnInactive}`}
+        >
+          Columns ▾
+        </button>
       </div>
+
+      {dropdownOpen && colsBtnRef.current && createPortal(
+        <div
+          ref={dropdownRef}
+          className="fixed z-50 bg-gray-900 border border-gray-700 rounded shadow-lg py-2 min-w-40"
+          style={{
+            left: colsBtnRef.current.getBoundingClientRect().left,
+            top: colsBtnRef.current.getBoundingClientRect().bottom + 4,
+          }}
+        >
+          {Object.entries(COLUMN_GROUPS).map(([groupName, cols], gi) => (
+            <div key={groupName}>
+              {gi > 0 && <div className="border-t border-gray-700 my-1.5" />}
+              <div className="px-3 py-0.5 text-xs text-gray-500 font-medium">{groupName}</div>
+              {cols.map((col) => (
+                <label
+                  key={col.key}
+                  className="flex items-center gap-2.5 px-3 py-1 hover:bg-gray-800 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={visible.has(col.key)}
+                    onChange={() => toggleCustomCol(col.key)}
+                    className="accent-blue-500"
+                  />
+                  <span className={`text-sm ${visible.has(col.key) ? "text-gray-200" : "text-gray-500"}`}>
+                    {col.label}
+                  </span>
+                </label>
+              ))}
+            </div>
+          ))}
+        </div>,
+        document.body
+      )}
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
