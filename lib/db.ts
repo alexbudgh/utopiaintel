@@ -469,6 +469,7 @@ export interface ProvinceRow {
   land: number | null;
   networth: number | null;
   overview_age: string | null;
+  overview_source: string | null;
   off_points: number | null;
   def_points: number | null;
   military_age: string | null;
@@ -478,9 +479,11 @@ export interface ProvinceRow {
   elites: number | null;
   peasants: number | null;
   troops_age: string | null;
+  troops_source: string | null;
   thieves: number | null;
   wizards: number | null;
   resources_age: string | null;
+  resources_source: string | null;
   ome: number | null;
   dme: number | null;
   som_age: string | null;
@@ -490,10 +493,10 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
   const db = getDb();
   return db.prepare(`
     SELECT p.id, p.name, p.kingdom,
-           po.race, po.personality, po.land, po.networth, po.received_at AS overview_age,
+           po.race, po.personality, po.land, po.networth, po.received_at AS overview_age, po.source AS overview_source,
            tmp.off_points, tmp.def_points, tmp.received_at AS military_age,
-           pt.soldiers, pt.off_specs, pt.def_specs, pt.elites, pt.peasants, pt.received_at AS troops_age,
-           pr.thieves, pr.wizards, pr.received_at AS resources_age,
+           pt.soldiers, pt.off_specs, pt.def_specs, pt.elites, pt.peasants, pt.received_at AS troops_age, pt.source AS troops_source,
+           pr.thieves, pr.wizards, pr.received_at AS resources_age, pr.source AS resources_source,
            mi.ome, mi.dme, mi.received_at AS som_age
     FROM provinces p
     LEFT JOIN province_overview po ON po.id = (

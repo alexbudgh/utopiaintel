@@ -19,6 +19,17 @@ export function formatNum(n: number | null | undefined): string {
   return n.toLocaleString();
 }
 
+export function formatTimestamp(iso: string | null): string {
+  if (!iso) return "—";
+  // "2024-04-04 10:30:00" → "Apr 4, 10:30 UTC"
+  const d = new Date(iso.replace(" ", "T") + "Z");
+  return d.toLocaleString("en-US", {
+    month: "short", day: "numeric",
+    hour: "2-digit", minute: "2-digit",
+    hour12: false, timeZone: "UTC",
+  }) + " UTC";
+}
+
 export function timeAgo(iso: string | null): string {
   if (!iso) return "—";
   const secs = Math.floor((Date.now() - parseUtc(iso)) / 1000);
