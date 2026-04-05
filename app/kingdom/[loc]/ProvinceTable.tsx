@@ -75,12 +75,12 @@ const COLUMNS = [
   { key: "thieves",     label: "Thieves",     group: "Resources", desc: "Thieves"                                     },
   { key: "wizards",     label: "Wizards",     group: "Resources", desc: "Wizards"                                     },
   { key: "age",         label: "Age",         group: "Overview",  desc: "Most recent intel across all sources\nOther columns may have older data — hover them to check"    },
-  { key: "rtpa",        label: "rTPA",        group: "TPA",       desc: "Raw TPA = thieves / land\nNeeds: Infiltrate Thieves' Dens + SoT (same tick)"                   },
-  { key: "mtpa",        label: "mTPA",        group: "TPA",       desc: "Modified TPA = rTPA × (1 + Crime%)\nNeeds: rTPA sources + SoS (same tick)"                     },
-  { key: "otpa",        label: "oTPA",        group: "TPA",       desc: "Offensive TPA = mTPA × (1 + Thieves' Den%)\nNeeds: mTPA sources + Survey (same tick)"          },
-  { key: "dtpa",        label: "dTPA",        group: "TPA",       desc: "Defensive TPA = mTPA × (1 + Watch Tower prevent%)\nNeeds: mTPA sources + Survey (same tick)"   },
-  { key: "rwpa",        label: "rWPA",        group: "TPA",       desc: "Raw WPA = back-calculated wizards ÷ land\nNeeds: SoT + SoS + Survey + Infiltrate (same tick)"      },
-  { key: "mwpa",        label: "mWPA",        group: "TPA",       desc: "Modified WPA = rWPA × (1 + Channeling%)\nNeeds: same as rWPA"                                      },
+  { key: "rtpa",        label: "rTPA",        group: "T/M",       desc: "Raw TPA = thieves / land\nNeeds: Infiltrate Thieves' Dens + SoT (same tick)"                   },
+  { key: "mtpa",        label: "mTPA",        group: "T/M",       desc: "Modified TPA = rTPA × (1 + Crime%)\nNeeds: rTPA sources + SoS (same tick)"                     },
+  { key: "otpa",        label: "oTPA",        group: "T/M",       desc: "Offensive TPA = mTPA × (1 + Thieves' Den%)\nNeeds: mTPA sources + Survey (same tick)"          },
+  { key: "dtpa",        label: "dTPA",        group: "T/M",       desc: "Defensive TPA = mTPA × (1 + Watch Tower prevent%)\nNeeds: mTPA sources + Survey (same tick)"   },
+  { key: "rwpa",        label: "rWPA",        group: "T/M",       desc: "Raw WPA = back-calculated wizards ÷ land\nNeeds: SoT + SoS + Survey + Infiltrate (same tick)"      },
+  { key: "mwpa",        label: "mWPA",        group: "T/M",       desc: "Modified WPA = rWPA × (1 + Channeling%)\nNeeds: same as rWPA"                                      },
 ] as const;
 
 type ColKey = (typeof COLUMNS)[number]["key"];
@@ -89,7 +89,7 @@ const VIEWS: Record<string, ColKey[]> = {
   Overview:  ["race", "personality", "land", "networth", "age"],
   Military:  ["land", "off_points", "def_points", "off_home", "def_home", "ome", "dme", "soldiers_home", "off_specs_home", "def_specs_home", "elites_home", "peasants", "age"],
   Resources: ["land", "networth", "money", "food", "runes", "prisoners", "trade_balance", "war_horses", "peasants", "thieves", "wizards", "age"],
-  TPA:       ["land", "rtpa", "mtpa", "otpa", "dtpa", "rwpa", "mwpa", "age"],
+  "T/M":     ["land", "rtpa", "mtpa", "otpa", "dtpa", "rwpa", "mwpa", "age"],
 };
 const VIEW_NAMES = Object.keys(VIEWS);
 
