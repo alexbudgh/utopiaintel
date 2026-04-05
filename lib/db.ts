@@ -558,7 +558,7 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
            (SELECT si.thievery_effectiveness FROM survey_intel si WHERE si.province_id = p.id ORDER BY si.received_at DESC LIMIT 1) AS thieves_dens_effect,
            (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND ss.science = 'Channeling' ORDER BY si.received_at DESC LIMIT 1) AS channeling_effect,
            (SELECT SUM(ss.books) FROM sos_sciences ss WHERE ss.sos_intel_id = (SELECT id FROM sos_intel WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1)) AS science_total_books,
-           (SELECT SUM(sb.built) FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1)) AS buildings_built,
+           (SELECT SUM(sb.built) FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1) AND sb.building != 'Barren Land') AS buildings_built,
            (SELECT SUM(sb.in_progress) FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1)) AS buildings_in_progress
     FROM provinces p
     LEFT JOIN province_overview po ON po.id = (

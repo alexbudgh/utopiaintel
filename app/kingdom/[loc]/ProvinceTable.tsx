@@ -79,8 +79,8 @@ const COLUMNS = [
   { key: "mtpa",        label: "mTPA",        group: "T/M",       desc: "Modified TPA = rTPA × (1 + Crime%)\nNeeds: rTPA sources + SoS (same tick)"                     },
   { key: "otpa",        label: "oTPA",        group: "T/M",       desc: "Offensive TPA = mTPA × (1 + Thieves' Den%)\nNeeds: mTPA sources + Survey (same tick)"          },
   { key: "dtpa",        label: "dTPA",        group: "T/M",       desc: "Defensive TPA = mTPA × (1 + Watch Tower prevent%)\nNeeds: mTPA sources + Survey (same tick)"   },
-  { key: "rwpa",        label: "rWPA",        group: "T/M",       desc: "Raw WPA = back-calculated wizards ÷ land\nNeeds: SoT + SoS + Survey + Infiltrate (same tick)"      },
-  { key: "mwpa",        label: "mWPA",        group: "T/M",       desc: "Modified WPA = rWPA × (1 + Channeling%)\nNeeds: same as rWPA"                                      },
+  { key: "rwpa",        label: "rWPA",        group: "T/M",       desc: "Raw WPA = wizards ÷ land\nSelf: direct from throne (needs same tick as land)\nEnemy: back-calc from NW residual (needs SoT+SoS+Survey+Infiltrate same tick)" },
+  { key: "mwpa",        label: "mWPA",        group: "T/M",       desc: "Modified WPA = rWPA × (1 + Channeling%)\nAlso needs SoS same tick as other sources"               },
 ] as const;
 
 type ColKey = (typeof COLUMNS)[number]["key"];
@@ -130,15 +130,25 @@ function computeDtpa(p: ProvinceRow): number | null {
 }
 
 function computeRwpa(p: ProvinceRow): number | null {
-  if (!p.networth || !p.land || !p.race) return null;
+  if (!p.land) return null;
+  // Direct: wizards known from throne/self-intel
+  if (p.wizards != null) {
+    if (!sameTick(p.resources_age, p.overview_age)) return null;
+    return p.wizards / p.land;
+  }
+  // Back-calculate from NW residual (enemy provinces)
+  if (!p.networth || !p.race) return null;
   if (!sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age)) return null;
   const w = computeWizardCount(p);
   return w != null ? w / p.land : null;
 }
 
 function computeMwpa(p: ProvinceRow): number | null {
+  if (!p.channeling_effect) return null;
   const rwpa = computeRwpa(p);
-  if (rwpa == null || p.channeling_effect == null) return null;
+  if (rwpa == null) return null;
+  // For direct wizard path, sciences must also be same tick as overview
+  if (p.wizards != null && !sameTick(p.resources_age, p.overview_age, p.sciences_age)) return null;
   return rwpa * (1 + p.channeling_effect / 100);
 }
 
@@ -218,10 +228,16 @@ function tipFor(p: ProvinceRow, key: ColKey): string {
     return `dTPA = ${mtpa.toFixed(2)} × (1 + ${p.watch_towers_effect.toFixed(1)}% Watch Tower) = ${val}` + (ok ? "" : `\n(${tpaStaleReason(p, true, true)})`);
   }
   if (key === "rwpa") {
-    if (!p.networth || !p.land || !p.race) return "Missing NW, land, or race data";
+    if (!p.land) return "No land data";
+    if (p.wizards != null) {
+      const ok = sameTick(p.resources_age, p.overview_age);
+      if (!ok) return "Wizards and land not from same tick";
+      return `rWPA = ${formatNum(p.wizards)} ÷ ${formatNum(p.land)} = ${(p.wizards / p.land).toFixed(2)}\n(direct from throne/self-intel)`;
+    }
+    if (!p.networth || !p.race) return "Missing NW, land, or race data";
     const ok = sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age);
     const w = ok ? computeWizardCount(p) : null;
-    if (w == null) return ok ? "Missing SoT/SoS/Survey/Infiltrate data" : `data not from same tick`;
+    if (w == null) return ok ? "Missing SoT/SoS/Survey/Infiltrate data" : "data not from same tick";
     const rwpa = w / p.land;
     return `wizards ≈ (${formatNum(p.networth)} NW residual) ÷ ${NW_PER_WIZARD} = ${Math.round(w).toLocaleString()}\nrWPA = ${Math.round(w).toLocaleString()} ÷ ${formatNum(p.land)} = ${rwpa.toFixed(2)}`;
   }
