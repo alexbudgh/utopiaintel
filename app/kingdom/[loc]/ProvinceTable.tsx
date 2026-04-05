@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import type { ProvinceRow } from "@/lib/db";
 import { freshnessColor, formatNum, timeAgo, formatTimestamp, sameTick } from "@/lib/ui";
+import { computeWizardCount, NW_PER_WIZARD } from "@/lib/nw";
 
 function Tooltip({ content, children }: { content: string; children: React.ReactNode }) {
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
@@ -78,6 +79,8 @@ const COLUMNS = [
   { key: "mtpa",        label: "mTPA",        group: "TPA",       desc: "Modified TPA = rTPA × (1 + Crime%)\nNeeds: rTPA sources + SoS (same tick)"                     },
   { key: "otpa",        label: "oTPA",        group: "TPA",       desc: "Offensive TPA = mTPA × (1 + Thieves' Den%)\nNeeds: mTPA sources + Survey (same tick)"          },
   { key: "dtpa",        label: "dTPA",        group: "TPA",       desc: "Defensive TPA = mTPA × (1 + Watch Tower prevent%)\nNeeds: mTPA sources + Survey (same tick)"   },
+  { key: "rwpa",        label: "rWPA",        group: "TPA",       desc: "Raw WPA = back-calculated wizards ÷ land\nNeeds: SoT + SoS + Survey + Infiltrate (same tick)"      },
+  { key: "mwpa",        label: "mWPA",        group: "TPA",       desc: "Modified WPA = rWPA × (1 + Channeling%)\nNeeds: same as rWPA"                                      },
 ] as const;
 
 type ColKey = (typeof COLUMNS)[number]["key"];
@@ -86,7 +89,7 @@ const VIEWS: Record<string, ColKey[]> = {
   Overview:  ["race", "personality", "land", "networth", "age"],
   Military:  ["land", "off_points", "def_points", "off_home", "def_home", "ome", "dme", "soldiers_home", "off_specs_home", "def_specs_home", "elites_home", "peasants", "age"],
   Resources: ["land", "networth", "money", "food", "runes", "prisoners", "trade_balance", "war_horses", "peasants", "thieves", "wizards", "age"],
-  TPA:       ["land", "rtpa", "mtpa", "otpa", "dtpa", "age"],
+  TPA:       ["land", "rtpa", "mtpa", "otpa", "dtpa", "rwpa", "mwpa", "age"],
 };
 const VIEW_NAMES = Object.keys(VIEWS);
 
@@ -126,6 +129,19 @@ function computeDtpa(p: ProvinceRow): number | null {
   return mtpa * (1 + p.watch_towers_effect / 100);
 }
 
+function computeRwpa(p: ProvinceRow): number | null {
+  if (!p.networth || !p.land || !p.race) return null;
+  if (!sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age)) return null;
+  const w = computeWizardCount(p);
+  return w != null ? w / p.land : null;
+}
+
+function computeMwpa(p: ProvinceRow): number | null {
+  const rwpa = computeRwpa(p);
+  if (rwpa == null || p.channeling_effect == null) return null;
+  return rwpa * (1 + p.channeling_effect / 100);
+}
+
 function ageFor(p: ProvinceRow, key: ColKey): string | null {
   if (key === "age") return p.overview_age ?? p.military_age;
   if (["soldiers", "off_specs", "def_specs", "elites", "war_horses", "peasants"].includes(key)) return p.troops_age;
@@ -138,6 +154,8 @@ function ageFor(p: ProvinceRow, key: ColKey): string | null {
   if (key === "rtpa") return p.thieves_age ?? p.overview_age;
   if (key === "mtpa") return p.sciences_age;
   if (key === "otpa" || key === "dtpa") return p.survey_age;
+  if (key === "rwpa") return p.survey_age;
+  if (key === "mwpa") return p.sciences_age;
   return p.overview_age;
 }
 
@@ -199,6 +217,21 @@ function tipFor(p: ProvinceRow, key: ColKey): string {
     const val = ok ? computeDtpa(p)?.toFixed(2) ?? "—" : "—";
     return `dTPA = ${mtpa.toFixed(2)} × (1 + ${p.watch_towers_effect.toFixed(1)}% Watch Tower) = ${val}` + (ok ? "" : `\n(${tpaStaleReason(p, true, true)})`);
   }
+  if (key === "rwpa") {
+    if (!p.networth || !p.land || !p.race) return "Missing NW, land, or race data";
+    const ok = sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age);
+    const w = ok ? computeWizardCount(p) : null;
+    if (w == null) return ok ? "Missing SoT/SoS/Survey/Infiltrate data" : `data not from same tick`;
+    const rwpa = w / p.land;
+    return `wizards ≈ (${formatNum(p.networth)} NW residual) ÷ ${NW_PER_WIZARD} = ${Math.round(w).toLocaleString()}\nrWPA = ${Math.round(w).toLocaleString()} ÷ ${formatNum(p.land)} = ${rwpa.toFixed(2)}`;
+  }
+  if (key === "mwpa") {
+    const rwpa = computeRwpa(p);
+    if (rwpa == null) return tipFor(p, "rwpa");
+    if (p.channeling_effect == null) return `rWPA = ${rwpa.toFixed(2)}\nNo Channeling science data`;
+    const val = computeMwpa(p)?.toFixed(2) ?? "—";
+    return `mWPA = ${rwpa.toFixed(2)} × (1 + ${p.channeling_effect.toFixed(1)}% Channeling) = ${val}`;
+  }
   const age = ageFor(p, key);
   const source = sourceFor(p, key);
   if (!age) return "";
@@ -242,6 +275,8 @@ function cellValue(p: ProvinceRow, key: ColKey): React.ReactNode {
     case "mtpa": { const v = computeMtpa(p); return v != null ? v.toFixed(2) : "—"; }
     case "otpa": { const v = computeOtpa(p); return v != null ? v.toFixed(2) : "—"; }
     case "dtpa": { const v = computeDtpa(p); return v != null ? v.toFixed(2) : "—"; }
+    case "rwpa": { const v = computeRwpa(p); return v != null ? v.toFixed(2) : "—"; }
+    case "mwpa": { const v = computeMwpa(p); return v != null ? v.toFixed(2) : "—"; }
   }
 }
 

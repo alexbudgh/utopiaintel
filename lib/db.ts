@@ -523,9 +523,13 @@ export interface ProvinceRow {
   som_age: string | null;
   sciences_age: string | null;
   crime_effect: number | null;
+  channeling_effect: number | null;
+  science_total_books: number | null;
   survey_age: string | null;
   watch_towers_effect: number | null;
   thieves_dens_effect: number | null;
+  buildings_built: number | null;
+  buildings_in_progress: number | null;
 }
 
 export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceRow[] {
@@ -545,7 +549,11 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
            (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND ss.science = 'Crime' ORDER BY si.received_at DESC LIMIT 1) AS crime_effect,
            (SELECT si.received_at FROM survey_intel si WHERE si.province_id = p.id ORDER BY si.received_at DESC LIMIT 1) AS survey_age,
            (SELECT si.thief_prevent_chance FROM survey_intel si WHERE si.province_id = p.id ORDER BY si.received_at DESC LIMIT 1) AS watch_towers_effect,
-           (SELECT si.thievery_effectiveness FROM survey_intel si WHERE si.province_id = p.id ORDER BY si.received_at DESC LIMIT 1) AS thieves_dens_effect
+           (SELECT si.thievery_effectiveness FROM survey_intel si WHERE si.province_id = p.id ORDER BY si.received_at DESC LIMIT 1) AS thieves_dens_effect,
+           (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND ss.science = 'Channeling' ORDER BY si.received_at DESC LIMIT 1) AS channeling_effect,
+           (SELECT SUM(ss.books) FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id ORDER BY si.received_at DESC LIMIT 1) AS science_total_books,
+           (SELECT SUM(sb.built) FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1)) AS buildings_built,
+           (SELECT SUM(sb.in_progress) FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1)) AS buildings_in_progress
     FROM provinces p
     LEFT JOIN province_overview po ON po.id = (
       SELECT id FROM province_overview
