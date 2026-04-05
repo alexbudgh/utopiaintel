@@ -21,7 +21,7 @@ export function parseIntel(url: string, dataSimple: string, selfProv?: string): 
       return data ? { type: "sot", data } : null;
     }
     case "survey": {
-      const data = parseSurvey(dataSimple);
+      const data = parseSurvey(dataSimple, selfProv);
       return data ? { type: "survey", data } : null;
     }
     case "som": {

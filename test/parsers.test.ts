@@ -249,6 +249,44 @@ test("parseSurvey — Obsidian (7:5) — buildings", () => {
   assert.equal(forts.built, 119);
 });
 
+const SELF_SURVEY_TEXT = `Building Effectiveness
+Statistics
+Available Workers\t15,858\tBuilding Efficiency\t113.3%
+Available Jobs\t9,400\tWorkers Needed for Max. Efficiency\t6,298
+Building type\tQuantity\t% of Total\tCurrent Effects (effect of next 1%)
+Barren Land\t0\t0.0%\t
+Homes\t77\t3.1%\tIncrease max population by 770
+Banks\t178\t7.2%\tProduce 5,043 gold coins per day
+Guilds\t131\t5.3%\t2.6 wizards trained per day
+Towers\t67\t2.7%\tProduce 911 runes per day
+Thieves' Dens\t0\t0.0%\t0.0% higher thievery effectiveness (3.37%)
+Watch Towers\t0\t0.0%\t0.0% chance of preventing enemy thief missions (2.24%)
+Exploration/Construction Schedules
+Building type\tSchedule (number of days)
+1\t2\t3\t4\t5\t6\t7\t8\t9\t10
+Homes\t\t\t293\t\t\t\t\t\t\t
+Banks\t\t\t563\t\t\t\t\t\t\t
+Guilds\t\t\t610\t\t\t\t\t\t\t
+`;
+
+test("parseSurvey — self (council_internal) — uses selfProv, kingdom empty, built+inProgress correct", () => {
+  const r = parseSurvey(SELF_SURVEY_TEXT, "TestProv");
+  assert.ok(r, "should parse successfully");
+  assert.equal(r.name, "TestProv");
+  assert.equal(r.kingdom, "");
+  assert.equal(r.accuracy, 100);
+
+  const homes = r.buildings.find((b) => b.building === "Homes");
+  assert.ok(homes, "should find Homes");
+  assert.equal(homes.built, 77);
+  assert.equal(homes.inProgress, 293);
+
+  const banks = r.buildings.find((b) => b.building === "Banks");
+  assert.ok(banks);
+  assert.equal(banks.built, 178);
+  assert.equal(banks.inProgress, 563);
+});
+
 test("parseSurvey — TPA effects — 0% when no Thieves' Dens or Watch Towers", () => {
   const r = parseSurvey(SURVEY_TEXT);
   assert.ok(r, "should parse successfully");

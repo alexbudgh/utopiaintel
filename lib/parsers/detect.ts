@@ -10,7 +10,8 @@ export function detectIntelType(url: string): IntelType | null {
   if (lower.includes("council_science")) return "sos";
   if (lower.includes("council_military")) return "som";
   if (lower.includes("council_state")) return "state";
-  // council_spells, council_history, council_internal, throne — no structured data
+  if (lower.includes("council_internal")) return "survey";
+  // council_spells, council_history, throne — no structured data
 
   // Spy/thievery operations
   if (lower.includes("spy_on_throne")) return "sot";

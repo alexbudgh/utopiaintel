@@ -5,14 +5,13 @@ import { INT, KDLOC, parseNum, parseFloat_, parseAccuracy } from "./util";
 const PROVINCE_RE = new RegExp(`Our thieves scour the lands of ([^(]+)${KDLOC}`);
 const BUILDING_RE = new RegExp(`(${BUILDING_GROUP})\\s+((?:${INT}(?:\\s+|\\*))+)`, "gi");
 
-export function parseSurvey(text: string): SurveyData | null {
+export function parseSurvey(text: string, selfProv?: string): SurveyData | null {
   const provMatch = PROVINCE_RE.exec(text);
-  // Self-survey won't have province match — skip for now (need user context)
-  if (!provMatch) return null;
+  if (!provMatch && !selfProv) return null;
 
-  const name = provMatch[1].trim();
-  const kingdom = provMatch[2];
-  const accuracy = parseAccuracy(text);
+  const name = provMatch ? provMatch[1].trim() : selfProv!;
+  const kingdom = provMatch ? provMatch[2] : "";
+  const accuracy = provMatch ? parseAccuracy(text) : 100;
 
   const seen = new Set<string>();
   const buildings: SurveyBuilding[] = [];
