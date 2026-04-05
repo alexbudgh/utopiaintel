@@ -251,6 +251,12 @@ function initSchema(db: Database.Database) {
 
 // Get or create province identity, return ID
 function ensureProvince(db: Database.Database, name: string, kingdom: string): number {
+  // Self-intel (council_state/som/sos) arrives with kingdom="". Prefer an existing
+  // province row with the same name and a real kingdom rather than creating a ghost.
+  if (!kingdom) {
+    const existing = db.prepare("SELECT id FROM provinces WHERE name = ? AND kingdom != '' LIMIT 1").get(name) as { id: number } | undefined;
+    if (existing) return existing.id;
+  }
   db.prepare("INSERT OR IGNORE INTO provinces (name, kingdom) VALUES (?, ?)").run(name, kingdom);
   const row = db.prepare("SELECT id FROM provinces WHERE name = ? AND kingdom = ?").get(name, kingdom) as { id: number };
   return row.id;
