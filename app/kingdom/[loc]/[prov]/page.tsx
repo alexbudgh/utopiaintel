@@ -268,17 +268,22 @@ export default async function ProvincePage({
                 <tr className="text-gray-500 text-xs border-b border-gray-700">
                   <th className="pb-1 text-left font-medium">Building</th>
                   <th className="pb-1 text-right pr-2 font-medium">Built</th>
+                  <th className="pb-1 text-right pr-2 font-medium">%</th>
                   <th className="pb-1 text-right font-medium">In progress</th>
                 </tr>
               </thead>
               <tbody>
-                {d.survey.buildings.map((b: BuildingRow) => (
-                  <tr key={b.building} className="border-b border-gray-700/40">
-                    <td className="py-0.5 text-gray-300">{b.building}</td>
-                    <td className="py-0.5 text-right pr-2 tabular-nums text-gray-400">{formatNum(b.built)}</td>
-                    <td className="py-0.5 text-right tabular-nums text-gray-400">{b.inProgress > 0 ? formatNum(b.inProgress) : "—"}</td>
-                  </tr>
-                ))}
+                {d.survey.buildings.map((b: BuildingRow) => {
+                  const builtPct = d.overview?.land ? (b.built / d.overview.land) * 100 : null;
+                  return (
+                    <tr key={b.building} className="border-b border-gray-700/40">
+                      <td className="py-0.5 text-gray-300">{b.building}</td>
+                      <td className="py-0.5 text-right pr-2 tabular-nums text-gray-400">{formatNum(b.built)}</td>
+                      <td className="py-0.5 text-right pr-2 tabular-nums text-gray-400">{builtPct != null ? `${builtPct.toFixed(1)}%` : "—"}</td>
+                      <td className="py-0.5 text-right tabular-nums text-gray-400">{b.inProgress > 0 ? formatNum(b.inProgress) : "—"}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           ) : <NoData />}
