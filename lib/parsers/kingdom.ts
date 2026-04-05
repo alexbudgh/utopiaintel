@@ -11,7 +11,7 @@ const WAR_RE = new RegExp(`at war with ([^(]+)${KDLOC}`, "i");
 
 // Province list pattern: name, optional marker (*+^~), race, land(a), nw(gc), nwpa(gc), honor, optional gains
 const PROVINCE_RE = new RegExp(
-  `\\s+(.+?)([*+^~]| \\([MS]\\))?\\s+` +
+  `\\s+(.+?)([*+^~]| \\([MS]\\)[*+^~]?)?\\s+` +
   `(${RACE_GROUP})\\s+` +
   `(${INT})a\\s+` +
   `(${INT})gc\\s+` +
@@ -22,7 +22,7 @@ const PROVINCE_RE = new RegExp(
 
 // Older format uses "acres" instead of "a"
 const OLD_PROVINCE_RE = new RegExp(
-  `\\d{1,2}\\s+(.+?)([*+^~]| \\([MS]\\))?\\s+` +
+  `\\d{1,2}\\s+(.+?)([*+^~]| \\([MS]\\)[*+^~]?)?\\s+` +
   `(${RACE_GROUP})\\s+` +
   `(${INT}) acres\\s+` +
   `(${INT})gc\\s+` +

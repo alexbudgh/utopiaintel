@@ -180,6 +180,9 @@ Slot\tProvince\tRace\tLand\tNet Worth\tNet Worth/Acre\tNobility
 1\tOrion\tUndead\t3,235 acres\t871,841gc\t269gc\tViscountess
 2\tAndromeda*\tHuman\t5,223 acres\t1,390,751gc\t266gc\tCount
 3\tMY Camelopardalis\tElf\t3,251 acres\t908,612gc\t279gc\tCountess
+4\tCassiopeia (M)\tAvian\t3,357 acres\t948,576gc\t282gc\tQueen
+5\tBlack hole (S)\tElf\t3,797 acres\t1,063,889gc\t280gc\tCountess
+6\tPrams nova (S)*\tFaery\t1,493 acres\t316,475gc\t211gc\tLady
 `;
 
 // ---------------------------------------------------------------------------
@@ -314,4 +317,25 @@ test("parseKingdom — Space (5:9)", () => {
   assert.equal(orion.race, "Undead");
   assert.equal(orion.land, 3235);
   assert.equal(orion.networth, 871841);
+});
+
+test("parseKingdom — monarch/steward markers stripped from province names", () => {
+  const r = parseKingdom(KINGDOM_TEXT);
+  assert.ok(r, "should parse successfully");
+
+  // (M) alone
+  const monarch = r.provinces.find((p) => p.name === "Cassiopeia");
+  assert.ok(monarch, "monarch name should not include (M)");
+
+  // (S) alone
+  const steward = r.provinces.find((p) => p.name === "Black hole");
+  assert.ok(steward, "steward name should not include (S)");
+
+  // (S) combined with online marker *
+  const stewardOnline = r.provinces.find((p) => p.name === "Prams nova");
+  assert.ok(stewardOnline, "steward+online name should not include (S) or *");
+
+  // No false positives — names with markers must not appear
+  assert.ok(!r.provinces.find((p) => p.name.includes("(M)")), "no province name should contain (M)");
+  assert.ok(!r.provinces.find((p) => p.name.includes("(S)")), "no province name should contain (S)");
 });
