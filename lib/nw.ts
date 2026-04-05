@@ -1,7 +1,8 @@
 // NW weights sourced from utopiaguide docs (Networth.md, Race.md, Units.md)
 
-// TODO: confirm wizard NW — Networth.md says 5, Units.md says 7
-export const NW_PER_WIZARD = 5;
+// Verified against a known province (Undead, 2469 acres, 517,597 NW, 6,606 wizards):
+// NW/wiz=7 → 6,534 computed (~1% error); NW/wiz=5 → 9,148 (way off)
+export const NW_PER_WIZARD = 7;
 
 export const RACE_NW: Record<string, { offSpecs: number; defSpecs: number; elites: number; warHorses: number }> = {
   Avian:      { offSpecs: 5.2, defSpecs: 4.5, elites: 8.0, warHorses: 0   },

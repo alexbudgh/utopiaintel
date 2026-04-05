@@ -39,6 +39,10 @@ INTEL_DEBUG=1 npm start       # prod
 
 Writes to `intel_debug.jsonl`.
 
+## Privacy
+
+Do not store real province names, kingdom names, or player names in source code, comments, commit messages, or test fixtures. Use generic placeholders (e.g. "TestProvince", "7:5") instead. Real game data lives only in `intel.db` and `intel_debug.jsonl`, which are gitignored.
+
 ## Build & deploy
 
 ```bash
