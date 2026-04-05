@@ -2,6 +2,20 @@
 
 Next.js API endpoint that receives game data from utopia-game.com.
 
+## What this project does
+
+- Collects Utopia intel automatically via `/api/intel` when kingdom members browse the game with "Send intel to your own Intel site" configured.
+- Parses SoT, SoD, SoM, SoS, Survey, Infiltrate, Kingdom pages, and self-intel council pages such as state/science/military/internal.
+- Stores intel in SQLite as timestamped records across separate domain tables rather than a single flat snapshot.
+- Serves a private dashboard:
+  - `/` lists kingdoms visible to the current key
+  - `/kingdom/[loc]` shows a kingdom province table
+  - `/kingdom/[loc]/[prov]` shows detailed intel for one province
+- Partitions access by shared kingdom key. Users log in with the key, the app hashes it, and read queries only return provinces associated with that hash.
+- Computes derived T/M metrics such as `rTPA`, `mTPA`, `oTPA`, `dTPA`, `rWPA`, and `mWPA` from stored intel, with same-tick requirements for validity.
+- Uses direct wizard counts for self-intel WPA when available; enemy WPA may be inferred from networth residuals.
+- Deletes old intel after 7 days.
+
 ## Setup
 
 ```bash
