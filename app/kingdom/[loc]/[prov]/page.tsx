@@ -6,6 +6,7 @@ import { createHash } from "crypto";
 import { getProvinceDetail } from "@/lib/db";
 import { freshnessColor, formatNum, timeAgo } from "@/lib/ui";
 import type { ArmyRow, BuildingRow, ScienceRow } from "@/lib/db";
+import AutoRefresh from "./AutoRefresh";
 
 function Badge({ label }: { label: string }) {
   return <span className="text-xs text-gray-500 font-mono">{label}</span>;
@@ -62,6 +63,7 @@ export default async function ProvincePage({
 
   return (
     <main className="p-6 max-w-5xl mx-auto">
+      <AutoRefresh />
       {/* Header */}
       <div className="mb-6 flex items-center gap-4">
         <Link href={`/kingdom/${loc}`} className="text-gray-400 hover:text-gray-200 text-sm">
