@@ -1,4 +1,4 @@
-import { RACE_GROUP, PERSONALITY_GROUP, HONOR_TITLE_GROUP, OFF_SPEC_GROUP, DEF_SPEC_GROUP, ELITE_GROUP } from "../game";
+import { RACE_GROUP, HONOR_TITLE_GROUP, OFF_SPEC_GROUP, DEF_SPEC_GROUP, ELITE_GROUP } from "../game";
 import type { SoTData } from "./types";
 import { INT, SIGNED_INT, KDLOC, parseNum, parseAccuracy } from "./util";
 
@@ -13,8 +13,26 @@ const FOOD_HORSES_RE = new RegExp(`Food\\s*(${INT})\\s*War Horses\\s*(${INT})`, 
 const RUNES_PRISONERS_RE = new RegExp(`Runes\\s*(${INT})\\s*Prisoners\\s*(${INT})`, "i");
 const TB_OFF_RE = new RegExp(`Trade Balance\\s*(${SIGNED_INT})\\s*Off\\. Points\\s*(${INT})`, "i");
 const NW_DEF_RE = new RegExp(`Networth\\s*(${INT}) gold coins\\s*(?:\\(\\d+\\.\\d+ nwpa\\))?\\s*Def\\. Points\\s*(${INT})`, "i");
-const PERS_TITLE_RE = new RegExp(`(?:(${HONOR_TITLE_GROUP}) .{1,30}|\\s+)the (${PERSONALITY_GROUP})`, "i");
-const PERS_TITLE_ALT_RE = new RegExp(`[tT]he (${PERSONALITY_GROUP})\\s?(${HONOR_TITLE_GROUP})?`);
+const HONOR_PREFIX_RE = new RegExp(`^(${HONOR_TITLE_GROUP})\\b`, "i");
+const PREFIX_PERSONALITY_MAP: Record<string, string> = {
+  Conniving: "Tactician",
+  Brave: "Warrior",
+};
+const SUFFIX_PERSONALITY_MAP: Record<string, string> = {
+  Hero: "War Hero",
+  Rogue: "Rogue",
+  Sorcerer: "Mystic",
+  Sorceress: "Mystic",
+  Craftsman: "Artisan",
+  Craftswoman: "Artisan",
+  Skeptic: "Heretic",
+  Chivalrous: "Paladin",
+  Reanimator: "Necromancer",
+};
+const PREFIX_PERSONALITY_GROUP = Object.keys(PREFIX_PERSONALITY_MAP).join("|");
+const SUFFIX_PERSONALITY_GROUP = Object.keys(SUFFIX_PERSONALITY_MAP).join("|");
+const PREFIX_PERS_TITLE_RE = new RegExp(`^[tT]he (${PREFIX_PERSONALITY_GROUP})\\s+(${HONOR_TITLE_GROUP})\\b`, "i");
+const SUFFIX_PERS_TITLE_RE = new RegExp(`\\bthe (${SUFFIX_PERSONALITY_GROUP})\\b`, "i");
 
 const PLAGUE_RE = /The Plague has spread throughout our people/;
 const OVERPOP_RE = /Riots due to housing shortages/;
@@ -42,17 +60,16 @@ export function parseSoT(text: string): SoTData | null {
   // Parse personality and honor title from ruler string
   let personality: string | undefined;
   let honorTitle: string | undefined;
-  const ptMatch = PERS_TITLE_RE.exec(ruler) ?? PERS_TITLE_ALT_RE.exec(ruler);
-  if (ptMatch) {
-    // Different group positions for the two patterns
-    if (PERS_TITLE_RE.exec(ruler)) {
-      const m = PERS_TITLE_RE.exec(ruler)!;
-      honorTitle = m[1]?.trim();
-      personality = m[2]?.trim();
-    } else {
-      const m = PERS_TITLE_ALT_RE.exec(ruler)!;
-      personality = m[1]?.trim();
-      honorTitle = m[2]?.trim();
+  const prefixMatch = PREFIX_PERS_TITLE_RE.exec(ruler);
+  if (prefixMatch) {
+    personality = PREFIX_PERSONALITY_MAP[prefixMatch[1]];
+    honorTitle = prefixMatch[2]?.trim();
+  } else {
+    const suffixMatch = SUFFIX_PERS_TITLE_RE.exec(ruler);
+    if (suffixMatch) {
+      personality = SUFFIX_PERSONALITY_MAP[suffixMatch[1]];
+      const honorMatch = HONOR_PREFIX_RE.exec(ruler);
+      honorTitle = honorMatch?.[1]?.trim();
     }
   }
 

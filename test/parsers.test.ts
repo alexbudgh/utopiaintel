@@ -203,6 +203,13 @@ Runes\t36,020\tPrisoners\t0
 Trade Balance\t494,370\tOff. Points\t366,485
 Networth\t517,597 gold coins\tDef. Points\t294,463`;
 
+function throneTextWithRuler(ruler: string): string {
+  return THRONE_TEXT.replace(
+    "Ruler\tLord Plague Bearer the Hero\tSkeletons\t2,085",
+    `Ruler\t${ruler}\tSkeletons\t2,085`,
+  );
+}
+
 test("detectIntelType — /throne detected as sot", () => {
   assert.equal(detectIntelType("https://utopia-game.com/wol/game/throne"), "sot");
   // spy_on_throne must not be affected
@@ -223,6 +230,8 @@ test("parseSoT — throne page (self-intel)", () => {
   assert.equal(r.name, "TestProv");
   assert.equal(r.kingdom, "2:6");
   assert.equal(r.race, "Undead");
+  assert.equal(r.personality, "War Hero");
+  assert.equal(r.honorTitle, "Lord");
   assert.equal(r.land, 2469);
   assert.equal(r.networth, 517597);
   assert.equal(r.soldiers, 0);
@@ -243,6 +252,8 @@ test("parseSoT — Obsidian (7:5)", () => {
   assert.equal(r.name, "Obsidian");
   assert.equal(r.kingdom, "7:5");
   assert.equal(r.race, "Avian");
+  assert.equal(r.personality, "Tactician");
+  assert.equal(r.honorTitle, "Knight");
   assert.equal(r.land, 1576);
   assert.equal(r.networth, 226798);
   assert.equal(r.soldiers, 10574);
@@ -257,6 +268,27 @@ test("parseSoT — Obsidian (7:5)", () => {
   assert.equal(r.runes, 158132);
   assert.equal(r.accuracy, 100);
 });
+
+for (const { ruler, personality, honorTitle } of [
+  { ruler: "Lord Plague Bearer the Hero", personality: "War Hero", honorTitle: "Lord" },
+  { ruler: "The Conniving Knight etienne", personality: "Tactician", honorTitle: "Knight" },
+  { ruler: "The Brave Knight etienne", personality: "Warrior", honorTitle: "Knight" },
+  { ruler: "Lord Nightblade the Rogue", personality: "Rogue", honorTitle: "Lord" },
+  { ruler: "Lady Spellweaver the Sorcerer", personality: "Mystic", honorTitle: "Lady" },
+  { ruler: "Lady Spellweaver the Sorceress", personality: "Mystic", honorTitle: "Lady" },
+  { ruler: "Lord Builder the Craftsman", personality: "Artisan", honorTitle: "Lord" },
+  { ruler: "Lady Builder the Craftswoman", personality: "Artisan", honorTitle: "Lady" },
+  { ruler: "Lord Doubter the Skeptic", personality: "Heretic", honorTitle: "Lord" },
+  { ruler: "Lady Valor the Chivalrous", personality: "Paladin", honorTitle: "Lady" },
+  { ruler: "Lord Graveborn the Reanimator", personality: "Necromancer", honorTitle: "Lord" },
+]) {
+  test(`parseSoT — ruler title mapping for ${ruler}`, () => {
+    const r = parseSoT(throneTextWithRuler(ruler));
+    assert.ok(r, "should parse successfully");
+    assert.equal(r.personality, personality);
+    assert.equal(r.honorTitle, honorTitle);
+  });
+}
 
 test("parseSoS — Obsidian (7:5)", () => {
   const r = parseSoS(SOS_TEXT);
