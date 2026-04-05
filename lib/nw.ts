@@ -16,9 +16,9 @@ export const RACE_NW: Record<string, { offSpecs: number; defSpecs: number; elite
 };
 
 export interface NwInputs {
-  networth: number;
-  land: number;
-  race: string;
+  networth: number | null;
+  land: number | null;
+  race: string | null;
   soldiers: number | null;
   off_specs: number | null;
   def_specs: number | null;
@@ -34,6 +34,7 @@ export interface NwInputs {
 }
 
 export function computeWizardCount(p: NwInputs): number | null {
+  if (!p.networth || !p.land || !p.race) return null;
   const raceNw = RACE_NW[p.race];
   if (!raceNw) return null;
   if (p.thieves == null || p.buildings_built == null || p.science_total_books == null) return null;
