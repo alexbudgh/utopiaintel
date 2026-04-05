@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { detectIntelType } from "../lib/parsers/detect.ts";
 import { parseSoT } from "../lib/parsers/sot.ts";
 import { parseSurvey } from "../lib/parsers/survey.ts";
 import { parseSoS } from "../lib/parsers/sos.ts";
@@ -188,6 +189,45 @@ Slot\tProvince\tRace\tLand\tNet Worth\tNet Worth/Acre\tNobility
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+const THRONE_TEXT = `The Province of TestProv (2:6)
+February 24 of YR8 (next tick: 40 minutes)
+Race\tUndead\tSoldiers\t0
+Ruler\tLord Plague Bearer the Hero\tSkeletons\t2,085
+Land\t2,469\tZombies\t16,510
+Peasants\t15,858\tGhouls\t19,651
+Building Eff.\t113%\tThieves\t7,728 (100%)
+Money\t278,911\tWizards\t6,606 (100%)
+Food\t21,199\tWar Horses\t398
+Runes\t36,020\tPrisoners\t0
+Trade Balance\t494,370\tOff. Points\t366,485
+Networth\t517,597 gold coins\tDef. Points\t294,463`;
+
+test("detectIntelType — /throne detected as sot", () => {
+  assert.equal(detectIntelType("https://utopia-game.com/wol/game/throne"), "sot");
+  // spy_on_throne must not be affected
+  assert.equal(detectIntelType("https://utopia-game.com/wol/game/thievery?o=SPY_ON_THRONE"), "sot");
+});
+
+test("parseSoT — throne page (self-intel)", () => {
+  const r = parseSoT(THRONE_TEXT);
+  assert.ok(r, "should parse successfully");
+  assert.equal(r.name, "TestProv");
+  assert.equal(r.kingdom, "2:6");
+  assert.equal(r.race, "Undead");
+  assert.equal(r.land, 2469);
+  assert.equal(r.networth, 517597);
+  assert.equal(r.soldiers, 0);
+  assert.equal(r.offSpecs, 2085);   // Skeletons
+  assert.equal(r.defSpecs, 16510);  // Zombies
+  assert.equal(r.elites, 19651);    // Ghouls
+  assert.equal(r.thieves, 7728);
+  assert.equal(r.wizards, 6606);
+  assert.equal(r.offPoints, 366485);
+  assert.equal(r.defPoints, 294463);
+  assert.equal(r.money, 278911);
+  assert.equal(r.accuracy, 100);
+});
 
 test("parseSoT — Obsidian (7:5)", () => {
   const r = parseSoT(SOT_TEXT);
