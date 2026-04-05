@@ -3,7 +3,8 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { cookies, headers } from "next/headers";
 import { createHash } from "crypto";
-import { getKingdoms } from "@/lib/db";
+import { redirect } from "next/navigation";
+import { getBoundKingdom, getKingdoms } from "@/lib/db";
 import { freshnessColor, timeAgo } from "@/lib/ui";
 import { logout } from "@/app/logout/action";
 
@@ -14,6 +15,10 @@ export default async function Home() {
   const baseUrl = `${proto}://${host}`;
   const key = (await cookies()).get("auth")?.value ?? "";
   const keyHash = createHash("sha256").update(key).digest("hex");
+  const boundKingdom = getBoundKingdom(keyHash);
+  if (boundKingdom) {
+    redirect(`/kingdom/${encodeURIComponent(boundKingdom)}`);
+  }
   const kingdoms = getKingdoms(keyHash);
 
   return (

@@ -3,6 +3,7 @@ import { createHash } from "crypto";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { parseIntel } from "@/lib/parsers";
+import { getIntelPathname } from "@/lib/parsers/detect";
 import {
   storeSoT,
   storeSurvey,
@@ -89,6 +90,8 @@ export async function POST(request: NextRequest) {
 
   const savedBy = fields.prov;
   const keyHash = createHash("sha256").update(fields.key).digest("hex");
+  const pathname = getIntelPathname(fields.url);
+  const isSelfThrone = pathname === "/wol/game/throne";
 
   const province = "name" in result.data ? result.data.name : "—";
   const kingdom  = "kingdom" in result.data ? result.data.kingdom : "—";
@@ -96,7 +99,7 @@ export async function POST(request: NextRequest) {
 
   switch (result.type) {
     case "sot":
-      storeSoT(result.data, savedBy, keyHash);
+      storeSoT(result.data, savedBy, keyHash, isSelfThrone);
       break;
     case "survey":
       storeSurvey(result.data, savedBy, keyHash);

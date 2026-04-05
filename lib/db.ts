@@ -218,6 +218,13 @@ function initSchema(db: Database.Database) {
       PRIMARY KEY (key_hash, province_id)
     );
 
+    CREATE TABLE IF NOT EXISTS key_kingdom_bindings (
+      key_hash TEXT PRIMARY KEY,
+      kingdom TEXT NOT NULL,
+      source TEXT NOT NULL,
+      bound_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     -- Kingdom-level intel
     CREATE TABLE IF NOT EXISTS kingdom_intel (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -266,11 +273,31 @@ function recordSubmission(db: Database.Database, keyHash: string, provinceId: nu
   db.prepare("INSERT OR IGNORE INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(keyHash, provinceId);
 }
 
-export function storeSoT(data: SoTData, savedBy: string, keyHash: string) {
+function bindKeyToKingdom(db: Database.Database, keyHash: string, kingdom: string, source: string) {
+  const existing = db.prepare(
+    "SELECT kingdom FROM key_kingdom_bindings WHERE key_hash = ?"
+  ).get(keyHash) as { kingdom: string } | undefined;
+
+  if (existing && existing.kingdom !== kingdom) {
+    console.warn(`[intel] key binding mismatch for ${keyHash.slice(0, 8)}: existing=${existing.kingdom} incoming=${kingdom} source=${source}`);
+    return;
+  }
+
+  db.prepare(`
+    INSERT INTO key_kingdom_bindings (key_hash, kingdom, source)
+    VALUES (?, ?, ?)
+    ON CONFLICT(key_hash) DO NOTHING
+  `).run(keyHash, kingdom, source);
+}
+
+export function storeSoT(data: SoTData, savedBy: string, keyHash: string, isSelfThrone = false) {
   const db = getDb();
   db.transaction(() => {
     const provId = ensureProvince(db, data.name, data.kingdom);
     recordSubmission(db, keyHash, provId);
+    if (isSelfThrone && data.kingdom) {
+      bindKeyToKingdom(db, keyHash, data.kingdom, "throne");
+    }
 
     // 1. Overview
     db.prepare(`
@@ -465,6 +492,14 @@ export interface KingdomRow {
   location: string;
   province_count: number;
   last_seen: string | null;
+}
+
+export function getBoundKingdom(keyHash: string): string | null {
+  const db = getDb();
+  const row = db.prepare(
+    "SELECT kingdom FROM key_kingdom_bindings WHERE key_hash = ?"
+  ).get(keyHash) as { kingdom: string } | undefined;
+  return row?.kingdom ?? null;
 }
 
 export function getKingdoms(keyHash: string): KingdomRow[] {

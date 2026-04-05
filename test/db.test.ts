@@ -288,6 +288,12 @@ function makePartitionedDb() {
       province_id INTEGER NOT NULL REFERENCES provinces(id),
       PRIMARY KEY (key_hash, province_id)
     );
+    CREATE TABLE key_kingdom_bindings (
+      key_hash TEXT PRIMARY KEY,
+      kingdom TEXT NOT NULL,
+      source TEXT NOT NULL,
+      bound_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
   return db;
 }
@@ -324,6 +330,27 @@ function queryKingdomProvinces(db: ReturnType<typeof makePartitionedDb>, kingdom
 // getProvinceDetail auth check (mirrors lib/db.ts:615-619)
 function checkProvinceAuth(db: ReturnType<typeof makePartitionedDb>, provinceId: number, keyHash: string): boolean {
   return !!db.prepare("SELECT 1 FROM intel_partitions WHERE key_hash = ? AND province_id = ?").get(keyHash, provinceId);
+}
+
+function bindKeyToKingdom(db: ReturnType<typeof makePartitionedDb>, keyHash: string, kingdom: string, source: string) {
+  const existing = db.prepare(
+    "SELECT kingdom FROM key_kingdom_bindings WHERE key_hash = ?"
+  ).get(keyHash) as { kingdom: string } | undefined;
+
+  if (existing && existing.kingdom !== kingdom) return;
+
+  db.prepare(`
+    INSERT INTO key_kingdom_bindings (key_hash, kingdom, source)
+    VALUES (?, ?, ?)
+    ON CONFLICT(key_hash) DO NOTHING
+  `).run(keyHash, kingdom, source);
+}
+
+function queryBoundKingdom(db: ReturnType<typeof makePartitionedDb>, keyHash: string): string | null {
+  const row = db.prepare(
+    "SELECT kingdom FROM key_kingdom_bindings WHERE key_hash = ?"
+  ).get(keyHash) as { kingdom: string } | undefined;
+  return row?.kingdom ?? null;
 }
 
 // --- getKingdoms ---
@@ -407,5 +434,24 @@ test("multi-tenancy: duplicate partition inserts are ignored (INSERT OR IGNORE)"
 
   const { count } = db.prepare("SELECT COUNT(*) AS count FROM intel_partitions WHERE key_hash = ? AND province_id = ?").get(KEY_A, id) as { count: number };
   assert.equal(count, 1);
+  db.close();
+});
+
+test("kingdom binding: first throne binding is stored for the key", () => {
+  const db = makePartitionedDb();
+
+  bindKeyToKingdom(db, KEY_A, "7:5", "throne");
+
+  assert.equal(queryBoundKingdom(db, KEY_A), "7:5");
+  db.close();
+});
+
+test("kingdom binding: mismatched later kingdom is ignored", () => {
+  const db = makePartitionedDb();
+
+  bindKeyToKingdom(db, KEY_A, "7:5", "throne");
+  bindKeyToKingdom(db, KEY_A, "8:3", "throne");
+
+  assert.equal(queryBoundKingdom(db, KEY_A), "7:5");
   db.close();
 });

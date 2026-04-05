@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { detectIntelType } from "../lib/parsers/detect.ts";
+import { detectIntelType, getIntelPathname } from "../lib/parsers/detect.ts";
 import { parseSoT } from "../lib/parsers/sot.ts";
 import { parseSurvey } from "../lib/parsers/survey.ts";
 import { parseSoS } from "../lib/parsers/sos.ts";
@@ -206,7 +206,15 @@ Networth\t517,597 gold coins\tDef. Points\t294,463`;
 test("detectIntelType — /throne detected as sot", () => {
   assert.equal(detectIntelType("https://utopia-game.com/wol/game/throne"), "sot");
   // spy_on_throne must not be affected
-  assert.equal(detectIntelType("https://utopia-game.com/wol/game/thievery?o=SPY_ON_THRONE"), "sot");
+  assert.equal(detectIntelType("https://utopia-game.com/wol/game/spy_on_throne"), "sot");
+});
+
+test("getIntelPathname — extracts lowercased pathname", () => {
+  assert.equal(getIntelPathname("https://utopia-game.com/WOL/GAME/THRONE?foo=1"), "/wol/game/throne");
+});
+
+test("getIntelPathname — invalid URL returns null", () => {
+  assert.equal(getIntelPathname("not-a-url"), null);
 });
 
 test("parseSoT — throne page (self-intel)", () => {
