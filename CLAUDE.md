@@ -57,6 +57,15 @@ Writes to `intel_debug.jsonl`.
 
 Do not store real province names, kingdom names, or player names in source code, comments, commit messages, or test fixtures. Use generic placeholders (e.g. "TestProvince", "7:5") instead. Real game data lives only in `intel.db` and `intel_debug.jsonl`, which are gitignored.
 
+## Implementation notes
+
+- A self `/wol/game/throne` submission is the authoritative source for binding `key_hash -> kingdom`.
+- The bound-kingdom redirect should happen from login only. Keep `/` browsable so users can still navigate to other kingdoms.
+- Utopia kingdom pages can arrive as `/wol/game/kingdom_details/<x>/<y>`, not just bare `/wol/game/kingdom_details`.
+- The gains page lives at `/kingdom/[loc]/gains`.
+- Gains calculations use the latest accessible `kingdom_details` snapshots for both self and target kingdom average NW.
+- When debugging live ingest or missing intel, the production source of truth is the live server DB and PM2 logs on `utopiaintel`, not the local workspace DB copy.
+
 ## Build & deploy
 
 ```bash
