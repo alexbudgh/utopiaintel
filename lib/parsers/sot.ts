@@ -17,6 +17,7 @@ const HONOR_PREFIX_RE = new RegExp(`^(${HONOR_TITLE_GROUP})\\b`, "i");
 const PREFIX_PERSONALITY_MAP: Record<string, string> = {
   Conniving: "Tactician",
   Brave: "Warrior",
+  Great: "General",
 };
 const SUFFIX_PERSONALITY_MAP: Record<string, string> = {
   Hero: "War Hero",

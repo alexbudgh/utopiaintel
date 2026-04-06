@@ -273,6 +273,7 @@ for (const { ruler, personality, honorTitle } of [
   { ruler: "Lord Plague Bearer the Hero", personality: "War Hero", honorTitle: "Lord" },
   { ruler: "The Conniving Knight etienne", personality: "Tactician", honorTitle: "Knight" },
   { ruler: "The Brave Knight etienne", personality: "Warrior", honorTitle: "Knight" },
+  { ruler: "The Great Knight etienne", personality: "General", honorTitle: "Knight" },
   { ruler: "Lord Nightblade the Rogue", personality: "Rogue", honorTitle: "Lord" },
   { ruler: "Lady Spellweaver the Sorcerer", personality: "Mystic", honorTitle: "Lady" },
   { ruler: "Lady Spellweaver the Sorceress", personality: "Mystic", honorTitle: "Lady" },
