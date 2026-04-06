@@ -3,7 +3,21 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-export function Tooltip({ content, children }: { content: string; children: React.ReactNode }) {
+export interface TooltipLine {
+  text: string;
+  tone?: "default" | "muted" | "strong" | "good" | "warn" | "bad";
+}
+
+function lineClass(tone: TooltipLine["tone"], isFirst: boolean): string {
+  if (tone === "bad") return "text-red-300 font-medium";
+  if (tone === "warn") return "text-amber-300 font-medium";
+  if (tone === "good") return "text-green-300 font-medium";
+  if (tone === "strong") return "text-gray-100 font-medium";
+  if (tone === "muted") return "text-gray-500";
+  return isFirst ? "text-gray-100 font-medium" : "text-gray-400";
+}
+
+export function Tooltip({ content, children }: { content: string | TooltipLine[]; children: React.ReactNode }) {
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
   const tipRef = useRef<HTMLDivElement>(null);
 
@@ -17,7 +31,9 @@ export function Tooltip({ content, children }: { content: string; children: Reac
   }, [anchor]);
 
   if (!content) return <>{children}</>;
-  const lines = content.split("\n");
+  const lines: TooltipLine[] = typeof content === "string"
+    ? content.split("\n").map((text) => ({ text }))
+    : content;
 
   return (
     <span
@@ -33,8 +49,8 @@ export function Tooltip({ content, children }: { content: string; children: Reac
           style={{ left: anchor.left + anchor.width / 2, top: anchor.top - 8, transform: "translate(-50%, -100%)" }}
         >
           {lines.map((line, i) => (
-            <span key={i} className={i === 0 ? "text-gray-100 font-medium" : "text-gray-400"}>
-              {line}
+            <span key={i} className={lineClass(line.tone, i === 0)}>
+              {line.text}
             </span>
           ))}
         </div>,

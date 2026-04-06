@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { createHash } from "crypto";
-import { Tooltip } from "@/app/components/Tooltip";
+import { Tooltip, type TooltipLine } from "@/app/components/Tooltip";
 import {
   getBoundKingdom,
   getKingdomProvinces,
@@ -30,6 +30,12 @@ function zeroAcresReason(estimate: NonNullable<ReturnType<typeof estimateTraditi
   return null;
 }
 
+function factorTone(factor: number): TooltipLine["tone"] {
+  if (factor === 0) return "bad";
+  if (factor < 1) return "warn";
+  return "good";
+}
+
 function estimateTitle(
   attacker: ProvinceRow,
   defender: KingdomSnapshotProvince,
@@ -46,35 +52,38 @@ function estimateTitle(
     targetKingdomAvgNetworth: targetAvgNetworth,
   });
   if (!estimate) {
-    return "Missing land, NW, or kingdom snapshot data";
+    return [{ text: "Missing land, NW, or kingdom snapshot data", tone: "bad" }] satisfies TooltipLine[];
   }
 
   const breakability = estimateBreakability(attacker, defenderLatest);
   const zeroReason = zeroAcresReason(estimate);
   return [
-    `${attacker.name} -> ${defender.name}`,
-    ...(zeroReason ? [zeroReason] : []),
-    `raw acres: ${estimate.rawAcres.toFixed(2)}`,
-    `displayed acres: ${estimate.roundedAcres}`,
-    `attacker NW: ${attacker.networth?.toLocaleString() ?? "—"}`,
-    `defender NW: ${defender.networth.toLocaleString()}`,
-    `defender land: ${defender.land.toLocaleString()}`,
-    `rpnw: ${estimate.rpnw.toFixed(3)} -> ${estimate.rpnwFactor.toFixed(3)}`,
-    `self avg NW: ${Math.round(selfAvgNetworth).toLocaleString()}`,
-    `target avg NW: ${Math.round(targetAvgNetworth).toLocaleString()}`,
-    `rknw: ${estimate.rknw.toFixed(3)} -> ${estimate.rknwFactor.toFixed(3)}`,
-    `cap: ${estimate.cap.toFixed(2)}${estimate.capApplied ? " (applied)" : ""}`,
-    `breakability: ${
-      breakability.status === "breakable"
-        ? "breakable"
-        : breakability.status === "not_breakable"
-          ? "not breakable"
-          : "unknown"
-    }`,
-    `offense source: ${breakability.offenseSource ?? "missing"}`,
-    `defense source: ${breakability.defenseSource ?? "missing"}`,
-    "Assumes neutral MAP, race/personality gains mods, castles, relations, stance, siege, dragons, attack-time, ritual, anonymity, and mist.",
-  ].join("\n");
+    { text: `${attacker.name} -> ${defender.name}`, tone: "strong" },
+    ...(zeroReason ? [{ text: zeroReason, tone: estimate.rpnwFactor === 0 ? "bad" : "warn" } satisfies TooltipLine] : []),
+    { text: `raw acres: ${estimate.rawAcres.toFixed(2)}`, tone: estimate.rawAcres === 0 ? "bad" : estimate.capApplied ? "warn" : "good" },
+    { text: `displayed acres: ${estimate.roundedAcres}`, tone: estimate.roundedAcres === 0 ? "warn" : "strong" },
+    { text: `attacker NW: ${attacker.networth?.toLocaleString() ?? "—"}` },
+    { text: `defender NW: ${defender.networth.toLocaleString()}` },
+    { text: `defender land: ${defender.land.toLocaleString()}` },
+    { text: `rpnw: ${estimate.rpnw.toFixed(3)} -> ${estimate.rpnwFactor.toFixed(3)}`, tone: factorTone(estimate.rpnwFactor) },
+    { text: `self avg NW: ${Math.round(selfAvgNetworth).toLocaleString()}` },
+    { text: `target avg NW: ${Math.round(targetAvgNetworth).toLocaleString()}` },
+    { text: `rknw: ${estimate.rknw.toFixed(3)} -> ${estimate.rknwFactor.toFixed(3)}`, tone: factorTone(estimate.rknwFactor) },
+    { text: `cap: ${estimate.cap.toFixed(2)}${estimate.capApplied ? " (applied)" : ""}`, tone: estimate.capApplied ? "warn" : "muted" },
+    {
+      text: `breakability: ${
+        breakability.status === "breakable"
+          ? "breakable"
+          : breakability.status === "not_breakable"
+            ? "not breakable"
+            : "unknown"
+      }`,
+      tone: breakability.status === "breakable" ? "good" : breakability.status === "not_breakable" ? "bad" : "muted",
+    },
+    { text: `offense source: ${breakability.offenseSource ?? "missing"}`, tone: breakability.offenseSource ? "muted" : "warn" },
+    { text: `defense source: ${breakability.defenseSource ?? "missing"}`, tone: breakability.defenseSource ? "muted" : "warn" },
+    { text: "Assumes neutral MAP, race/personality gains mods, castles, relations, stance, siege, dragons, attack-time, ritual, anonymity, and mist.", tone: "muted" },
+  ] satisfies TooltipLine[];
 }
 
 function breakMarker(attacker: ProvinceRow, defenderLatest: ProvinceRow | null) {
@@ -86,6 +95,46 @@ function breakMarker(attacker: ProvinceRow, defenderLatest: ProvinceRow | null) 
     return <span className="text-[10px] uppercase tracking-wide text-red-400">X</span>;
   }
   return <span className="text-[10px] uppercase tracking-wide text-gray-500">?</span>;
+}
+
+function cellTone(
+  estimate: NonNullable<ReturnType<typeof estimateTraditionalMarchAcres>> | null,
+  breakability: ReturnType<typeof estimateBreakability>,
+): { cell: string; value: string } {
+  if (!estimate) {
+    return {
+      cell: "bg-gray-950/40",
+      value: "text-gray-500",
+    };
+  }
+  if (estimate.rpnwFactor === 0 || estimate.rawAcres === 0) {
+    return {
+      cell: "bg-red-950/35",
+      value: "text-red-300",
+    };
+  }
+  if (estimate.roundedAcres === 0 || estimate.capApplied || estimate.rpnwFactor < 1 || estimate.rknwFactor < 1) {
+    return {
+      cell: "bg-amber-950/30",
+      value: "text-amber-200",
+    };
+  }
+  if (breakability.status === "breakable") {
+    return {
+      cell: "bg-green-950/25",
+      value: "text-green-200",
+    };
+  }
+  if (breakability.status === "not_breakable") {
+    return {
+      cell: "bg-gray-900/70",
+      value: "text-gray-200",
+    };
+  }
+  return {
+    cell: "bg-sky-950/20",
+    value: "text-sky-200",
+  };
 }
 
 function emptyState(message: string) {
@@ -281,14 +330,16 @@ export default async function GainsPage({
                     targetKingdomAvgNetworth: targetAvgNetworth,
                   });
                   const defenderLatest = targetLatestByName.get(defender.name) ?? null;
+                  const breakability = estimateBreakability(attacker, defenderLatest);
+                  const tone = cellTone(estimate, breakability);
 
                   return (
                     <td
                       key={`${attacker.id}:${defender.name}`}
-                      className="border-b border-r border-gray-800 px-3 py-2 text-right tabular-nums"
+                      className={`border-b border-r border-gray-800 px-3 py-2 text-right tabular-nums transition-colors ${tone.cell}`}
                     >
                       <Tooltip content={estimateTitle(attacker, defender, selfAvgNetworth, targetAvgNetworth, defenderLatest)}>
-                        <div className={estimate ? "text-gray-100" : "text-gray-500"}>
+                        <div className={tone.value}>
                           {estimate ? estimate.roundedAcres.toLocaleString() : "—"}
                         </div>
                         <div className="mt-1">
