@@ -30,6 +30,71 @@ function factorTone(factor: number): TooltipLine["tone"] {
   return "good";
 }
 
+function fmt(value: number, digits = 2): string {
+  return value.toLocaleString(undefined, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+}
+
+function rpnwBreakdown(rpnw: number): { branch: string; calc: string; tone: TooltipLine["tone"] } {
+  if (rpnw <= 0.567) {
+    return {
+      branch: `RPNW branch: x <= 0.567 (since ${rpnw.toFixed(3)} <= 0.567)`,
+      calc: `RPNW factor: 0`,
+      tone: "bad",
+    };
+  }
+  if (rpnw < 0.9) {
+    return {
+      branch: `RPNW branch: 0.567 < x < 0.9 (since 0.567 < ${rpnw.toFixed(3)} < 0.9)`,
+      calc: `RPNW factor: 3 * ${rpnw.toFixed(3)} - 1.7 = ${(3 * rpnw - 1.7).toFixed(3)}`,
+      tone: "warn",
+    };
+  }
+  if (rpnw <= 1.1) {
+    return {
+      branch: `RPNW branch: 0.9 <= x <= 1.1 (since 0.9 <= ${rpnw.toFixed(3)} <= 1.1)`,
+      calc: "RPNW factor: 1",
+      tone: "good",
+    };
+  }
+  if (rpnw < 1.6) {
+    return {
+      branch: `RPNW branch: 1.1 < x < 1.6 (since 1.1 < ${rpnw.toFixed(3)} < 1.6)`,
+      calc: `RPNW factor: -2 * ${rpnw.toFixed(3)} + 3.2 = ${(-2 * rpnw + 3.2).toFixed(3)}`,
+      tone: "warn",
+    };
+  }
+  return {
+    branch: `RPNW branch: x >= 1.6 (since ${rpnw.toFixed(3)} >= 1.6)`,
+    calc: "RPNW factor: 0",
+    tone: "bad",
+  };
+}
+
+function rknwBreakdown(rknw: number): { branch: string; calc: string; tone: TooltipLine["tone"] } {
+  if (rknw <= 0.5) {
+    return {
+      branch: `RKNW branch: x <= 0.5 (since ${rknw.toFixed(3)} <= 0.5)`,
+      calc: "RKNW factor: 0.8",
+      tone: "warn",
+    };
+  }
+  if (rknw < 0.9) {
+    return {
+      branch: `RKNW branch: 0.5 < x < 0.9 (since 0.5 < ${rknw.toFixed(3)} < 0.9)`,
+      calc: `RKNW factor: ${rknw.toFixed(3)} / 2 + 0.55 = ${(rknw / 2 + 0.55).toFixed(3)}`,
+      tone: "warn",
+    };
+  }
+  return {
+    branch: `RKNW branch: x >= 0.9 (since ${rknw.toFixed(3)} >= 0.9)`,
+    calc: "RKNW factor: 1",
+    tone: "good",
+  };
+}
+
 function estimateTitle(
   attacker: ProvinceRow,
   defender: KingdomSnapshotProvince,
@@ -51,18 +116,42 @@ function estimateTitle(
 
   const breakability = estimateBreakability(attacker, defenderLatest);
   const zeroReason = zeroAcresReason(estimate);
+  const baseAcres = defender.land * 0.12 * estimate.rpnwFactor * estimate.rknwFactor;
+  const rpnwInfo = rpnwBreakdown(estimate.rpnw);
+  const rknwInfo = rknwBreakdown(estimate.rknw);
   return [
     { text: `${attacker.name} -> ${defender.name}`, tone: "strong" },
     ...(zeroReason ? [{ text: zeroReason, tone: estimate.rpnwFactor === 0 ? "bad" : "warn" } satisfies TooltipLine] : []),
-    { text: `raw acres: ${estimate.rawAcres.toFixed(2)}`, tone: estimate.rawAcres === 0 ? "bad" : estimate.capApplied ? "warn" : "good" },
+    {
+      text: `RPNW = ${fmt(defender.networth)} / ${fmt(attacker.networth ?? 0)} = ${estimate.rpnw.toFixed(3)} -> ${estimate.rpnwFactor.toFixed(3)}`,
+      tone: factorTone(estimate.rpnwFactor),
+    },
+    { text: rpnwInfo.branch, tone: rpnwInfo.tone },
+    { text: rpnwInfo.calc, tone: rpnwInfo.tone },
+    {
+      text: `RKNW = ${fmt(targetAvgNetworth)} / ${fmt(selfAvgNetworth)} = ${estimate.rknw.toFixed(3)} -> ${estimate.rknwFactor.toFixed(3)}`,
+      tone: factorTone(estimate.rknwFactor),
+    },
+    { text: rknwInfo.branch, tone: rknwInfo.tone },
+    { text: rknwInfo.calc, tone: rknwInfo.tone },
+    {
+      text: `base acres = ${fmt(defender.land)} * 0.12 * ${estimate.rpnwFactor.toFixed(3)} * ${estimate.rknwFactor.toFixed(3)} = ${fmt(baseAcres)}`,
+      tone: baseAcres === 0 ? "bad" : estimate.capApplied ? "warn" : "good",
+    },
+    {
+      text: `cap = min(${fmt(attacker.land ?? 0)}, ${fmt(defender.land)}) * 0.20 = ${fmt(estimate.cap)}`,
+      tone: estimate.capApplied ? "warn" : "muted",
+    },
+    {
+      text: `raw acres = min(${fmt(baseAcres)}, ${fmt(estimate.cap)}) = ${fmt(estimate.rawAcres)}`,
+      tone: estimate.rawAcres === 0 ? "bad" : estimate.capApplied ? "warn" : "good",
+    },
     { text: `displayed acres: ${estimate.roundedAcres}`, tone: estimate.roundedAcres === 0 ? "warn" : "strong" },
     { text: `attacker NW: ${attacker.networth?.toLocaleString() ?? "—"}` },
     { text: `defender NW: ${defender.networth.toLocaleString()}` },
     { text: `defender land: ${defender.land.toLocaleString()}` },
-    { text: `rpnw: ${estimate.rpnw.toFixed(3)} -> ${estimate.rpnwFactor.toFixed(3)}`, tone: factorTone(estimate.rpnwFactor) },
     { text: `self avg NW: ${Math.round(selfAvgNetworth).toLocaleString()}` },
     { text: `target avg NW: ${Math.round(targetAvgNetworth).toLocaleString()}` },
-    { text: `rknw: ${estimate.rknw.toFixed(3)} -> ${estimate.rknwFactor.toFixed(3)}`, tone: factorTone(estimate.rknwFactor) },
     { text: `cap: ${estimate.cap.toFixed(2)}${estimate.capApplied ? " (applied)" : ""}`, tone: estimate.capApplied ? "warn" : "muted" },
     {
       text: `breakability: ${
