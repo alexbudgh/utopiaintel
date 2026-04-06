@@ -97,9 +97,8 @@ function breakMarker(attacker: ProvinceRow, defenderLatest: ProvinceRow | null) 
   return <span className="text-[10px] uppercase tracking-wide text-gray-500">?</span>;
 }
 
-function cellTone(
+function gainsTone(
   estimate: NonNullable<ReturnType<typeof estimateTraditionalMarchAcres>> | null,
-  breakability: ReturnType<typeof estimateBreakability>,
 ): { cell: string; value: string } {
   if (!estimate) {
     return {
@@ -107,34 +106,50 @@ function cellTone(
       value: "text-gray-500",
     };
   }
-  if (estimate.rpnwFactor === 0 || estimate.rawAcres === 0) {
+  if (estimate.roundedAcres === 0) {
     return {
-      cell: "bg-red-950/35",
-      value: "text-red-300",
+      cell: "bg-gray-950/60",
+      value: "text-gray-300",
     };
   }
-  if (estimate.roundedAcres === 0 || estimate.capApplied || estimate.rpnwFactor < 1 || estimate.rknwFactor < 1) {
+  if (estimate.roundedAcres < 50) {
     return {
-      cell: "bg-amber-950/30",
+      cell: "bg-amber-950/20",
       value: "text-amber-200",
     };
   }
-  if (breakability.status === "breakable") {
+  if (estimate.roundedAcres < 100) {
     return {
-      cell: "bg-green-950/25",
-      value: "text-green-200",
-    };
-  }
-  if (breakability.status === "not_breakable") {
-    return {
-      cell: "bg-gray-900/70",
-      value: "text-gray-200",
+      cell: "bg-lime-950/25",
+      value: "text-lime-200",
     };
   }
   return {
-    cell: "bg-sky-950/20",
-    value: "text-sky-200",
+    cell: "bg-green-950/30",
+    value: "text-green-200",
   };
+}
+
+function stateBadges(
+  estimate: NonNullable<ReturnType<typeof estimateTraditionalMarchAcres>> | null,
+  breakability: ReturnType<typeof estimateBreakability>,
+) {
+  const badges: React.ReactNode[] = [];
+  if (!estimate) return badges;
+  if (estimate.rpnwFactor === 0) {
+    badges.push(<span key="nw0" className="text-[9px] font-medium uppercase tracking-wide text-red-400">NW0</span>);
+  } else if (estimate.rpnwFactor < 1 || estimate.rknwFactor < 1) {
+    badges.push(<span key="reduced" className="text-[9px] font-medium uppercase tracking-wide text-amber-400">REDUCED</span>);
+  }
+  if (estimate.capApplied) {
+    badges.push(<span key="cap" className="text-[9px] font-medium uppercase tracking-wide text-amber-300">CAP</span>);
+  }
+  if (breakability.status === "not_breakable") {
+    badges.push(<span key="x" className="text-[9px] font-medium uppercase tracking-wide text-red-400">X</span>);
+  } else if (breakability.status === "unknown") {
+    badges.push(<span key="q" className="text-[9px] font-medium uppercase tracking-wide text-sky-300">?</span>);
+  }
+  return badges;
 }
 
 function emptyState(message: string) {
@@ -336,7 +351,8 @@ export default async function GainsPage({
                   });
                   const defenderLatest = targetLatestByName.get(defender.name) ?? null;
                   const breakability = estimateBreakability(attacker, defenderLatest);
-                  const tone = cellTone(estimate, breakability);
+                  const tone = gainsTone(estimate);
+                  const badges = stateBadges(estimate, breakability);
 
                   return (
                     <td
@@ -347,8 +363,9 @@ export default async function GainsPage({
                         <div className={tone.value}>
                           {estimate ? estimate.roundedAcres.toLocaleString() : "—"}
                         </div>
-                        <div className="mt-1">
-                          {breakMarker(attacker, defenderLatest)}
+                        <div className="mt-1 flex items-center justify-end gap-1">
+                          {badges}
+                          {!badges.length && breakMarker(attacker, defenderLatest)}
                         </div>
                       </Tooltip>
                     </td>
