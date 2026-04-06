@@ -123,14 +123,14 @@ function estimateTitle(
     { text: `${attacker.name} -> ${defender.name}`, tone: "strong" },
     ...(zeroReason ? [{ text: zeroReason, tone: estimate.rpnwFactor === 0 ? "bad" : "warn" } satisfies TooltipLine] : []),
     {
-      text: `RPNW = ${fmt(defender.networth)} / ${fmt(attacker.networth ?? 0)} = ${estimate.rpnw.toFixed(3)} -> ${estimate.rpnwFactor.toFixed(3)}`,
-      tone: factorTone(estimate.rpnwFactor),
+      text: `RPNW = ${fmt(defender.networth)} / ${fmt(attacker.networth ?? 0)} = ${estimate.rpnw.toFixed(3)}`,
+      tone: "strong",
     },
     { text: rpnwInfo.branch, tone: rpnwInfo.tone },
     { text: rpnwInfo.calc, tone: rpnwInfo.tone },
     {
-      text: `RKNW = ${fmt(targetAvgNetworth)} / ${fmt(selfAvgNetworth)} = ${estimate.rknw.toFixed(3)} -> ${estimate.rknwFactor.toFixed(3)}`,
-      tone: factorTone(estimate.rknwFactor),
+      text: `RKNW = ${fmt(targetAvgNetworth)} / ${fmt(selfAvgNetworth)} = ${estimate.rknw.toFixed(3)}`,
+      tone: "strong",
     },
     { text: rknwInfo.branch, tone: rknwInfo.tone },
     { text: rknwInfo.calc, tone: rknwInfo.tone },
