@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { createHash } from "crypto";
+import { Tooltip } from "@/app/components/Tooltip";
 import {
   getBoundKingdom,
   getKingdomProvinces,
@@ -229,12 +230,13 @@ export default async function GainsPage({
                 <th
                   key={defender.name}
                   className="border-b border-r border-gray-800 bg-gray-950 px-3 py-2 text-right font-medium text-gray-300"
-                  title={`${defender.name}\nNW ${defender.networth.toLocaleString()}\nLand ${defender.land.toLocaleString()}`}
                 >
-                  <div>{defender.name}</div>
-                  <div className="mt-1 text-[10px] font-normal text-gray-500">
-                    {formatNum(defender.networth)} / {formatNum(defender.land)}a
-                  </div>
+                  <Tooltip content={`${defender.name}\nNW ${defender.networth.toLocaleString()}\nLand ${defender.land.toLocaleString()}`}>
+                    <div>{defender.name}</div>
+                    <div className="mt-1 text-[10px] font-normal text-gray-500">
+                      {formatNum(defender.networth)} / {formatNum(defender.land)}a
+                    </div>
+                  </Tooltip>
                 </th>
               ))}
             </tr>
@@ -244,17 +246,18 @@ export default async function GainsPage({
               <tr key={attacker.id} className="hover:bg-gray-900/40">
                 <th
                   className="sticky left-0 z-10 border-b border-r border-gray-800 bg-gray-950 px-3 py-2 text-left font-medium text-gray-200"
-                  title={`${attacker.name}\nNW ${attacker.networth?.toLocaleString() ?? "—"}\nLand ${attacker.land?.toLocaleString() ?? "—"}`}
                 >
-                  <Link
-                    href={`/kingdom/${encodeURIComponent(selfKingdom)}/${encodeURIComponent(attacker.name)}`}
-                    className="hover:text-blue-400"
-                  >
-                    {attacker.name}
-                  </Link>
-                  <div className="mt-1 text-[10px] font-normal text-gray-500">
-                    {formatNum(attacker.networth)} / {formatNum(attacker.land)}a
-                  </div>
+                  <Tooltip content={`${attacker.name}\nNW ${attacker.networth?.toLocaleString() ?? "—"}\nLand ${attacker.land?.toLocaleString() ?? "—"}`}>
+                    <Link
+                      href={`/kingdom/${encodeURIComponent(selfKingdom)}/${encodeURIComponent(attacker.name)}`}
+                      className="hover:text-blue-400"
+                    >
+                      {attacker.name}
+                    </Link>
+                    <div className="mt-1 text-[10px] font-normal text-gray-500">
+                      {formatNum(attacker.networth)} / {formatNum(attacker.land)}a
+                    </div>
+                  </Tooltip>
                 </th>
                 {targetSnapshot.provinces.map((defender) => {
                   const estimate = estimateTraditionalMarchAcres({
@@ -271,14 +274,15 @@ export default async function GainsPage({
                     <td
                       key={`${attacker.id}:${defender.name}`}
                       className="border-b border-r border-gray-800 px-3 py-2 text-right tabular-nums"
-                      title={estimateTitle(attacker, defender, selfAvgNetworth, targetAvgNetworth, defenderLatest)}
                     >
-                      <div className={estimate ? "text-gray-100" : "text-gray-500"}>
-                        {estimate ? estimate.roundedAcres.toLocaleString() : "—"}
-                      </div>
-                      <div className="mt-1">
-                        {breakMarker(attacker, defenderLatest)}
-                      </div>
+                      <Tooltip content={estimateTitle(attacker, defender, selfAvgNetworth, targetAvgNetworth, defenderLatest)}>
+                        <div className={estimate ? "text-gray-100" : "text-gray-500"}>
+                          {estimate ? estimate.roundedAcres.toLocaleString() : "—"}
+                        </div>
+                        <div className="mt-1">
+                          {breakMarker(attacker, defenderLatest)}
+                        </div>
+                      </Tooltip>
                     </td>
                   );
                 })}
