@@ -216,6 +216,11 @@ test("detectIntelType — /throne detected as sot", () => {
   assert.equal(detectIntelType("https://utopia-game.com/wol/game/spy_on_throne"), "sot");
 });
 
+test("detectIntelType — kingdom_details with coordinates detected as kingdom", () => {
+  assert.equal(detectIntelType("https://utopia-game.com/wol/game/kingdom_details/2/8"), "kingdom");
+  assert.equal(detectIntelType("https://utopia-game.com/wol/game/kingdom_details/1/11"), "kingdom");
+});
+
 test("getIntelPathname — extracts lowercased pathname", () => {
   assert.equal(getIntelPathname("https://utopia-game.com/WOL/GAME/THRONE?foo=1"), "/wol/game/throne");
 });
