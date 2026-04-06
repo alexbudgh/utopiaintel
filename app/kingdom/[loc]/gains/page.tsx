@@ -20,6 +20,16 @@ function averageNetworth(provinces: { networth: number }[]): number | null {
   return provinces.reduce((sum, p) => sum + p.networth, 0) / provinces.length;
 }
 
+function zeroAcresReason(estimate: NonNullable<ReturnType<typeof estimateTraditionalMarchAcres>>): string | null {
+  if (estimate.rawAcres === 0 && estimate.rpnwFactor === 0) {
+    return "0 acres: province NW range gives no gains";
+  }
+  if (estimate.roundedAcres === 0) {
+    return "0 acres shown: estimate rounds below 0.5 acres";
+  }
+  return null;
+}
+
 function estimateTitle(
   attacker: ProvinceRow,
   defender: KingdomSnapshotProvince,
@@ -40,8 +50,10 @@ function estimateTitle(
   }
 
   const breakability = estimateBreakability(attacker, defenderLatest);
+  const zeroReason = zeroAcresReason(estimate);
   return [
     `${attacker.name} -> ${defender.name}`,
+    ...(zeroReason ? [zeroReason] : []),
     `raw acres: ${estimate.rawAcres.toFixed(2)}`,
     `displayed acres: ${estimate.roundedAcres}`,
     `attacker NW: ${attacker.networth?.toLocaleString() ?? "—"}`,
