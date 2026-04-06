@@ -253,9 +253,14 @@ export default async function GainsPage({
         <Link href={`/kingdom/${encodeURIComponent(targetKingdom)}`} className="text-gray-400 hover:text-gray-200 text-sm">
           ← {targetKingdom}
         </Link>
-        <h1 className="text-xl font-bold text-gray-100 font-mono">
-          Gains: {selfKingdom} → {targetKingdom}
-        </h1>
+        <div>
+          <h1 className="text-xl font-bold text-gray-100 font-mono">
+            Gains: {selfKingdom} → {targetKingdom}
+          </h1>
+          <div className="text-sm text-gray-500">
+            {selfSnapshot.name} → {targetSnapshot.name}
+          </div>
+        </div>
         <div className="ml-auto">
           <GainsJump initialTarget={targetKingdom} />
         </div>
