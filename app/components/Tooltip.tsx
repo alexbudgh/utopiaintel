@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { type CSSProperties, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 export interface TooltipLine {
@@ -19,14 +19,40 @@ function lineClass(tone: TooltipLine["tone"], isFirst: boolean): string {
 
 export function Tooltip({ content, children }: { content: string | TooltipLine[]; children: React.ReactNode }) {
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
+  const [style, setStyle] = useState<CSSProperties | null>(null);
   const tipRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
     if (!tipRef.current || !anchor) return;
     const rect = tipRef.current.getBoundingClientRect();
-    const overshoot = rect.right - (window.innerWidth - 8);
-    if (overshoot > 0) {
-      tipRef.current.style.left = `${anchor.left + anchor.width / 2 - overshoot}px`;
+    const viewportPadding = 8;
+    const anchorCenter = anchor.left + anchor.width / 2;
+
+    let left = anchorCenter;
+    let top = anchor.top - viewportPadding;
+    let transform = "translate(-50%, -100%)";
+
+    const rightOvershoot = rect.right - (window.innerWidth - viewportPadding);
+    if (rightOvershoot > 0) {
+      left -= rightOvershoot;
+    }
+
+    const leftOvershoot = viewportPadding - rect.left;
+    if (leftOvershoot > 0) {
+      left += leftOvershoot;
+    }
+
+    if (rect.top < viewportPadding) {
+      top = anchor.bottom + viewportPadding;
+      transform = "translate(-50%, 0)";
+    }
+
+    setStyle({ left, top, transform });
+  }, [anchor]);
+
+  useLayoutEffect(() => {
+    if (!anchor) {
+      setStyle(null);
     }
   }, [anchor]);
 
@@ -46,7 +72,7 @@ export function Tooltip({ content, children }: { content: string | TooltipLine[]
         <div
           ref={tipRef}
           className="fixed z-50 pointer-events-none flex flex-col gap-0.5 w-max max-w-xs rounded bg-gray-900 border border-gray-700 px-2 py-1.5 text-xs shadow-lg"
-          style={{ left: anchor.left + anchor.width / 2, top: anchor.top - 8, transform: "translate(-50%, -100%)" }}
+          style={style ?? { left: anchor.left + anchor.width / 2, top: anchor.top - 8, transform: "translate(-50%, -100%)" }}
         >
           {lines.map((line, i) => (
             <span key={i} className={lineClass(line.tone, i === 0)}>
