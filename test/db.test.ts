@@ -294,6 +294,24 @@ function makePartitionedDb() {
       source TEXT NOT NULL,
       bound_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+    CREATE TABLE kingdom_intel (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      location TEXT NOT NULL,
+      war_target TEXT,
+      source TEXT NOT NULL DEFAULT 'kingdom',
+      saved_by TEXT,
+      received_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TABLE kingdom_provinces (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kingdom_intel_id INTEGER NOT NULL REFERENCES kingdom_intel(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      race TEXT NOT NULL,
+      land INTEGER NOT NULL,
+      networth INTEGER NOT NULL,
+      honor_title TEXT
+    );
   `);
   return db;
 }
@@ -351,6 +369,62 @@ function queryBoundKingdom(db: ReturnType<typeof makePartitionedDb>, keyHash: st
     "SELECT kingdom FROM key_kingdom_bindings WHERE key_hash = ?"
   ).get(keyHash) as { kingdom: string } | undefined;
   return row?.kingdom ?? null;
+}
+
+function addKingdomSnapshot(
+  db: ReturnType<typeof makePartitionedDb>,
+  location: string,
+  receivedAt: string,
+  provinces: { name: string; race: string; land: number; networth: number }[],
+) {
+  const result = db.prepare(
+    "INSERT INTO kingdom_intel (name, location, received_at) VALUES (?, ?, ?)"
+  ).run(`KD ${location}`, location, receivedAt);
+  const snapshotId = Number(result.lastInsertRowid);
+  const insertProvince = db.prepare(
+    "INSERT INTO kingdom_provinces (kingdom_intel_id, name, race, land, networth) VALUES (?, ?, ?, ?, ?)"
+  );
+
+  for (const province of provinces) {
+    insertProvince.run(snapshotId, province.name, province.race, province.land, province.networth);
+  }
+}
+
+function queryLatestKingdomSnapshot(
+  db: ReturnType<typeof makePartitionedDb>,
+  location: string,
+  keyHash: string,
+): string[] | null {
+  const snapshot = db.prepare(`
+    SELECT ki.id
+    FROM kingdom_intel ki
+    WHERE ki.location = ?
+      AND NOT EXISTS (
+        SELECT 1
+        FROM kingdom_provinces kp
+        WHERE kp.kingdom_intel_id = ki.id
+          AND NOT EXISTS (
+            SELECT 1
+            FROM provinces p
+            JOIN intel_partitions ip
+              ON ip.province_id = p.id
+             AND ip.key_hash = ?
+            WHERE p.name = kp.name
+              AND p.kingdom = ki.location
+          )
+      )
+    ORDER BY ki.received_at DESC
+    LIMIT 1
+  `).get(location, keyHash) as { id: number } | undefined;
+
+  if (!snapshot) return null;
+
+  return (db.prepare(`
+    SELECT name
+    FROM kingdom_provinces
+    WHERE kingdom_intel_id = ?
+    ORDER BY networth DESC, name ASC
+  `).all(snapshot.id) as { name: string }[]).map((row) => row.name);
 }
 
 // --- getKingdoms ---
@@ -453,5 +527,38 @@ test("kingdom binding: mismatched later kingdom is ignored", () => {
   bindKeyToKingdom(db, KEY_A, "8:3", "throne");
 
   assert.equal(queryBoundKingdom(db, KEY_A), "7:5");
+  db.close();
+});
+
+test("kingdom snapshot: latest accessible snapshot is returned", () => {
+  const db = makePartitionedDb();
+  addProvince(db, "Alpha", "7:5", KEY_A);
+  addProvince(db, "Beta", "7:5", KEY_A);
+
+  addKingdomSnapshot(db, "7:5", "2026-04-05 17:00:00", [
+    { name: "Alpha", race: "Orc", land: 1200, networth: 300000 },
+    { name: "Beta", race: "Elf", land: 1100, networth: 280000 },
+  ]);
+  addKingdomSnapshot(db, "7:5", "2026-04-05 18:00:00", [
+    { name: "Alpha", race: "Orc", land: 1250, networth: 320000 },
+    { name: "Beta", race: "Elf", land: 1150, networth: 290000 },
+  ]);
+
+  assert.deepEqual(queryLatestKingdomSnapshot(db, "7:5", KEY_A), ["Alpha", "Beta"]);
+  db.close();
+});
+
+test("kingdom snapshot: inaccessible snapshot is filtered out", () => {
+  const db = makePartitionedDb();
+  addProvince(db, "Alpha", "7:5", KEY_A);
+  addProvince(db, "Beta", "7:5", KEY_A);
+
+  addKingdomSnapshot(db, "7:5", "2026-04-05 18:00:00", [
+    { name: "Alpha", race: "Orc", land: 1250, networth: 320000 },
+    { name: "Beta", race: "Elf", land: 1150, networth: 290000 },
+    { name: "Gamma", race: "Human", land: 900, networth: 210000 },
+  ]);
+
+  assert.equal(queryLatestKingdomSnapshot(db, "7:5", KEY_A), null);
   db.close();
 });

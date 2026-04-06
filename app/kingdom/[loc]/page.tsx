@@ -26,6 +26,12 @@ export default async function KingdomPage({
         </Link>
         <h1 className="text-xl font-bold text-gray-100 font-mono">{kingdom}</h1>
         <span className="text-sm text-gray-500">{provinces.length} provinces</span>
+        <Link
+          href={`/kingdom/${encodeURIComponent(kingdom)}/gains`}
+          className="text-sm text-gray-400 hover:text-gray-200"
+        >
+          gains
+        </Link>
         <div className="ml-auto">
           <KingdomJump />
         </div>

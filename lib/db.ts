@@ -494,6 +494,23 @@ export interface KingdomRow {
   last_seen: string | null;
 }
 
+export interface KingdomSnapshotProvince {
+  name: string;
+  race: string;
+  land: number;
+  networth: number;
+  honorTitle: string | null;
+}
+
+export interface KingdomSnapshot {
+  id: number;
+  name: string;
+  location: string;
+  warTarget: string | null;
+  receivedAt: string;
+  provinces: KingdomSnapshotProvince[];
+}
+
 export function getBoundKingdom(keyHash: string): string | null {
   const db = getDb();
   const row = db.prepare(
@@ -518,6 +535,67 @@ export function getKingdoms(keyHash: string): KingdomRow[] {
     GROUP BY p.kingdom
     ORDER BY last_seen DESC
   `).all(keyHash) as KingdomRow[];
+}
+
+export function getLatestKingdomSnapshot(location: string, keyHash: string): KingdomSnapshot | null {
+  const db = getDb();
+  const snapshot = db.prepare(`
+    SELECT ki.id, ki.name, ki.location, ki.war_target, ki.received_at
+    FROM kingdom_intel ki
+    WHERE ki.location = ?
+      AND NOT EXISTS (
+        SELECT 1
+        FROM kingdom_provinces kp
+        WHERE kp.kingdom_intel_id = ki.id
+          AND NOT EXISTS (
+            SELECT 1
+            FROM provinces p
+            JOIN intel_partitions ip
+              ON ip.province_id = p.id
+             AND ip.key_hash = ?
+            WHERE p.name = kp.name
+              AND p.kingdom = ki.location
+          )
+      )
+    ORDER BY ki.received_at DESC
+    LIMIT 1
+  `).get(location, keyHash) as {
+    id: number;
+    name: string;
+    location: string;
+    war_target: string | null;
+    received_at: string;
+  } | undefined;
+
+  if (!snapshot) return null;
+
+  const provinces = db.prepare(`
+    SELECT name, race, land, networth, honor_title
+    FROM kingdom_provinces
+    WHERE kingdom_intel_id = ?
+    ORDER BY networth DESC, name ASC
+  `).all(snapshot.id) as {
+    name: string;
+    race: string;
+    land: number;
+    networth: number;
+    honor_title: string | null;
+  }[];
+
+  return {
+    id: snapshot.id,
+    name: snapshot.name,
+    location: snapshot.location,
+    warTarget: snapshot.war_target,
+    receivedAt: snapshot.received_at,
+    provinces: provinces.map((p) => ({
+      name: p.name,
+      race: p.race,
+      land: p.land,
+      networth: p.networth,
+      honorTitle: p.honor_title,
+    })),
+  };
 }
 
 export interface ProvinceRow {
