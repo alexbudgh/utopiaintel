@@ -32,9 +32,13 @@ export default async function KingdomPage({
   const boundKingdom = getBoundKingdom(keyHash);
   const provinces = getKingdomProvinces(kingdom, keyHash);
   const snapshot = getLatestKingdomSnapshot(kingdom, keyHash);
-  const isWarWithBoundKingdom = !!snapshot?.warTarget && !!boundKingdom && snapshot.warTarget === boundKingdom;
-  const isSelfWarPage = !!snapshot?.warTarget && !!boundKingdom && kingdom === boundKingdom;
   const primaryOpenRelation = snapshot?.openRelations[0] ?? null;
+  const relatedSnapshot = boundKingdom && kingdom === boundKingdom && primaryOpenRelation
+    ? getLatestKingdomSnapshot(primaryOpenRelation.location, keyHash)
+    : null;
+  const relationSnapshot = relatedSnapshot ?? snapshot;
+  const isWarWithBoundKingdom = !!relationSnapshot?.warTarget && !!boundKingdom && relationSnapshot.warTarget === boundKingdom;
+  const isSelfWarPage = !!snapshot?.warTarget && !!boundKingdom && kingdom === boundKingdom;
   const relationTone = isWarWithBoundKingdom || isSelfWarPage
     ? "border-orange-500/40 bg-orange-950/30 text-orange-100"
     : "border-gray-800 bg-gray-900/50 text-gray-300";
@@ -45,17 +49,25 @@ export default async function KingdomPage({
         <Link href="/" className="text-gray-400 hover:text-gray-200 text-sm">
           ← kingdoms
         </Link>
+        {boundKingdom && kingdom !== boundKingdom && (
+          <Link
+            href={`/kingdom/${encodeURIComponent(boundKingdom)}`}
+            className="text-gray-400 hover:text-gray-200 text-sm"
+          >
+            My Kingdom
+          </Link>
+        )}
         <div>
           <h1 className="text-xl font-bold text-gray-100 font-mono">{kingdom}</h1>
           {snapshot?.name && (
             <div className="text-sm text-gray-500">{snapshot.name}</div>
           )}
-          {(snapshot?.theirAttitudeToUs || snapshot?.ourAttitudeToThem || snapshot?.warTarget || primaryOpenRelation) && (
+          {(relationSnapshot?.theirAttitudeToUs || relationSnapshot?.ourAttitudeToThem || snapshot?.warTarget || primaryOpenRelation) && (
             <div className={`mt-2 rounded-md border px-3 py-2 text-xs ${relationTone}`}>
               {(isWarWithBoundKingdom || isSelfWarPage) && (
                 <div className="mb-1 font-semibold uppercase tracking-wide text-orange-200">
                   War
-                  {snapshot.warTarget && ` · ${snapshot.warTarget}`}
+                  {(relationSnapshot?.warTarget || snapshot?.warTarget) && ` · ${relationSnapshot?.warTarget ?? snapshot?.warTarget}`}
                 </div>
               )}
               {primaryOpenRelation && (
@@ -72,21 +84,21 @@ export default async function KingdomPage({
                   </span>
                 </div>
               )}
-              {snapshot && (snapshot.theirAttitudeToUs || snapshot.ourAttitudeToThem) && (
+              {relationSnapshot && (relationSnapshot.theirAttitudeToUs || relationSnapshot.ourAttitudeToThem) && (
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2 text-gray-300">
                     <span className="w-20 text-gray-500">They → us</span>
-                    <span className={`rounded border px-2 py-0.5 text-[11px] font-medium ${relationBadgeClass(snapshot.theirAttitudeToUs)}`}>
-                      {snapshot.theirAttitudeToUs ?? "Unknown"}
+                    <span className={`rounded border px-2 py-0.5 text-[11px] font-medium ${relationBadgeClass(relationSnapshot.theirAttitudeToUs)}`}>
+                      {relationSnapshot.theirAttitudeToUs ?? "Unknown"}
                     </span>
-                    <span className="text-gray-400">({formatRelationPoints(snapshot.theirAttitudePoints)})</span>
+                    <span className="text-gray-400">({formatRelationPoints(relationSnapshot.theirAttitudePoints)})</span>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 text-gray-300">
                     <span className="w-20 text-gray-500">Us → them</span>
-                    <span className={`rounded border px-2 py-0.5 text-[11px] font-medium ${relationBadgeClass(snapshot.ourAttitudeToThem)}`}>
-                      {snapshot.ourAttitudeToThem ?? "Unknown"}
+                    <span className={`rounded border px-2 py-0.5 text-[11px] font-medium ${relationBadgeClass(relationSnapshot.ourAttitudeToThem)}`}>
+                      {relationSnapshot.ourAttitudeToThem ?? "Unknown"}
                     </span>
-                    <span className="text-gray-400">({formatRelationPoints(snapshot.ourAttitudePoints)})</span>
+                    <span className="text-gray-400">({formatRelationPoints(relationSnapshot.ourAttitudePoints)})</span>
                   </div>
                 </div>
               )}
@@ -95,9 +107,9 @@ export default async function KingdomPage({
                   War target: <span className="text-orange-300">{snapshot.warTarget}</span>
                 </div>
               )}
-              {snapshot && snapshot.hostilityMeterVisibleUntil && (
+              {(relationSnapshot?.hostilityMeterVisibleUntil || snapshot?.hostilityMeterVisibleUntil) && (
                 <div className="mt-1 text-gray-300">
-                  Hostility meter visible until <span className="text-gray-200">{snapshot.hostilityMeterVisibleUntil}</span>
+                  Hostility meter visible until <span className="text-gray-200">{relationSnapshot?.hostilityMeterVisibleUntil ?? snapshot?.hostilityMeterVisibleUntil}</span>
                 </div>
               )}
             </div>

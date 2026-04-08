@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { cookies, headers } from "next/headers";
 import { createHash } from "crypto";
-import { getKingdoms } from "@/lib/db";
+import { getBoundKingdom, getKingdoms } from "@/lib/db";
 import { freshnessColor, timeAgo } from "@/lib/ui";
 import { logout } from "@/app/logout/action";
 
@@ -14,12 +14,23 @@ export default async function Home() {
   const baseUrl = `${proto}://${host}`;
   const key = (await cookies()).get("auth")?.value ?? "";
   const keyHash = createHash("sha256").update(key).digest("hex");
+  const boundKingdom = getBoundKingdom(keyHash);
   const kingdoms = getKingdoms(keyHash);
 
   return (
     <main className="p-8 max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-100">Utopia Intel</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-bold text-gray-100">Utopia Intel</h1>
+          {boundKingdom && (
+            <Link
+              href={`/kingdom/${encodeURIComponent(boundKingdom)}`}
+              className="text-sm rounded border border-gray-700 px-3 py-1.5 text-gray-300 hover:border-gray-500 hover:text-gray-100 transition-colors"
+            >
+              My Kingdom: <span className="font-mono">{boundKingdom}</span>
+            </Link>
+          )}
+        </div>
         <form action={logout}>
           <button type="submit" className="text-sm text-gray-500 hover:text-gray-300 transition-colors">
             Sign out
