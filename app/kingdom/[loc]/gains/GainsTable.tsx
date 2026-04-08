@@ -50,6 +50,11 @@ function relationStateForSnapshots(
   return "oow";
 }
 
+function isNonAggressionPact(status: string | null): boolean {
+  const value = (status ?? "").toLowerCase();
+  return value.includes("non aggression") || value.includes("ceasefire");
+}
+
 function mapBreakdown(
   hitStatus: string | null,
   relationState: "war" | "oow",
@@ -428,6 +433,9 @@ export function GainsTable({ initial }: { initial: GainsPageData }) {
   const selfAvgNetworth = averageNetworth(selfSnapshot.provinces);
   const targetAvgNetworth = averageNetworth(targetSnapshot.provinces);
   const relationState = relationStateForSnapshots(selfKingdom, targetKingdom, selfSnapshot, targetSnapshot);
+  const attackBlockedByRelations =
+    isNonAggressionPact(targetSnapshot.ourAttitudeToThem) ||
+    isNonAggressionPact(targetSnapshot.theirAttitudeToUs);
 
   if (!selfAvgNetworth || !targetAvgNetworth) {
     return (
@@ -454,18 +462,36 @@ export function GainsTable({ initial }: { initial: GainsPageData }) {
         <Link href={`/kingdom/${encodeURIComponent(targetKingdom)}`} className="text-gray-400 hover:text-gray-200 text-sm">
           ← {targetKingdom}
         </Link>
-        <div>
+        <div className="min-w-0 flex-1">
           <h1 className="text-xl font-bold text-gray-100 font-mono">
             Gains: {selfKingdom} → {targetKingdom}
           </h1>
           <div className="text-sm text-gray-500">
             {selfSnapshot.name} → {targetSnapshot.name}
           </div>
-          <KingdomRelations
-            kingdom={targetKingdom}
-            boundKingdom={selfKingdom}
-            snapshot={targetSnapshot}
-          />
+          <div className="mt-2 flex flex-col gap-3 lg:flex-row lg:items-start">
+            <div className="min-w-0 flex-1">
+              <KingdomRelations
+                kingdom={targetKingdom}
+                boundKingdom={selfKingdom}
+                snapshot={targetSnapshot}
+              />
+            </div>
+            {attackBlockedByRelations && (
+              <div className="rounded-lg border border-sky-500/40 bg-sky-950/30 p-4 text-sm text-sky-100 lg:w-[24rem]">
+                <div className="font-semibold uppercase tracking-wide text-sky-200">
+                  Non-Aggression Pact
+                </div>
+                <p className="mt-1">
+                  Current relations indicate a ceasefire / non-aggression pact between {selfKingdom} and {targetKingdom}.
+                  Hostile actions are not allowed while that relation is active.
+                </p>
+                <p className="mt-1 text-sky-200/80">
+                  The matrix below is still useful as a sizing reference, but not as an action recommendation.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
         <div className="ml-auto">
           <GainsJump initialTarget={targetKingdom} />
