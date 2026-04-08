@@ -24,6 +24,7 @@ export default async function KingdomPage({
   const relatedSnapshot = boundKingdom && kingdom === boundKingdom && primaryOpenRelation
     ? getLatestKingdomSnapshot(primaryOpenRelation.location, keyHash)
     : null;
+  const hasAnyIntel = provinces.length > 0 || !!snapshot;
 
   return (
     <main className="p-6">
@@ -68,7 +69,19 @@ export default async function KingdomPage({
         </div>
       </div>
 
-      <ProvinceTable kingdom={kingdom} initial={provinces} />
+      {hasAnyIntel ? (
+        <ProvinceTable kingdom={kingdom} initial={provinces} />
+      ) : (
+        <div className="rounded-lg border border-gray-800 bg-gray-900/50 px-5 py-6 text-sm text-gray-300">
+          <div className="font-medium text-gray-100">No intel available for {kingdom}</div>
+          <div className="mt-2 text-gray-400">
+            This kingdom has not been loaded yet for your current intel key, or no accessible kingdom intel has been stored for it.
+          </div>
+          <div className="mt-2 text-gray-500">
+            Open the kingdom page in Utopia to submit fresh intel, then reload this page.
+          </div>
+        </div>
+      )}
     </main>
   );
 }
