@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { KingdomRelations } from "@/app/components/KingdomRelations";
 import { Tooltip, type TooltipLine } from "@/app/components/Tooltip";
 import type { KingdomSnapshotProvince, ProvinceRow } from "@/lib/db";
 import { estimateBreakability, estimateTraditionalMarchAcres } from "@/lib/gains";
@@ -460,6 +461,11 @@ export function GainsTable({ initial }: { initial: GainsPageData }) {
           <div className="text-sm text-gray-500">
             {selfSnapshot.name} → {targetSnapshot.name}
           </div>
+          <KingdomRelations
+            kingdom={targetKingdom}
+            boundKingdom={selfKingdom}
+            snapshot={targetSnapshot}
+          />
         </div>
         <div className="ml-auto">
           <GainsJump initialTarget={targetKingdom} />
