@@ -1,10 +1,11 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { createHash } from "crypto";
 import { getBoundKingdom, getKingdomProvinces, getLatestKingdomSnapshot } from "@/lib/db";
 import { KingdomRelations } from "@/app/components/KingdomRelations";
+import { IntelSetupCard } from "@/app/components/IntelSetupCard";
 import { ProvinceTable } from "./ProvinceTable";
 import { KingdomJump } from "./KingdomJump";
 
@@ -15,6 +16,10 @@ export default async function KingdomPage({
 }) {
   const { loc } = await params;
   const kingdom = decodeURIComponent(loc);
+  const hdrs = await headers();
+  const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host") ?? "";
+  const proto = hdrs.get("x-forwarded-proto") ?? "https";
+  const baseUrl = `${proto}://${host}`;
   const key = (await cookies()).get("auth")?.value ?? "";
   const keyHash = createHash("sha256").update(key).digest("hex");
   const boundKingdom = getBoundKingdom(keyHash);
@@ -79,6 +84,13 @@ export default async function KingdomPage({
           </div>
           <div className="mt-2 text-gray-500">
             Open the kingdom page in Utopia to submit fresh intel, then reload this page.
+          </div>
+          <div className="mt-5">
+            <IntelSetupCard
+              endpointUrl={`${baseUrl}/api/intel`}
+              compact
+              title="Need to configure intel submission?"
+            />
           </div>
         </div>
       )}

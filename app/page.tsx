@@ -4,6 +4,7 @@ import Link from "next/link";
 import { cookies, headers } from "next/headers";
 import { createHash } from "crypto";
 import { getBoundKingdom, getKingdoms, getLatestKingdomSnapshot, type KingdomSnapshot } from "@/lib/db";
+import { IntelSetupCard } from "@/app/components/IntelSetupCard";
 import { freshnessColor, timeAgo } from "@/lib/ui";
 import { logout } from "@/app/logout/action";
 
@@ -120,62 +121,43 @@ export default async function Home() {
       </div>
 
       {kingdoms.length === 0 ? (
-        <div className="rounded-lg bg-gray-800/60 p-6 space-y-4 text-sm">
-          <p className="text-gray-300 font-medium">No intel received yet.</p>
-          <p className="text-gray-400">
-            To start receiving data, configure your Utopia client to send intel to this site:
-          </p>
-          <ol className="list-decimal list-inside space-y-2 text-gray-400">
-            <li>In-game, go to <span className="text-gray-200">Preferences</span>.</li>
-            <li>
-              Find <span className="text-gray-200">Send intel to your own Intel site</span> and
-              set the URL to <code className="text-gray-100 bg-gray-700 px-1 rounded">{baseUrl}/api/intel</code>.
-            </li>
-            <li>
-              Set the <span className="text-gray-200">key</span> to the same value you used to log
-              in here. This is how the site knows which intel belongs to your kingdom — everyone on
-              your team should use the same key.{" "}
-              <span className="text-yellow-400">This key is a secret: do not share it outside your kingdom.</span>{" "}
-              If you don{"'"}t have it yet, ask your kingdom mates.
-            </li>
-            <li>
-              Make sure <span className="text-gray-200">Ajax mode</span> is <span className="text-red-400">disabled</span> in
-              Bot Prefs, otherwise requests may not send reliably.
-            </li>
-          </ol>
-          <p className="text-gray-500">
-            Once configured, intel will appear here automatically as your kingdom members browse the game.
-          </p>
-        </div>
+        <IntelSetupCard endpointUrl={`${baseUrl}/api/intel`} title="No intel received yet." />
       ) : (
-        <ul className="space-y-2">
-          {kingdomRows.map(({ kd, snapshot, relationSnapshot }) => (
-            <li key={kd.location}>
-              <Link
-                href={`/kingdom/${kd.location}`}
-                className="block rounded-lg bg-gray-800 px-4 py-3 hover:bg-gray-700 transition-colors"
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <div className="min-w-0">
-                    <span className="font-mono font-semibold text-gray-100">
-                      {kd.location}
+        <div className="space-y-4">
+          <ul className="space-y-2">
+            {kingdomRows.map(({ kd, snapshot, relationSnapshot }) => (
+              <li key={kd.location}>
+                <Link
+                  href={`/kingdom/${kd.location}`}
+                  className="block rounded-lg bg-gray-800 px-4 py-3 hover:bg-gray-700 transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <span className="font-mono font-semibold text-gray-100">
+                        {kd.location}
+                      </span>
+                      {snapshot?.name && (
+                        <div className="text-xs text-gray-500">{snapshot.name}</div>
+                      )}
+                    </div>
+                    <span className="text-sm text-gray-400">
+                      {kd.province_count} province{kd.province_count !== 1 ? "s" : ""}
                     </span>
-                    {snapshot?.name && (
-                      <div className="text-xs text-gray-500">{snapshot.name}</div>
-                    )}
+                    <span className={`text-sm ${freshnessColor(kd.last_seen)}`}>
+                      {timeAgo(kd.last_seen)}
+                    </span>
                   </div>
-                  <span className="text-sm text-gray-400">
-                    {kd.province_count} province{kd.province_count !== 1 ? "s" : ""}
-                  </span>
-                  <span className={`text-sm ${freshnessColor(kd.last_seen)}`}>
-                    {timeAgo(kd.last_seen)}
-                  </span>
-                </div>
-                {relationSummary(kd.location, boundKingdom, snapshot, relationSnapshot)}
-              </Link>
-            </li>
-          ))}
-        </ul>
+                  {relationSummary(kd.location, boundKingdom, snapshot, relationSnapshot)}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <IntelSetupCard
+            endpointUrl={`${baseUrl}/api/intel`}
+            compact
+            title="Intel setup"
+          />
+        </div>
       )}
     </main>
   );
