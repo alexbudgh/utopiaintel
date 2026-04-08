@@ -689,6 +689,8 @@ export interface ProvinceRow {
   wizards: number | null;
   resources_age: string | null;
   resources_source: string | null;
+  hit_status: string | null;
+  status_age: string | null;
   ome: number | null;
   dme: number | null;
   som_age: string | null;
@@ -714,6 +716,7 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
            pr.money, pr.food, pr.runes, pr.prisoners, pr.trade_balance, pr.building_efficiency, pr.wizards, pr.received_at AS resources_age, pr.source AS resources_source,
            (SELECT p2.thieves FROM province_resources p2 WHERE p2.province_id = p.id AND p2.thieves IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS thieves,
            (SELECT p2.received_at FROM province_resources p2 WHERE p2.province_id = p.id AND p2.thieves IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS thieves_age,
+           ps.hit_status, ps.received_at AS status_age,
            hmp.mod_off_at_home AS off_home, hmp.mod_def_at_home AS def_home, hmp.received_at AS home_mil_age,
            mi.ome, mi.dme, mi.received_at AS som_age,
            (SELECT si.received_at FROM sos_intel si WHERE si.province_id = p.id ORDER BY si.received_at DESC LIMIT 1) AS sciences_age,
@@ -745,6 +748,10 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
     LEFT JOIN province_resources pr ON pr.id = (
       SELECT id FROM province_resources
       WHERE province_id = p.id AND source != 'infiltrate' ORDER BY received_at DESC LIMIT 1
+    )
+    LEFT JOIN province_status ps ON ps.id = (
+      SELECT id FROM province_status
+      WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1
     )
     LEFT JOIN home_military_points hmp ON hmp.id = (
       SELECT id FROM home_military_points
