@@ -1,6 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { estimateBreakability, estimateTraditionalMarchAcres, kingdomNetworthFactor, provinceNetworthFactor } from "../lib/gains.ts";
+import {
+  estimateBreakability,
+  estimateTraditionalMarchAcres,
+  incomingRelationGainsFactor,
+  kingdomNetworthFactor,
+  mapGainsFactor,
+  outgoingRelationGainsFactor,
+  provinceNetworthFactor,
+} from "../lib/gains.ts";
 import type { ProvinceRow } from "../lib/db.ts";
 
 function makeProvince(overrides: Partial<ProvinceRow>): ProvinceRow {
@@ -38,11 +46,14 @@ function makeProvince(overrides: Partial<ProvinceRow>): ProvinceRow {
     runes: null,
     prisoners: null,
     trade_balance: null,
+    building_efficiency: null,
     thieves: null,
     thieves_age: null,
     wizards: null,
     resources_age: null,
     resources_source: null,
+    hit_status: null,
+    status_age: null,
     ome: null,
     dme: null,
     som_age: null,
@@ -73,6 +84,30 @@ test("kingdomNetworthFactor matches the guide breakpoints", () => {
   assert.equal(kingdomNetworthFactor(1.0), 1);
 });
 
+test("mapGainsFactor uses midpoint estimates out of war", () => {
+  assert.equal(mapGainsFactor(null, "oow"), 1);
+  assert.equal(mapGainsFactor("a little", "oow"), 0.895);
+  assert.equal(mapGainsFactor("moderately", "oow"), 0.695);
+  assert.equal(mapGainsFactor("pretty heavily", "oow"), 0.495);
+  assert.equal(mapGainsFactor("extremely badly", "oow"), 0.245);
+});
+
+test("mapGainsFactor uses war values from the MAP guide", () => {
+  assert.equal(mapGainsFactor("a little", "war"), 0.895);
+  assert.equal(mapGainsFactor("moderately", "war"), 0.8);
+  assert.equal(mapGainsFactor("pretty heavily", "war"), 0.8);
+  assert.equal(mapGainsFactor("extremely badly", "war"), 0.8);
+});
+
+test("relation gains factors match the Relations guide", () => {
+  assert.equal(outgoingRelationGainsFactor(null), 1);
+  assert.equal(outgoingRelationGainsFactor("Unfriendly"), 1.04);
+  assert.equal(outgoingRelationGainsFactor("Hostile"), 1.1);
+  assert.equal(incomingRelationGainsFactor(null), 1);
+  assert.equal(incomingRelationGainsFactor("Unfriendly"), 1.015);
+  assert.equal(incomingRelationGainsFactor("Hostile"), 1.03);
+});
+
 test("estimateTraditionalMarchAcres applies base formula and cap", () => {
   const estimate = estimateTraditionalMarchAcres({
     attackerLand: 1000,
@@ -88,6 +123,64 @@ test("estimateTraditionalMarchAcres applies base formula and cap", () => {
   assert.equal(estimate.roundedAcres, 180);
   assert.equal(estimate.cap, 200);
   assert.equal(estimate.capApplied, false);
+});
+
+test("estimateTraditionalMarchAcres applies MAP out of war", () => {
+  const estimate = estimateTraditionalMarchAcres({
+    attackerLand: 1000,
+    attackerNetworth: 300000,
+    defenderLand: 1500,
+    defenderNetworth: 300000,
+    selfKingdomAvgNetworth: 250000,
+    targetKingdomAvgNetworth: 250000,
+    defenderHitStatus: "moderately",
+    relationState: "oow",
+  });
+
+  assert.ok(estimate);
+  assert.equal(estimate.mapFactor, 0.695);
+  assert.equal(estimate.rawAcres, 125.1);
+  assert.equal(estimate.roundedAcres, 125);
+  assert.equal(estimate.relationState, "oow");
+});
+
+test("estimateTraditionalMarchAcres applies reduced war MAP", () => {
+  const estimate = estimateTraditionalMarchAcres({
+    attackerLand: 1000,
+    attackerNetworth: 300000,
+    defenderLand: 1500,
+    defenderNetworth: 300000,
+    selfKingdomAvgNetworth: 250000,
+    targetKingdomAvgNetworth: 250000,
+    defenderHitStatus: "extremely badly",
+    relationState: "war",
+  });
+
+  assert.ok(estimate);
+  assert.equal(estimate.mapFactor, 0.8);
+  assert.equal(estimate.rawAcres, 144);
+  assert.equal(estimate.roundedAcres, 144);
+  assert.equal(estimate.relationState, "war");
+});
+
+test("estimateTraditionalMarchAcres applies relation modifiers", () => {
+  const estimate = estimateTraditionalMarchAcres({
+    attackerLand: 1000,
+    attackerNetworth: 300000,
+    defenderLand: 1500,
+    defenderNetworth: 300000,
+    selfKingdomAvgNetworth: 250000,
+    targetKingdomAvgNetworth: 250000,
+    ourAttitudeToThem: "Hostile",
+    theirAttitudeToUs: "Unfriendly",
+  });
+
+  assert.ok(estimate);
+  assert.equal(estimate.ourRelationFactor, 1.1);
+  assert.equal(estimate.theirRelationFactor, 1.015);
+  assert.equal(estimate.combinedRelationFactor, 1.1165);
+  assert.equal(estimate.rawAcres, 200);
+  assert.equal(estimate.capApplied, true);
 });
 
 test("estimateTraditionalMarchAcres caps oversized gains", () => {

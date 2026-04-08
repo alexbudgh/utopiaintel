@@ -37,6 +37,95 @@ function fmt(value: number, digits = 2): string {
   });
 }
 
+function relationStateForSnapshots(
+  selfKingdom: string,
+  targetKingdom: string,
+  selfSnapshot: GainsPageData["selfSnapshot"],
+  targetSnapshot: GainsPageData["targetSnapshot"],
+): "war" | "oow" {
+  if (selfSnapshot?.warTarget === targetKingdom || targetSnapshot?.warTarget === selfKingdom) {
+    return "war";
+  }
+  return "oow";
+}
+
+function mapBreakdown(
+  hitStatus: string | null,
+  relationState: "war" | "oow",
+  mapFactor: number,
+): { branch: string; calc: string; tone: TooltipLine["tone"] } {
+  if (!hitStatus) {
+    return {
+      branch: "MAP branch: no SoT MAP status available",
+      calc: "MAP factor: 1",
+      tone: "muted",
+    };
+  }
+
+  const normalized = hitStatus.trim().toLowerCase();
+  if (normalized === "a little") {
+    return {
+      branch: `MAP branch: a little -> Couple bucket midpoint (${relationState === "war" ? "war" : "out of war"})`,
+      calc: "MAP factor: midpoint of 80-99% = 0.895",
+      tone: "warn",
+    };
+  }
+  if (normalized === "moderately") {
+    return {
+      branch: `MAP branch: moderately -> Moderately Hit bucket (${relationState === "war" ? "war" : "out of war"})`,
+      calc: relationState === "war"
+        ? "MAP factor: war bucket = 0.800"
+        : "MAP factor: midpoint of 60-79% = 0.695",
+      tone: "warn",
+    };
+  }
+  if (normalized === "pretty heavily") {
+    return {
+      branch: `MAP branch: pretty heavily -> Heavily Hit bucket (${relationState === "war" ? "war" : "out of war"})`,
+      calc: relationState === "war"
+        ? "MAP factor: war bucket = 0.800"
+        : "MAP factor: midpoint of 40-59% = 0.495",
+      tone: "warn",
+    };
+  }
+  if (normalized === "extremely badly") {
+    return {
+      branch: `MAP branch: extremely badly -> Extremely Heavily Hit bucket (${relationState === "war" ? "war" : "out of war"})`,
+      calc: relationState === "war"
+        ? "MAP factor: war bucket = 0.800"
+        : "MAP factor: midpoint of 10-39% = 0.245",
+      tone: "bad",
+    };
+  }
+  return {
+    branch: `MAP branch: unrecognized status "${hitStatus}"`,
+    calc: `MAP factor: ${mapFactor.toFixed(3)}`,
+    tone: "muted",
+  };
+}
+
+function relationBreakdown(
+  ourAttitudeToThem: string | null,
+  theirAttitudeToUs: string | null,
+  ourRelationFactor: number,
+  theirRelationFactor: number,
+): TooltipLine[] {
+  return [
+    {
+      text: `Our attitude to them = ${ourAttitudeToThem ?? "Normal"} -> relation factor ${ourRelationFactor.toFixed(3)}`,
+      tone: ourRelationFactor > 1 ? "good" : "muted",
+    },
+    {
+      text: `Their attitude to us = ${theirAttitudeToUs ?? "Normal"} -> relation factor ${theirRelationFactor.toFixed(3)}`,
+      tone: theirRelationFactor > 1 ? "good" : "muted",
+    },
+    {
+      text: `Combined relation factor = ${ourRelationFactor.toFixed(3)} * ${theirRelationFactor.toFixed(3)} = ${(ourRelationFactor * theirRelationFactor).toFixed(3)}`,
+      tone: ourRelationFactor > 1 || theirRelationFactor > 1 ? "good" : "muted",
+    },
+  ];
+}
+
 function rpnwBreakdown(rpnw: number): { branch: string; calc: string; tone: TooltipLine["tone"] } {
   if (rpnw <= 0.567) {
     return {
@@ -101,6 +190,9 @@ function estimateTitle(
   selfAvgNetworth: number,
   targetAvgNetworth: number,
   defenderLatest: ProvinceRow | null,
+  relationState: "war" | "oow",
+  ourAttitudeToThem: string | null,
+  theirAttitudeToUs: string | null,
 ) {
   const estimate = estimateTraditionalMarchAcres({
     attackerLand: attacker.land,
@@ -109,6 +201,10 @@ function estimateTitle(
     defenderNetworth: defender.networth,
     selfKingdomAvgNetworth: selfAvgNetworth,
     targetKingdomAvgNetworth: targetAvgNetworth,
+    defenderHitStatus: defenderLatest?.hit_status ?? null,
+    relationState,
+    ourAttitudeToThem,
+    theirAttitudeToUs,
   });
   if (!estimate) {
     return [{ text: "Missing land, NW, or kingdom snapshot data", tone: "bad" }] satisfies TooltipLine[];
@@ -116,9 +212,22 @@ function estimateTitle(
 
   const breakability = estimateBreakability(attacker, defenderLatest);
   const zeroReason = zeroAcresReason(estimate);
-  const baseAcres = defender.land * 0.12 * estimate.rpnwFactor * estimate.rknwFactor;
+  const baseAcres =
+    defender.land *
+    0.12 *
+    estimate.rpnwFactor *
+    estimate.rknwFactor *
+    estimate.mapFactor *
+    estimate.combinedRelationFactor;
   const rpnwInfo = rpnwBreakdown(estimate.rpnw);
   const rknwInfo = rknwBreakdown(estimate.rknw);
+  const mapInfo = mapBreakdown(defenderLatest?.hit_status ?? null, relationState, estimate.mapFactor);
+  const relationInfo = relationBreakdown(
+    ourAttitudeToThem,
+    theirAttitudeToUs,
+    estimate.ourRelationFactor,
+    estimate.theirRelationFactor,
+  );
   return [
     { text: `${attacker.name} -> ${defender.name}`, tone: "strong" },
     ...(zeroReason ? [{ text: zeroReason, tone: estimate.rpnwFactor === 0 ? "bad" : "warn" } satisfies TooltipLine] : []),
@@ -135,7 +244,18 @@ function estimateTitle(
     { text: rknwInfo.branch, tone: rknwInfo.tone },
     { text: rknwInfo.calc, tone: rknwInfo.tone },
     {
-      text: `base acres = ${fmt(defender.land)} * 0.12 * ${estimate.rpnwFactor.toFixed(3)} * ${estimate.rknwFactor.toFixed(3)} = ${fmt(baseAcres)}`,
+      text: `Relation = ${relationState === "war" ? "War" : "Out of war"}`,
+      tone: relationState === "war" ? "good" : "muted",
+    },
+    {
+      text: `MAP status = ${defenderLatest?.hit_status ?? "unknown"}`,
+      tone: defenderLatest?.hit_status ? "strong" : "muted",
+    },
+    { text: mapInfo.branch, tone: mapInfo.tone },
+    { text: mapInfo.calc, tone: mapInfo.tone },
+    ...relationInfo,
+    {
+      text: `base acres = ${fmt(defender.land)} * 0.12 * ${estimate.rpnwFactor.toFixed(3)} * ${estimate.rknwFactor.toFixed(3)} * ${estimate.mapFactor.toFixed(3)} * ${estimate.combinedRelationFactor.toFixed(3)} = ${fmt(baseAcres)}`,
       tone: baseAcres === 0 ? "bad" : estimate.capApplied ? "warn" : "good",
     },
     {
@@ -165,7 +285,7 @@ function estimateTitle(
     },
     { text: `offense source: ${breakability.offenseSource ?? "missing"}`, tone: breakability.offenseSource ? "muted" : "warn" },
     { text: `defense source: ${breakability.defenseSource ?? "missing"}`, tone: breakability.defenseSource ? "muted" : "warn" },
-    { text: "Assumes neutral MAP, race/personality gains mods, castles, relations, stance, siege, dragons, attack-time, ritual, anonymity, and mist.", tone: "muted" },
+    { text: "Uses MAP bucket midpoint estimates. Still assumes neutral race/personality gains mods, castles, stance, siege, dragons, attack-time, ritual, anonymity, and mist.", tone: "muted" },
   ] satisfies TooltipLine[];
 }
 
@@ -203,6 +323,12 @@ function stateBadges(
   }
   if (estimate.capApplied) {
     badges.push(<span key="cap" className="text-[9px] font-medium uppercase tracking-wide text-amber-300">CAP</span>);
+  }
+  if (estimate.mapFactor < 1) {
+    badges.push(<span key="map" className="text-[9px] font-medium uppercase tracking-wide text-rose-300">MAP</span>);
+  }
+  if (estimate.combinedRelationFactor > 1) {
+    badges.push(<span key="rel" className="text-[9px] font-medium uppercase tracking-wide text-violet-300">REL</span>);
   }
   if (breakability.status === "not_breakable") {
     badges.push(<span key="x" className="text-[9px] font-medium uppercase tracking-wide text-red-400">X</span>);
@@ -300,6 +426,7 @@ export function GainsTable({ initial }: { initial: GainsPageData }) {
 
   const selfAvgNetworth = averageNetworth(selfSnapshot.provinces);
   const targetAvgNetworth = averageNetworth(targetSnapshot.provinces);
+  const relationState = relationStateForSnapshots(selfKingdom, targetKingdom, selfSnapshot, targetSnapshot);
 
   if (!selfAvgNetworth || !targetAvgNetworth) {
     return (
@@ -350,7 +477,7 @@ export function GainsTable({ initial }: { initial: GainsPageData }) {
           Target snapshot: <span className="text-gray-200">{formatTimestamp(targetSnapshot.receivedAt)}</span>
         </p>
         <p className="mt-2">
-          Neutral assumptions: MAP, race/personality gains mods, castles, relations, stance, siege, dragons,
+          MAP uses SoT bucket midpoints. Relations use the current directional Unfriendly and Hostile gains modifiers from the target kingdom snapshot. Neutral assumptions: race/personality gains mods, castles, stance, siege, dragons,
           attack-time adjustment, ritual, anonymity, and mist.
         </p>
       </div>
@@ -397,6 +524,7 @@ export function GainsTable({ initial }: { initial: GainsPageData }) {
                   </Tooltip>
                 </th>
                 {targetSnapshot.provinces.map((defender) => {
+                  const defenderLatest = targetLatestByName.get(defender.name) ?? null;
                   const estimate = estimateTraditionalMarchAcres({
                     attackerLand: attacker.land,
                     attackerNetworth: attacker.networth,
@@ -404,8 +532,11 @@ export function GainsTable({ initial }: { initial: GainsPageData }) {
                     defenderNetworth: defender.networth,
                     selfKingdomAvgNetworth: selfAvgNetworth,
                     targetKingdomAvgNetworth: targetAvgNetworth,
+                    defenderHitStatus: defenderLatest?.hit_status ?? null,
+                    relationState,
+                    ourAttitudeToThem: targetSnapshot.ourAttitudeToThem,
+                    theirAttitudeToUs: targetSnapshot.theirAttitudeToUs,
                   });
-                  const defenderLatest = targetLatestByName.get(defender.name) ?? null;
                   const breakability = estimateBreakability(attacker, defenderLatest);
                   const tone = gainsTone(estimate);
                   const badges = stateBadges(estimate, breakability);
@@ -415,7 +546,7 @@ export function GainsTable({ initial }: { initial: GainsPageData }) {
                       key={`${attacker.id}:${defender.name}`}
                       className={`border-b border-r border-gray-800 px-3 py-2 text-right tabular-nums transition-colors ${tone.cell}`}
                     >
-                      <Tooltip content={estimateTitle(attacker, defender, selfAvgNetworth, targetAvgNetworth, defenderLatest)}>
+                      <Tooltip content={estimateTitle(attacker, defender, selfAvgNetworth, targetAvgNetworth, defenderLatest, relationState, targetSnapshot.ourAttitudeToThem, targetSnapshot.theirAttitudeToUs)}>
                         <div className={tone.value}>
                           {estimate ? estimate.roundedAcres.toLocaleString() : "—"}
                         </div>

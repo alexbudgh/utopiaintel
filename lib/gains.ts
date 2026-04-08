@@ -9,6 +9,14 @@ export interface TraditionalMarchEstimate {
   rpnwFactor: number;
   rknw: number;
   rknwFactor: number;
+  mapStatus: string | null;
+  mapFactor: number;
+  relationState: "war" | "oow";
+  ourAttitudeToThem: string | null;
+  theirAttitudeToUs: string | null;
+  ourRelationFactor: number;
+  theirRelationFactor: number;
+  combinedRelationFactor: number;
 }
 
 export interface BreakabilityEstimate {
@@ -33,6 +41,39 @@ export function kingdomNetworthFactor(rknw: number): number {
   return 1;
 }
 
+export function mapGainsFactor(hitStatus: string | null, relationState: "war" | "oow"): number {
+  if (!hitStatus) return 1;
+
+  const normalized = hitStatus.trim().toLowerCase();
+  if (normalized === "a little") {
+    return 0.895;
+  }
+  if (normalized === "moderately") {
+    return relationState === "war" ? 0.8 : 0.695;
+  }
+  if (normalized === "pretty heavily") {
+    return relationState === "war" ? 0.8 : 0.495;
+  }
+  if (normalized === "extremely badly") {
+    return relationState === "war" ? 0.8 : 0.245;
+  }
+  return 1;
+}
+
+export function outgoingRelationGainsFactor(attitude: string | null): number {
+  const normalized = attitude?.trim().toLowerCase() ?? "";
+  if (normalized === "unfriendly") return 1.04;
+  if (normalized === "hostile") return 1.10;
+  return 1;
+}
+
+export function incomingRelationGainsFactor(attitude: string | null): number {
+  const normalized = attitude?.trim().toLowerCase() ?? "";
+  if (normalized === "unfriendly") return 1.015;
+  if (normalized === "hostile") return 1.03;
+  return 1;
+}
+
 export function estimateTraditionalMarchAcres(input: {
   attackerLand: number | null;
   attackerNetworth: number | null;
@@ -40,6 +81,10 @@ export function estimateTraditionalMarchAcres(input: {
   defenderNetworth: number | null;
   selfKingdomAvgNetworth: number | null;
   targetKingdomAvgNetworth: number | null;
+  defenderHitStatus?: string | null;
+  relationState?: "war" | "oow";
+  ourAttitudeToThem?: string | null;
+  theirAttitudeToUs?: string | null;
 }): TraditionalMarchEstimate | null {
   const {
     attackerLand,
@@ -48,6 +93,10 @@ export function estimateTraditionalMarchAcres(input: {
     defenderNetworth,
     selfKingdomAvgNetworth,
     targetKingdomAvgNetworth,
+    defenderHitStatus = null,
+    relationState = "oow",
+    ourAttitudeToThem = null,
+    theirAttitudeToUs = null,
   } = input;
 
   if (
@@ -62,7 +111,12 @@ export function estimateTraditionalMarchAcres(input: {
   const rknw = targetKingdomAvgNetworth / selfKingdomAvgNetworth;
   const rpnwFactor = provinceNetworthFactor(rpnw);
   const rknwFactor = kingdomNetworthFactor(rknw);
-  const baseAcres = defenderLand * 0.12 * rpnwFactor * rknwFactor;
+  const mapFactor = mapGainsFactor(defenderHitStatus, relationState);
+  const ourRelationFactor = outgoingRelationGainsFactor(ourAttitudeToThem);
+  const theirRelationFactor = incomingRelationGainsFactor(theirAttitudeToUs);
+  const combinedRelationFactor = ourRelationFactor * theirRelationFactor;
+  const baseAcres =
+    defenderLand * 0.12 * rpnwFactor * rknwFactor * mapFactor * combinedRelationFactor;
   const cap = Math.min(attackerLand, defenderLand) * 0.2;
   const rawAcres = Math.min(baseAcres, cap);
 
@@ -75,6 +129,14 @@ export function estimateTraditionalMarchAcres(input: {
     rpnwFactor,
     rknw,
     rknwFactor,
+    mapStatus: defenderHitStatus,
+    mapFactor,
+    relationState,
+    ourAttitudeToThem,
+    theirAttitudeToUs,
+    ourRelationFactor,
+    theirRelationFactor,
+    combinedRelationFactor,
   };
 }
 
