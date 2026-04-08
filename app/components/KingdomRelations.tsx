@@ -14,6 +14,11 @@ function relationBadgeClass(status: string | null): string {
   return "border-violet-500/40 bg-violet-950/40 text-violet-200";
 }
 
+function isCeasefireLike(status: string | null): boolean {
+  const value = (status ?? "").toLowerCase();
+  return value.includes("non aggression") || value.includes("ceasefire");
+}
+
 export function KingdomRelations({
   kingdom,
   boundKingdom,
@@ -33,6 +38,9 @@ export function KingdomRelations({
     isWarWithBoundKingdom || isSelfWarPage
       ? "border-orange-500/40 bg-orange-950/30 text-orange-100"
       : "border-gray-800 bg-gray-900/50 text-gray-300";
+  const mutualCeasefire =
+    isCeasefireLike(relationSnapshot?.theirAttitudeToUs ?? null) &&
+    isCeasefireLike(relationSnapshot?.ourAttitudeToThem ?? null);
 
   if (!(relationSnapshot?.theirAttitudeToUs || relationSnapshot?.ourAttitudeToThem || snapshot?.warTarget || primaryOpenRelation)) {
     return null;
@@ -60,7 +68,14 @@ export function KingdomRelations({
           </span>
         </div>
       )}
-      {relationSnapshot && (relationSnapshot.theirAttitudeToUs || relationSnapshot.ourAttitudeToThem) && (
+      {mutualCeasefire ? (
+        <div className="flex flex-wrap items-center gap-2 text-gray-300">
+          <span className="text-gray-500">Relation</span>
+          <span className={`rounded border px-2 py-0.5 text-[11px] font-medium ${relationBadgeClass(relationSnapshot?.ourAttitudeToThem ?? relationSnapshot?.theirAttitudeToUs ?? null)}`}>
+            Non-Aggression Pact
+          </span>
+        </div>
+      ) : relationSnapshot && (relationSnapshot.theirAttitudeToUs || relationSnapshot.ourAttitudeToThem) && (
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2 text-gray-300">
             <span className="w-20 text-gray-500">They → us</span>
