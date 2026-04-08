@@ -48,7 +48,7 @@ const COLUMNS = [
 type ColKey = (typeof COLUMNS)[number]["key"];
 
 const VIEWS: Record<string, ColKey[]> = {
-  Overview:  ["race", "personality", "land", "networth", "age"],
+  Overview:  ["race", "personality", "land", "networth", "off_points", "def_points", "def_home", "age"],
   Military:  ["land", "off_points", "def_points", "off_home", "def_home", "ome", "dme", "soldiers_home", "off_specs_home", "def_specs_home", "elites_home", "peasants", "age"],
   Resources: ["land", "networth", "money", "food", "runes", "prisoners", "trade_balance", "war_horses", "peasants", "thieves", "wizards", "age"],
   "T/M":     ["land", "rtpa", "mtpa", "otpa", "dtpa", "rwpa", "mwpa", "age"],
