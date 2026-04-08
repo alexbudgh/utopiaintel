@@ -93,10 +93,22 @@ export interface KingdomProvince {
   honorTitle: string;
 }
 
+export interface KingdomOpenRelation {
+  name: string;
+  location: string;
+  status: string;
+}
+
 export interface KingdomData {
   name: string;
   location: string; // e.g. "4:5"
   warTarget: string | null;
+  theirAttitudeToUs: string | null;
+  theirAttitudePoints: number | null;
+  ourAttitudeToThem: string | null;
+  ourAttitudePoints: number | null;
+  hostilityMeterVisibleUntil: string | null;
+  openRelations: KingdomOpenRelation[];
   provinces: KingdomProvince[];
 }
 

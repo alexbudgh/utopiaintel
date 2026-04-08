@@ -1,5 +1,5 @@
 import { RACE_GROUP, HONOR_TITLE_GROUP } from "../game";
-import type { KingdomData, KingdomProvince } from "./types";
+import type { KingdomData, KingdomOpenRelation, KingdomProvince } from "./types";
 import { INT, KDLOC, parseNum } from "./util";
 
 const NAME_LOC_RE = new RegExp(
@@ -8,6 +8,10 @@ const NAME_LOC_RE = new RegExp(
 );
 const TOTAL_PROVS_RE = new RegExp(`Total Provinces\\s*(${INT})`);
 const WAR_RE = new RegExp(`at war with ([^(]+)${KDLOC}`, "i");
+const ATTITUDES_RE = /Their Attitude To Us\t([^\t]+?) \(([-\d.]+) points\)\tOur Attitude To Them\t([^\t]+?) \(([-\d.]+) points\)/i;
+const HOSTILITY_VISIBLE_RE = /Hostility meter visible until ([^\n]+)/i;
+const OPEN_RELATIONS_SECTION_RE = /Open Relations\t?\n([\s\S]*?)\n(?:ThemNormalUnfriendlyHostileWarUs|Provinces)/i;
+const OPEN_RELATION_LINE_RE = new RegExp(`^(.+?) ${KDLOC} - ([^\\n]+)$`, "gm");
 
 // Province list pattern: name, optional marker (*+^~), race, land(a), nw(gc), nwpa(gc), honor, optional gains
 const PROVINCE_RE = new RegExp(
@@ -40,6 +44,18 @@ export function parseKingdom(text: string): KingdomData | null {
 
   const warMatch = WAR_RE.exec(text);
   const warTarget = warMatch ? warMatch[2] : null;
+  const attitudesMatch = ATTITUDES_RE.exec(text);
+  const hostilityVisibleMatch = HOSTILITY_VISIBLE_RE.exec(text);
+  const openRelations: KingdomOpenRelation[] = [];
+  const openRelationsSection = OPEN_RELATIONS_SECTION_RE.exec(text)?.[1] ?? "";
+  let relationMatch: RegExpExecArray | null;
+  while ((relationMatch = OPEN_RELATION_LINE_RE.exec(openRelationsSection)) !== null) {
+    openRelations.push({
+      name: relationMatch[1].trim(),
+      location: relationMatch[2],
+      status: relationMatch[3].trim(),
+    });
+  }
 
   const provinces: KingdomProvince[] = [];
 
@@ -82,5 +98,16 @@ export function parseKingdom(text: string): KingdomData | null {
     }
   }
 
-  return { name: kdName, location, warTarget, provinces };
+  return {
+    name: kdName,
+    location,
+    warTarget,
+    theirAttitudeToUs: attitudesMatch ? attitudesMatch[1].trim() : null,
+    theirAttitudePoints: attitudesMatch ? parseFloat(attitudesMatch[2]) : null,
+    ourAttitudeToThem: attitudesMatch ? attitudesMatch[3].trim() : null,
+    ourAttitudePoints: attitudesMatch ? parseFloat(attitudesMatch[4]) : null,
+    hostilityMeterVisibleUntil: hostilityVisibleMatch ? hostilityVisibleMatch[1].trim() : null,
+    openRelations,
+    provinces,
+  };
 }

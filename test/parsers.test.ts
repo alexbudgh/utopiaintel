@@ -186,6 +186,34 @@ Slot\tProvince\tRace\tLand\tNet Worth\tNet Worth/Acre\tNobility
 6\tPrams nova (S)*\tFaery\t1,493 acres\t316,475gc\t211gc\tLady
 `;
 
+const KINGDOM_RELATION_TEXT = `
+The Venerated kingdom of Champions of Endevours (1:6)
+< Previous Random Next >
+
+Total Provinces\t21\tStance\tNormal
+Total Networth\t13,198,771gc (avg: 628,512gc)\tNet Worth Rank\t33 of 86
+Total Land\t58,961 acres (avg: 2,807 acres)\tLand Rank\t37 of 86
+Total Honor\t24,810\tHonor Rank\t51 of 86
+Wars Won / War Score\t2 / 0.5\tAverage Opponent Relative Size\t102%
+War History\t
+Pirates AAAARRRrrrr (4:7) Loss
+Luke no warrring 311 kthxbye (2:5) Win
+always looking for eowcf (2:8) Win
+Clownosaurus Need more clowns (4:2) Loss
+Open Relations\t
+Ghetto Nightmare (2:3) - Unfriendly
+ThemNormalUnfriendlyHostileWarUs
+Their Attitude To Us\tNon Aggression Pact (0.00 points)\tOur Attitude To Them\tNon Aggression Pact (0.00 points)
+Taunt into battle\tHostility meter visible until Mon, 20 Apr
+Provinces
+Legend: Protection^ Monarch (M) Steward (S) You Online*
+
+Slot\tProvince\tRace\tLand\tNet Worth\tNet Worth/Acre\tNobility
+1\tImperator Margok (S)\tDark Elf\t2,862 acres\t664,532gc\t232gc\tKnight
+2\tEarth of exotic\tOrc\t2,707 acres\t596,200gc\t220gc\tKnight
+3\tKefka Palazzo\tHuman\t3,026 acres\t677,134gc\t223gc\tKnight
+`;
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -462,4 +490,28 @@ test("parseKingdom — monarch/steward markers stripped from province names", ()
   // No false positives — names with markers must not appear
   assert.ok(!r.provinces.find((p) => p.name.includes("(M)")), "no province name should contain (M)");
   assert.ok(!r.provinces.find((p) => p.name.includes("(S)")), "no province name should contain (S)");
+});
+
+test("parseKingdom — directional relations and hostility timer", () => {
+  const r = parseKingdom(KINGDOM_RELATION_TEXT);
+  assert.ok(r, "should parse successfully");
+  assert.equal(r.location, "1:6");
+  assert.equal(r.theirAttitudeToUs, "Non Aggression Pact");
+  assert.equal(r.theirAttitudePoints, 0);
+  assert.equal(r.ourAttitudeToThem, "Non Aggression Pact");
+  assert.equal(r.ourAttitudePoints, 0);
+  assert.equal(r.hostilityMeterVisibleUntil, "Mon, 20 Apr");
+  assert.equal(r.warTarget, null);
+});
+
+test("parseKingdom — open relations list", () => {
+  const r = parseKingdom(KINGDOM_RELATION_TEXT);
+  assert.ok(r, "should parse successfully");
+  assert.deepEqual(r.openRelations, [
+    {
+      name: "Ghetto Nightmare",
+      location: "2:3",
+      status: "Unfriendly",
+    },
+  ]);
 });

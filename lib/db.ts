@@ -9,6 +9,7 @@ import type {
   InfiltrateData,
   KingdomData,
   StateData,
+  KingdomOpenRelation,
 } from "./parsers/types";
 
 const DB_PATH = path.join(process.cwd(), "intel.db");
@@ -231,6 +232,12 @@ function initSchema(db: Database.Database) {
       name TEXT NOT NULL,
       location TEXT NOT NULL,
       war_target TEXT,
+      their_attitude_to_us TEXT,
+      their_attitude_points REAL,
+      our_attitude_to_them TEXT,
+      our_attitude_points REAL,
+      hostility_meter_visible_until TEXT,
+      open_relations_json TEXT,
       source TEXT NOT NULL DEFAULT 'kingdom',
       saved_by TEXT,
       received_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -254,6 +261,12 @@ function initSchema(db: Database.Database) {
     (db.prepare(`SELECT COUNT(*) as n FROM pragma_table_info('${table}') WHERE name='${col}'`).get() as { n: number }).n > 0;
   if (!hasCol("survey_intel", "thievery_effectiveness")) db.exec("ALTER TABLE survey_intel ADD COLUMN thievery_effectiveness REAL");
   if (!hasCol("survey_intel", "thief_prevent_chance"))   db.exec("ALTER TABLE survey_intel ADD COLUMN thief_prevent_chance REAL");
+  if (!hasCol("kingdom_intel", "their_attitude_to_us")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN their_attitude_to_us TEXT");
+  if (!hasCol("kingdom_intel", "their_attitude_points")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN their_attitude_points REAL");
+  if (!hasCol("kingdom_intel", "our_attitude_to_them")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN our_attitude_to_them TEXT");
+  if (!hasCol("kingdom_intel", "our_attitude_points")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN our_attitude_points REAL");
+  if (!hasCol("kingdom_intel", "hostility_meter_visible_until")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN hostility_meter_visible_until TEXT");
+  if (!hasCol("kingdom_intel", "open_relations_json")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN open_relations_json TEXT");
 }
 
 // Get or create province identity, return ID
@@ -439,9 +452,25 @@ export function storeKingdom(data: KingdomData, savedBy: string, keyHash: string
   const db = getDb();
   db.transaction(() => {
     const result = db.prepare(`
-      INSERT INTO kingdom_intel (name, location, war_target, saved_by)
-      VALUES (?, ?, ?, ?)
-    `).run(data.name, data.location, data.warTarget, savedBy);
+      INSERT INTO kingdom_intel (
+        name, location, war_target,
+        their_attitude_to_us, their_attitude_points,
+        our_attitude_to_them, our_attitude_points,
+        hostility_meter_visible_until, open_relations_json, saved_by
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      data.name,
+      data.location,
+      data.warTarget,
+      data.theirAttitudeToUs,
+      data.theirAttitudePoints,
+      data.ourAttitudeToThem,
+      data.ourAttitudePoints,
+      data.hostilityMeterVisibleUntil,
+      JSON.stringify(data.openRelations),
+      savedBy,
+    );
 
     const kdId = result.lastInsertRowid;
     const ins = db.prepare("INSERT INTO kingdom_provinces (kingdom_intel_id, name, race, land, networth, honor_title) VALUES (?, ?, ?, ?, ?, ?)");
@@ -507,6 +536,12 @@ export interface KingdomSnapshot {
   name: string;
   location: string;
   warTarget: string | null;
+  theirAttitudeToUs: string | null;
+  theirAttitudePoints: number | null;
+  ourAttitudeToThem: string | null;
+  ourAttitudePoints: number | null;
+  hostilityMeterVisibleUntil: string | null;
+  openRelations: KingdomOpenRelation[];
   receivedAt: string;
   provinces: KingdomSnapshotProvince[];
 }
@@ -540,7 +575,11 @@ export function getKingdoms(keyHash: string): KingdomRow[] {
 export function getLatestKingdomSnapshot(location: string, keyHash: string): KingdomSnapshot | null {
   const db = getDb();
   const snapshot = db.prepare(`
-    SELECT ki.id, ki.name, ki.location, ki.war_target, ki.received_at
+    SELECT ki.id, ki.name, ki.location, ki.war_target,
+           ki.their_attitude_to_us, ki.their_attitude_points,
+           ki.our_attitude_to_them, ki.our_attitude_points,
+           ki.hostility_meter_visible_until, ki.open_relations_json,
+           ki.received_at
     FROM kingdom_intel ki
     WHERE ki.location = ?
       AND NOT EXISTS (
@@ -564,6 +603,12 @@ export function getLatestKingdomSnapshot(location: string, keyHash: string): Kin
     name: string;
     location: string;
     war_target: string | null;
+    their_attitude_to_us: string | null;
+    their_attitude_points: number | null;
+    our_attitude_to_them: string | null;
+    our_attitude_points: number | null;
+    hostility_meter_visible_until: string | null;
+    open_relations_json: string | null;
     received_at: string;
   } | undefined;
 
@@ -587,6 +632,12 @@ export function getLatestKingdomSnapshot(location: string, keyHash: string): Kin
     name: snapshot.name,
     location: snapshot.location,
     warTarget: snapshot.war_target,
+    theirAttitudeToUs: snapshot.their_attitude_to_us,
+    theirAttitudePoints: snapshot.their_attitude_points,
+    ourAttitudeToThem: snapshot.our_attitude_to_them,
+    ourAttitudePoints: snapshot.our_attitude_points,
+    hostilityMeterVisibleUntil: snapshot.hostility_meter_visible_until,
+    openRelations: snapshot.open_relations_json ? JSON.parse(snapshot.open_relations_json) as KingdomOpenRelation[] : [],
     receivedAt: snapshot.received_at,
     provinces: provinces.map((p) => ({
       name: p.name,
