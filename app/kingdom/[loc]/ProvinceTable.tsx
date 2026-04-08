@@ -13,6 +13,7 @@ const COLUMNS = [
   { key: "personality", label: "Personality", group: "Overview",  desc: "Personality"                                 },
   { key: "land",        label: "Land",        group: "Overview",  desc: "Acres of land"                               },
   { key: "networth",    label: "NW",          group: "Overview",  desc: "Networth"                                    },
+  { key: "building_efficiency", label: "BE",  group: "Overview",  desc: "Building efficiency"                         },
   { key: "off_points",  label: "Off",         group: "Military",  desc: "Total modified offense (province-wide, SoT)" },
   { key: "def_points",  label: "Def",         group: "Military",  desc: "Total modified defense (province-wide, SoT)" },
   { key: "soldiers",    label: "Soldiers",    group: "Troops",    desc: "Total soldiers (SoT)"                        },
@@ -48,7 +49,7 @@ const COLUMNS = [
 type ColKey = (typeof COLUMNS)[number]["key"];
 
 const VIEWS: Record<string, ColKey[]> = {
-  Overview:  ["race", "personality", "land", "networth", "off_points", "def_points", "def_home", "age"],
+  Overview:  ["race", "personality", "land", "networth", "off_points", "def_points", "def_home", "peasants", "building_efficiency", "age"],
   Military:  ["land", "off_points", "def_points", "off_home", "def_home", "ome", "dme", "soldiers_home", "off_specs_home", "def_specs_home", "elites_home", "peasants", "age"],
   Resources: ["land", "networth", "money", "food", "runes", "prisoners", "trade_balance", "war_horses", "peasants", "thieves", "wizards", "age"],
   "T/M":     ["land", "rtpa", "mtpa", "otpa", "dtpa", "rwpa", "mwpa", "age"],
@@ -118,7 +119,7 @@ function ageFor(p: ProvinceRow, key: ColKey): string | null {
   if (key === "age") return p.overview_age ?? p.military_age;
   if (["soldiers", "off_specs", "def_specs", "elites", "war_horses", "peasants"].includes(key)) return p.troops_age;
   if (["soldiers_home", "off_specs_home", "def_specs_home", "elites_home"].includes(key)) return p.troops_home_age;
-  if (["money", "food", "runes", "prisoners", "trade_balance", "wizards"].includes(key)) return p.resources_age;
+  if (["money", "food", "runes", "prisoners", "trade_balance", "building_efficiency", "wizards"].includes(key)) return p.resources_age;
   if (key === "thieves") return p.thieves_age;
   if (["ome", "dme"].includes(key)) return p.som_age;
   if (["off_points", "def_points"].includes(key)) return p.military_age;
@@ -134,7 +135,7 @@ function ageFor(p: ProvinceRow, key: ColKey): string | null {
 function sourceFor(p: ProvinceRow, key: ColKey): string | null {
   if (["soldiers", "off_specs", "def_specs", "elites", "war_horses", "peasants"].includes(key)) return p.troops_source;
   if (["soldiers_home", "off_specs_home", "def_specs_home", "elites_home"].includes(key)) return "som";
-  if (["money", "food", "runes", "prisoners", "trade_balance", "thieves", "wizards"].includes(key)) return p.resources_source;
+  if (["money", "food", "runes", "prisoners", "trade_balance", "building_efficiency", "thieves", "wizards"].includes(key)) return p.resources_source;
   if (["ome", "dme"].includes(key)) return "som";
   if (["off_points", "def_points"].includes(key)) return "sot";
   if (["off_home", "def_home"].includes(key)) return p.home_mil_age ? "som/sod" : null;
@@ -243,6 +244,7 @@ function cellValue(p: ProvinceRow, key: ColKey): React.ReactNode {
     case "runes":         return formatNum(p.runes);
     case "prisoners":     return formatNum(p.prisoners);
     case "trade_balance": return p.trade_balance != null ? (p.trade_balance >= 0 ? "+" : "") + formatNum(p.trade_balance) : "—";
+    case "building_efficiency": return p.building_efficiency != null ? p.building_efficiency + "%" : "—";
     case "thieves":     return formatNum(p.thieves);
     case "wizards":     return formatNum(p.wizards);
     case "age": {

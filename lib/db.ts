@@ -683,6 +683,7 @@ export interface ProvinceRow {
   runes: number | null;
   prisoners: number | null;
   trade_balance: number | null;
+  building_efficiency: number | null;
   thieves: number | null;
   thieves_age: string | null;
   wizards: number | null;
@@ -710,7 +711,7 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
            tmp.off_points, tmp.def_points, tmp.received_at AS military_age,
            pt.soldiers, pt.off_specs, pt.def_specs, pt.elites, pt.war_horses, pt.peasants, pt.received_at AS troops_age, pt.source AS troops_source,
            pt_home.soldiers AS soldiers_home, pt_home.off_specs AS off_specs_home, pt_home.def_specs AS def_specs_home, pt_home.elites AS elites_home, pt_home.received_at AS troops_home_age,
-           pr.money, pr.food, pr.runes, pr.prisoners, pr.trade_balance, pr.wizards, pr.received_at AS resources_age, pr.source AS resources_source,
+           pr.money, pr.food, pr.runes, pr.prisoners, pr.trade_balance, pr.building_efficiency, pr.wizards, pr.received_at AS resources_age, pr.source AS resources_source,
            (SELECT p2.thieves FROM province_resources p2 WHERE p2.province_id = p.id AND p2.thieves IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS thieves,
            (SELECT p2.received_at FROM province_resources p2 WHERE p2.province_id = p.id AND p2.thieves IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS thieves_age,
            hmp.mod_off_at_home AS off_home, hmp.mod_def_at_home AS def_home, hmp.received_at AS home_mil_age,
