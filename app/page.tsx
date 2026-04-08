@@ -43,17 +43,13 @@ function relationSummary(
     <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
       {warTarget && (
         <span className="rounded border border-orange-500/40 bg-orange-950/30 px-2 py-0.5 font-medium text-orange-200">
-          War{boundKingdom && warTarget === boundKingdom ? ` · ${warTarget}` : kingdom === boundKingdom ? ` · ${warTarget}` : ""}
+          War · {warTarget}
         </span>
       )}
       {openRelation && (
-        <>
-          <span className="text-gray-500">Open</span>
-          <span className="text-gray-300">{openRelation.location}</span>
-          <span className={`rounded border px-2 py-0.5 font-medium ${relationBadgeClass(openRelation.status)}`}>
-            {openRelation.status}
-          </span>
-        </>
+        <span className={`rounded border px-2 py-0.5 font-medium ${relationBadgeClass(openRelation.status)}`}>
+          {openRelation.status} · {openRelation.location}
+        </span>
       )}
       {mutualCeasefire ? (
         <>

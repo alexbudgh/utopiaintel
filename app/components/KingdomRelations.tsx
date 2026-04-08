@@ -49,23 +49,20 @@ export function KingdomRelations({
   return (
     <div className={`mt-2 rounded-md border px-3 py-2 text-xs ${relationTone}`}>
       {(isWarWithBoundKingdom || isSelfWarPage) && (
-        <div className="mb-1 font-semibold uppercase tracking-wide text-orange-200">
-          War
-          {(relationSnapshot?.warTarget || snapshot?.warTarget) && ` · ${relationSnapshot?.warTarget ?? snapshot?.warTarget}`}
+        <div className="mb-1">
+          <span className="rounded border border-orange-500/40 bg-orange-950/30 px-2 py-0.5 font-semibold tracking-wide text-orange-200">
+            War · {relationSnapshot?.warTarget ?? snapshot?.warTarget}
+          </span>
         </div>
       )}
       {primaryOpenRelation && (
         <div className="mb-2 flex flex-wrap items-center gap-2">
-          <span className="text-[11px] uppercase tracking-wide text-gray-500">Open relation</span>
           <Link
             href={`/kingdom/${encodeURIComponent(primaryOpenRelation.location)}`}
-            className="text-gray-100 hover:text-blue-300"
+            className={`rounded border px-2 py-0.5 text-[11px] font-medium hover:text-blue-100 ${relationBadgeClass(primaryOpenRelation.status)}`}
           >
-            {primaryOpenRelation.name} ({primaryOpenRelation.location})
+            {primaryOpenRelation.status} · {primaryOpenRelation.location}
           </Link>
-          <span className={`rounded border px-2 py-0.5 text-[11px] font-medium ${relationBadgeClass(primaryOpenRelation.status)}`}>
-            {primaryOpenRelation.status}
-          </span>
         </div>
       )}
       {mutualCeasefire ? (
@@ -95,7 +92,9 @@ export function KingdomRelations({
       )}
       {snapshot && snapshot.warTarget && !(isWarWithBoundKingdom || isSelfWarPage) && (
         <div className="mt-1 text-gray-300">
-          War target: <span className="text-orange-300">{snapshot.warTarget}</span>
+          <span className="rounded border border-orange-500/40 bg-orange-950/30 px-2 py-0.5 font-medium text-orange-200">
+            War · {snapshot.warTarget}
+          </span>
         </div>
       )}
       {(relationSnapshot?.hostilityMeterVisibleUntil || snapshot?.hostilityMeterVisibleUntil) && (
