@@ -61,7 +61,12 @@ export default async function KingdomPage({
               {primaryOpenRelation && (
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <span className="text-[11px] uppercase tracking-wide text-gray-500">Open relation</span>
-                  <span className="text-gray-100">{primaryOpenRelation.name} ({primaryOpenRelation.location})</span>
+                  <Link
+                    href={`/kingdom/${encodeURIComponent(primaryOpenRelation.location)}`}
+                    className="text-gray-100 hover:text-blue-300"
+                  >
+                    {primaryOpenRelation.name} ({primaryOpenRelation.location})
+                  </Link>
                   <span className={`rounded border px-2 py-0.5 text-[11px] font-medium ${relationBadgeClass(primaryOpenRelation.status)}`}>
                     {primaryOpenRelation.status}
                   </span>
