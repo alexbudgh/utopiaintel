@@ -240,8 +240,65 @@ function throneTextWithRuler(ruler: string): string {
 
 test("detectIntelType — /throne detected as sot", () => {
   assert.equal(detectIntelType("https://utopia-game.com/wol/game/throne"), "sot");
-  // spy_on_throne must not be affected
-  assert.equal(detectIntelType("https://utopia-game.com/wol/game/spy_on_throne"), "sot");
+});
+
+test("detectIntelType — thievery query op URLs detected", () => {
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=SPY_ON_THRONE&q=402&c=1241"),
+    "sot",
+  );
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=SPY_ON_DEFENSE&q=402&c=4157"),
+    "sod",
+  );
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=SPY_ON_MILITARY&q=387&c=5692"),
+    "som",
+  );
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=SPY_ON_SCIENCES&q=387&c=9534"),
+    "sos",
+  );
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=SURVEY&q=387&c=7894"),
+    "survey",
+  );
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=INFILTRATE&q=387&c=6471"),
+    "infiltrate",
+  );
+});
+
+test("detectIntelType — thievery query op detection is case-insensitive", () => {
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=spy_on_throne&q=402&c=1241"),
+    "sot",
+  );
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=survey&q=387&c=7894"),
+    "survey",
+  );
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=infiltrate&q=387&c=6471"),
+    "infiltrate",
+  );
+});
+
+test("detectIntelType — unsupported thievery ops are real but NYI", () => {
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/thievery?c=3900"),
+    null,
+  );
+  // These are real thievery op URLs seen in traces, but we do not parse/store
+  // them yet, so they should remain unrecognized until implemented.
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=SNATCH_NEWS&q=387&c=4517"),
+    null,
+  );
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=SPY_ON_EXPLORATION&q=387&c=236"),
+    null,
+  );
 });
 
 test("detectIntelType — kingdom_details with coordinates detected as kingdom", () => {

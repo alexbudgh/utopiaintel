@@ -8,6 +8,16 @@ export function getIntelPathname(url: string): string | null {
   }
 }
 
+function getUtopiaThieveryOp(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    if (parsed.pathname.toLowerCase() !== "/wol/game/thievery") return null;
+    return parsed.searchParams.get("o")?.toUpperCase() ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // Detect intel type from the URL sent by the game client.
 // Self-intel pages (council_*) share the same data format as spy results but without
 // a province preamble — parsers accept a selfProv fallback for those.
@@ -24,6 +34,16 @@ export function detectIntelType(url: string): IntelType | null {
   // council_spells, council_history — no structured data
 
   // Spy/thievery operations
+  const thieveryOp = getUtopiaThieveryOp(url);
+  if (thieveryOp === "SPY_ON_THRONE") return "sot";
+  if (thieveryOp === "SPY_ON_MILITARY") return "som";
+  if (thieveryOp === "SPY_ON_SCIENCES") return "sos";
+  if (thieveryOp === "SPY_ON_DEFENSE") return "sod";
+  if (thieveryOp === "SURVEY") return "survey";
+  if (thieveryOp === "INFILTRATE") return "infiltrate";
+  // TODO: Add parsers/storage for other thievery ops we see in production,
+  // such as SNATCH_NEWS and SPY_ON_EXPLORATION.
+
   if (pathname.endsWith("/spy_on_throne")) return "sot";
   if (pathname.endsWith("/spy_on_military") || pathname.endsWith("/train_army") || pathname.endsWith("/army_training")) return "som";
   if (pathname.endsWith("/spy_on_sciences")) return "sos";
