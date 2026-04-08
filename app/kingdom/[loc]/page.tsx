@@ -46,17 +46,22 @@ export default async function KingdomPage({
   return (
     <main className="p-6">
       <div className="mb-4 flex flex-wrap items-center gap-4">
-        <Link href="/" className="text-gray-400 hover:text-gray-200 text-sm">
-          ← kingdoms
-        </Link>
-        {boundKingdom && kingdom !== boundKingdom && (
+        <div className="flex flex-col gap-2">
           <Link
-            href={`/kingdom/${encodeURIComponent(boundKingdom)}`}
-            className="text-gray-400 hover:text-gray-200 text-sm"
+            href="/"
+            className="inline-flex items-center rounded border border-gray-800 bg-gray-900/70 px-2.5 py-1 text-sm text-gray-400 transition-colors hover:border-gray-600 hover:text-gray-200"
           >
-            My Kingdom
+            ← kingdoms
           </Link>
-        )}
+          {boundKingdom && kingdom !== boundKingdom && (
+            <Link
+              href={`/kingdom/${encodeURIComponent(boundKingdom)}`}
+              className="inline-flex items-center rounded border border-blue-900/60 bg-blue-950/40 px-2.5 py-1 text-sm text-blue-200 transition-colors hover:border-blue-700 hover:text-blue-100"
+            >
+              My Kingdom
+            </Link>
+          )}
+        </div>
         <div>
           <h1 className="text-xl font-bold text-gray-100 font-mono">{kingdom}</h1>
           {snapshot?.name && (
