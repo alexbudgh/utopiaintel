@@ -49,6 +49,10 @@ const TABLES: Record<string, string[]> = {
 // Run TTL cleanup roughly once per 100 requests
 let requestCount = 0;
 
+function intelLog(message: string) {
+  console.log(`[intel ${new Date().toISOString()}] ${message}`);
+}
+
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
 
@@ -80,7 +84,7 @@ export async function POST(request: NextRequest) {
 
   const result = parseIntel(fields.url, fields.data_simple, fields.prov);
   if (!result) {
-    console.log(`[intel] unrecognized  from=${fields.prov}  url=${fields.url}`);
+    intelLog(`unrecognized  from=${fields.prov}  url=${fields.url}`);
     return NextResponse.json({
       success: true,
       parsed: false,
@@ -95,7 +99,7 @@ export async function POST(request: NextRequest) {
 
   const province = "name" in result.data ? result.data.name : "—";
   const kingdom  = "kingdom" in result.data ? result.data.kingdom : "—";
-  console.log(`[intel] ${result.type.padEnd(7)}  ${province} (${kingdom})  from=${savedBy}  → ${TABLES[result.type]?.join(", ")}`);
+  intelLog(`${result.type.padEnd(7)}  ${province} (${kingdom})  from=${savedBy}  → ${TABLES[result.type]?.join(", ")}`);
 
   switch (result.type) {
     case "sot":

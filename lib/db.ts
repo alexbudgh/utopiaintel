@@ -292,7 +292,9 @@ function bindKeyToKingdom(db: Database.Database, keyHash: string, kingdom: strin
   ).get(keyHash) as { kingdom: string } | undefined;
 
   if (existing && existing.kingdom !== kingdom) {
-    console.warn(`[intel] key binding mismatch for ${keyHash.slice(0, 8)}: existing=${existing.kingdom} incoming=${kingdom} source=${source}`);
+    console.warn(
+      `[intel ${new Date().toISOString()}] key binding mismatch for ${keyHash.slice(0, 8)}: existing=${existing.kingdom} incoming=${kingdom} source=${source}`,
+    );
     return;
   }
 
