@@ -53,7 +53,6 @@ function relationSummary(
       )}
       {mutualCeasefire ? (
         <>
-          <span className="text-gray-500">Relation</span>
           <span className={`rounded border px-2 py-0.5 font-medium ${relationBadgeClass(relationSnapshot?.ourAttitudeToThem ?? relationSnapshot?.theirAttitudeToUs ?? null)}`}>
             Non-Aggression Pact
           </span>
