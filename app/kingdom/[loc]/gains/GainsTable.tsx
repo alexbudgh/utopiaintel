@@ -228,12 +228,30 @@ function estimateTitle(
   const rpnwInfo = rpnwBreakdown(estimate.rpnw);
   const rknwInfo = rknwBreakdown(estimate.rknw);
   const mapInfo = mapBreakdown(defenderLatest?.hit_status ?? null, relationState, estimate.mapFactor);
-  const relationInfo = relationBreakdown(
-    ourAttitudeToThem,
-    theirAttitudeToUs,
-    estimate.ourRelationFactor,
-    estimate.theirRelationFactor,
-  );
+  const mutualCeasefire =
+    isNonAggressionPact(ourAttitudeToThem) &&
+    isNonAggressionPact(theirAttitudeToUs);
+  const relationInfo = mutualCeasefire
+    ? ([
+        {
+          text: `Our attitude to them = ${ourAttitudeToThem ?? "Normal"}`,
+          tone: "strong",
+        },
+        {
+          text: `Their attitude to us = ${theirAttitudeToUs ?? "Normal"}`,
+          tone: "strong",
+        },
+        {
+          text: "Hostile actions are blocked by a Non-Aggression Pact / ceasefire",
+          tone: "bad",
+        },
+      ] satisfies TooltipLine[])
+    : relationBreakdown(
+        ourAttitudeToThem,
+        theirAttitudeToUs,
+        estimate.ourRelationFactor,
+        estimate.theirRelationFactor,
+      );
   return [
     { text: `${attacker.name} -> ${defender.name}`, tone: "strong" },
     ...(zeroReason ? [{ text: zeroReason, tone: estimate.rpnwFactor === 0 ? "bad" : "warn" } satisfies TooltipLine] : []),
