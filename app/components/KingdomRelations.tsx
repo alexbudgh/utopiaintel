@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import type { KingdomSnapshot } from "@/lib/db";
 
 function formatRelationPoints(points: number | null): string {
@@ -34,45 +35,54 @@ export function KingdomRelations({
   const isWarWithBoundKingdom =
     !!relationSnapshot?.warTarget && !!boundKingdom && relationSnapshot.warTarget === boundKingdom;
   const isSelfWarPage = !!snapshot?.warTarget && !!boundKingdom && kingdom === boundKingdom;
-  const relationTone =
-    isWarWithBoundKingdom || isSelfWarPage
-      ? "border-orange-500/40 bg-orange-950/30 text-orange-100"
-      : "border-gray-800 bg-gray-900/50 text-gray-300";
+  const relationTone = "border-gray-800 bg-gray-900/50 text-gray-300";
   const mutualCeasefire =
     isCeasefireLike(relationSnapshot?.theirAttitudeToUs ?? null) &&
     isCeasefireLike(relationSnapshot?.ourAttitudeToThem ?? null);
+  const sections: Array<{ standalone: boolean; node: ReactNode }> = [];
 
   if (!(relationSnapshot?.theirAttitudeToUs || relationSnapshot?.ourAttitudeToThem || snapshot?.warTarget || primaryOpenRelation)) {
     return null;
   }
 
-  return (
-    <div className={`mt-2 rounded-md border px-3 py-2 text-xs ${relationTone}`}>
-      {(isWarWithBoundKingdom || isSelfWarPage) && (
-        <div className="mb-1">
-          <span className="rounded border border-orange-500/40 bg-orange-950/30 px-2 py-0.5 font-semibold tracking-wide text-orange-200">
-            War · {relationSnapshot?.warTarget ?? snapshot?.warTarget}
-          </span>
-        </div>
-      )}
-      {primaryOpenRelation && (
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <Link
-            href={`/kingdom/${encodeURIComponent(primaryOpenRelation.location)}`}
-            className={`rounded border px-2 py-0.5 text-[11px] font-medium hover:text-blue-100 ${relationBadgeClass(primaryOpenRelation.status)}`}
-          >
-            {primaryOpenRelation.status} · {primaryOpenRelation.location}
-          </Link>
-        </div>
-      )}
-      {mutualCeasefire ? (
-        <div className="flex flex-wrap items-center gap-2 text-gray-300">
-          <span className="text-gray-500">Relation</span>
-          <span className={`rounded border px-2 py-0.5 text-[11px] font-medium ${relationBadgeClass(relationSnapshot?.ourAttitudeToThem ?? relationSnapshot?.theirAttitudeToUs ?? null)}`}>
-            Non-Aggression Pact
-          </span>
-        </div>
-      ) : relationSnapshot && (relationSnapshot.theirAttitudeToUs || relationSnapshot.ourAttitudeToThem) && (
+  if (isWarWithBoundKingdom || isSelfWarPage) {
+    sections.push({
+      standalone: true,
+      node: (
+        <span className="rounded border border-orange-500/40 bg-orange-950/30 px-2 py-0.5 font-semibold tracking-wide text-orange-200">
+          War · {relationSnapshot?.warTarget ?? snapshot?.warTarget}
+        </span>
+      ),
+    });
+  }
+
+  if (primaryOpenRelation) {
+    sections.push({
+      standalone: true,
+      node: (
+        <Link
+          href={`/kingdom/${encodeURIComponent(primaryOpenRelation.location)}`}
+          className={`rounded border px-2 py-0.5 text-[11px] font-medium hover:text-blue-100 ${relationBadgeClass(primaryOpenRelation.status)}`}
+        >
+          {primaryOpenRelation.status} · {primaryOpenRelation.location}
+        </Link>
+      ),
+    });
+  }
+
+  if (mutualCeasefire) {
+    sections.push({
+      standalone: true,
+      node: (
+        <span className={`rounded border px-2 py-0.5 text-[11px] font-medium ${relationBadgeClass(relationSnapshot?.ourAttitudeToThem ?? relationSnapshot?.theirAttitudeToUs ?? null)}`}>
+          Non-Aggression Pact
+        </span>
+      ),
+    });
+  } else if (relationSnapshot && (relationSnapshot.theirAttitudeToUs || relationSnapshot.ourAttitudeToThem)) {
+    sections.push({
+      standalone: false,
+      node: (
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2 text-gray-300">
             <span className="w-20 text-gray-500">They → us</span>
@@ -89,19 +99,45 @@ export function KingdomRelations({
             <span className="text-gray-400">({formatRelationPoints(relationSnapshot.ourAttitudePoints)})</span>
           </div>
         </div>
-      )}
-      {snapshot && snapshot.warTarget && !(isWarWithBoundKingdom || isSelfWarPage) && (
-        <div className="mt-1 text-gray-300">
-          <span className="rounded border border-orange-500/40 bg-orange-950/30 px-2 py-0.5 font-medium text-orange-200">
-            War · {snapshot.warTarget}
-          </span>
-        </div>
-      )}
-      {(relationSnapshot?.hostilityMeterVisibleUntil || snapshot?.hostilityMeterVisibleUntil) && (
-        <div className="mt-1 text-gray-300">
+      ),
+    });
+  }
+
+  if (snapshot && snapshot.warTarget && !(isWarWithBoundKingdom || isSelfWarPage)) {
+    sections.push({
+      standalone: true,
+      node: (
+        <span className="rounded border border-orange-500/40 bg-orange-950/30 px-2 py-0.5 font-medium text-orange-200">
+          War · {snapshot.warTarget}
+        </span>
+      ),
+    });
+  }
+
+  if (relationSnapshot?.hostilityMeterVisibleUntil || snapshot?.hostilityMeterVisibleUntil) {
+    sections.push({
+      standalone: false,
+      node: (
+        <div className="text-gray-300">
           Hostility meter visible until <span className="text-gray-200">{relationSnapshot?.hostilityMeterVisibleUntil ?? snapshot?.hostilityMeterVisibleUntil}</span>
         </div>
-      )}
+      ),
+    });
+  }
+
+  if (sections.length === 1 && sections[0].standalone) {
+    return <div className="mt-2 text-xs">{sections[0].node}</div>;
+  }
+
+  return (
+    <div className={`mt-2 rounded-md border px-3 py-2 text-xs ${relationTone}`}>
+      <div className="space-y-1">
+        {sections.map((section, i) => (
+          <div key={i} className={section.standalone ? "" : ""}>
+            {section.node}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
