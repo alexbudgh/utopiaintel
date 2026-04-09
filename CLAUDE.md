@@ -29,6 +29,14 @@ npm install
 npm run dev
 ```
 
+For quick validation while iterating, prefer:
+
+```bash
+npx tsc --noEmit
+```
+
+Use a full `npm run build` when you specifically need production validation.
+
 ## Test the endpoint
 
 ```bash
@@ -61,9 +69,12 @@ Do not store real province names, kingdom names, or player names in source code,
 
 - A self `/wol/game/throne` submission is the authoritative source for binding `key_hash -> kingdom`.
 - The bound-kingdom redirect should happen from login only. Keep `/` browsable so users can still navigate to other kingdoms.
+- Current spy/thievery intel commonly arrives as `/wol/game/thievery?...&o=SPY_ON_*`; detection must inspect the `o` query param, not only the pathname.
 - Utopia kingdom pages can arrive as `/wol/game/kingdom_details/<x>/<y>`, not just bare `/wol/game/kingdom_details`.
-- The gains page lives at `/kingdom/[loc]/gains`.
+- This repo is on Next.js 16. Root request interception now uses `proxy.ts`, not `middleware.ts`.
+- Gains are a same-page kingdom view, switched with `/kingdom/[loc]?view=gains`, rather than a separate standalone page.
 - Gains calculations use the latest accessible `kingdom_details` snapshots for both self and target kingdom average NW.
+- Gains currently model directional relation modifiers plus war-vs-out-of-war MAP behavior. The remaining assumptions are exposed in the top `Assumptions` pill in gains view.
 - When debugging live ingest or missing intel, the production source of truth is the live server DB and PM2 logs on `utopiaintel`, not the local workspace DB copy.
 
 ## Build & deploy
