@@ -5,6 +5,8 @@ export interface TraditionalMarchEstimate {
   roundedAcres: number;
   cap: number;
   capApplied: boolean;
+  warFloor: number;
+  warFloorApplied: boolean;
   rpnw: number;
   rpnwFactor: number;
   rknw: number;
@@ -67,6 +69,14 @@ export function castlesProtectionFactor(castlesEffect: number | null): number {
   return Math.max(0, 1 - castlesEffect / 100);
 }
 
+export function warMinimumGainsFloor(
+  defenderLand: number | null,
+  relationState: "war" | "oow",
+): number {
+  if (!defenderLand || relationState !== "war") return 0;
+  return defenderLand * 0.04;
+}
+
 export function outgoingRelationGainsFactor(attitude: string | null): number {
   const normalized = attitude?.trim().toLowerCase() ?? "";
   if (normalized === "unfriendly") return 1.04;
@@ -127,14 +137,18 @@ export function estimateTraditionalMarchAcres(input: {
   const combinedRelationFactor = ourRelationFactor * theirRelationFactor;
   const baseAcres =
     defenderLand * 0.12 * rpnwFactor * rknwFactor * mapFactor * castlesFactor * combinedRelationFactor;
+  const warFloor = warMinimumGainsFloor(defenderLand, relationState);
+  const flooredAcres = Math.max(baseAcres, warFloor);
   const cap = Math.min(attackerLand, defenderLand) * 0.2;
-  const rawAcres = Math.min(baseAcres, cap);
+  const rawAcres = Math.min(flooredAcres, cap);
 
   return {
     rawAcres,
     roundedAcres: Math.round(rawAcres),
     cap,
     capApplied: rawAcres < baseAcres,
+    warFloor,
+    warFloorApplied: warFloor > 0 && flooredAcres > baseAcres,
     rpnw,
     rpnwFactor,
     rknw,

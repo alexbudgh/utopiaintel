@@ -9,6 +9,7 @@ import {
   mapGainsFactor,
   outgoingRelationGainsFactor,
   provinceNetworthFactor,
+  warMinimumGainsFloor,
 } from "../lib/gains";
 import type { ProvinceRow } from "../lib/db";
 
@@ -106,6 +107,12 @@ test("castlesProtectionFactor uses direct survey effect", () => {
   assert.equal(castlesProtectionFactor(0), 1);
   assert.equal(castlesProtectionFactor(12), 0.88);
   assert.equal(castlesProtectionFactor(37.5), 0.625);
+});
+
+test("warMinimumGainsFloor applies only in war", () => {
+  assert.equal(warMinimumGainsFloor(1500, "oow"), 0);
+  assert.equal(warMinimumGainsFloor(1500, "war"), 60);
+  assert.equal(warMinimumGainsFloor(null, "war"), 0);
 });
 
 test("relation gains factors match the Relations guide", () => {
@@ -208,6 +215,25 @@ test("estimateTraditionalMarchAcres applies direct castles protection", () => {
   assert.equal(estimate.castlesFactor, 0.88);
   assert.equal(estimate.rawAcres, 158.4);
   assert.equal(estimate.roundedAcres, 158);
+});
+
+test("estimateTraditionalMarchAcres applies the war minimum-gains floor", () => {
+  const estimate = estimateTraditionalMarchAcres({
+    attackerLand: 1000,
+    attackerNetworth: 800000,
+    defenderLand: 1500,
+    defenderNetworth: 300000,
+    selfKingdomAvgNetworth: 250000,
+    targetKingdomAvgNetworth: 250000,
+    relationState: "war",
+  });
+
+  assert.ok(estimate);
+  assert.equal(estimate.rpnwFactor, 0);
+  assert.equal(estimate.warFloor, 60);
+  assert.equal(estimate.warFloorApplied, true);
+  assert.equal(estimate.rawAcres, 60);
+  assert.equal(estimate.roundedAcres, 60);
 });
 
 test("estimateTraditionalMarchAcres caps oversized gains", () => {

@@ -292,6 +292,7 @@ function estimateTitle(
   );
   const formulaTone =
     estimate.rpnwFactor === 0 || estimate.rawAcres === 0 ? "text-red-300"
+    : estimate.warFloorApplied ? "text-sky-300"
     : estimate.capApplied ? "text-amber-300"
     : "text-green-300";
   const breakabilityLabel =
@@ -371,11 +372,18 @@ function estimateTitle(
       </div>
 
       <Section title="Calculation">
-        <div className={`rounded border px-2 py-1 ${formulaTone === "text-red-300" ? "border-red-900/60 bg-red-950/20" : formulaTone === "text-amber-300" ? "border-amber-900/60 bg-amber-950/20" : "border-green-900/60 bg-green-950/20"} ${formulaTone}`}>
+        <div className={`rounded border px-2 py-1 ${formulaTone === "text-red-300" ? "border-red-900/60 bg-red-950/20" : formulaTone === "text-amber-300" ? "border-amber-900/60 bg-amber-950/20" : formulaTone === "text-sky-300" ? "border-sky-900/60 bg-sky-950/20" : "border-green-900/60 bg-green-950/20"} ${formulaTone}`}>
           {`base acres = ${fmt(defender.land)} * 0.12 * ${estimate.rpnwFactor.toFixed(3)} * ${estimate.rknwFactor.toFixed(3)} * ${estimate.mapFactor.toFixed(3)} * ${estimate.castlesFactor.toFixed(3)} * ${estimate.combinedRelationFactor.toFixed(3)} = ${fmt(baseAcres)}`}
         </div>
+        {estimate.relationState === "war" && (
+          <Row
+            label="War floor"
+            value={`max(${fmt(baseAcres)}, ${fmt(estimate.warFloor)}) = ${fmt(Math.max(baseAcres, estimate.warFloor))}`}
+            tone={estimate.warFloorApplied ? "text-sky-300" : "text-gray-300"}
+          />
+        )}
         <Row label="Cap" value={`min(${fmt(attacker.land ?? 0)}, ${fmt(defender.land)}) * 0.20 = ${fmt(estimate.cap)}`} tone={estimate.capApplied ? "text-amber-300" : "text-gray-300"} />
-        <Row label="Raw acres" value={`min(${fmt(baseAcres)}, ${fmt(estimate.cap)}) = ${fmt(estimate.rawAcres)}`} tone={estimate.rawAcres === 0 ? "text-red-300" : estimate.capApplied ? "text-amber-300" : "text-green-300"} />
+        <Row label="Raw acres" value={`min(${fmt(Math.max(baseAcres, estimate.warFloor))}, ${fmt(estimate.cap)}) = ${fmt(estimate.rawAcres)}`} tone={estimate.rawAcres === 0 ? "text-red-300" : estimate.capApplied ? "text-amber-300" : estimate.warFloorApplied ? "text-sky-300" : "text-green-300"} />
         <Row label="Displayed" value={estimate.roundedAcres.toLocaleString()} tone={estimate.roundedAcres === 0 ? "text-amber-300" : "text-gray-100"} />
       </Section>
 
@@ -434,6 +442,9 @@ function stateBadges(
   }
   if (estimate.capApplied) {
     badges.push(<span key="cap" className="text-[9px] font-medium uppercase tracking-wide text-amber-300">CAP</span>);
+  }
+  if (estimate.warFloorApplied) {
+    badges.push(<span key="floor" className="text-[9px] font-medium uppercase tracking-wide text-sky-300">FLOOR</span>);
   }
   if (estimate.mapFactor < 1) {
     badges.push(<span key="map" className="text-[9px] font-medium uppercase tracking-wide text-rose-300">MAP</span>);
@@ -497,6 +508,7 @@ export function GainsTable({
           { text: "Kingdom averages come from the latest accessible kingdom page snapshots." },
           { text: "Rows use your latest visible intel; target columns use the latest target kingdom snapshot." },
           { text: "MAP uses SoT bucket midpoints." },
+          { text: "War applies a 4% minimum-gains floor based on defender land." },
           { text: "Castles uses the direct lower-loss percentage shown on the latest survey." },
           { text: "Relations use the current directional Unfriendly and Hostile gains modifiers from the target snapshot." },
           { text: "Still assumes neutral race/personality gains mods, siege, dragons, attack-time adjustment, ritual, anonymity, and mist.", tone: "muted" },
