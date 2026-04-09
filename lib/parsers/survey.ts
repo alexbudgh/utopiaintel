@@ -36,10 +36,13 @@ export function parseSurvey(text: string, selfProv?: string): SurveyData | null 
 
   const THIEF_EFFECT_RE = /([\d.]+)% higher thievery effectiveness/i;
   const PREVENT_RE = /([\d.]+)% chance of preventing enemy thief missions/i;
+  const CASTLES_RE = /([\d.]+)% lower resource and honor losses when attacked/i;
   const thieveryMatch = THIEF_EFFECT_RE.exec(text);
   const preventMatch = PREVENT_RE.exec(text);
+  const castlesMatch = CASTLES_RE.exec(text);
   const thieveryEffectiveness = thieveryMatch ? parseFloat_(thieveryMatch[1]) : null;
   const thiefPreventChance = preventMatch ? parseFloat_(preventMatch[1]) : null;
+  const castlesEffect = castlesMatch ? parseFloat_(castlesMatch[1]) : null;
 
-  return { name, kingdom, buildings, thieveryEffectiveness, thiefPreventChance, accuracy };
+  return { name, kingdom, buildings, thieveryEffectiveness, thiefPreventChance, castlesEffect, accuracy };
 }

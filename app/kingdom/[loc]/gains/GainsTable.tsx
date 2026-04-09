@@ -108,6 +108,25 @@ function mapBreakdown(
   };
 }
 
+function castlesBreakdown(
+  castlesEffect: number | null,
+  castlesFactor: number,
+): { branch: string; calc: string; tone: TooltipLine["tone"] } {
+  if (castlesEffect == null) {
+    return {
+      branch: "Castles branch: no direct castles effect from latest survey",
+      calc: "Castles factor: 1",
+      tone: "muted",
+    };
+  }
+
+  return {
+    branch: `Castles branch: latest survey reports ${castlesEffect.toFixed(2)}% lower resource losses when attacked`,
+    calc: `Castles factor: 1 - ${castlesEffect.toFixed(2)}% = ${castlesFactor.toFixed(3)}`,
+    tone: castlesFactor < 1 ? "warn" : "muted",
+  };
+}
+
 function relationBreakdown(
   ourAttitudeToThem: string | null,
   theirAttitudeToUs: string | null,
@@ -206,6 +225,7 @@ function estimateTitle(
     selfKingdomAvgNetworth: selfAvgNetworth,
     targetKingdomAvgNetworth: targetAvgNetworth,
     defenderHitStatus: defenderLatest?.hit_status ?? null,
+    defenderCastlesEffect: defenderLatest?.castles_effect ?? null,
     relationState,
     ourAttitudeToThem,
     theirAttitudeToUs,
@@ -228,10 +248,12 @@ function estimateTitle(
     estimate.rpnwFactor *
     estimate.rknwFactor *
     estimate.mapFactor *
+    estimate.castlesFactor *
     estimate.combinedRelationFactor;
   const rpnwInfo = rpnwBreakdown(estimate.rpnw);
   const rknwInfo = rknwBreakdown(estimate.rknw);
   const mapInfo = mapBreakdown(defenderLatest?.hit_status ?? null, relationState, estimate.mapFactor);
+  const castlesInfo = castlesBreakdown(defenderLatest?.castles_effect ?? null, estimate.castlesFactor);
   const mutualCeasefire =
     isNonAggressionPact(ourAttitudeToThem) &&
     isNonAggressionPact(theirAttitudeToUs);
@@ -314,7 +336,7 @@ function estimateTitle(
           </div>
         </Section>
 
-        <Section title="Relations And MAP">
+        <Section title="Relations, MAP, And Castles">
           <Row label="Relation" value={relationState === "war" ? "War" : "Out of war"} tone={relationState === "war" ? "text-green-300" : "text-gray-300"} />
           {relationInfo.map((line, i) => (
             <div
@@ -338,12 +360,19 @@ function estimateTitle(
           <div className={mapInfo.tone === "bad" ? "text-red-300" : mapInfo.tone === "warn" ? "text-amber-300" : mapInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
             {mapInfo.calc}
           </div>
+          <Row label="Castles" value={estimate.castlesEffect != null ? `${estimate.castlesEffect.toFixed(2)}% protection` : "unknown"} tone={estimate.castlesEffect != null ? "text-gray-100" : "text-gray-500"} />
+          <div className={castlesInfo.tone === "bad" ? "text-red-300" : castlesInfo.tone === "warn" ? "text-amber-300" : castlesInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
+            {castlesInfo.branch}
+          </div>
+          <div className={castlesInfo.tone === "bad" ? "text-red-300" : castlesInfo.tone === "warn" ? "text-amber-300" : castlesInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
+            {castlesInfo.calc}
+          </div>
         </Section>
       </div>
 
       <Section title="Calculation">
         <div className={`rounded border px-2 py-1 ${formulaTone === "text-red-300" ? "border-red-900/60 bg-red-950/20" : formulaTone === "text-amber-300" ? "border-amber-900/60 bg-amber-950/20" : "border-green-900/60 bg-green-950/20"} ${formulaTone}`}>
-          {`base acres = ${fmt(defender.land)} * 0.12 * ${estimate.rpnwFactor.toFixed(3)} * ${estimate.rknwFactor.toFixed(3)} * ${estimate.mapFactor.toFixed(3)} * ${estimate.combinedRelationFactor.toFixed(3)} = ${fmt(baseAcres)}`}
+          {`base acres = ${fmt(defender.land)} * 0.12 * ${estimate.rpnwFactor.toFixed(3)} * ${estimate.rknwFactor.toFixed(3)} * ${estimate.mapFactor.toFixed(3)} * ${estimate.castlesFactor.toFixed(3)} * ${estimate.combinedRelationFactor.toFixed(3)} = ${fmt(baseAcres)}`}
         </div>
         <Row label="Cap" value={`min(${fmt(attacker.land ?? 0)}, ${fmt(defender.land)}) * 0.20 = ${fmt(estimate.cap)}`} tone={estimate.capApplied ? "text-amber-300" : "text-gray-300"} />
         <Row label="Raw acres" value={`min(${fmt(baseAcres)}, ${fmt(estimate.cap)}) = ${fmt(estimate.rawAcres)}`} tone={estimate.rawAcres === 0 ? "text-red-300" : estimate.capApplied ? "text-amber-300" : "text-green-300"} />
@@ -409,6 +438,9 @@ function stateBadges(
   if (estimate.mapFactor < 1) {
     badges.push(<span key="map" className="text-[9px] font-medium uppercase tracking-wide text-rose-300">MAP</span>);
   }
+  if (estimate.castlesFactor < 1) {
+    badges.push(<span key="castles" className="text-[9px] font-medium uppercase tracking-wide text-orange-300">CASTLES</span>);
+  }
   if (estimate.combinedRelationFactor > 1) {
     badges.push(<span key="rel" className="text-[9px] font-medium uppercase tracking-wide text-violet-300">REL</span>);
   }
@@ -465,8 +497,9 @@ export function GainsTable({
           { text: "Kingdom averages come from the latest accessible kingdom page snapshots." },
           { text: "Rows use your latest visible intel; target columns use the latest target kingdom snapshot." },
           { text: "MAP uses SoT bucket midpoints." },
+          { text: "Castles uses the direct lower-loss percentage shown on the latest survey." },
           { text: "Relations use the current directional Unfriendly and Hostile gains modifiers from the target snapshot." },
-          { text: "Still assumes neutral race/personality gains mods, castles, siege, dragons, attack-time adjustment, ritual, anonymity, and mist.", tone: "muted" },
+          { text: "Still assumes neutral race/personality gains mods, siege, dragons, attack-time adjustment, ritual, anonymity, and mist.", tone: "muted" },
         ]}
       >
         <span className={`${btnBase} ${btnInactive}`}>Assumptions</span>
@@ -583,6 +616,7 @@ export function GainsTable({
                     selfKingdomAvgNetworth: selfAvgNetworth,
                     targetKingdomAvgNetworth: targetAvgNetworth,
                     defenderHitStatus: defenderLatest?.hit_status ?? null,
+                    defenderCastlesEffect: defenderLatest?.castles_effect ?? null,
                     relationState,
                     ourAttitudeToThem: targetSnapshot.ourAttitudeToThem,
                     theirAttitudeToUs: targetSnapshot.theirAttitudeToUs,

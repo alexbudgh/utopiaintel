@@ -464,17 +464,20 @@ test("parseSurvey — TPA effects — 0% when no Thieves' Dens or Watch Towers",
   // Both are 0 in this province
   assert.equal(r.thieveryEffectiveness, 0);
   assert.equal(r.thiefPreventChance, 0);
+  assert.equal(r.castlesEffect, 0);
 });
 
 test("parseSurvey — TPA effects — non-zero values parsed correctly", () => {
   const textWithBuildings = SURVEY_TEXT
     .replace("Thieves' Dens\t0\t0.0%\t0.0% higher thievery effectiveness (2.53%)", "Thieves' Dens\t50\t3.2%\t8.10% higher thievery effectiveness (2.53%)")
+    .replace("Castles\t0\t0.0%\t0.0% lower resource and honor losses when attacked (1.9%)", "Castles\t70\t4.4%\t7.35% lower resource and honor losses when attacked (1.9%)")
     .replace("Watch Towers\t0\t0.0%\t0.0% less damage caused by enemy thieves (2.11%)\n0.0% chance of preventing enemy thief missions (1.69%)",
               "Watch Towers\t30\t1.9%\t3.21% less damage caused by enemy thieves (2.11%)\n3.21% chance of preventing enemy thief missions (1.69%)");
   const r = parseSurvey(textWithBuildings);
   assert.ok(r);
   assert.equal(r.thieveryEffectiveness, 8.1);
   assert.equal(r.thiefPreventChance, 3.21);
+  assert.equal(r.castlesEffect, 7.35);
 });
 
 test("parseSoM — Obsidian (7:5)", () => {

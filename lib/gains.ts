@@ -11,6 +11,8 @@ export interface TraditionalMarchEstimate {
   rknwFactor: number;
   mapStatus: string | null;
   mapFactor: number;
+  castlesEffect: number | null;
+  castlesFactor: number;
   relationState: "war" | "oow";
   ourAttitudeToThem: string | null;
   theirAttitudeToUs: string | null;
@@ -60,6 +62,11 @@ export function mapGainsFactor(hitStatus: string | null, relationState: "war" | 
   return 1;
 }
 
+export function castlesProtectionFactor(castlesEffect: number | null): number {
+  if (castlesEffect == null || castlesEffect <= 0) return 1;
+  return Math.max(0, 1 - castlesEffect / 100);
+}
+
 export function outgoingRelationGainsFactor(attitude: string | null): number {
   const normalized = attitude?.trim().toLowerCase() ?? "";
   if (normalized === "unfriendly") return 1.04;
@@ -82,6 +89,7 @@ export function estimateTraditionalMarchAcres(input: {
   selfKingdomAvgNetworth: number | null;
   targetKingdomAvgNetworth: number | null;
   defenderHitStatus?: string | null;
+  defenderCastlesEffect?: number | null;
   relationState?: "war" | "oow";
   ourAttitudeToThem?: string | null;
   theirAttitudeToUs?: string | null;
@@ -94,6 +102,7 @@ export function estimateTraditionalMarchAcres(input: {
     selfKingdomAvgNetworth,
     targetKingdomAvgNetworth,
     defenderHitStatus = null,
+    defenderCastlesEffect = null,
     relationState = "oow",
     ourAttitudeToThem = null,
     theirAttitudeToUs = null,
@@ -112,11 +121,12 @@ export function estimateTraditionalMarchAcres(input: {
   const rpnwFactor = provinceNetworthFactor(rpnw);
   const rknwFactor = kingdomNetworthFactor(rknw);
   const mapFactor = mapGainsFactor(defenderHitStatus, relationState);
+  const castlesFactor = castlesProtectionFactor(defenderCastlesEffect);
   const ourRelationFactor = outgoingRelationGainsFactor(ourAttitudeToThem);
   const theirRelationFactor = incomingRelationGainsFactor(theirAttitudeToUs);
   const combinedRelationFactor = ourRelationFactor * theirRelationFactor;
   const baseAcres =
-    defenderLand * 0.12 * rpnwFactor * rknwFactor * mapFactor * combinedRelationFactor;
+    defenderLand * 0.12 * rpnwFactor * rknwFactor * mapFactor * castlesFactor * combinedRelationFactor;
   const cap = Math.min(attackerLand, defenderLand) * 0.2;
   const rawAcres = Math.min(baseAcres, cap);
 
@@ -131,6 +141,8 @@ export function estimateTraditionalMarchAcres(input: {
     rknwFactor,
     mapStatus: defenderHitStatus,
     mapFactor,
+    castlesEffect: defenderCastlesEffect,
+    castlesFactor,
     relationState,
     ourAttitudeToThem,
     theirAttitudeToUs,

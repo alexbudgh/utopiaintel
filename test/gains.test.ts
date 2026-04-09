@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  castlesProtectionFactor,
   estimateBreakability,
   estimateTraditionalMarchAcres,
   incomingRelationGainsFactor,
@@ -64,6 +65,7 @@ function makeProvince(overrides: Partial<ProvinceRow>): ProvinceRow {
     survey_age: null,
     watch_towers_effect: null,
     thieves_dens_effect: null,
+    castles_effect: null,
     buildings_built: null,
     buildings_in_progress: null,
     ...overrides,
@@ -97,6 +99,13 @@ test("mapGainsFactor uses war values from the MAP guide", () => {
   assert.equal(mapGainsFactor("moderately", "war"), 0.8);
   assert.equal(mapGainsFactor("pretty heavily", "war"), 0.8);
   assert.equal(mapGainsFactor("extremely badly", "war"), 0.8);
+});
+
+test("castlesProtectionFactor uses direct survey effect", () => {
+  assert.equal(castlesProtectionFactor(null), 1);
+  assert.equal(castlesProtectionFactor(0), 1);
+  assert.equal(castlesProtectionFactor(12), 0.88);
+  assert.equal(castlesProtectionFactor(37.5), 0.625);
 });
 
 test("relation gains factors match the Relations guide", () => {
@@ -181,6 +190,24 @@ test("estimateTraditionalMarchAcres applies relation modifiers", () => {
   assert.equal(estimate.combinedRelationFactor, 1.1165);
   assert.equal(estimate.rawAcres, 200);
   assert.equal(estimate.capApplied, true);
+});
+
+test("estimateTraditionalMarchAcres applies direct castles protection", () => {
+  const estimate = estimateTraditionalMarchAcres({
+    attackerLand: 1000,
+    attackerNetworth: 300000,
+    defenderLand: 1500,
+    defenderNetworth: 300000,
+    selfKingdomAvgNetworth: 250000,
+    targetKingdomAvgNetworth: 250000,
+    defenderCastlesEffect: 12,
+  });
+
+  assert.ok(estimate);
+  assert.equal(estimate.castlesEffect, 12);
+  assert.equal(estimate.castlesFactor, 0.88);
+  assert.equal(estimate.rawAcres, 158.4);
+  assert.equal(estimate.roundedAcres, 158);
 });
 
 test("estimateTraditionalMarchAcres caps oversized gains", () => {
