@@ -464,6 +464,18 @@ export function GainsTable({
         Province Table
       </Link>
       <span className={`${btnBase} ${btnActive}`}>Gains</span>
+      <Tooltip
+        content={[
+          { text: "Traditional March land gains only.", tone: "strong" },
+          { text: "Kingdom averages come from the latest accessible kingdom page snapshots." },
+          { text: "Rows use your latest visible intel; target columns use the latest target kingdom snapshot." },
+          { text: "MAP uses SoT bucket midpoints." },
+          { text: "Relations use the current directional Unfriendly and Hostile gains modifiers from the target snapshot." },
+          { text: "Still assumes neutral race/personality gains mods, castles, stance, siege, dragons, attack-time adjustment, ritual, anonymity, and mist.", tone: "muted" },
+        ]}
+      >
+        <span className={`${btnBase} ${btnInactive}`}>Assumptions</span>
+      </Tooltip>
       <div className="ml-auto text-xs text-gray-500">
         Self snapshot: <span className="text-gray-300">{formatTimestamp(selfSnapshot?.receivedAt ?? null)}</span>
         {" · "}
@@ -513,17 +525,6 @@ export function GainsTable({
 
   return wrap(
     <>
-      <div className="mb-4 rounded-lg border border-gray-800 bg-gray-900/50 p-4 text-sm text-gray-400">
-        <p>
-          Traditional March land gains only. Both kingdom averages come from the latest accessible kingdom page snapshots.
-          Row provinces use your latest visible intel; target columns use the latest target kingdom snapshot.
-        </p>
-        <p className="mt-2">
-          MAP uses SoT bucket midpoints. Relations use the current directional Unfriendly and Hostile gains modifiers from the target kingdom snapshot. Neutral assumptions: race/personality gains mods, castles, stance, siege, dragons,
-          attack-time adjustment, ritual, anonymity, and mist.
-        </p>
-      </div>
-
       <div className="overflow-x-auto">
         <table className="min-w-full border-separate border-spacing-0 text-xs">
           <thead>
