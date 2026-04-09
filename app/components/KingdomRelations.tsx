@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { Tooltip } from "@/app/components/Tooltip";
 import type { KingdomSnapshot } from "@/lib/db";
 
 function formatRelationPoints(points: number | null): string {
@@ -74,9 +75,11 @@ export function KingdomRelations({
     sections.push({
       standalone: true,
       node: (
-        <span className={`rounded border px-2 py-0.5 text-[11px] font-medium ${relationBadgeClass(relationSnapshot?.ourAttitudeToThem ?? relationSnapshot?.theirAttitudeToUs ?? null)}`}>
-          Non-Aggression Pact
-        </span>
+        <Tooltip content="Hostile actions are blocked while a Non-Aggression Pact or ceasefire is active.">
+          <span className={`rounded border px-2 py-0.5 text-[11px] font-medium ${relationBadgeClass(relationSnapshot?.ourAttitudeToThem ?? relationSnapshot?.theirAttitudeToUs ?? null)}`}>
+            Non-Aggression Pact
+          </span>
+        </Tooltip>
       ),
     });
   } else if (relationSnapshot && (relationSnapshot.theirAttitudeToUs || relationSnapshot.ourAttitudeToThem)) {

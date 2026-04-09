@@ -499,9 +499,6 @@ export function GainsTable({
   const selfAvgNetworth = averageNetworth(selfSnapshot.provinces);
   const targetAvgNetworth = averageNetworth(targetSnapshot.provinces);
   const relationState = relationStateForSnapshots(selfKingdom, targetKingdom, selfSnapshot, targetSnapshot);
-  const attackBlockedByRelations =
-    isNonAggressionPact(targetSnapshot.ourAttitudeToThem) ||
-    isNonAggressionPact(targetSnapshot.theirAttitudeToUs);
 
   if (!selfAvgNetworth || !targetAvgNetworth) {
     return wrap(emptyState("One of the kingdom snapshots is missing networth data, so gains cannot be estimated."));
@@ -511,21 +508,6 @@ export function GainsTable({
 
   return wrap(
     <>
-      {attackBlockedByRelations && (
-        <div className="mb-4 rounded-lg border border-sky-500/40 bg-sky-950/30 p-4 text-sm text-sky-100">
-          <div className="font-semibold uppercase tracking-wide text-sky-200">
-            Non-Aggression Pact
-          </div>
-          <p className="mt-1">
-            Current relations indicate a ceasefire / non-aggression pact between {selfKingdom} and {targetKingdom}.
-            Hostile actions are not allowed while that relation is active.
-          </p>
-          <p className="mt-1 text-sky-200/80">
-            The matrix below is still useful as a sizing reference, but not as an action recommendation.
-          </p>
-        </div>
-      )}
-
       <div className="mb-4 rounded-lg border border-gray-800 bg-gray-900/50 p-4 text-sm text-gray-400">
         <p>
           Traditional March land gains only. Both kingdom averages come from the latest accessible kingdom page snapshots.
