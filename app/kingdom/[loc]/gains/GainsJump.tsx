@@ -11,7 +11,7 @@ export function GainsJump({ initialTarget }: { initialTarget: string }) {
     e.preventDefault();
     const kingdom = location.trim();
     if (!kingdom) return;
-    router.push(`/kingdom/${encodeURIComponent(kingdom)}/gains`);
+    router.push(`/kingdom/${encodeURIComponent(kingdom)}?view=gains`);
   }
 
   return (

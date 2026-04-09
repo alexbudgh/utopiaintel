@@ -2,13 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { KingdomRelations } from "@/app/components/KingdomRelations";
 import { Tooltip, type TooltipLine } from "@/app/components/Tooltip";
 import type { KingdomSnapshotProvince, ProvinceRow } from "@/lib/db";
 import { estimateBreakability, estimateTraditionalMarchAcres } from "@/lib/gains";
 import type { GainsPageData } from "@/lib/gains-page";
 import { formatNum, formatTimestamp } from "@/lib/ui";
-import { GainsJump } from "./GainsJump";
 
 function averageNetworth(provinces: { networth: number }[]): number | null {
   if (provinces.length === 0) return null;
@@ -370,7 +368,13 @@ function emptyState(message: string) {
   );
 }
 
-export function GainsTable({ initial }: { initial: GainsPageData }) {
+export function GainsTable({
+  initial,
+  embedded = false,
+}: {
+  initial: GainsPageData;
+  embedded?: boolean;
+}) {
   const [data, setData] = useState(initial);
 
   useEffect(() => {
@@ -382,70 +386,48 @@ export function GainsTable({ initial }: { initial: GainsPageData }) {
   }, [data.targetKingdom]);
 
   const { targetKingdom, selfKingdom, selfProvinces, targetLatest, selfSnapshot, targetSnapshot } = data;
+  const kingdomHref = `/kingdom/${encodeURIComponent(targetKingdom)}`;
+  const gainsHref = `${kingdomHref}?view=gains`;
+  const btnBase = "px-2.5 py-1 rounded text-xs border transition-colors";
+  const btnActive = "border-blue-500 text-blue-300 bg-blue-950/40";
+  const btnInactive = "border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300";
 
-  if (!selfKingdom) {
-    return (
+  const controls = (
+    <div className="mb-4 flex items-center gap-1.5 flex-wrap">
+      <Link href={kingdomHref} className={`${btnBase} ${btnInactive}`}>
+        Province Table
+      </Link>
+      <span className={`${btnBase} ${btnActive}`}>Gains</span>
+    </div>
+  );
+
+  const wrap = (content: React.ReactNode) =>
+    embedded ? (
+      <div>
+        {controls}
+        {content}
+      </div>
+    ) : (
       <main className="p-6">
-        <div className="mb-4 flex flex-wrap items-center gap-4">
-          <Link href="/" className="text-gray-400 hover:text-gray-200 text-sm">
-            ← kingdoms
-          </Link>
-          <h1 className="text-xl font-bold text-gray-100 font-mono">Gains</h1>
-        </div>
-        {emptyState("No bound kingdom yet. Submit a self /throne page first so the site can identify your kingdom.")}
+        {controls}
+        {content}
       </main>
     );
+
+  if (!selfKingdom) {
+    return wrap(emptyState("No bound kingdom yet. Submit a self /throne page first so the site can identify your kingdom."));
   }
 
   if (selfProvinces.length === 0) {
-    return (
-      <main className="p-6">
-        <div className="mb-4 flex flex-wrap items-center gap-4">
-          <Link href={`/kingdom/${encodeURIComponent(targetKingdom)}`} className="text-gray-400 hover:text-gray-200 text-sm">
-            ← {targetKingdom}
-          </Link>
-          <h1 className="text-xl font-bold text-gray-100 font-mono">Gains</h1>
-          <div className="ml-auto">
-            <GainsJump initialTarget={targetKingdom} />
-          </div>
-        </div>
-        {emptyState(`No visible provinces found for your bound kingdom ${selfKingdom}.`)}
-      </main>
-    );
+    return wrap(emptyState(`No visible provinces found for your bound kingdom ${selfKingdom}.`));
   }
 
   if (!selfSnapshot) {
-    return (
-      <main className="p-6">
-        <div className="mb-4 flex flex-wrap items-center gap-4">
-          <Link href={`/kingdom/${encodeURIComponent(targetKingdom)}`} className="text-gray-400 hover:text-gray-200 text-sm">
-            ← {targetKingdom}
-          </Link>
-          <h1 className="text-xl font-bold text-gray-100 font-mono">Gains</h1>
-          <div className="ml-auto">
-            <GainsJump initialTarget={targetKingdom} />
-          </div>
-        </div>
-        {emptyState(`Your kingdom ${selfKingdom} needs a kingdom page submission before gains can be estimated.`)}
-      </main>
-    );
+    return wrap(emptyState(`Your kingdom ${selfKingdom} needs a kingdom page submission before gains can be estimated.`));
   }
 
   if (!targetSnapshot) {
-    return (
-      <main className="p-6">
-        <div className="mb-4 flex flex-wrap items-center gap-4">
-          <Link href={`/kingdom/${encodeURIComponent(targetKingdom)}`} className="text-gray-400 hover:text-gray-200 text-sm">
-            ← {targetKingdom}
-          </Link>
-          <h1 className="text-xl font-bold text-gray-100 font-mono">Gains</h1>
-          <div className="ml-auto">
-            <GainsJump initialTarget={targetKingdom} />
-          </div>
-        </div>
-        {emptyState(`No kingdom page snapshot is available for ${targetKingdom} yet. Submit a kingdom_details page for that target first.`)}
-      </main>
-    );
+    return wrap(emptyState(`No kingdom page snapshot is available for ${targetKingdom} yet. Submit a kingdom_details page for that target first.`));
   }
 
   const selfAvgNetworth = averageNetworth(selfSnapshot.provinces);
@@ -456,65 +438,27 @@ export function GainsTable({ initial }: { initial: GainsPageData }) {
     isNonAggressionPact(targetSnapshot.theirAttitudeToUs);
 
   if (!selfAvgNetworth || !targetAvgNetworth) {
-    return (
-      <main className="p-6">
-        <div className="mb-4 flex flex-wrap items-center gap-4">
-          <Link href={`/kingdom/${encodeURIComponent(targetKingdom)}`} className="text-gray-400 hover:text-gray-200 text-sm">
-            ← {targetKingdom}
-          </Link>
-          <h1 className="text-xl font-bold text-gray-100 font-mono">Gains</h1>
-          <div className="ml-auto">
-            <GainsJump initialTarget={targetKingdom} />
-          </div>
-        </div>
-        {emptyState("One of the kingdom snapshots is missing networth data, so gains cannot be estimated.")}
-      </main>
-    );
+    return wrap(emptyState("One of the kingdom snapshots is missing networth data, so gains cannot be estimated."));
   }
 
   const targetLatestByName = new Map(targetLatest.map((p) => [p.name, p] as const));
 
-  return (
-    <main className="p-6">
-      <div className="mb-4 flex flex-wrap items-center gap-4">
-        <Link href={`/kingdom/${encodeURIComponent(targetKingdom)}`} className="text-gray-400 hover:text-gray-200 text-sm">
-          ← {targetKingdom}
-        </Link>
-        <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-bold text-gray-100 font-mono">
-            Gains: {selfKingdom} → {targetKingdom}
-          </h1>
-          <div className="text-sm text-gray-500">
-            {selfSnapshot.name} → {targetSnapshot.name}
+  return wrap(
+    <>
+      {attackBlockedByRelations && (
+        <div className="mb-4 rounded-lg border border-sky-500/40 bg-sky-950/30 p-4 text-sm text-sky-100">
+          <div className="font-semibold uppercase tracking-wide text-sky-200">
+            Non-Aggression Pact
           </div>
-          <div className="mt-2 flex flex-col gap-3 lg:flex-row lg:items-start">
-            <div className="min-w-0 flex-1">
-              <KingdomRelations
-                kingdom={targetKingdom}
-                boundKingdom={selfKingdom}
-                snapshot={targetSnapshot}
-              />
-            </div>
-            {attackBlockedByRelations && (
-              <div className="rounded-lg border border-sky-500/40 bg-sky-950/30 p-4 text-sm text-sky-100 lg:w-[24rem]">
-                <div className="font-semibold uppercase tracking-wide text-sky-200">
-                  Non-Aggression Pact
-                </div>
-                <p className="mt-1">
-                  Current relations indicate a ceasefire / non-aggression pact between {selfKingdom} and {targetKingdom}.
-                  Hostile actions are not allowed while that relation is active.
-                </p>
-                <p className="mt-1 text-sky-200/80">
-                  The matrix below is still useful as a sizing reference, but not as an action recommendation.
-                </p>
-              </div>
-            )}
-          </div>
+          <p className="mt-1">
+            Current relations indicate a ceasefire / non-aggression pact between {selfKingdom} and {targetKingdom}.
+            Hostile actions are not allowed while that relation is active.
+          </p>
+          <p className="mt-1 text-sky-200/80">
+            The matrix below is still useful as a sizing reference, but not as an action recommendation.
+          </p>
         </div>
-        <div className="ml-auto">
-          <GainsJump initialTarget={targetKingdom} />
-        </div>
-      </div>
+      )}
 
       <div className="mb-4 rounded-lg border border-gray-800 bg-gray-900/50 p-4 text-sm text-gray-400">
         <p>
@@ -613,6 +557,6 @@ export function GainsTable({ initial }: { initial: GainsPageData }) {
           </tbody>
         </table>
       </div>
-    </main>
+    </>
   );
 }

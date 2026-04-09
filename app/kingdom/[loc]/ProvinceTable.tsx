@@ -519,7 +519,7 @@ export function ProvinceTable({
           Columns ▾
         </button>
         <Link
-          href={`/kingdom/${encodeURIComponent(kingdom)}/gains`}
+          href={`/kingdom/${encodeURIComponent(kingdom)}?view=gains`}
           className={`${btnBase} ${btnInactive}`}
         >
           Gains

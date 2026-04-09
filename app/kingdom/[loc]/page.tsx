@@ -7,14 +7,19 @@ import { getBoundKingdom, getKingdomProvinces, getLatestKingdomSnapshot } from "
 import { KingdomRelations } from "@/app/components/KingdomRelations";
 import { IntelSetupCard } from "@/app/components/IntelSetupCard";
 import { ProvinceTable } from "./ProvinceTable";
+import { GainsTable } from "./gains/GainsTable";
 import { KingdomJump } from "./KingdomJump";
+import { getGainsPageData } from "@/lib/gains-page";
 
 export default async function KingdomPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ loc: string }>;
+  searchParams: Promise<{ view?: string }>;
 }) {
   const { loc } = await params;
+  const { view } = await searchParams;
   const kingdom = decodeURIComponent(loc);
   const hdrs = await headers();
   const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host") ?? "";
@@ -30,6 +35,7 @@ export default async function KingdomPage({
     ? getLatestKingdomSnapshot(primaryOpenRelation.location, keyHash)
     : null;
   const hasAnyIntel = provinces.length > 0 || !!snapshot;
+  const gainsInitial = view === "gains" ? getGainsPageData(kingdom, keyHash) : null;
 
   return (
     <main className="p-6">
@@ -68,7 +74,9 @@ export default async function KingdomPage({
         </div>
       </div>
 
-      {hasAnyIntel ? (
+      {view === "gains" ? (
+        <GainsTable initial={gainsInitial!} embedded />
+      ) : hasAnyIntel ? (
         <ProvinceTable kingdom={kingdom} initial={provinces} />
       ) : (
         <div className="rounded-lg border border-gray-800 bg-gray-900/50 px-5 py-6 text-sm text-gray-300">
