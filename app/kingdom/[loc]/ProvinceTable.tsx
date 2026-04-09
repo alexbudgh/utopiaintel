@@ -48,6 +48,8 @@ const COLUMNS = [
 ] as const;
 
 type ColKey = (typeof COLUMNS)[number]["key"];
+type SortKey = ColKey | "province";
+type SortDir = "asc" | "desc";
 
 const VIEWS: Record<string, ColKey[]> = {
   Overview:  ["race", "personality", "land", "networth", "off_points", "def_points", "def_home", "hit_status", "peasants", "building_efficiency", "age"],
@@ -65,6 +67,56 @@ const COLUMN_GROUPS = COLUMNS.reduce((acc, col) => {
 
 const STORAGE_VIEW_KEY = "province-view";
 const STORAGE_COLS_KEY = "province-columns";
+
+function sortValueFor(p: ProvinceRow, key: SortKey): number | string | null {
+  switch (key) {
+    case "province": return p.name;
+    case "race": return p.race;
+    case "personality": return p.personality;
+    case "land": return p.land;
+    case "networth": return p.networth;
+    case "hit_status": return p.hit_status;
+    case "building_efficiency": return p.building_efficiency;
+    case "off_points": return p.off_points;
+    case "def_points": return p.def_points;
+    case "soldiers": return p.soldiers;
+    case "off_specs": return p.off_specs;
+    case "def_specs": return p.def_specs;
+    case "elites": return p.elites;
+    case "war_horses": return p.war_horses;
+    case "peasants": return p.peasants;
+    case "soldiers_home": return p.soldiers_home;
+    case "off_specs_home": return p.off_specs_home;
+    case "def_specs_home": return p.def_specs_home;
+    case "elites_home": return p.elites_home;
+    case "off_home": return p.off_home;
+    case "def_home": return p.def_home;
+    case "ome": return p.ome;
+    case "dme": return p.dme;
+    case "money": return p.money;
+    case "food": return p.food;
+    case "runes": return p.runes;
+    case "prisoners": return p.prisoners;
+    case "trade_balance": return p.trade_balance;
+    case "thieves": return p.thieves;
+    case "wizards": return p.wizards;
+    case "age": return ageFor(p, "age");
+    case "rtpa": return computeRtpa(p);
+    case "mtpa": return computeMtpa(p);
+    case "otpa": return computeOtpa(p);
+    case "dtpa": return computeDtpa(p);
+    case "rwpa": return computeRwpa(p);
+    case "mwpa": return computeMwpa(p);
+  }
+}
+
+function compareSortValues(a: number | string | null, b: number | string | null): number {
+  if (a == null && b == null) return 0;
+  if (a == null) return 1;
+  if (b == null) return -1;
+  if (typeof a === "number" && typeof b === "number") return a - b;
+  return String(a).localeCompare(String(b), undefined, { sensitivity: "base" });
+}
 
 function computeRtpa(p: ProvinceRow): number | null {
   if (p.thieves == null || !p.land) return null;
@@ -277,6 +329,7 @@ export function ProvinceTable({
   const [activeView, setActiveView] = useState<string | null>("Overview");
   const [customCols, setCustomCols] = useState<Set<ColKey>>(new Set(VIEWS.Overview));
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir } | null>(null);
   const colsBtnRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -343,10 +396,35 @@ export function ProvinceTable({
   };
 
   const visibleCols = COLUMNS.filter((c) => visible.has(c.key));
+  const sortedProvinces = sort
+    ? [...provinces].sort((a, b) => {
+        const cmp = compareSortValues(sortValueFor(a, sort.key), sortValueFor(b, sort.key));
+        if (cmp !== 0) return sort.dir === "asc" ? cmp : -cmp;
+        return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+      })
+    : provinces;
 
   const btnBase = "px-2.5 py-1 rounded text-xs border transition-colors";
   const btnActive = "border-blue-500 text-blue-300 bg-blue-950/40";
   const btnInactive = "border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300";
+
+  const toggleSort = (key: SortKey) => {
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "desc" };
+      if (prev.dir === "desc") return { key, dir: "asc" };
+      return null;
+    });
+  };
+
+  const sortIndicator = (key: SortKey) => {
+    if (!sort || sort.key !== key) return "↕";
+    return sort.dir === "desc" ? "↓" : "↑";
+  };
+
+  const sortIndicatorClass = (key: SortKey) =>
+    !sort || sort.key !== key
+      ? "text-xs text-gray-600"
+      : "text-sm font-semibold text-blue-300";
 
   return (
     <div>
@@ -409,19 +487,35 @@ export function ProvinceTable({
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-gray-400 border-b border-gray-700">
-              <th className="py-2 pr-4 font-medium">Province</th>
+              <th className="py-2 pr-4 font-medium">
+                <button
+                  type="button"
+                  onClick={() => toggleSort("province")}
+                  className="inline-flex items-center gap-1 hover:text-gray-200 transition-colors"
+                >
+                  <span>Province</span>
+                  <span className={sortIndicatorClass("province")}>{sortIndicator("province")}</span>
+                </button>
+              </th>
               {visibleCols.map((col) => (
                 <th
                   key={col.key}
                   className={`py-2 pr-4 font-medium ${TEXT_LEFT.has(col.key) ? "" : "text-right"}`}
                 >
-                  <Tooltip content={col.desc}>{col.label}</Tooltip>
+                  <button
+                    type="button"
+                    onClick={() => toggleSort(col.key)}
+                    className={`inline-flex items-center gap-1 hover:text-gray-200 transition-colors ${TEXT_LEFT.has(col.key) ? "" : "justify-end w-full"}`}
+                  >
+                    <Tooltip content={col.desc}>{col.label}</Tooltip>
+                    <span className={sortIndicatorClass(col.key)}>{sortIndicator(col.key)}</span>
+                  </button>
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {provinces.map((p) => {
+            {sortedProvinces.map((p) => {
               const dotAge = p.overview_age ?? p.military_age;
               return (
                 <tr key={p.id} className="border-b border-gray-800 hover:bg-gray-800/40">
