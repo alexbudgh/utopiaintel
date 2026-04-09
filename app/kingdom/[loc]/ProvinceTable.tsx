@@ -276,7 +276,7 @@ function cellValue(p: ProvinceRow, key: ColKey): React.ReactNode {
   switch (key) {
     case "race":        return <span className="font-mono text-gray-400">{p.race ?? "—"}</span>;
     case "personality": return <span className="text-gray-400">{p.personality ?? "—"}</span>;
-    case "land":        return formatNum(p.land);
+    case "land":        return p.land != null ? p.land.toLocaleString() : "—";
     case "networth":    return formatNum(p.networth);
     case "hit_status":  return p.hit_status ?? "—";
     case "off_points":  return formatNum(p.off_points);
