@@ -2,7 +2,18 @@
 
 Next.js API endpoint that receives and parses game intel from utopia-game.com.
 
-Parses: SoT, SoD, SoM, SoS, Survey, Kingdom pages. Stores structured data in SQLite with per-metric source and timestamp tracking.
+Parses: SoT, SoD, SoM, SoS, Survey, Infiltrate, Kingdom pages, and self-intel council pages. Stores structured data in SQLite with per-metric source and timestamp tracking.
+
+Current stack:
+- Next.js 16
+- React 19
+- SQLite via `better-sqlite3`
+
+The UI includes:
+- a kingdom list at `/`
+- a kingdom page at `/kingdom/[loc]`
+- a province detail page at `/kingdom/[loc]/[prov]`
+- a gains matrix as a kingdom-page view mode via `/kingdom/[loc]?view=gains`
 
 ## Setup
 
@@ -10,6 +21,12 @@ Parses: SoT, SoD, SoM, SoS, Survey, Kingdom pages. Stores structured data in SQL
 nvm use
 npm install
 npm run dev
+```
+
+Quick validation while iterating:
+
+```bash
+npx tsc --noEmit
 ```
 
 ## Utopia Setup
@@ -21,6 +38,10 @@ NOTE: Contrary to what the UI says, no cookie gets set. Rather, two browser Loca
 IMPORTANT: Ensure Ajax mode is disabled in the Bot Prefs in the game UI, otherwise the XHR request doesn't get sent reliably.
 
 You can verify it in Chrome's Network tab in Developer Tools.
+
+Current game URLs to expect:
+- kingdom pages can arrive as `/wol/game/kingdom_details/<x>/<y>`
+- thievery intel commonly arrives as `/wol/game/thievery?...&o=SPY_ON_*`
 
 ## Deploy to EC2
 
@@ -37,6 +58,12 @@ cd ~/utopiaintel
 pm2 start ecosystem.config.js
 pm2 save
 pm2 startup   # auto-start on reboot
+```
+
+For normal redeploys after the first setup:
+
+```bash
+ssh utopiaintel "cd ~/utopiaintel && pm2 reload ecosystem.config.js --update-env"
 ```
 
 ## Debug logging
