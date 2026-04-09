@@ -518,6 +518,12 @@ export function ProvinceTable({
         >
           Columns ▾
         </button>
+        <Link
+          href={`/kingdom/${encodeURIComponent(kingdom)}/gains`}
+          className={`${btnBase} ${btnInactive}`}
+        >
+          Gains
+        </Link>
       </div>
 
       {dropdownOpen && colsBtnRef.current && createPortal(
