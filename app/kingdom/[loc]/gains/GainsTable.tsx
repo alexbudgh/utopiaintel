@@ -369,7 +369,7 @@ function estimateTitle(
 
         <Section title="Assumptions">
           <div className="text-gray-400">
-            Uses MAP bucket midpoint estimates. Still assumes neutral race/personality gains mods, castles, stance, siege, dragons, attack-time, ritual, anonymity, and mist.
+            Uses MAP bucket midpoint estimates. Relations are already modeled from the target snapshot. Still assumes neutral race/personality gains mods, castles, siege, dragons, attack-time, ritual, anonymity, and mist.
           </div>
         </Section>
       </div>
@@ -471,7 +471,7 @@ export function GainsTable({
           { text: "Rows use your latest visible intel; target columns use the latest target kingdom snapshot." },
           { text: "MAP uses SoT bucket midpoints." },
           { text: "Relations use the current directional Unfriendly and Hostile gains modifiers from the target snapshot." },
-          { text: "Still assumes neutral race/personality gains mods, castles, stance, siege, dragons, attack-time adjustment, ritual, anonymity, and mist.", tone: "muted" },
+          { text: "Still assumes neutral race/personality gains mods, castles, siege, dragons, attack-time adjustment, ritual, anonymity, and mist.", tone: "muted" },
         ]}
       >
         <span className={`${btnBase} ${btnInactive}`}>Assumptions</span>
