@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Tooltip } from "@/app/components/Tooltip";
 import type { ProvinceRow } from "@/lib/db";
-import { freshnessColor, formatNum, timeAgo, formatTimestamp, sameTick } from "@/lib/ui";
+import { freshnessColor, formatNum, timeAgo, formatTimestamp, sameTick, fullValueTooltip } from "@/lib/ui";
 import { computeWizardCount, NW_PER_WIZARD } from "@/lib/nw";
 
 const COLUMNS = [
@@ -272,6 +272,78 @@ function tipFor(p: ProvinceRow, key: ColKey): string {
   return [source, timeAgo(age), formatTimestamp(age)].filter(Boolean).join(" · ");
 }
 
+function roundedValueTipFor(p: ProvinceRow, key: ColKey): string | null {
+  switch (key) {
+    case "networth":
+    case "off_points":
+    case "def_points":
+    case "soldiers":
+    case "off_specs":
+    case "def_specs":
+    case "elites":
+    case "war_horses":
+    case "peasants":
+    case "soldiers_home":
+    case "off_specs_home":
+    case "def_specs_home":
+    case "elites_home":
+    case "off_home":
+    case "def_home":
+    case "money":
+    case "food":
+    case "runes":
+    case "prisoners":
+    case "thieves":
+    case "wizards": {
+      const value = sortValueFor(p, key);
+      return typeof value === "number" ? fullValueTooltip(formatNum(value), value) : null;
+    }
+    case "trade_balance":
+      return p.trade_balance != null
+        ? fullValueTooltip(
+            `${p.trade_balance >= 0 ? "+" : ""}${formatNum(p.trade_balance)}`,
+            p.trade_balance,
+          )
+        : null;
+    case "ome":
+      return p.ome != null ? fullValueTooltip(`${p.ome.toFixed(1)}%`, p.ome, { suffix: "%" }) : null;
+    case "dme":
+      return p.dme != null ? fullValueTooltip(`${p.dme.toFixed(1)}%`, p.dme, { suffix: "%" }) : null;
+    case "rtpa": {
+      const v = computeRtpa(p);
+      return v != null ? fullValueTooltip(v.toFixed(2), v) : null;
+    }
+    case "mtpa": {
+      const v = computeMtpa(p);
+      return v != null ? fullValueTooltip(v.toFixed(2), v) : null;
+    }
+    case "otpa": {
+      const v = computeOtpa(p);
+      return v != null ? fullValueTooltip(v.toFixed(2), v) : null;
+    }
+    case "dtpa": {
+      const v = computeDtpa(p);
+      return v != null ? fullValueTooltip(v.toFixed(2), v) : null;
+    }
+    case "rwpa": {
+      const v = computeRwpa(p);
+      return v != null ? fullValueTooltip(v.toFixed(2), v) : null;
+    }
+    case "mwpa": {
+      const v = computeMwpa(p);
+      return v != null ? fullValueTooltip(v.toFixed(2), v) : null;
+    }
+    default:
+      return null;
+  }
+}
+
+function tooltipContentFor(p: ProvinceRow, key: ColKey): string {
+  const rounded = roundedValueTipFor(p, key);
+  const base = tipFor(p, key);
+  return [rounded, base].filter(Boolean).join("\n");
+}
+
 function cellValue(p: ProvinceRow, key: ColKey): React.ReactNode {
   switch (key) {
     case "race":        return <span className="font-mono text-gray-400">{p.race ?? "—"}</span>;
@@ -520,7 +592,7 @@ export function ProvinceTable({
               return (
                 <tr key={p.id} className="border-b border-gray-800 hover:bg-gray-800/40">
                   <td className="py-2 pr-4">
-                    <Tooltip content={tipFor(p, "age")}>
+                    <Tooltip content={tooltipContentFor(p, "age")}>
                       <span className={`mr-1.5 ${freshnessColor(dotAge)}`}>●</span>
                     </Tooltip>
                     <Link
@@ -538,7 +610,7 @@ export function ProvinceTable({
                         key={col.key}
                         className={`py-2 pr-4 tabular-nums ${TEXT_LEFT.has(col.key) ? "" : "text-right"} ${fc}`}
                       >
-                        <Tooltip content={tipFor(p, col.key)}>{cellValue(p, col.key)}</Tooltip>
+                        <Tooltip content={tooltipContentFor(p, col.key)}>{cellValue(p, col.key)}</Tooltip>
                       </td>
                     );
                   })}

@@ -27,6 +27,27 @@ export function formatNum(n: number | null | undefined): string {
   return n.toLocaleString();
 }
 
+export function formatExactNum(n: number | null | undefined, maximumFractionDigits = 4): string {
+  if (n == null) return "—";
+  return n.toLocaleString(undefined, { maximumFractionDigits });
+}
+
+export function fullValueTooltip(
+  displayed: string,
+  n: number | null | undefined,
+  {
+    suffix = "",
+    maximumFractionDigits = 4,
+  }: {
+    suffix?: string;
+    maximumFractionDigits?: number;
+  } = {},
+): string | null {
+  if (n == null) return null;
+  const exact = `${formatExactNum(n, maximumFractionDigits)}${suffix}`;
+  return displayed === exact ? null : `Full value: ${exact}`;
+}
+
 export function formatTimestamp(iso: string | null): string {
   if (!iso) return "—";
   // "2024-04-04 10:30:00" → "Apr 4, 10:30 UTC"

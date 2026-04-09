@@ -3,8 +3,9 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { createHash } from "crypto";
+import { Tooltip } from "@/app/components/Tooltip";
 import { getProvinceDetail } from "@/lib/db";
-import { freshnessColor, formatNum, timeAgo } from "@/lib/ui";
+import { freshnessColor, formatNum, timeAgo, fullValueTooltip } from "@/lib/ui";
 import type { ArmyRow, BuildingRow, ScienceRow } from "@/lib/db";
 import AutoRefresh from "./AutoRefresh";
 
@@ -39,6 +40,15 @@ function KV({ label, value }: { label: string; value: React.ReactNode }) {
 
 function NoData() {
   return <p className="text-gray-600 text-sm">No data</p>;
+}
+
+function maybeRoundedValue(
+  displayed: string,
+  value: number | null | undefined,
+  options?: { suffix?: string; maximumFractionDigits?: number },
+): React.ReactNode {
+  const tip = fullValueTooltip(displayed, value, options);
+  return tip ? <Tooltip content={tip}>{displayed}</Tooltip> : displayed;
 }
 
 export default async function ProvincePage({
@@ -81,8 +91,8 @@ export default async function ProvincePage({
               <KV label="Race" value={d.overview.race ?? "—"} />
               <KV label="Personality" value={d.overview.personality ?? "—"} />
               <KV label="Honor" value={d.overview.honorTitle ?? "—"} />
-              <KV label="Land" value={formatNum(d.overview.land)} />
-              <KV label="Networth" value={formatNum(d.overview.networth)} />
+              <KV label="Land" value={maybeRoundedValue(formatNum(d.overview.land), d.overview.land)} />
+              <KV label="Networth" value={maybeRoundedValue(formatNum(d.overview.networth), d.overview.networth)} />
             </>
           ) : <NoData />}
         </Card>
@@ -96,8 +106,8 @@ export default async function ProvincePage({
                     <span className="text-xs text-gray-600">Total (SoT)</span>
                     <Age iso={d.totalMilitary.receivedAt} />
                   </div>
-                  <KV label="Off" value={formatNum(d.totalMilitary.offPoints)} />
-                  <KV label="Def" value={formatNum(d.totalMilitary.defPoints)} />
+                  <KV label="Off" value={maybeRoundedValue(formatNum(d.totalMilitary.offPoints), d.totalMilitary.offPoints)} />
+                  <KV label="Def" value={maybeRoundedValue(formatNum(d.totalMilitary.defPoints), d.totalMilitary.defPoints)} />
                 </>
               )}
               {d.homeMilitary && (
@@ -106,8 +116,8 @@ export default async function ProvincePage({
                     <span className="text-xs text-gray-600">At home ({d.homeMilitary.source})</span>
                     <Age iso={d.homeMilitary.receivedAt} />
                   </div>
-                  <KV label="Off at home" value={formatNum(d.homeMilitary.modOffAtHome)} />
-                  <KV label="Def at home" value={formatNum(d.homeMilitary.modDefAtHome)} />
+                  <KV label="Off at home" value={maybeRoundedValue(formatNum(d.homeMilitary.modOffAtHome), d.homeMilitary.modOffAtHome)} />
+                  <KV label="Def at home" value={maybeRoundedValue(formatNum(d.homeMilitary.modDefAtHome), d.homeMilitary.modDefAtHome)} />
                 </>
               )}
               {d.militaryIntel && (
@@ -116,8 +126,8 @@ export default async function ProvincePage({
                     <span className="text-xs text-gray-600">Effectiveness (SoM)</span>
                     <Age iso={d.militaryIntel.receivedAt} />
                   </div>
-                  <KV label="OME" value={d.militaryIntel.ome != null ? d.militaryIntel.ome.toFixed(1) + "%" : "—"} />
-                  <KV label="DME" value={d.militaryIntel.dme != null ? d.militaryIntel.dme.toFixed(1) + "%" : "—"} />
+                  <KV label="OME" value={d.militaryIntel.ome != null ? maybeRoundedValue(d.militaryIntel.ome.toFixed(1) + "%", d.militaryIntel.ome, { suffix: "%" }) : "—"} />
+                  <KV label="DME" value={d.militaryIntel.dme != null ? maybeRoundedValue(d.militaryIntel.dme.toFixed(1) + "%", d.militaryIntel.dme, { suffix: "%" }) : "—"} />
                 </>
               )}
             </>
@@ -143,12 +153,12 @@ export default async function ProvincePage({
                 </thead>
                 <tbody>
                   <tr className="text-gray-200">
-                    <td className="pt-1 text-right pr-4 tabular-nums">{formatNum(d.troops.soldiers)}</td>
-                    <td className="pt-1 text-right pr-4 tabular-nums">{formatNum(d.troops.offSpecs)}</td>
-                    <td className="pt-1 text-right pr-4 tabular-nums">{formatNum(d.troops.defSpecs)}</td>
-                    <td className="pt-1 text-right pr-4 tabular-nums">{formatNum(d.troops.elites)}</td>
-                    <td className="pt-1 text-right pr-4 tabular-nums">{formatNum(d.troops.warHorses)}</td>
-                    <td className="pt-1 text-right tabular-nums">{formatNum(d.troops.peasants)}</td>
+                    <td className="pt-1 text-right pr-4 tabular-nums">{maybeRoundedValue(formatNum(d.troops.soldiers), d.troops.soldiers)}</td>
+                    <td className="pt-1 text-right pr-4 tabular-nums">{maybeRoundedValue(formatNum(d.troops.offSpecs), d.troops.offSpecs)}</td>
+                    <td className="pt-1 text-right pr-4 tabular-nums">{maybeRoundedValue(formatNum(d.troops.defSpecs), d.troops.defSpecs)}</td>
+                    <td className="pt-1 text-right pr-4 tabular-nums">{maybeRoundedValue(formatNum(d.troops.elites), d.troops.elites)}</td>
+                    <td className="pt-1 text-right pr-4 tabular-nums">{maybeRoundedValue(formatNum(d.troops.warHorses), d.troops.warHorses)}</td>
+                    <td className="pt-1 text-right tabular-nums">{maybeRoundedValue(formatNum(d.troops.peasants), d.troops.peasants)}</td>
                   </tr>
                 </tbody>
               </table>
@@ -181,15 +191,15 @@ export default async function ProvincePage({
                   {d.militaryIntel.armies.map((a: ArmyRow, i: number) => (
                     <tr key={i} className="border-b border-gray-700/50 text-gray-200">
                       <td className="py-1 pr-4 text-gray-400 font-mono text-xs">{a.armyType}</td>
-                      <td className="py-1 pr-4 text-right tabular-nums">{formatNum(a.generals)}</td>
-                      <td className="py-1 pr-4 text-right tabular-nums">{formatNum(a.soldiers)}</td>
-                      <td className="py-1 pr-4 text-right tabular-nums">{formatNum(a.offSpecs)}</td>
-                      <td className="py-1 pr-4 text-right tabular-nums">{formatNum(a.defSpecs)}</td>
-                      <td className="py-1 pr-4 text-right tabular-nums">{formatNum(a.elites)}</td>
-                      <td className="py-1 pr-4 text-right tabular-nums">{formatNum(a.warHorses)}</td>
-                      <td className="py-1 pr-4 text-right tabular-nums">{formatNum(a.thieves)}</td>
-                      <td className="py-1 pr-4 text-right tabular-nums">{a.landGained > 0 ? formatNum(a.landGained) : "—"}</td>
-                      <td className="py-1 text-right tabular-nums">{a.returnDays != null ? a.returnDays.toFixed(1) + "d" : "—"}</td>
+                      <td className="py-1 pr-4 text-right tabular-nums">{maybeRoundedValue(formatNum(a.generals), a.generals)}</td>
+                      <td className="py-1 pr-4 text-right tabular-nums">{maybeRoundedValue(formatNum(a.soldiers), a.soldiers)}</td>
+                      <td className="py-1 pr-4 text-right tabular-nums">{maybeRoundedValue(formatNum(a.offSpecs), a.offSpecs)}</td>
+                      <td className="py-1 pr-4 text-right tabular-nums">{maybeRoundedValue(formatNum(a.defSpecs), a.defSpecs)}</td>
+                      <td className="py-1 pr-4 text-right tabular-nums">{maybeRoundedValue(formatNum(a.elites), a.elites)}</td>
+                      <td className="py-1 pr-4 text-right tabular-nums">{maybeRoundedValue(formatNum(a.warHorses), a.warHorses)}</td>
+                      <td className="py-1 pr-4 text-right tabular-nums">{maybeRoundedValue(formatNum(a.thieves), a.thieves)}</td>
+                      <td className="py-1 pr-4 text-right tabular-nums">{a.landGained > 0 ? maybeRoundedValue(formatNum(a.landGained), a.landGained) : "—"}</td>
+                      <td className="py-1 text-right tabular-nums">{a.returnDays != null ? maybeRoundedValue(a.returnDays.toFixed(1) + "d", a.returnDays, { suffix: "d" }) : "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -204,16 +214,16 @@ export default async function ProvincePage({
         <Card title="Resources" age={d.resources?.receivedAt}>
           {d.resources ? (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8">
-              <KV label="Money" value={formatNum(d.resources.money)} />
-              <KV label="Food" value={formatNum(d.resources.food)} />
-              <KV label="Runes" value={formatNum(d.resources.runes)} />
-              <KV label="Mana" value={formatNum(d.resources.mana)} />
-              <KV label="Prisoners" value={formatNum(d.resources.prisoners)} />
-              <KV label="Trade balance" value={d.resources.tradeBalance != null ? (d.resources.tradeBalance >= 0 ? "+" : "") + formatNum(d.resources.tradeBalance) : "—"} />
+              <KV label="Money" value={maybeRoundedValue(formatNum(d.resources.money), d.resources.money)} />
+              <KV label="Food" value={maybeRoundedValue(formatNum(d.resources.food), d.resources.food)} />
+              <KV label="Runes" value={maybeRoundedValue(formatNum(d.resources.runes), d.resources.runes)} />
+              <KV label="Mana" value={maybeRoundedValue(formatNum(d.resources.mana), d.resources.mana)} />
+              <KV label="Prisoners" value={maybeRoundedValue(formatNum(d.resources.prisoners), d.resources.prisoners)} />
+              <KV label="Trade balance" value={d.resources.tradeBalance != null ? maybeRoundedValue(`${d.resources.tradeBalance >= 0 ? "+" : ""}${formatNum(d.resources.tradeBalance)}`, d.resources.tradeBalance) : "—"} />
               <KV label="Efficiency" value={d.resources.buildingEfficiency != null ? d.resources.buildingEfficiency + "%" : "—"} />
-              <KV label="Thieves" value={formatNum(d.resources.thieves)} />
+              <KV label="Thieves" value={maybeRoundedValue(formatNum(d.resources.thieves), d.resources.thieves)} />
               <KV label="Stealth" value={d.resources.stealth != null ? d.resources.stealth + "%" : "—"} />
-              <KV label="Wizards" value={formatNum(d.resources.wizards)} />
+              <KV label="Wizards" value={maybeRoundedValue(formatNum(d.resources.wizards), d.resources.wizards)} />
             </div>
           ) : <NoData />}
         </Card>
@@ -252,8 +262,8 @@ export default async function ProvincePage({
                 {d.sciences.sciences.map((s: ScienceRow) => (
                   <tr key={s.science} className="border-b border-gray-700/40">
                     <td className="py-0.5 text-gray-300">{s.science}</td>
-                    <td className="py-0.5 text-right pr-2 tabular-nums text-gray-400">{formatNum(s.books)}</td>
-                    <td className="py-0.5 text-right tabular-nums text-gray-400">{s.effect.toFixed(1)}%</td>
+                    <td className="py-0.5 text-right pr-2 tabular-nums text-gray-400">{maybeRoundedValue(formatNum(s.books), s.books)}</td>
+                    <td className="py-0.5 text-right tabular-nums text-gray-400">{maybeRoundedValue(s.effect.toFixed(1) + "%", s.effect, { suffix: "%" })}</td>
                   </tr>
                 ))}
               </tbody>
@@ -278,9 +288,9 @@ export default async function ProvincePage({
                   return (
                     <tr key={b.building} className="border-b border-gray-700/40">
                       <td className="py-0.5 text-gray-300">{b.building}</td>
-                      <td className="py-0.5 text-right pr-2 tabular-nums text-gray-400">{formatNum(b.built)}</td>
-                      <td className="py-0.5 text-right pr-2 tabular-nums text-gray-400">{builtPct != null ? `${builtPct.toFixed(1)}%` : "—"}</td>
-                      <td className="py-0.5 text-right tabular-nums text-gray-400">{b.inProgress > 0 ? formatNum(b.inProgress) : "—"}</td>
+                      <td className="py-0.5 text-right pr-2 tabular-nums text-gray-400">{maybeRoundedValue(formatNum(b.built), b.built)}</td>
+                      <td className="py-0.5 text-right pr-2 tabular-nums text-gray-400">{builtPct != null ? maybeRoundedValue(`${builtPct.toFixed(1)}%`, builtPct, { suffix: "%" }) : "—"}</td>
+                      <td className="py-0.5 text-right tabular-nums text-gray-400">{b.inProgress > 0 ? maybeRoundedValue(formatNum(b.inProgress), b.inProgress) : "—"}</td>
                     </tr>
                   );
                 })}
