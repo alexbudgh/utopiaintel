@@ -350,7 +350,7 @@ function estimateTitle(
         <Row label="Displayed" value={estimate.roundedAcres.toLocaleString()} tone={estimate.roundedAcres === 0 ? "text-amber-300" : "text-gray-100"} />
       </Section>
 
-      <div className="grid gap-2 md:grid-cols-2">
+      <div className="grid gap-2">
         <Section title="Breakability">
           <Row
             label="Status"
@@ -365,12 +365,6 @@ function estimateTitle(
           />
           <Row label="Offense source" value={breakability.offenseSource ?? "missing"} tone={breakability.offenseSource ? "text-gray-300" : "text-amber-300"} />
           <Row label="Defense source" value={breakability.defenseSource ?? "missing"} tone={breakability.defenseSource ? "text-gray-300" : "text-amber-300"} />
-        </Section>
-
-        <Section title="Assumptions">
-          <div className="text-gray-400">
-            Uses MAP bucket midpoint estimates. Relations are already modeled from the target snapshot. Still assumes neutral race/personality gains mods, castles, siege, dragons, attack-time, ritual, anonymity, and mist.
-          </div>
         </Section>
       </div>
     </div>
