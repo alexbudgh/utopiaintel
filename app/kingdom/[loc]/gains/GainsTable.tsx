@@ -436,6 +436,7 @@ export function GainsTable({
   embedded?: boolean;
 }) {
   const [data, setData] = useState(initial);
+  const [selectedRowId, setSelectedRowId] = useState<number | null>(null);
 
   useEffect(() => {
     const id = setInterval(async () => {
@@ -546,16 +547,28 @@ export function GainsTable({
           </thead>
           <tbody>
             {selfProvinces.map((attacker) => (
-              <tr key={attacker.id} className="hover:bg-gray-900/40">
-                <th className="sticky left-0 z-10 border-b border-r border-gray-800 bg-gray-950 px-3 py-2 text-left font-medium text-gray-200">
+              <tr
+                key={attacker.id}
+                onClick={() => setSelectedRowId(attacker.id)}
+                className={`cursor-pointer hover:bg-gray-900/40 ${
+                  selectedRowId === attacker.id ? "bg-blue-950/20 ring-1 ring-inset ring-blue-500/50" : ""
+                }`}
+              >
+                <th
+                  className={`sticky left-0 z-10 border-b border-r border-gray-800 px-3 py-2 text-left font-medium ${
+                    selectedRowId === attacker.id
+                      ? "bg-blue-950 text-blue-100"
+                      : "bg-gray-950 text-gray-200"
+                  }`}
+                >
                   <Tooltip content={`${attacker.name}\nNW ${attacker.networth?.toLocaleString() ?? "—"}\nLand ${attacker.land?.toLocaleString() ?? "—"}`}>
                     <Link
                       href={`/kingdom/${encodeURIComponent(selfKingdom)}/${encodeURIComponent(attacker.name)}`}
-                      className="hover:text-blue-400"
+                      className={selectedRowId === attacker.id ? "text-blue-100" : "hover:text-blue-400"}
                     >
                       {attacker.name}
                     </Link>
-                    <div className="mt-1 text-[10px] font-normal text-gray-500">
+                    <div className={`mt-1 text-[10px] font-normal ${selectedRowId === attacker.id ? "text-blue-300/80" : "text-gray-500"}`}>
                       {formatNum(attacker.networth)} / {formatNum(attacker.land)}a
                     </div>
                   </Tooltip>
@@ -581,7 +594,9 @@ export function GainsTable({
                   return (
                     <td
                       key={`${attacker.id}:${defender.name}`}
-                      className={`border-b border-r border-gray-800 px-3 py-2 text-right tabular-nums transition-colors ${tone.cell}`}
+                      className={`border-b border-r border-gray-800 px-3 py-2 text-right tabular-nums transition-colors ${
+                        selectedRowId === attacker.id ? "shadow-[inset_0_1px_0_rgba(59,130,246,0.45),inset_0_-1px_0_rgba(59,130,246,0.45)]" : ""
+                      } ${tone.cell}`}
                     >
                       <Tooltip content={estimateTitle(attacker, defender, selfAvgNetworth, targetAvgNetworth, defenderLatest, relationState, targetSnapshot.ourAttitudeToThem, targetSnapshot.theirAttitudeToUs)}>
                         <div className={tone.value}>

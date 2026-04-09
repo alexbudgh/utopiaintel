@@ -398,6 +398,7 @@ export function ProvinceTable({
   initial: ProvinceRow[];
 }) {
   const [provinces, setProvinces] = useState(initial);
+  const [selectedRowId, setSelectedRowId] = useState<number | null>(null);
   const [activeView, setActiveView] = useState<string | null>("Overview");
   const [customCols, setCustomCols] = useState<Set<ColKey>>(new Set(VIEWS.Overview));
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -596,14 +597,20 @@ export function ProvinceTable({
             {sortedProvinces.map((p) => {
               const dotAge = p.overview_age ?? p.military_age;
               return (
-                <tr key={p.id} className="border-b border-gray-800 hover:bg-gray-800/40">
+                <tr
+                  key={p.id}
+                  onClick={() => setSelectedRowId(p.id)}
+                  className={`border-b border-gray-800 cursor-pointer hover:bg-gray-800/40 ${
+                    selectedRowId === p.id ? "bg-blue-950/25 ring-1 ring-inset ring-blue-500/50" : ""
+                  }`}
+                >
                   <td className="py-2 pr-4">
                     <Tooltip content={tooltipContentFor(p, "age")}>
-                      <span className={`mr-1.5 ${freshnessColor(dotAge)}`}>●</span>
+                      <span className={`mr-1.5 ${selectedRowId === p.id ? "text-blue-300" : freshnessColor(dotAge)}`}>●</span>
                     </Tooltip>
                     <Link
                       href={`/kingdom/${kingdom}/${encodeURIComponent(p.name)}`}
-                      className="hover:text-blue-400 transition-colors"
+                      className={`transition-colors ${selectedRowId === p.id ? "text-blue-100" : "hover:text-blue-400"}`}
                     >
                       {p.name}
                     </Link>
