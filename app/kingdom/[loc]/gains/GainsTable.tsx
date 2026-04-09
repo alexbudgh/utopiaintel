@@ -464,6 +464,11 @@ export function GainsTable({
         Province Table
       </Link>
       <span className={`${btnBase} ${btnActive}`}>Gains</span>
+      <div className="ml-auto text-xs text-gray-500">
+        Self snapshot: <span className="text-gray-300">{formatTimestamp(selfSnapshot?.receivedAt ?? null)}</span>
+        {" · "}
+        Target snapshot: <span className="text-gray-300">{formatTimestamp(targetSnapshot?.receivedAt ?? null)}</span>
+      </div>
     </div>
   );
 
@@ -512,11 +517,6 @@ export function GainsTable({
         <p>
           Traditional March land gains only. Both kingdom averages come from the latest accessible kingdom page snapshots.
           Row provinces use your latest visible intel; target columns use the latest target kingdom snapshot.
-        </p>
-        <p className="mt-2">
-          Self snapshot: <span className="text-gray-200">{formatTimestamp(selfSnapshot.receivedAt)}</span>
-          {" · "}
-          Target snapshot: <span className="text-gray-200">{formatTimestamp(targetSnapshot.receivedAt)}</span>
         </p>
         <p className="mt-2">
           MAP uses SoT bucket midpoints. Relations use the current directional Unfriendly and Hostile gains modifiers from the target kingdom snapshot. Neutral assumptions: race/personality gains mods, castles, stance, siege, dragons,
