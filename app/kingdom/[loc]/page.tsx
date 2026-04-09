@@ -57,10 +57,9 @@ export default async function KingdomPage({
           )}
         </div>
         <div>
-          <h1 className="text-xl font-bold text-gray-100 font-mono">{kingdom}</h1>
-          {snapshot?.name && (
-            <div className="text-sm text-gray-500">{snapshot.name}</div>
-          )}
+          <h1 className="text-xl font-bold text-gray-100">
+            {snapshot?.name ? `${snapshot.name} (${kingdom})` : <span className="font-mono">{kingdom}</span>}
+          </h1>
           <KingdomRelations
             kingdom={kingdom}
             boundKingdom={boundKingdom}
