@@ -5,3 +5,4 @@ intel_debug.jsonl
 intel.db
 intel.db-wal
 intel.db-shm
+tsconfig.tsbuildinfo
