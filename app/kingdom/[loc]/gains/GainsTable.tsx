@@ -29,6 +29,15 @@ function factorTone(factor: number): TooltipLine["tone"] {
   return "good";
 }
 
+function factorClass(factor: number): string {
+  if (factor === 0) return "text-red-300";
+  if (factor < 0.5) return "text-red-300";
+  if (factor < 0.8) return "text-orange-300";
+  if (factor < 1) return "text-amber-300";
+  if (factor > 1) return "text-green-300";
+  return "text-gray-100";
+}
+
 function fmt(value: number, digits = 2): string {
   return value.toLocaleString(undefined, {
     minimumFractionDigits: digits,
@@ -373,7 +382,22 @@ function estimateTitle(
 
       <Section title="Calculation">
         <div className={`rounded border px-2 py-1 ${formulaTone === "text-red-300" ? "border-red-900/60 bg-red-950/20" : formulaTone === "text-amber-300" ? "border-amber-900/60 bg-amber-950/20" : formulaTone === "text-sky-300" ? "border-sky-900/60 bg-sky-950/20" : "border-green-900/60 bg-green-950/20"} ${formulaTone}`}>
-          {`base acres = ${fmt(defender.land)} * 0.12 * ${estimate.rpnwFactor.toFixed(3)} * ${estimate.rknwFactor.toFixed(3)} * ${estimate.mapFactor.toFixed(3)} * ${estimate.castlesFactor.toFixed(3)} * ${estimate.combinedRelationFactor.toFixed(3)} = ${fmt(baseAcres)}`}
+          <span className="text-gray-300">base acres = </span>
+          <span className="text-gray-100">{fmt(defender.land)}</span>
+          <span className="text-gray-500"> * </span>
+          <span className="text-gray-100">0.12</span>
+          <span className="text-gray-500"> * </span>
+          <span className={factorClass(estimate.rpnwFactor)}>{estimate.rpnwFactor.toFixed(3)}</span>
+          <span className="text-gray-500"> * </span>
+          <span className={factorClass(estimate.rknwFactor)}>{estimate.rknwFactor.toFixed(3)}</span>
+          <span className="text-gray-500"> * </span>
+          <span className={factorClass(estimate.mapFactor)}>{estimate.mapFactor.toFixed(3)}</span>
+          <span className="text-gray-500"> * </span>
+          <span className={factorClass(estimate.castlesFactor)}>{estimate.castlesFactor.toFixed(3)}</span>
+          <span className="text-gray-500"> * </span>
+          <span className={factorClass(estimate.combinedRelationFactor)}>{estimate.combinedRelationFactor.toFixed(3)}</span>
+          <span className="text-gray-500"> = </span>
+          <span className="text-gray-100">{fmt(baseAcres)}</span>
         </div>
         {estimate.relationState === "war" && (
           <Row
