@@ -33,22 +33,7 @@ export function Tooltip({ content, children }: { content: ReactNode | string | T
   const tipRef = useRef<HTMLDivElement>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const clearCloseTimer = () => {
-    if (closeTimerRef.current) {
-      clearTimeout(closeTimerRef.current);
-      closeTimerRef.current = null;
-    }
-  };
-
-  const scheduleClose = () => {
-    clearCloseTimer();
-    closeTimerRef.current = setTimeout(() => {
-      setOpen(false);
-      closeTimerRef.current = null;
-    }, 120);
-  };
-
-  useLayoutEffect(() => {
+  const updatePosition = () => {
     if (!tipRef.current || !anchor || !open) return;
     const rect = tipRef.current.getBoundingClientRect();
     const viewportPadding = 8;
@@ -72,6 +57,25 @@ export function Tooltip({ content, children }: { content: ReactNode | string | T
     }
 
     setStyle({ left, top });
+  };
+
+  const clearCloseTimer = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  };
+
+  const scheduleClose = () => {
+    clearCloseTimer();
+    closeTimerRef.current = setTimeout(() => {
+      setOpen(false);
+      closeTimerRef.current = null;
+    }, 120);
+  };
+
+  useLayoutEffect(() => {
+    updatePosition();
   }, [anchor, open]);
 
   useLayoutEffect(() => {
@@ -83,6 +87,17 @@ export function Tooltip({ content, children }: { content: ReactNode | string | T
   useLayoutEffect(() => {
     return () => clearCloseTimer();
   }, []);
+
+  useLayoutEffect(() => {
+    if (!tipRef.current || !anchor || !open) return;
+
+    const observer = new ResizeObserver(() => {
+      updatePosition();
+    });
+    observer.observe(tipRef.current);
+
+    return () => observer.disconnect();
+  }, [anchor, open]);
 
   if (!content) return <>{children}</>;
   const lines: TooltipLine[] | null = typeof content === "string"
@@ -106,8 +121,8 @@ export function Tooltip({ content, children }: { content: ReactNode | string | T
       {anchor && open && createPortal(
         <div
           ref={tipRef}
-          className={`fixed z-50 rounded bg-gray-900 border border-gray-700 shadow-lg ${
-            lines ? "flex flex-col gap-0.5 w-max max-w-xs px-2 py-1.5 text-xs" : "p-2"
+          className={`fixed z-50 overflow-auto rounded bg-gray-900 border border-gray-700 shadow-lg ${
+            lines ? "flex max-h-[calc(100vh-16px)] flex-col gap-0.5 w-max max-w-xs px-2 py-1.5 text-xs" : "max-h-[calc(100vh-16px)] p-2"
           }`}
           style={style ?? { left: anchor.left, top: anchor.top - 8 }}
           onMouseEnter={() => {
