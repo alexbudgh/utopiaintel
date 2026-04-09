@@ -332,9 +332,29 @@ function estimateTitle(
       : breakability.status === "not_breakable"
         ? "Not breakable"
         : "Unknown";
+  const highlights: { label: string; value: string; className: string; impact: number }[] = [];
+  if (estimate.rpnwFactor < 1) {
+    highlights.push({ label: "RPNW", value: estimate.rpnwFactor.toFixed(3), className: factorClass(estimate.rpnwFactor), impact: Math.abs(1 - estimate.rpnwFactor) });
+  }
+  if (estimate.mapFactor < 1) {
+    highlights.push({ label: "MAP", value: estimate.mapFactor.toFixed(3), className: factorClass(estimate.mapFactor), impact: Math.abs(1 - estimate.mapFactor) });
+  }
+  if (estimate.castlesFactor < 1) {
+    highlights.push({ label: "Castles", value: estimate.castlesFactor.toFixed(3), className: factorClass(estimate.castlesFactor), impact: Math.abs(1 - estimate.castlesFactor) });
+  }
+  if (estimate.rknwFactor < 1) {
+    highlights.push({ label: "RKNW", value: estimate.rknwFactor.toFixed(3), className: factorClass(estimate.rknwFactor), impact: Math.abs(1 - estimate.rknwFactor) });
+  }
+  if (estimate.combinedRelationFactor !== 1) {
+    highlights.push({ label: "Relations", value: estimate.combinedRelationFactor.toFixed(3), className: factorClass(estimate.combinedRelationFactor), impact: Math.abs(1 - estimate.combinedRelationFactor) });
+  }
+  if (estimate.siegeFactor > 1) {
+    highlights.push({ label: "Siege", value: estimate.siegeFactor.toFixed(3), className: factorClass(estimate.siegeFactor), impact: Math.abs(1 - estimate.siegeFactor) });
+  }
+  const summaryHighlights = [...highlights].sort((a, b) => b.impact - a.impact);
 
   return (
-    <div className="flex w-[34rem] max-w-[calc(100vw-2rem)] flex-col gap-2">
+    <div className="flex w-[30rem] max-w-[calc(100vw-2rem)] flex-col gap-2">
       <div className="rounded border border-gray-700 bg-gray-950/80 px-3 py-2">
         <div className="text-sm font-medium text-gray-100">{attacker.name} → {defender.name}</div>
         <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-gray-400">
@@ -351,68 +371,107 @@ function estimateTitle(
       </div>
 
       <div className="grid gap-2 md:grid-cols-2">
-        <Section title="Relative NW">
-          <Row label="RPNW" value={`${fmt(defender.networth)} / ${fmt(attacker.networth ?? 0)} = ${estimate.rpnw.toFixed(3)}`} tone="text-gray-100" />
-          <div className={factorClass(estimate.rpnwFactor)}>
-            {rpnwInfo.branch}
-          </div>
-          <div className={factorClass(estimate.rpnwFactor)}>
-            {rpnwInfo.calc}
-          </div>
-          <Row label="RKNW" value={`${fmt(targetAvgNetworth)} / ${fmt(selfAvgNetworth)} = ${estimate.rknw.toFixed(3)}`} tone="text-gray-100" />
-          <div className={factorClass(estimate.rknwFactor)}>
-            {rknwInfo.branch}
-          </div>
-          <div className={factorClass(estimate.rknwFactor)}>
-            {rknwInfo.calc}
-          </div>
+        <Section title="Summary">
+          <Row label="Displayed" value={estimate.roundedAcres.toLocaleString()} tone={estimate.roundedAcres === 0 ? "text-amber-300" : "text-gray-100"} />
+          <Row
+            label="Breakability"
+            value={breakabilityLabel}
+            tone={
+              breakability.status === "breakable"
+                ? "text-green-300"
+                : breakability.status === "not_breakable"
+                  ? "text-red-300"
+                  : "text-gray-300"
+            }
+          />
+          <Row label="Raw acres" value={fmt(estimate.rawAcres)} tone={estimate.rawAcres === 0 ? "text-red-300" : estimate.capApplied ? "text-amber-300" : estimate.warFloorApplied ? "text-sky-300" : "text-green-300"} />
+          <Row label="Cap" value={fmt(estimate.cap)} tone={estimate.capApplied ? "text-amber-300" : "text-gray-300"} />
+          {estimate.relationState === "war" && (
+            <Row label="War floor" value={fmt(estimate.warFloor)} tone={estimate.warFloorApplied ? "text-sky-300" : "text-gray-300"} />
+          )}
         </Section>
 
-        <Section title="Relations, MAP, Castles, And Siege">
-          <Row label="Relation" value={relationState === "war" ? "War" : "Out of war"} tone={relationState === "war" ? "text-green-300" : "text-gray-300"} />
-          {relationInfo.map((line, i) => (
-            <div
-              key={i}
-              className={
-                line.tone === "bad" ? "text-red-300"
-                : line.tone === "warn" ? "text-amber-300"
-                : line.tone === "good" ? "text-green-300"
-                : line.tone === "strong" ? "text-gray-100"
-                : line.tone === "muted" ? "text-gray-500"
-                : "text-gray-300"
-              }
-            >
-              {line.text}
+        <Section title="Top Factors">
+          {summaryHighlights.length > 0 ? summaryHighlights.slice(0, 4).map((item) => (
+            <div key={item.label} className="flex items-start justify-between gap-3">
+              <span className="text-gray-500">{item.label}</span>
+              <span className={`text-right ${item.className}`}>{item.value}</span>
             </div>
-          ))}
-          <Row label="MAP status" value={defenderLatest?.hit_status ?? "unknown"} tone={defenderLatest?.hit_status ? "text-gray-100" : "text-gray-500"} />
-          <div className={mapInfo.tone === "bad" ? "text-red-300" : mapInfo.tone === "warn" ? "text-amber-300" : mapInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
-            {mapInfo.branch}
-          </div>
-          <div className={mapInfo.tone === "bad" ? "text-red-300" : mapInfo.tone === "warn" ? "text-amber-300" : mapInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
-            {mapInfo.calc}
-          </div>
-          <Row label="Castles" value={estimate.castlesEffect != null ? `${estimate.castlesEffect.toFixed(2)}% protection` : "unknown"} tone={estimate.castlesEffect != null ? "text-gray-100" : "text-gray-500"} />
-          <div className={castlesInfo.tone === "bad" ? "text-red-300" : castlesInfo.tone === "warn" ? "text-amber-300" : castlesInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
-            {castlesInfo.branch}
-          </div>
-          <div className={castlesInfo.tone === "bad" ? "text-red-300" : castlesInfo.tone === "warn" ? "text-amber-300" : castlesInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
-            {castlesInfo.calc}
-          </div>
-          <Row label="Siege" value={estimate.siegeEffect != null ? `${estimate.siegeEffect.toFixed(2)}% battle gains` : "unknown"} tone={estimate.siegeEffect != null ? "text-gray-100" : "text-gray-500"} />
-          <div className={siegeInfo.tone === "bad" ? "text-red-300" : siegeInfo.tone === "warn" ? "text-amber-300" : siegeInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
-            {siegeInfo.branch}
-          </div>
-          <div className={siegeInfo.tone === "bad" ? "text-red-300" : siegeInfo.tone === "warn" ? "text-amber-300" : siegeInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
-            {siegeInfo.calc}
-          </div>
+          )) : (
+            <div className="text-gray-500">No major modifiers beyond the base path</div>
+          )}
         </Section>
       </div>
 
-      <Section title="Calculation">
-        <div className={`rounded border px-2 py-1 ${formulaTone === "text-red-300" ? "border-red-900/60 bg-red-950/20" : formulaTone === "text-amber-300" ? "border-amber-900/60 bg-amber-950/20" : formulaTone === "text-sky-300" ? "border-sky-900/60 bg-sky-950/20" : "border-green-900/60 bg-green-950/20"} ${formulaTone}`}>
-          <span className="text-gray-300">base acres = </span>
-          <span className="text-gray-100">{fmt(defender.land)}</span>
+      <details className="rounded border border-gray-800 bg-gray-950/60 p-2.5">
+        <summary className="cursor-pointer select-none text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+          Detailed math
+        </summary>
+
+        <div className="mt-2 grid gap-2 md:grid-cols-2">
+          <Section title="Relative NW">
+            <Row label="RPNW" value={`${fmt(defender.networth)} / ${fmt(attacker.networth ?? 0)} = ${estimate.rpnw.toFixed(3)}`} tone="text-gray-100" />
+            <div className={factorClass(estimate.rpnwFactor)}>
+              {rpnwInfo.branch}
+            </div>
+            <div className={factorClass(estimate.rpnwFactor)}>
+              {rpnwInfo.calc}
+            </div>
+            <Row label="RKNW" value={`${fmt(targetAvgNetworth)} / ${fmt(selfAvgNetworth)} = ${estimate.rknw.toFixed(3)}`} tone="text-gray-100" />
+            <div className={factorClass(estimate.rknwFactor)}>
+              {rknwInfo.branch}
+            </div>
+            <div className={factorClass(estimate.rknwFactor)}>
+              {rknwInfo.calc}
+            </div>
+          </Section>
+
+          <Section title="Relations, MAP, Castles, And Siege">
+            <Row label="Relation" value={relationState === "war" ? "War" : "Out of war"} tone={relationState === "war" ? "text-green-300" : "text-gray-300"} />
+            {relationInfo.map((line, i) => (
+              <div
+                key={i}
+                className={
+                  line.tone === "bad" ? "text-red-300"
+                  : line.tone === "warn" ? "text-amber-300"
+                  : line.tone === "good" ? "text-green-300"
+                  : line.tone === "strong" ? "text-gray-100"
+                  : line.tone === "muted" ? "text-gray-500"
+                  : "text-gray-300"
+                }
+              >
+                {line.text}
+              </div>
+            ))}
+            <Row label="MAP status" value={defenderLatest?.hit_status ?? "unknown"} tone={defenderLatest?.hit_status ? "text-gray-100" : "text-gray-500"} />
+            <div className={mapInfo.tone === "bad" ? "text-red-300" : mapInfo.tone === "warn" ? "text-amber-300" : mapInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
+              {mapInfo.branch}
+            </div>
+            <div className={mapInfo.tone === "bad" ? "text-red-300" : mapInfo.tone === "warn" ? "text-amber-300" : mapInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
+              {mapInfo.calc}
+            </div>
+            <Row label="Castles" value={estimate.castlesEffect != null ? `${estimate.castlesEffect.toFixed(2)}% protection` : "unknown"} tone={estimate.castlesEffect != null ? "text-gray-100" : "text-gray-500"} />
+            <div className={castlesInfo.tone === "bad" ? "text-red-300" : castlesInfo.tone === "warn" ? "text-amber-300" : castlesInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
+              {castlesInfo.branch}
+            </div>
+            <div className={castlesInfo.tone === "bad" ? "text-red-300" : castlesInfo.tone === "warn" ? "text-amber-300" : castlesInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
+              {castlesInfo.calc}
+            </div>
+            <Row label="Siege" value={estimate.siegeEffect != null ? `${estimate.siegeEffect.toFixed(2)}% battle gains` : "unknown"} tone={estimate.siegeEffect != null ? "text-gray-100" : "text-gray-500"} />
+            <div className={siegeInfo.tone === "bad" ? "text-red-300" : siegeInfo.tone === "warn" ? "text-amber-300" : siegeInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
+              {siegeInfo.branch}
+            </div>
+            <div className={siegeInfo.tone === "bad" ? "text-red-300" : siegeInfo.tone === "warn" ? "text-amber-300" : siegeInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
+              {siegeInfo.calc}
+            </div>
+          </Section>
+        </div>
+
+        <div className="mt-2">
+          <Section title="Calculation">
+          <div className={`rounded border px-2 py-1 ${formulaTone === "text-red-300" ? "border-red-900/60 bg-red-950/20" : formulaTone === "text-amber-300" ? "border-amber-900/60 bg-amber-950/20" : formulaTone === "text-sky-300" ? "border-sky-900/60 bg-sky-950/20" : "border-green-900/60 bg-green-950/20"} ${formulaTone}`}>
+            <span className="text-gray-300">base acres = </span>
+            <span className="text-gray-100">{fmt(defender.land)}</span>
           <span className="text-gray-500"> * </span>
           <span className="text-gray-100">0.12</span>
           <span className="text-gray-500"> * </span>
@@ -436,29 +495,31 @@ function estimateTitle(
             value={`max(${fmt(baseAcres)}, ${fmt(estimate.warFloor)}) = ${fmt(Math.max(baseAcres, estimate.warFloor))}`}
             tone={estimate.warFloorApplied ? "text-sky-300" : "text-gray-300"}
           />
-        )}
-        <Row label="Cap" value={`min(${fmt(attacker.land ?? 0)}, ${fmt(defender.land)}) * 0.20 = ${fmt(estimate.cap)}`} tone={estimate.capApplied ? "text-amber-300" : "text-gray-300"} />
-        <Row label="Raw acres" value={`min(${fmt(Math.max(baseAcres, estimate.warFloor))}, ${fmt(estimate.cap)}) = ${fmt(estimate.rawAcres)}`} tone={estimate.rawAcres === 0 ? "text-red-300" : estimate.capApplied ? "text-amber-300" : estimate.warFloorApplied ? "text-sky-300" : "text-green-300"} />
-        <Row label="Displayed" value={estimate.roundedAcres.toLocaleString()} tone={estimate.roundedAcres === 0 ? "text-amber-300" : "text-gray-100"} />
-      </Section>
+          )}
+          <Row label="Cap" value={`min(${fmt(attacker.land ?? 0)}, ${fmt(defender.land)}) * 0.20 = ${fmt(estimate.cap)}`} tone={estimate.capApplied ? "text-amber-300" : "text-gray-300"} />
+          <Row label="Raw acres" value={`min(${fmt(Math.max(baseAcres, estimate.warFloor))}, ${fmt(estimate.cap)}) = ${fmt(estimate.rawAcres)}`} tone={estimate.rawAcres === 0 ? "text-red-300" : estimate.capApplied ? "text-amber-300" : estimate.warFloorApplied ? "text-sky-300" : "text-green-300"} />
+          <Row label="Displayed" value={estimate.roundedAcres.toLocaleString()} tone={estimate.roundedAcres === 0 ? "text-amber-300" : "text-gray-100"} />
+          </Section>
 
-      <div className="grid gap-2">
-        <Section title="Breakability">
-          <Row
-            label="Status"
-            value={breakabilityLabel}
-            tone={
-              breakability.status === "breakable"
-                ? "text-green-300"
-                : breakability.status === "not_breakable"
-                  ? "text-red-300"
-                  : "text-gray-300"
-            }
-          />
-          <Row label="Offense source" value={breakability.offenseSource ?? "missing"} tone={breakability.offenseSource ? "text-gray-300" : "text-amber-300"} />
-          <Row label="Defense source" value={breakability.defenseSource ?? "missing"} tone={breakability.defenseSource ? "text-gray-300" : "text-amber-300"} />
-        </Section>
-      </div>
+          <div className="mt-2 grid gap-2">
+            <Section title="Breakability">
+              <Row
+                label="Status"
+                value={breakabilityLabel}
+                tone={
+                  breakability.status === "breakable"
+                    ? "text-green-300"
+                    : breakability.status === "not_breakable"
+                      ? "text-red-300"
+                      : "text-gray-300"
+                }
+              />
+              <Row label="Offense source" value={breakability.offenseSource ?? "missing"} tone={breakability.offenseSource ? "text-gray-300" : "text-amber-300"} />
+              <Row label="Defense source" value={breakability.defenseSource ?? "missing"} tone={breakability.defenseSource ? "text-gray-300" : "text-amber-300"} />
+            </Section>
+          </div>
+        </div>
+      </details>
     </div>
   );
 }

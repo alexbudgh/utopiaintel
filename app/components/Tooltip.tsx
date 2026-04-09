@@ -29,10 +29,27 @@ function isTooltipLines(content: ReactNode | string | TooltipLine[]): content is
 export function Tooltip({ content, children }: { content: ReactNode | string | TooltipLine[]; children: ReactNode }) {
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
   const [style, setStyle] = useState<CSSProperties | null>(null);
+  const [open, setOpen] = useState(false);
   const tipRef = useRef<HTMLDivElement>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearCloseTimer = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  };
+
+  const scheduleClose = () => {
+    clearCloseTimer();
+    closeTimerRef.current = setTimeout(() => {
+      setOpen(false);
+      closeTimerRef.current = null;
+    }, 120);
+  };
 
   useLayoutEffect(() => {
-    if (!tipRef.current || !anchor) return;
+    if (!tipRef.current || !anchor || !open) return;
     const rect = tipRef.current.getBoundingClientRect();
     const viewportPadding = 8;
     const anchorCenter = anchor.left + anchor.width / 2;
@@ -55,13 +72,17 @@ export function Tooltip({ content, children }: { content: ReactNode | string | T
     }
 
     setStyle({ left, top });
-  }, [anchor]);
+  }, [anchor, open]);
 
   useLayoutEffect(() => {
-    if (!anchor) {
+    if (!anchor || !open) {
       setStyle(null);
     }
-  }, [anchor]);
+  }, [anchor, open]);
+
+  useLayoutEffect(() => {
+    return () => clearCloseTimer();
+  }, []);
 
   if (!content) return <>{children}</>;
   const lines: TooltipLine[] | null = typeof content === "string"
@@ -74,17 +95,26 @@ export function Tooltip({ content, children }: { content: ReactNode | string | T
   return (
     <span
       className="inline-block"
-      onMouseEnter={(e) => setAnchor(e.currentTarget.getBoundingClientRect())}
-      onMouseLeave={() => setAnchor(null)}
+      onMouseEnter={(e) => {
+        clearCloseTimer();
+        setAnchor(e.currentTarget.getBoundingClientRect());
+        setOpen(true);
+      }}
+      onMouseLeave={scheduleClose}
     >
       {children}
-      {anchor && createPortal(
+      {anchor && open && createPortal(
         <div
           ref={tipRef}
-          className={`fixed z-50 pointer-events-none rounded bg-gray-900 border border-gray-700 shadow-lg ${
+          className={`fixed z-50 rounded bg-gray-900 border border-gray-700 shadow-lg ${
             lines ? "flex flex-col gap-0.5 w-max max-w-xs px-2 py-1.5 text-xs" : "p-2"
           }`}
           style={style ?? { left: anchor.left, top: anchor.top - 8 }}
+          onMouseEnter={() => {
+            clearCloseTimer();
+            setOpen(true);
+          }}
+          onMouseLeave={scheduleClose}
         >
           {lines
             ? lines.map((line, i) => (
