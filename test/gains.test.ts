@@ -9,6 +9,7 @@ import {
   mapGainsFactor,
   outgoingRelationGainsFactor,
   provinceNetworthFactor,
+  siegeScienceFactor,
   warMinimumGainsFloor,
 } from "../lib/gains";
 import type { ProvinceRow } from "../lib/db";
@@ -62,6 +63,7 @@ function makeProvince(overrides: Partial<ProvinceRow>): ProvinceRow {
     sciences_age: null,
     crime_effect: null,
     channeling_effect: null,
+    siege_effect: null,
     science_total_books: null,
     survey_age: null,
     watch_towers_effect: null,
@@ -113,6 +115,12 @@ test("warMinimumGainsFloor applies only in war", () => {
   assert.equal(warMinimumGainsFloor(1500, "oow"), 0);
   assert.equal(warMinimumGainsFloor(1500, "war"), 60);
   assert.equal(warMinimumGainsFloor(null, "war"), 0);
+});
+
+test("siegeScienceFactor uses direct SoS battle gains effect", () => {
+  assert.equal(siegeScienceFactor(null), 1);
+  assert.equal(siegeScienceFactor(0), 1);
+  assert.equal(siegeScienceFactor(6.4), 1.064);
 });
 
 test("relation gains factors match the Relations guide", () => {
@@ -234,6 +242,24 @@ test("estimateTraditionalMarchAcres applies the war minimum-gains floor", () => 
   assert.equal(estimate.warFloorApplied, true);
   assert.equal(estimate.rawAcres, 60);
   assert.equal(estimate.roundedAcres, 60);
+});
+
+test("estimateTraditionalMarchAcres applies attacker siege science", () => {
+  const estimate = estimateTraditionalMarchAcres({
+    attackerLand: 1000,
+    attackerNetworth: 300000,
+    defenderLand: 1500,
+    defenderNetworth: 300000,
+    selfKingdomAvgNetworth: 250000,
+    targetKingdomAvgNetworth: 250000,
+    attackerSiegeEffect: 6.4,
+  });
+
+  assert.ok(estimate);
+  assert.equal(estimate.siegeEffect, 6.4);
+  assert.equal(estimate.siegeFactor, 1.064);
+  assert.equal(estimate.rawAcres, 191.52);
+  assert.equal(estimate.roundedAcres, 192);
 });
 
 test("estimateTraditionalMarchAcres caps oversized gains", () => {

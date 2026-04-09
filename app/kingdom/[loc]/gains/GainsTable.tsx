@@ -136,6 +136,25 @@ function castlesBreakdown(
   };
 }
 
+function siegeBreakdown(
+  siegeEffect: number | null,
+  siegeFactor: number,
+): { branch: string; calc: string; tone: TooltipLine["tone"] } {
+  if (siegeEffect == null) {
+    return {
+      branch: "Siege branch: no direct Siege science effect from latest SoS",
+      calc: "Siege factor: 1",
+      tone: "muted",
+    };
+  }
+
+  return {
+    branch: `Siege branch: latest SoS reports ${siegeEffect.toFixed(2)}% Battle Gains`,
+    calc: `Siege factor: 1 + ${siegeEffect.toFixed(2)}% = ${siegeFactor.toFixed(3)}`,
+    tone: siegeFactor > 1 ? "good" : "muted",
+  };
+}
+
 function relationBreakdown(
   ourAttitudeToThem: string | null,
   theirAttitudeToUs: string | null,
@@ -235,6 +254,7 @@ function estimateTitle(
     targetKingdomAvgNetworth: targetAvgNetworth,
     defenderHitStatus: defenderLatest?.hit_status ?? null,
     defenderCastlesEffect: defenderLatest?.castles_effect ?? null,
+    attackerSiegeEffect: attacker.siege_effect ?? null,
     relationState,
     ourAttitudeToThem,
     theirAttitudeToUs,
@@ -258,11 +278,13 @@ function estimateTitle(
     estimate.rknwFactor *
     estimate.mapFactor *
     estimate.castlesFactor *
+    estimate.siegeFactor *
     estimate.combinedRelationFactor;
   const rpnwInfo = rpnwBreakdown(estimate.rpnw);
   const rknwInfo = rknwBreakdown(estimate.rknw);
   const mapInfo = mapBreakdown(defenderLatest?.hit_status ?? null, relationState, estimate.mapFactor);
   const castlesInfo = castlesBreakdown(defenderLatest?.castles_effect ?? null, estimate.castlesFactor);
+  const siegeInfo = siegeBreakdown(attacker.siege_effect ?? null, estimate.siegeFactor);
   const mutualCeasefire =
     isNonAggressionPact(ourAttitudeToThem) &&
     isNonAggressionPact(theirAttitudeToUs);
@@ -346,7 +368,7 @@ function estimateTitle(
           </div>
         </Section>
 
-        <Section title="Relations, MAP, And Castles">
+        <Section title="Relations, MAP, Castles, And Siege">
           <Row label="Relation" value={relationState === "war" ? "War" : "Out of war"} tone={relationState === "war" ? "text-green-300" : "text-gray-300"} />
           {relationInfo.map((line, i) => (
             <div
@@ -377,6 +399,13 @@ function estimateTitle(
           <div className={castlesInfo.tone === "bad" ? "text-red-300" : castlesInfo.tone === "warn" ? "text-amber-300" : castlesInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
             {castlesInfo.calc}
           </div>
+          <Row label="Siege" value={estimate.siegeEffect != null ? `${estimate.siegeEffect.toFixed(2)}% battle gains` : "unknown"} tone={estimate.siegeEffect != null ? "text-gray-100" : "text-gray-500"} />
+          <div className={siegeInfo.tone === "bad" ? "text-red-300" : siegeInfo.tone === "warn" ? "text-amber-300" : siegeInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
+            {siegeInfo.branch}
+          </div>
+          <div className={siegeInfo.tone === "bad" ? "text-red-300" : siegeInfo.tone === "warn" ? "text-amber-300" : siegeInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
+            {siegeInfo.calc}
+          </div>
         </Section>
       </div>
 
@@ -394,6 +423,8 @@ function estimateTitle(
           <span className={factorClass(estimate.mapFactor)}>{estimate.mapFactor.toFixed(3)}</span>
           <span className="text-gray-500"> * </span>
           <span className={factorClass(estimate.castlesFactor)}>{estimate.castlesFactor.toFixed(3)}</span>
+          <span className="text-gray-500"> * </span>
+          <span className={factorClass(estimate.siegeFactor)}>{estimate.siegeFactor.toFixed(3)}</span>
           <span className="text-gray-500"> * </span>
           <span className={factorClass(estimate.combinedRelationFactor)}>{estimate.combinedRelationFactor.toFixed(3)}</span>
           <span className="text-gray-500"> = </span>
@@ -476,6 +507,9 @@ function stateBadges(
   if (estimate.castlesFactor < 1) {
     badges.push(<span key="castles" className="text-[9px] font-medium uppercase tracking-wide text-orange-300">CASTLES</span>);
   }
+  if (estimate.siegeFactor > 1) {
+    badges.push(<span key="siege" className="text-[9px] font-medium uppercase tracking-wide text-emerald-300">SIEGE</span>);
+  }
   if (estimate.combinedRelationFactor > 1) {
     badges.push(<span key="rel" className="text-[9px] font-medium uppercase tracking-wide text-violet-300">REL</span>);
   }
@@ -534,8 +568,9 @@ export function GainsTable({
           { text: "MAP uses SoT bucket midpoints." },
           { text: "War applies a 4% minimum-gains floor based on defender land." },
           { text: "Castles uses the direct lower-loss percentage shown on the latest survey." },
+          { text: "Siege uses the direct Battle Gains percentage shown on the latest SoS." },
           { text: "Relations use the current directional Unfriendly and Hostile gains modifiers from the target snapshot." },
-          { text: "Still assumes neutral race/personality gains mods, siege, dragons, attack-time adjustment, ritual, anonymity, and mist.", tone: "muted" },
+          { text: "Still assumes neutral race/personality gains mods, dragons, attack-time adjustment, ritual, anonymity, and mist.", tone: "muted" },
         ]}
       >
         <span className={`${btnBase} ${btnInactive}`}>Assumptions</span>
@@ -653,6 +688,7 @@ export function GainsTable({
                     targetKingdomAvgNetworth: targetAvgNetworth,
                     defenderHitStatus: defenderLatest?.hit_status ?? null,
                     defenderCastlesEffect: defenderLatest?.castles_effect ?? null,
+                    attackerSiegeEffect: attacker.siege_effect ?? null,
                     relationState,
                     ourAttitudeToThem: targetSnapshot.ourAttitudeToThem,
                     theirAttitudeToUs: targetSnapshot.theirAttitudeToUs,

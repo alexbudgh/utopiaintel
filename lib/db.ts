@@ -707,6 +707,7 @@ export interface ProvinceRow {
   sciences_age: string | null;
   crime_effect: number | null;
   channeling_effect: number | null;
+  siege_effect: number | null;
   science_total_books: number | null;
   survey_age: string | null;
   watch_towers_effect: number | null;
@@ -732,6 +733,7 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
            mi.ome, mi.dme, mi.received_at AS som_age,
            (SELECT si.received_at FROM sos_intel si WHERE si.province_id = p.id ORDER BY si.received_at DESC LIMIT 1) AS sciences_age,
            (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND ss.science = 'Crime' ORDER BY si.received_at DESC LIMIT 1) AS crime_effect,
+           (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND ss.science = 'Siege' ORDER BY si.received_at DESC LIMIT 1) AS siege_effect,
            (SELECT si.received_at FROM survey_intel si WHERE si.province_id = p.id ORDER BY si.received_at DESC LIMIT 1) AS survey_age,
            (SELECT si.thief_prevent_chance FROM survey_intel si WHERE si.province_id = p.id ORDER BY si.received_at DESC LIMIT 1) AS watch_towers_effect,
            (SELECT si.thievery_effectiveness FROM survey_intel si WHERE si.province_id = p.id ORDER BY si.received_at DESC LIMIT 1) AS thieves_dens_effect,

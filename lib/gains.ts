@@ -15,6 +15,8 @@ export interface TraditionalMarchEstimate {
   mapFactor: number;
   castlesEffect: number | null;
   castlesFactor: number;
+  siegeEffect: number | null;
+  siegeFactor: number;
   relationState: "war" | "oow";
   ourAttitudeToThem: string | null;
   theirAttitudeToUs: string | null;
@@ -69,6 +71,11 @@ export function castlesProtectionFactor(castlesEffect: number | null): number {
   return Math.max(0, 1 - castlesEffect / 100);
 }
 
+export function siegeScienceFactor(siegeEffect: number | null): number {
+  if (siegeEffect == null || siegeEffect <= 0) return 1;
+  return 1 + siegeEffect / 100;
+}
+
 export function warMinimumGainsFloor(
   defenderLand: number | null,
   relationState: "war" | "oow",
@@ -100,6 +107,7 @@ export function estimateTraditionalMarchAcres(input: {
   targetKingdomAvgNetworth: number | null;
   defenderHitStatus?: string | null;
   defenderCastlesEffect?: number | null;
+  attackerSiegeEffect?: number | null;
   relationState?: "war" | "oow";
   ourAttitudeToThem?: string | null;
   theirAttitudeToUs?: string | null;
@@ -113,6 +121,7 @@ export function estimateTraditionalMarchAcres(input: {
     targetKingdomAvgNetworth,
     defenderHitStatus = null,
     defenderCastlesEffect = null,
+    attackerSiegeEffect = null,
     relationState = "oow",
     ourAttitudeToThem = null,
     theirAttitudeToUs = null,
@@ -132,11 +141,12 @@ export function estimateTraditionalMarchAcres(input: {
   const rknwFactor = kingdomNetworthFactor(rknw);
   const mapFactor = mapGainsFactor(defenderHitStatus, relationState);
   const castlesFactor = castlesProtectionFactor(defenderCastlesEffect);
+  const siegeFactor = siegeScienceFactor(attackerSiegeEffect);
   const ourRelationFactor = outgoingRelationGainsFactor(ourAttitudeToThem);
   const theirRelationFactor = incomingRelationGainsFactor(theirAttitudeToUs);
   const combinedRelationFactor = ourRelationFactor * theirRelationFactor;
   const baseAcres =
-    defenderLand * 0.12 * rpnwFactor * rknwFactor * mapFactor * castlesFactor * combinedRelationFactor;
+    defenderLand * 0.12 * rpnwFactor * rknwFactor * mapFactor * castlesFactor * siegeFactor * combinedRelationFactor;
   const warFloor = warMinimumGainsFloor(defenderLand, relationState);
   const flooredAcres = Math.max(baseAcres, warFloor);
   const cap = Math.min(attackerLand, defenderLand) * 0.2;
@@ -157,6 +167,8 @@ export function estimateTraditionalMarchAcres(input: {
     mapFactor,
     castlesEffect: defenderCastlesEffect,
     castlesFactor,
+    siegeEffect: attackerSiegeEffect,
+    siegeFactor,
     relationState,
     ourAttitudeToThem,
     theirAttitudeToUs,
