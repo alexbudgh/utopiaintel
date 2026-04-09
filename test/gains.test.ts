@@ -8,8 +8,8 @@ import {
   mapGainsFactor,
   outgoingRelationGainsFactor,
   provinceNetworthFactor,
-} from "../lib/gains.ts";
-import type { ProvinceRow } from "../lib/db.ts";
+} from "../lib/gains";
+import type { ProvinceRow } from "../lib/db";
 
 function makeProvince(overrides: Partial<ProvinceRow>): ProvinceRow {
   return {

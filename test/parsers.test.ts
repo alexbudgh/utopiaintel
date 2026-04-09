@@ -1,13 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { detectIntelType, getIntelPathname } from "../lib/parsers/detect.ts";
-import { parseSoT } from "../lib/parsers/sot.ts";
-import { parseSurvey } from "../lib/parsers/survey.ts";
-import { parseSoS } from "../lib/parsers/sos.ts";
-import { parseSoM } from "../lib/parsers/som.ts";
-import { parseSoD } from "../lib/parsers/sod.ts";
-import { parseInfiltrate } from "../lib/parsers/infiltrate.ts";
-import { parseKingdom } from "../lib/parsers/kingdom.ts";
+import { detectIntelType, getIntelPathname } from "../lib/parsers/detect";
+import { parseSoT } from "../lib/parsers/sot";
+import { parseSurvey } from "../lib/parsers/survey";
+import { parseSoS } from "../lib/parsers/sos";
+import { parseSoM } from "../lib/parsers/som";
+import { parseSoD } from "../lib/parsers/sod";
+import { parseInfiltrate } from "../lib/parsers/infiltrate";
+import { parseKingdom } from "../lib/parsers/kingdom";
 
 // ---------------------------------------------------------------------------
 // Fixture texts extracted from ~/intel_debug.jsonl
