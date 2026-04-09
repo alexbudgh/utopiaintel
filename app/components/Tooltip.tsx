@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, useLayoutEffect, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 export interface TooltipLine {
@@ -17,7 +17,16 @@ function lineClass(tone: TooltipLine["tone"], isFirst: boolean): string {
   return isFirst ? "text-gray-100 font-medium" : "text-gray-400";
 }
 
-export function Tooltip({ content, children }: { content: string | TooltipLine[]; children: React.ReactNode }) {
+function isTooltipLines(content: ReactNode | string | TooltipLine[]): content is TooltipLine[] {
+  return Array.isArray(content) && content.every((item) =>
+    typeof item === "object" &&
+    item !== null &&
+    "text" in item &&
+    typeof (item as { text?: unknown }).text === "string",
+  );
+}
+
+export function Tooltip({ content, children }: { content: ReactNode | string | TooltipLine[]; children: ReactNode }) {
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
   const [style, setStyle] = useState<CSSProperties | null>(null);
   const tipRef = useRef<HTMLDivElement>(null);
@@ -57,9 +66,12 @@ export function Tooltip({ content, children }: { content: string | TooltipLine[]
   }, [anchor]);
 
   if (!content) return <>{children}</>;
-  const lines: TooltipLine[] = typeof content === "string"
+  const lines: TooltipLine[] | null = typeof content === "string"
     ? content.split("\n").map((text) => ({ text }))
-    : content;
+    : isTooltipLines(content)
+      ? content
+      : null;
+  const customContent: ReactNode | null = lines ? null : (content as ReactNode);
 
   return (
     <span
@@ -71,14 +83,18 @@ export function Tooltip({ content, children }: { content: string | TooltipLine[]
       {anchor && createPortal(
         <div
           ref={tipRef}
-          className="fixed z-50 pointer-events-none flex flex-col gap-0.5 w-max max-w-xs rounded bg-gray-900 border border-gray-700 px-2 py-1.5 text-xs shadow-lg"
+          className={`fixed z-50 pointer-events-none rounded bg-gray-900 border border-gray-700 shadow-lg ${
+            lines ? "flex flex-col gap-0.5 w-max max-w-xs px-2 py-1.5 text-xs" : "p-2"
+          }`}
           style={style ?? { left: anchor.left + anchor.width / 2, top: anchor.top - 8, transform: "translate(-50%, -100%)" }}
         >
-          {lines.map((line, i) => (
-            <span key={i} className={lineClass(line.tone, i === 0)}>
-              {line.text}
-            </span>
-          ))}
+          {lines
+            ? lines.map((line, i) => (
+                <span key={i} className={lineClass(line.tone, i === 0)}>
+                  {line.text}
+                </span>
+              ))
+            : customContent}
         </div>,
         document.body,
       )}

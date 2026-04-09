@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { Tooltip, type TooltipLine } from "@/app/components/Tooltip";
 import type { KingdomSnapshotProvince, ProvinceRow } from "@/lib/db";
 import { estimateBreakability, estimateTraditionalMarchAcres } from "@/lib/gains";
@@ -197,7 +197,7 @@ function estimateTitle(
   relationState: "war" | "oow",
   ourAttitudeToThem: string | null,
   theirAttitudeToUs: string | null,
-) {
+): ReactNode {
   const estimate = estimateTraditionalMarchAcres({
     attackerLand: attacker.land,
     attackerNetworth: attacker.networth,
@@ -211,7 +211,13 @@ function estimateTitle(
     theirAttitudeToUs,
   });
   if (!estimate) {
-    return [{ text: "Missing land, NW, or kingdom snapshot data", tone: "bad" }] satisfies TooltipLine[];
+    return (
+      <div className="flex flex-col gap-2">
+        <div className="rounded border border-red-900/60 bg-red-950/30 px-3 py-2 text-red-200">
+          Missing land, NW, or kingdom snapshot data
+        </div>
+      </div>
+    );
   }
 
   const breakability = estimateBreakability(attacker, defenderLatest);
@@ -250,65 +256,125 @@ function estimateTitle(
         estimate.ourRelationFactor,
         estimate.theirRelationFactor,
       );
-  return [
-    { text: `${attacker.name} -> ${defender.name}`, tone: "strong" },
-    ...(zeroReason ? [{ text: zeroReason, tone: estimate.rpnwFactor === 0 ? "bad" : "warn" } satisfies TooltipLine] : []),
-    {
-      text: `RPNW = ${fmt(defender.networth)} / ${fmt(attacker.networth ?? 0)} = ${estimate.rpnw.toFixed(3)}`,
-      tone: "strong",
-    },
-    { text: rpnwInfo.branch, tone: rpnwInfo.tone },
-    { text: rpnwInfo.calc, tone: rpnwInfo.tone },
-    {
-      text: `RKNW = ${fmt(targetAvgNetworth)} / ${fmt(selfAvgNetworth)} = ${estimate.rknw.toFixed(3)}`,
-      tone: "strong",
-    },
-    { text: rknwInfo.branch, tone: rknwInfo.tone },
-    { text: rknwInfo.calc, tone: rknwInfo.tone },
-    {
-      text: `Relation = ${relationState === "war" ? "War" : "Out of war"}`,
-      tone: relationState === "war" ? "good" : "muted",
-    },
-    {
-      text: `MAP status = ${defenderLatest?.hit_status ?? "unknown"}`,
-      tone: defenderLatest?.hit_status ? "strong" : "muted",
-    },
-    { text: mapInfo.branch, tone: mapInfo.tone },
-    { text: mapInfo.calc, tone: mapInfo.tone },
-    ...relationInfo,
-    {
-      text: `base acres = ${fmt(defender.land)} * 0.12 * ${estimate.rpnwFactor.toFixed(3)} * ${estimate.rknwFactor.toFixed(3)} * ${estimate.mapFactor.toFixed(3)} * ${estimate.combinedRelationFactor.toFixed(3)} = ${fmt(baseAcres)}`,
-      tone: baseAcres === 0 ? "bad" : estimate.capApplied ? "warn" : "good",
-    },
-    {
-      text: `cap = min(${fmt(attacker.land ?? 0)}, ${fmt(defender.land)}) * 0.20 = ${fmt(estimate.cap)}`,
-      tone: estimate.capApplied ? "warn" : "muted",
-    },
-    {
-      text: `raw acres = min(${fmt(baseAcres)}, ${fmt(estimate.cap)}) = ${fmt(estimate.rawAcres)}`,
-      tone: estimate.rawAcres === 0 ? "bad" : estimate.capApplied ? "warn" : "good",
-    },
-    { text: `displayed acres: ${estimate.roundedAcres}`, tone: estimate.roundedAcres === 0 ? "warn" : "strong" },
-    { text: `attacker NW: ${attacker.networth?.toLocaleString() ?? "—"}` },
-    { text: `defender NW: ${defender.networth.toLocaleString()}` },
-    { text: `defender land: ${defender.land.toLocaleString()}` },
-    { text: `self avg NW: ${Math.round(selfAvgNetworth).toLocaleString()}` },
-    { text: `target avg NW: ${Math.round(targetAvgNetworth).toLocaleString()}` },
-    { text: `cap: ${estimate.cap.toFixed(2)}${estimate.capApplied ? " (applied)" : ""}`, tone: estimate.capApplied ? "warn" : "muted" },
-    {
-      text: `breakability: ${
-        breakability.status === "breakable"
-          ? "breakable"
-          : breakability.status === "not_breakable"
-            ? "not breakable"
-            : "unknown"
-      }`,
-      tone: breakability.status === "breakable" ? "good" : breakability.status === "not_breakable" ? "bad" : "muted",
-    },
-    { text: `offense source: ${breakability.offenseSource ?? "missing"}`, tone: breakability.offenseSource ? "muted" : "warn" },
-    { text: `defense source: ${breakability.defenseSource ?? "missing"}`, tone: breakability.defenseSource ? "muted" : "warn" },
-    { text: "Uses MAP bucket midpoint estimates. Still assumes neutral race/personality gains mods, castles, stance, siege, dragons, attack-time, ritual, anonymity, and mist.", tone: "muted" },
-  ] satisfies TooltipLine[];
+  const Section = ({ title, children }: { title: string; children: ReactNode }) => (
+    <div className="rounded border border-gray-800 bg-gray-950/60 p-2.5">
+      <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">{title}</div>
+      <div className="space-y-1 text-xs text-gray-300">{children}</div>
+    </div>
+  );
+  const Row = ({ label, value, tone = "text-gray-300" }: { label: string; value: ReactNode; tone?: string }) => (
+    <div className="flex items-start justify-between gap-3">
+      <span className="text-gray-500">{label}</span>
+      <span className={`text-right ${tone}`}>{value}</span>
+    </div>
+  );
+  const formulaTone =
+    estimate.rpnwFactor === 0 || estimate.rawAcres === 0 ? "text-red-300"
+    : estimate.capApplied ? "text-amber-300"
+    : "text-green-300";
+  const breakabilityLabel =
+    breakability.status === "breakable"
+      ? "Breakable"
+      : breakability.status === "not_breakable"
+        ? "Not breakable"
+        : "Unknown";
+
+  return (
+    <div className="flex w-[34rem] max-w-[calc(100vw-2rem)] flex-col gap-2">
+      <div className="rounded border border-gray-700 bg-gray-950/80 px-3 py-2">
+        <div className="text-sm font-medium text-gray-100">{attacker.name} → {defender.name}</div>
+        <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-gray-400">
+          <div>Attacker: {formatNum(attacker.networth)} NW / {attacker.land?.toLocaleString() ?? "—"}a</div>
+          <div>Defender: {defender.networth.toLocaleString()} NW / {defender.land.toLocaleString()}a</div>
+          <div>Self avg NW: {Math.round(selfAvgNetworth).toLocaleString()}</div>
+          <div>Target avg NW: {Math.round(targetAvgNetworth).toLocaleString()}</div>
+        </div>
+        {zeroReason && (
+          <div className={`mt-2 rounded border px-2 py-1 text-[11px] ${estimate.rpnwFactor === 0 ? "border-red-900/60 bg-red-950/30 text-red-200" : "border-amber-900/60 bg-amber-950/30 text-amber-200"}`}>
+            {zeroReason}
+          </div>
+        )}
+      </div>
+
+      <div className="grid gap-2 md:grid-cols-2">
+        <Section title="Relative NW">
+          <Row label="RPNW" value={`${fmt(defender.networth)} / ${fmt(attacker.networth ?? 0)} = ${estimate.rpnw.toFixed(3)}`} tone="text-gray-100" />
+          <div className={rpnwInfo.tone === "bad" ? "text-red-300" : rpnwInfo.tone === "warn" ? "text-amber-300" : "text-green-300"}>
+            {rpnwInfo.branch}
+          </div>
+          <div className={rpnwInfo.tone === "bad" ? "text-red-300" : rpnwInfo.tone === "warn" ? "text-amber-300" : "text-green-300"}>
+            {rpnwInfo.calc}
+          </div>
+          <Row label="RKNW" value={`${fmt(targetAvgNetworth)} / ${fmt(selfAvgNetworth)} = ${estimate.rknw.toFixed(3)}`} tone="text-gray-100" />
+          <div className={rknwInfo.tone === "bad" ? "text-red-300" : rknwInfo.tone === "warn" ? "text-amber-300" : "text-green-300"}>
+            {rknwInfo.branch}
+          </div>
+          <div className={rknwInfo.tone === "bad" ? "text-red-300" : rknwInfo.tone === "warn" ? "text-amber-300" : "text-green-300"}>
+            {rknwInfo.calc}
+          </div>
+        </Section>
+
+        <Section title="Relations And MAP">
+          <Row label="Relation" value={relationState === "war" ? "War" : "Out of war"} tone={relationState === "war" ? "text-green-300" : "text-gray-300"} />
+          {relationInfo.map((line, i) => (
+            <div
+              key={i}
+              className={
+                line.tone === "bad" ? "text-red-300"
+                : line.tone === "warn" ? "text-amber-300"
+                : line.tone === "good" ? "text-green-300"
+                : line.tone === "strong" ? "text-gray-100"
+                : line.tone === "muted" ? "text-gray-500"
+                : "text-gray-300"
+              }
+            >
+              {line.text}
+            </div>
+          ))}
+          <Row label="MAP status" value={defenderLatest?.hit_status ?? "unknown"} tone={defenderLatest?.hit_status ? "text-gray-100" : "text-gray-500"} />
+          <div className={mapInfo.tone === "bad" ? "text-red-300" : mapInfo.tone === "warn" ? "text-amber-300" : mapInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
+            {mapInfo.branch}
+          </div>
+          <div className={mapInfo.tone === "bad" ? "text-red-300" : mapInfo.tone === "warn" ? "text-amber-300" : mapInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
+            {mapInfo.calc}
+          </div>
+        </Section>
+      </div>
+
+      <Section title="Calculation">
+        <div className={`rounded border px-2 py-1 ${formulaTone === "text-red-300" ? "border-red-900/60 bg-red-950/20" : formulaTone === "text-amber-300" ? "border-amber-900/60 bg-amber-950/20" : "border-green-900/60 bg-green-950/20"} ${formulaTone}`}>
+          {`base acres = ${fmt(defender.land)} * 0.12 * ${estimate.rpnwFactor.toFixed(3)} * ${estimate.rknwFactor.toFixed(3)} * ${estimate.mapFactor.toFixed(3)} * ${estimate.combinedRelationFactor.toFixed(3)} = ${fmt(baseAcres)}`}
+        </div>
+        <Row label="Cap" value={`min(${fmt(attacker.land ?? 0)}, ${fmt(defender.land)}) * 0.20 = ${fmt(estimate.cap)}`} tone={estimate.capApplied ? "text-amber-300" : "text-gray-300"} />
+        <Row label="Raw acres" value={`min(${fmt(baseAcres)}, ${fmt(estimate.cap)}) = ${fmt(estimate.rawAcres)}`} tone={estimate.rawAcres === 0 ? "text-red-300" : estimate.capApplied ? "text-amber-300" : "text-green-300"} />
+        <Row label="Displayed" value={estimate.roundedAcres.toLocaleString()} tone={estimate.roundedAcres === 0 ? "text-amber-300" : "text-gray-100"} />
+      </Section>
+
+      <div className="grid gap-2 md:grid-cols-2">
+        <Section title="Breakability">
+          <Row
+            label="Status"
+            value={breakabilityLabel}
+            tone={
+              breakability.status === "breakable"
+                ? "text-green-300"
+                : breakability.status === "not_breakable"
+                  ? "text-red-300"
+                  : "text-gray-300"
+            }
+          />
+          <Row label="Offense source" value={breakability.offenseSource ?? "missing"} tone={breakability.offenseSource ? "text-gray-300" : "text-amber-300"} />
+          <Row label="Defense source" value={breakability.defenseSource ?? "missing"} tone={breakability.defenseSource ? "text-gray-300" : "text-amber-300"} />
+        </Section>
+
+        <Section title="Assumptions">
+          <div className="text-gray-400">
+            Uses MAP bucket midpoint estimates. Still assumes neutral race/personality gains mods, castles, stance, siege, dragons, attack-time, ritual, anonymity, and mist.
+          </div>
+        </Section>
+      </div>
+    </div>
+  );
 }
 
 function breakMarker(attacker: ProvinceRow, defenderLatest: ProvinceRow | null) {
