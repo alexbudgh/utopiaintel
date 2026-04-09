@@ -331,17 +331,17 @@ function estimateTitle(
       <div className="grid gap-2 md:grid-cols-2">
         <Section title="Relative NW">
           <Row label="RPNW" value={`${fmt(defender.networth)} / ${fmt(attacker.networth ?? 0)} = ${estimate.rpnw.toFixed(3)}`} tone="text-gray-100" />
-          <div className={rpnwInfo.tone === "bad" ? "text-red-300" : rpnwInfo.tone === "warn" ? "text-amber-300" : "text-green-300"}>
+          <div className={factorClass(estimate.rpnwFactor)}>
             {rpnwInfo.branch}
           </div>
-          <div className={rpnwInfo.tone === "bad" ? "text-red-300" : rpnwInfo.tone === "warn" ? "text-amber-300" : "text-green-300"}>
+          <div className={factorClass(estimate.rpnwFactor)}>
             {rpnwInfo.calc}
           </div>
           <Row label="RKNW" value={`${fmt(targetAvgNetworth)} / ${fmt(selfAvgNetworth)} = ${estimate.rknw.toFixed(3)}`} tone="text-gray-100" />
-          <div className={rknwInfo.tone === "bad" ? "text-red-300" : rknwInfo.tone === "warn" ? "text-amber-300" : "text-green-300"}>
+          <div className={factorClass(estimate.rknwFactor)}>
             {rknwInfo.branch}
           </div>
-          <div className={rknwInfo.tone === "bad" ? "text-red-300" : rknwInfo.tone === "warn" ? "text-amber-300" : "text-green-300"}>
+          <div className={factorClass(estimate.rknwFactor)}>
             {rknwInfo.calc}
           </div>
         </Section>
