@@ -91,7 +91,7 @@ export default async function ProvincePage({
               <KV label="Race" value={d.overview.race ?? "—"} />
               <KV label="Personality" value={d.overview.personality ?? "—"} />
               <KV label="Honor" value={d.overview.honorTitle ?? "—"} />
-              <KV label="Land" value={maybeRoundedValue(formatNum(d.overview.land), d.overview.land)} />
+              <KV label="Land" value={d.overview.land != null ? d.overview.land.toLocaleString() : "—"} />
               <KV label="Networth" value={maybeRoundedValue(formatNum(d.overview.networth), d.overview.networth)} />
             </>
           ) : <NoData />}
