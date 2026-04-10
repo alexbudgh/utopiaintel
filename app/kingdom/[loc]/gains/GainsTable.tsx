@@ -819,6 +819,9 @@ export function GainsTable({
                         <div className={tone.value}>
                           {estimate ? estimate.roundedAcres.toLocaleString() : "—"}
                         </div>
+                        <div className="mt-0.5 text-[10px] text-gray-500">
+                          {estimate ? `${((estimate.rawAcres / defender.land) * 100).toFixed(1)}%` : "—"}
+                        </div>
                         <div className="mt-1 flex items-center justify-end gap-1">
                           {badges}
                           {!badges.length && breakMarker(attacker, defenderLatest)}
