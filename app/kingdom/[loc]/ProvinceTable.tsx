@@ -608,6 +608,9 @@ export function ProvinceTable({
                     <Tooltip content={tooltipContentFor(p, "age")}>
                       <span className={`mr-1.5 ${selectedRowId === p.id ? "text-blue-300" : freshnessColor(dotAge)}`}>●</span>
                     </Tooltip>
+                    {p.slot != null && (
+                      <span className="mr-1.5 text-xs tabular-nums text-gray-500">#{p.slot}</span>
+                    )}
                     <Link
                       href={`/kingdom/${kingdom}/${encodeURIComponent(p.name)}`}
                       className={`transition-colors ${selectedRowId === p.id ? "text-blue-100" : "hover:text-blue-400"}`}

@@ -17,6 +17,7 @@ import type { ProvinceRow } from "../lib/db";
 function makeProvince(overrides: Partial<ProvinceRow>): ProvinceRow {
   return {
     id: 1,
+    slot: null,
     name: "TestProvince",
     kingdom: "7:5",
     race: "Orc",

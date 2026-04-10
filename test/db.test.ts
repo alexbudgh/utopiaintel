@@ -312,6 +312,7 @@ function makePartitionedDb() {
     CREATE TABLE kingdom_provinces (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       kingdom_intel_id INTEGER NOT NULL REFERENCES kingdom_intel(id) ON DELETE CASCADE,
+      slot INTEGER,
       name TEXT NOT NULL,
       race TEXT NOT NULL,
       land INTEGER NOT NULL,
@@ -381,7 +382,7 @@ function addKingdomSnapshot(
   db: ReturnType<typeof makePartitionedDb>,
   location: string,
   receivedAt: string,
-  provinces: { name: string; race: string; land: number; networth: number }[],
+  provinces: { slot?: number; name: string; race: string; land: number; networth: number }[],
   relation: {
     theirAttitudeToUs?: string | null;
     theirAttitudePoints?: number | null;
@@ -410,11 +411,11 @@ function addKingdomSnapshot(
   );
   const snapshotId = Number(result.lastInsertRowid);
   const insertProvince = db.prepare(
-    "INSERT INTO kingdom_provinces (kingdom_intel_id, name, race, land, networth) VALUES (?, ?, ?, ?, ?)"
+    "INSERT INTO kingdom_provinces (kingdom_intel_id, slot, name, race, land, networth) VALUES (?, ?, ?, ?, ?, ?)"
   );
 
   for (const province of provinces) {
-    insertProvince.run(snapshotId, province.name, province.race, province.land, province.networth);
+    insertProvince.run(snapshotId, province.slot ?? null, province.name, province.race, province.land, province.networth);
   }
 }
 
@@ -423,7 +424,7 @@ function queryLatestKingdomSnapshot(
   location: string,
   keyHash: string,
 ): {
-  provinces: string[];
+  provinces: { slot: number | null; name: string }[];
   theirAttitudeToUs: string | null;
   theirAttitudePoints: number | null;
   ourAttitudeToThem: string | null;
@@ -470,11 +471,11 @@ function queryLatestKingdomSnapshot(
   if (!snapshot) return null;
 
   const provinces = (db.prepare(`
-    SELECT name
+    SELECT slot, name
     FROM kingdom_provinces
     WHERE kingdom_intel_id = ?
     ORDER BY networth DESC, name ASC
-  `).all(snapshot.id) as { name: string }[]).map((row) => row.name);
+  `).all(snapshot.id) as { slot: number | null; name: string }[]);
 
   return {
     provinces,
@@ -596,15 +597,18 @@ test("kingdom snapshot: latest accessible snapshot is returned", () => {
   addProvince(db, "Beta", "7:5", KEY_A);
 
   addKingdomSnapshot(db, "7:5", "2026-04-05 17:00:00", [
-    { name: "Alpha", race: "Orc", land: 1200, networth: 300000 },
-    { name: "Beta", race: "Elf", land: 1100, networth: 280000 },
+    { slot: 3, name: "Alpha", race: "Orc", land: 1200, networth: 300000 },
+    { slot: 9, name: "Beta", race: "Elf", land: 1100, networth: 280000 },
   ]);
   addKingdomSnapshot(db, "7:5", "2026-04-05 18:00:00", [
-    { name: "Alpha", race: "Orc", land: 1250, networth: 320000 },
-    { name: "Beta", race: "Elf", land: 1150, networth: 290000 },
+    { slot: 4, name: "Alpha", race: "Orc", land: 1250, networth: 320000 },
+    { slot: 11, name: "Beta", race: "Elf", land: 1150, networth: 290000 },
   ]);
 
-  assert.deepEqual(queryLatestKingdomSnapshot(db, "7:5", KEY_A)?.provinces, ["Alpha", "Beta"]);
+  assert.deepEqual(queryLatestKingdomSnapshot(db, "7:5", KEY_A)?.provinces, [
+    { slot: 4, name: "Alpha" },
+    { slot: 11, name: "Beta" },
+  ]);
   db.close();
 });
 

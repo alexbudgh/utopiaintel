@@ -526,9 +526,14 @@ test("parseKingdom — Space (5:9)", () => {
 
   const orion = r.provinces.find((p) => p.name === "Orion");
   assert.ok(orion, "should find Orion");
+  assert.equal(orion.slot, 1);
   assert.equal(orion.race, "Undead");
   assert.equal(orion.land, 3235);
   assert.equal(orion.networth, 871841);
+
+  const andromeda = r.provinces.find((p) => p.name === "Andromeda");
+  assert.ok(andromeda, "should find Andromeda");
+  assert.equal(andromeda.slot, 2);
 });
 
 test("parseKingdom — monarch/steward markers stripped from province names", () => {

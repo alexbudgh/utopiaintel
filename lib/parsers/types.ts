@@ -87,6 +87,7 @@ export interface SoSData extends ProvinceId {
 }
 
 export interface KingdomProvince {
+  slot: number;
   name: string;
   race: string;
   land: number;

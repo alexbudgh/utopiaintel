@@ -700,8 +700,13 @@ export function GainsTable({
                   key={defender.name}
                   className="border-b border-r border-gray-800 bg-gray-950 px-3 py-2 text-right font-medium text-gray-300"
                 >
-                  <Tooltip content={`${defender.name}\nNW ${defender.networth.toLocaleString()}\nLand ${defender.land.toLocaleString()}`}>
-                    <div>{defender.name}</div>
+                  <Tooltip content={`${defender.slot != null ? `Slot ${defender.slot}\n` : ""}${defender.name}\nNW ${defender.networth.toLocaleString()}\nLand ${defender.land.toLocaleString()}`}>
+                    <div>
+                      {defender.slot != null && (
+                        <span className="mr-1.5 text-[10px] tabular-nums text-gray-500">#{defender.slot}</span>
+                      )}
+                      {defender.name}
+                    </div>
                     <div className="mt-1 text-[10px] font-normal text-gray-500">
                       {formatNum(defender.networth)} / {formatNum(defender.land)}a
                     </div>
@@ -726,11 +731,14 @@ export function GainsTable({
                       : "bg-gray-950 text-gray-200"
                   }`}
                 >
-                  <Tooltip content={`${attacker.name}\nNW ${attacker.networth?.toLocaleString() ?? "—"}\nLand ${attacker.land?.toLocaleString() ?? "—"}`}>
+                  <Tooltip content={`${attacker.slot != null ? `Slot ${attacker.slot}\n` : ""}${attacker.name}\nNW ${attacker.networth?.toLocaleString() ?? "—"}\nLand ${attacker.land?.toLocaleString() ?? "—"}`}>
                     <Link
                       href={`/kingdom/${encodeURIComponent(selfKingdom)}/${encodeURIComponent(attacker.name)}`}
                       className={selectedRowId === attacker.id ? "text-blue-100" : "hover:text-blue-400"}
                     >
+                      {attacker.slot != null && (
+                        <span className="mr-1.5 text-[10px] tabular-nums text-gray-500">#{attacker.slot}</span>
+                      )}
                       {attacker.name}
                     </Link>
                     <div className={`mt-1 text-[10px] font-normal ${selectedRowId === attacker.id ? "text-blue-300/80" : "text-gray-500"}`}>

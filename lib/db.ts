@@ -248,6 +248,7 @@ function initSchema(db: Database.Database) {
     CREATE TABLE IF NOT EXISTS kingdom_provinces (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       kingdom_intel_id INTEGER NOT NULL REFERENCES kingdom_intel(id) ON DELETE CASCADE,
+      slot INTEGER,
       name TEXT NOT NULL,
       race TEXT NOT NULL,
       land INTEGER NOT NULL,
@@ -268,6 +269,7 @@ function initSchema(db: Database.Database) {
   if (!hasCol("kingdom_intel", "our_attitude_points")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN our_attitude_points REAL");
   if (!hasCol("kingdom_intel", "hostility_meter_visible_until")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN hostility_meter_visible_until TEXT");
   if (!hasCol("kingdom_intel", "open_relations_json")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN open_relations_json TEXT");
+  if (!hasCol("kingdom_provinces", "slot")) db.exec("ALTER TABLE kingdom_provinces ADD COLUMN slot INTEGER");
 }
 
 // Get or create province identity, return ID
@@ -483,12 +485,12 @@ export function storeKingdom(data: KingdomData, savedBy: string, keyHash: string
     );
 
     const kdId = result.lastInsertRowid;
-    const ins = db.prepare("INSERT INTO kingdom_provinces (kingdom_intel_id, name, race, land, networth, honor_title) VALUES (?, ?, ?, ?, ?, ?)");
+    const ins = db.prepare("INSERT INTO kingdom_provinces (kingdom_intel_id, slot, name, race, land, networth, honor_title) VALUES (?, ?, ?, ?, ?, ?, ?)");
 
     for (const p of data.provinces) {
       const provId = ensureProvince(db, p.name, data.location);
       recordSubmission(db, keyHash, provId);
-      ins.run(kdId, p.name, p.race, p.land, p.networth, p.honorTitle);
+      ins.run(kdId, p.slot, p.name, p.race, p.land, p.networth, p.honorTitle);
 
       // Also write to province_overview
       db.prepare(`
@@ -534,6 +536,7 @@ export interface KingdomRow {
 }
 
 export interface KingdomSnapshotProvince {
+  slot: number | null;
   name: string;
   race: string;
   land: number;
@@ -625,11 +628,12 @@ export function getLatestKingdomSnapshot(location: string, keyHash: string): Kin
   if (!snapshot) return null;
 
   const provinces = db.prepare(`
-    SELECT name, race, land, networth, honor_title
+    SELECT slot, name, race, land, networth, honor_title
     FROM kingdom_provinces
     WHERE kingdom_intel_id = ?
     ORDER BY networth DESC, name ASC
   `).all(snapshot.id) as {
+    slot: number | null;
     name: string;
     race: string;
     land: number;
@@ -650,6 +654,7 @@ export function getLatestKingdomSnapshot(location: string, keyHash: string): Kin
     openRelations: snapshot.open_relations_json ? JSON.parse(snapshot.open_relations_json) as KingdomOpenRelation[] : [],
     receivedAt: snapshot.received_at,
     provinces: provinces.map((p) => ({
+      slot: p.slot,
       name: p.name,
       race: p.race,
       land: p.land,
@@ -661,6 +666,7 @@ export function getLatestKingdomSnapshot(location: string, keyHash: string): Kin
 
 export interface ProvinceRow {
   id: number;
+  slot: number | null;
   name: string;
   kingdom: string;
   race: string | null;
@@ -721,6 +727,30 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
   const db = getDb();
   return db.prepare(`
     SELECT p.id, p.name, p.kingdom,
+           (
+             SELECT kp.slot
+             FROM kingdom_intel ki
+             JOIN kingdom_provinces kp
+               ON kp.kingdom_intel_id = ki.id
+             WHERE ki.location = p.kingdom
+               AND kp.name = p.name
+               AND NOT EXISTS (
+                 SELECT 1
+                 FROM kingdom_provinces kp2
+                 WHERE kp2.kingdom_intel_id = ki.id
+                   AND NOT EXISTS (
+                     SELECT 1
+                     FROM provinces p2
+                     JOIN intel_partitions ip2
+                       ON ip2.province_id = p2.id
+                      AND ip2.key_hash = ?
+                     WHERE p2.name = kp2.name
+                       AND p2.kingdom = ki.location
+                   )
+               )
+             ORDER BY ki.received_at DESC
+             LIMIT 1
+           ) AS slot,
            po.race, po.personality, po.land, po.networth, po.received_at AS overview_age, po.source AS overview_source,
            tmp.off_points, tmp.def_points, tmp.received_at AS military_age,
            pt.soldiers, pt.off_specs, pt.def_specs, pt.elites, pt.war_horses, pt.peasants, pt.received_at AS troops_age, pt.source AS troops_source,
@@ -781,7 +811,7 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
         WHERE key_hash = ? AND province_id = p.id
       )
     ORDER BY po.networth DESC NULLS LAST
-  `).all(kingdom, keyHash) as ProvinceRow[];
+  `).all(keyHash, kingdom, keyHash) as ProvinceRow[];
 }
 
 export interface ArmyRow {

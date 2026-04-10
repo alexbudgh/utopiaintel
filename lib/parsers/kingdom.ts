@@ -15,7 +15,8 @@ const OPEN_RELATION_LINE_RE = new RegExp(`^(.+?) ${KDLOC} - ([^\\n]+)$`, "gm");
 
 // Province list pattern: name, optional marker (*+^~), race, land(a), nw(gc), nwpa(gc), honor, optional gains
 const PROVINCE_RE = new RegExp(
-  `\\s+(.+?)([*+^~]| \\([MS]\\)[*+^~]?)?\\s+` +
+  `\\b(${INT})\\s+` +
+  `(.+?)([*+^~]| \\([MS]\\)[*+^~]?)?\\s+` +
   `(${RACE_GROUP})\\s+` +
   `(${INT})a\\s+` +
   `(${INT})gc\\s+` +
@@ -26,7 +27,8 @@ const PROVINCE_RE = new RegExp(
 
 // Older format uses "acres" instead of "a"
 const OLD_PROVINCE_RE = new RegExp(
-  `\\d{1,2}\\s+(.+?)([*+^~]| \\([MS]\\)[*+^~]?)?\\s+` +
+  `\\b(${INT})\\s+` +
+  `(.+?)([*+^~]| \\([MS]\\)[*+^~]?)?\\s+` +
   `(${RACE_GROUP})\\s+` +
   `(${INT}) acres\\s+` +
   `(${INT})gc\\s+` +
@@ -62,27 +64,29 @@ export function parseKingdom(text: string): KingdomData | null {
   // Try new format first, then old
   let m: RegExpExecArray | null;
   while ((m = PROVINCE_RE.exec(text)) !== null) {
-    const name = m[1].trim().replace(/ +/g, " ");
+    const name = m[2].trim().replace(/ +/g, " ");
     if (/[/<>"]/.test(name)) continue; // invalid
     provinces.push({
+      slot: parseNum(m[1]),
       name,
-      race: m[3],
-      land: parseNum(m[4]),
-      networth: parseNum(m[5]),
-      honorTitle: m[6],
+      race: m[4],
+      land: parseNum(m[5]),
+      networth: parseNum(m[6]),
+      honorTitle: m[7],
     });
   }
 
   if (provinces.length === 0) {
     while ((m = OLD_PROVINCE_RE.exec(text)) !== null) {
-      const name = m[1].trim().replace(/ +/g, " ");
+      const name = m[2].trim().replace(/ +/g, " ");
       if (/[/<>"]/.test(name)) continue;
       provinces.push({
+        slot: parseNum(m[1]),
         name,
-        race: m[3],
-        land: parseNum(m[4]),
-        networth: parseNum(m[5]),
-        honorTitle: m[6],
+        race: m[4],
+        land: parseNum(m[5]),
+        networth: parseNum(m[6]),
+        honorTitle: m[7],
       });
     }
   }
