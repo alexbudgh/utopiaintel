@@ -3,7 +3,8 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { cookies, headers } from "next/headers";
 import { createHash } from "crypto";
-import { getBoundKingdom, getKingdomProvinces, getLatestKingdomSnapshot } from "@/lib/db";
+import { getBoundKingdom, getKingdomProvinces, getLatestKingdomSnapshot, getKingdomRitual } from "@/lib/db";
+import { timeAgo } from "@/lib/ui";
 import { KingdomRelations } from "@/app/components/KingdomRelations";
 import { IntelSetupCard } from "@/app/components/IntelSetupCard";
 import { IntelSetupButton } from "@/app/components/IntelSetupButton";
@@ -37,6 +38,7 @@ export default async function KingdomPage({
     : null;
   const hasAnyIntel = provinces.length > 0 || !!snapshot;
   const gainsInitial = view === "gains" ? getGainsPageData(kingdom, keyHash) : null;
+  const ritual = getKingdomRitual(kingdom, keyHash);
 
   return (
     <main className="p-6">
@@ -74,6 +76,19 @@ export default async function KingdomPage({
           <KingdomJump />
         </div>
       </div>
+
+      {ritual && (
+        <div className="mb-4 inline-flex items-center gap-2 rounded border border-purple-500/40 bg-purple-500/10 px-3 py-1.5 text-sm text-purple-300">
+          <span className="font-medium">{ritual.name}</span>
+          {ritual.effectivenessPercent != null && (
+            <span className="text-purple-400">{ritual.effectivenessPercent.toFixed(1)}%</span>
+          )}
+          {ritual.remainingTicks != null && (
+            <span className="text-purple-500">{ritual.remainingTicks} ticks left</span>
+          )}
+          <span className="text-purple-600 text-xs">{timeAgo(ritual.receivedAt)}</span>
+        </div>
+      )}
 
       {view === "gains" ? (
         <GainsTable initial={gainsInitial!} embedded />

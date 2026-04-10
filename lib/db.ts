@@ -916,6 +916,28 @@ export interface ProvinceDetail {
   sciences: { receivedAt: string; sciences: ScienceRow[] } | null;
 }
 
+export interface KingdomRitual {
+  name: string;
+  remainingTicks: number | null;
+  effectivenessPercent: number | null;
+  receivedAt: string;
+}
+
+export function getKingdomRitual(kingdom: string, keyHash: string): KingdomRitual | null {
+  const db = getDb();
+  const row = db.prepare(`
+    SELECT pe.effect_name, pe.remaining_ticks, pe.effectiveness_percent, pe.received_at
+    FROM province_effects pe
+    JOIN provinces p ON p.id = pe.province_id
+    JOIN intel_partitions ip ON ip.province_id = p.id AND ip.key_hash = ?
+    WHERE p.kingdom = ? AND pe.effect_kind = 'ritual'
+    ORDER BY pe.received_at DESC, pe.id DESC
+    LIMIT 1
+  `).get(keyHash, kingdom) as { effect_name: string; remaining_ticks: number | null; effectiveness_percent: number | null; received_at: string } | undefined;
+  if (!row) return null;
+  return { name: row.effect_name, remainingTicks: row.remaining_ticks, effectivenessPercent: row.effectiveness_percent, receivedAt: row.received_at };
+}
+
 export function getProvinceDetail(name: string, kingdom: string, keyHash: string): ProvinceDetail {
   const db = getDb();
 
