@@ -6,6 +6,7 @@ import { createHash } from "crypto";
 import { getBoundKingdom, getKingdomProvinces, getLatestKingdomSnapshot } from "@/lib/db";
 import { KingdomRelations } from "@/app/components/KingdomRelations";
 import { IntelSetupCard } from "@/app/components/IntelSetupCard";
+import { IntelSetupButton } from "@/app/components/IntelSetupButton";
 import { ProvinceTable } from "./ProvinceTable";
 import { GainsTable } from "./gains/GainsTable";
 import { KingdomJump } from "./KingdomJump";
@@ -68,7 +69,8 @@ export default async function KingdomPage({
           />
         </div>
         <span className="text-sm text-gray-500">{provinces.length} provinces</span>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <IntelSetupButton endpointUrl={`${baseUrl}/api/intel`} />
           <KingdomJump />
         </div>
       </div>

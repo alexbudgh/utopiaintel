@@ -8,7 +8,7 @@ export function IntelSetupCard({
   compact?: boolean;
 }) {
   return (
-    <div className="rounded-lg bg-gray-800/60 p-6 space-y-4 text-sm">
+    <div className="rounded-lg bg-gray-800 p-6 space-y-4 text-sm">
       <p className="text-gray-300 font-medium">{title}</p>
       <p className="text-gray-400">
         Configure your Utopia client to send intel to this site:

@@ -5,6 +5,7 @@ import { cookies, headers } from "next/headers";
 import { createHash } from "crypto";
 import { getBoundKingdom, getKingdoms, getLatestKingdomSnapshot, type KingdomSnapshot } from "@/lib/db";
 import { IntelSetupCard } from "@/app/components/IntelSetupCard";
+import { IntelSetupButton } from "@/app/components/IntelSetupButton";
 import { freshnessColor, timeAgo } from "@/lib/ui";
 import { logout } from "@/app/logout/action";
 
@@ -113,11 +114,14 @@ export default async function Home() {
             </Link>
           )}
         </div>
-        <form action={logout}>
-          <button type="submit" className="text-sm text-gray-500 hover:text-gray-300 transition-colors">
-            Sign out
-          </button>
-        </form>
+        <div className="flex items-center gap-3">
+          <IntelSetupButton endpointUrl={`${baseUrl}/api/intel`} />
+          <form action={logout}>
+            <button type="submit" className="text-sm text-gray-500 hover:text-gray-300 transition-colors">
+              Sign out
+            </button>
+          </form>
+        </div>
       </div>
 
       {kingdoms.length === 0 ? (
@@ -152,11 +156,6 @@ export default async function Home() {
               </li>
             ))}
           </ul>
-          <IntelSetupCard
-            endpointUrl={`${baseUrl}/api/intel`}
-            compact
-            title="Intel setup"
-          />
         </div>
       )}
     </main>
