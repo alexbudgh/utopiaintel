@@ -84,9 +84,9 @@ Do not store real province names, kingdom names, or player names in source code,
 
 ```bash
 npm run build
-rsync -avz --exclude=intel.db .next/standalone/ ecosystem.config.js utopiaintel:~/utopiaintel/
+rsync -avz --exclude=intel.db .next/standalone/ utopiaintel:~/utopiaintel/
 rsync -avz .next/static/ utopiaintel:~/utopiaintel/.next/static/
-ssh utopiaintel "cd ~/utopiaintel && pm2 reload ecosystem.config.js --update-env"
+ssh utopiaintel "pm2 reload utopiaintel"
 ```
 
 Keep that order strict. Reloading PM2 before both `rsync` steps finish can leave
