@@ -59,6 +59,50 @@ function formatEffectLabel(effect: { name: string; durationText: string | null; 
   return parts.length ? `${effect.name} (${parts.join(", ")})` : effect.name;
 }
 
+const BAD_SPELLS = new Set([
+  "Amnesia",
+  "Chastity",
+  "Explosions",
+  "Fireball",
+  "Fool's Gold",
+  "Greed",
+  "Lightning Strike",
+  "Meteor Showers",
+  "Nightmares",
+  "Pitfalls",
+  "Storms",
+  "Vermin",
+]);
+
+function effectBucket(effect: { name: string; kind: string }): "ritual" | "bad" | "good" {
+  if (effect.kind === "ritual") return "ritual";
+  return BAD_SPELLS.has(effect.name) ? "bad" : "good";
+}
+
+function EffectGroup({
+  label,
+  tone,
+  effects,
+}: {
+  label: string;
+  tone: string;
+  effects: Array<{ name: string; durationText: string | null; remainingTicks: number | null; effectivenessPercent: number | null }>;
+}) {
+  if (effects.length === 0) return null;
+  return (
+    <div className="flex items-start gap-2">
+      <span className="text-sm text-gray-500">{label}</span>
+      <div className="flex flex-wrap gap-2">
+        {effects.map((effect) => (
+          <span key={`${effect.name}:${effect.durationText ?? ""}`} className={`text-sm ${tone}`}>
+            {formatEffectLabel(effect)}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default async function ProvincePage({
   params,
 }: {
@@ -70,6 +114,9 @@ export default async function ProvincePage({
   const key = (await cookies()).get("auth")?.value ?? "";
   const keyHash = createHash("sha256").update(key).digest("hex");
   const d = getProvinceDetail(name, kingdom, keyHash);
+  const goodEffects = d.effects.filter((effect) => effectBucket(effect) === "good");
+  const badEffects = d.effects.filter((effect) => effectBucket(effect) === "bad");
+  const ritualEffects = d.effects.filter((effect) => effectBucket(effect) === "ritual");
 
   if (!d.province) {
     return (
@@ -241,19 +288,19 @@ export default async function ProvincePage({
       {d.status && (
         <div className="mb-4">
           <Card title="Status" age={d.status.receivedAt}>
-            <div className="flex flex-wrap gap-3">
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-3">
               {d.status.plagued      && <span className="text-sm text-red-400">Plagued</span>}
               {d.status.overpopulated && <span className="text-sm text-yellow-400">Overpopulated</span>}
               {d.status.war          && <span className="text-sm text-orange-400">At war</span>}
               {d.status.hitStatus    && <span className="text-sm text-gray-300">{d.status.hitStatus}</span>}
-              {d.effects.map((effect) => (
-                <span key={`${effect.kind}:${effect.name}:${effect.durationText ?? ""}`} className="text-sm text-blue-300">
-                  {formatEffectLabel(effect)}
-                </span>
-              ))}
               {!d.status.plagued && !d.status.overpopulated && !d.status.war && !d.status.hitStatus && d.effects.length === 0 && (
                 <span className="text-sm text-gray-600">No flags</span>
               )}
+              </div>
+              <EffectGroup label="Good Spells" tone="text-blue-300" effects={goodEffects} />
+              <EffectGroup label="Bad Spells" tone="text-red-300" effects={badEffects} />
+              <EffectGroup label="Ritual" tone="text-purple-300" effects={ritualEffects} />
             </div>
           </Card>
         </div>
