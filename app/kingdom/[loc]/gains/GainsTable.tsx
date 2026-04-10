@@ -527,7 +527,17 @@ function estimateTitle(
                       : "text-gray-300"
                 }
               />
+              <Row
+                label="Offense"
+                value={breakability.offense != null ? breakability.offense.toLocaleString() : "unknown"}
+                tone={breakability.offense != null ? "text-gray-100" : "text-amber-300"}
+              />
               <Row label="Offense source" value={breakability.offenseSource ?? "missing"} tone={breakability.offenseSource ? "text-gray-300" : "text-amber-300"} />
+              <Row
+                label="Defense"
+                value={breakability.defense != null ? breakability.defense.toLocaleString() : "unknown"}
+                tone={breakability.defense != null ? "text-gray-100" : "text-amber-300"}
+              />
               <Row label="Defense source" value={breakability.defenseSource ?? "missing"} tone={breakability.defenseSource ? "text-gray-300" : "text-amber-300"} />
             </Section>
           </div>
