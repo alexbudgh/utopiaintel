@@ -5,11 +5,12 @@ import { parseIntel } from "../lib/parsers";
 import { getIntelPathname } from "../lib/parsers/detect";
 import {
   getDb,
+  storeSoT,
   storeKingdom,
   storeSurvey,
 } from "../lib/db";
 
-type ReplayType = "kingdom" | "survey";
+type ReplayType = "kingdom" | "survey" | "sot";
 
 interface DebugEntry {
   url: string;
@@ -18,7 +19,14 @@ interface DebugEntry {
   received_at?: string;
 }
 
-const allowedTypes = new Set<ReplayType>(["kingdom", "survey"]);
+const allowedTypes = new Set<ReplayType>(["kingdom", "survey", "sot"]);
+
+function normalizeReceivedAt(receivedAt: string): string {
+  const date = new Date(receivedAt);
+  if (Number.isNaN(date.getTime())) return receivedAt;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`;
+}
 
 function getReplayTypes(arg: string | undefined): Set<ReplayType> {
   if (!arg) return new Set(allowedTypes);
@@ -73,26 +81,71 @@ function setLatestSurveyTimestamp(provinceName: string, kingdom: string, savedBy
   `).run(receivedAt, provinceName, kingdom, savedBy);
 }
 
+function setLatestSoTTimestamps(provinceName: string, kingdom: string, savedBy: string, receivedAt: string) {
+  const db = getDb();
+  const provinceIdRow = db.prepare(
+    "SELECT id FROM provinces WHERE name = ? AND kingdom = ?"
+  ).get(provinceName, kingdom) as { id: number } | undefined;
+  if (!provinceIdRow) return;
+
+  const provinceId = provinceIdRow.id;
+  const stamp = (table: string) => {
+    db.prepare(`
+      UPDATE ${table}
+      SET received_at = ?
+      WHERE id = (
+        SELECT id
+        FROM ${table}
+        WHERE province_id = ? AND saved_by = ?
+        ORDER BY id DESC
+        LIMIT 1
+      )
+    `).run(receivedAt, provinceId, savedBy);
+  };
+
+  stamp("province_overview");
+  stamp("total_military_points");
+  stamp("province_troops");
+  stamp("province_resources");
+  stamp("province_status");
+  db.prepare(`
+    UPDATE province_effects
+    SET received_at = ?
+    WHERE province_id = ? AND saved_by = ?
+  `).run(receivedAt, provinceId, savedBy);
+}
+
 function replayEntry(entry: DebugEntry, keyHash: string, allowed: Set<ReplayType>) {
   const parsed = parseIntel(entry.url, entry.data_simple, entry.prov);
   if (!parsed) return null;
   if (!allowed.has(parsed.type as ReplayType)) return null;
 
   const savedBy = entry.prov;
+  const normalizedReceivedAt = entry.received_at ? normalizeReceivedAt(entry.received_at) : null;
   if (parsed.type === "kingdom") {
     storeKingdom(parsed.data, savedBy, keyHash);
-    if (entry.received_at) {
-      setLatestKingdomTimestamp(parsed.data.location, savedBy, entry.received_at);
+    if (normalizedReceivedAt) {
+      setLatestKingdomTimestamp(parsed.data.location, savedBy, normalizedReceivedAt);
     }
     return "kingdom";
   }
 
   if (parsed.type === "survey") {
     storeSurvey(parsed.data, savedBy, keyHash);
-    if (entry.received_at) {
-      setLatestSurveyTimestamp(parsed.data.name, parsed.data.kingdom, savedBy, entry.received_at);
+    if (normalizedReceivedAt) {
+      setLatestSurveyTimestamp(parsed.data.name, parsed.data.kingdom, savedBy, normalizedReceivedAt);
     }
     return "survey";
+  }
+
+  if (parsed.type === "sot") {
+    const pathname = getIntelPathname(entry.url);
+    const isSelfThrone = pathname === "/wol/game/throne";
+    storeSoT(parsed.data, savedBy, keyHash, isSelfThrone);
+    if (normalizedReceivedAt) {
+      setLatestSoTTimestamps(parsed.data.name, parsed.data.kingdom, savedBy, normalizedReceivedAt);
+    }
+    return "sot";
   }
 
   return null;
@@ -101,7 +154,7 @@ function replayEntry(entry: DebugEntry, keyHash: string, allowed: Set<ReplayType
 function main() {
   const args = process.argv.slice(2);
   if (args.length === 0) {
-    throw new Error("Usage: tsx scripts/replay-debug-log.ts <jsonl...> [--types=kingdom,survey]");
+    throw new Error("Usage: tsx scripts/replay-debug-log.ts <jsonl...> [--types=kingdom,survey,sot]");
   }
 
   const typeArg = args.find((arg) => arg.startsWith("--types="));
