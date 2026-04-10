@@ -7,6 +7,7 @@ import { Tooltip } from "@/app/components/Tooltip";
 import { getProvinceDetail } from "@/lib/db";
 import { freshnessColor, formatNum, timeAgo, fullValueTooltip } from "@/lib/ui";
 import { BAD_SPELL_NAMES } from "@/lib/effects";
+import { computeAmbushRawOff } from "@/lib/ambush";
 import type { ArmyRow, BuildingRow, ScienceRow } from "@/lib/db";
 import AutoRefresh from "./AutoRefresh";
 
@@ -227,7 +228,8 @@ export default async function ProvincePage({
                     <th className="pb-1 text-right pr-4 font-medium">Horses</th>
                     <th className="pb-1 text-right pr-4 font-medium">Thieves</th>
                     <th className="pb-1 text-right pr-4 font-medium">Land</th>
-                    <th className="pb-1 text-right font-medium">ETA</th>
+                    <th className="pb-1 text-right pr-4 font-medium">ETA</th>
+                    <th className="pb-1 text-right font-medium">Ambush</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -242,7 +244,8 @@ export default async function ProvincePage({
                       <td className="py-1 pr-4 text-right tabular-nums">{a.warHorses.toLocaleString()}</td>
                       <td className="py-1 pr-4 text-right tabular-nums">{a.thieves.toLocaleString()}</td>
                       <td className="py-1 pr-4 text-right tabular-nums">{a.landGained > 0 ? a.landGained.toLocaleString() : "—"}</td>
-                      <td className="py-1 text-right tabular-nums">{a.returnDays != null ? maybeRoundedValue(a.returnDays.toFixed(1) + "d", a.returnDays, { suffix: "d" }) : "—"}</td>
+                      <td className="py-1 pr-4 text-right tabular-nums">{a.returnDays != null ? maybeRoundedValue(a.returnDays.toFixed(1) + "d", a.returnDays, { suffix: "d" }) : "—"}</td>
+                      <td className="py-1 text-right tabular-nums text-yellow-300/80">{(() => { const v = a.returnDays != null ? computeAmbushRawOff(d.overview?.race, a) : null; return v != null ? Math.ceil(v).toLocaleString() : "—"; })()}</td>
                     </tr>
                   ))}
                 </tbody>

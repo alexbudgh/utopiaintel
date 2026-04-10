@@ -7,6 +7,7 @@ import { Tooltip } from "@/app/components/Tooltip";
 import type { ProvinceRow } from "@/lib/db";
 import { freshnessColor, formatNum, timeAgo, formatTimestamp, sameTick, fullValueTooltip } from "@/lib/ui";
 import { computeWizardCount, NW_PER_WIZARD } from "@/lib/nw";
+import { computeAmbushRawOff } from "@/lib/ambush";
 
 const COLUMNS = [
   { key: "race",        label: "Race",        group: "Overview",  desc: "Race"                                        },
@@ -241,7 +242,9 @@ function tipFor(p: ProvinceRow, key: ColKey): string {
           a.elites   ? `${a.elites.toLocaleString()} eli` : null,
         ].filter(Boolean).join(", ") || "no units";
         const land = a.land > 0 ? ` +${a.land.toLocaleString()}a` : "";
-        lines.push(`${a.type}: ${units}${land} · ${a.eta.toFixed(1)}d`);
+        const ambush = computeAmbushRawOff(p.race, a);
+        const ambushStr = ambush != null ? ` | ambush ${Math.ceil(ambush).toLocaleString()}` : "";
+        lines.push(`${a.type}: ${units}${land} · ${a.eta.toFixed(1)}d${ambushStr}`);
       }
     }
     lines.push(`som: ${timeAgo(p.som_age)} · ${formatTimestamp(p.som_age)}`);
