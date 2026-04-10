@@ -55,6 +55,8 @@ On the server:
 
 ```bash
 cd ~/utopiaintel
+# Recommended once: keep the live DB outside the deployed app directory
+export INTEL_DB_PATH=/home/ec2-user/utopiaintel-data/intel.db
 pm2 start ecosystem.config.js
 pm2 save
 pm2 startup   # auto-start on reboot
@@ -63,8 +65,12 @@ pm2 startup   # auto-start on reboot
 For normal redeploys after the first setup:
 
 ```bash
-ssh utopiaintel "cd ~/utopiaintel && pm2 reload ecosystem.config.js --update-env"
+ssh utopiaintel "pm2 reload utopiaintel"
 ```
+
+Notes:
+- The app now honors `INTEL_DB_PATH`. In production, point it at a path outside `~/utopiaintel` so deploys cannot overwrite the live SQLite file.
+- Keep `--exclude=intel.db` on the standalone sync. Next's standalone output can include a copied SQLite file.
 
 ## Debug logging
 

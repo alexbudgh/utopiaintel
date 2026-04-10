@@ -72,6 +72,7 @@ Do not store real province names, kingdom names, or player names in source code,
 - Current spy/thievery intel commonly arrives as `/wol/game/thievery?...&o=SPY_ON_*`; detection must inspect the `o` query param, not only the pathname.
 - Utopia kingdom pages can arrive as `/wol/game/kingdom_details/<x>/<y>`, not just bare `/wol/game/kingdom_details`.
 - This repo is on Next.js 16. Root request interception now uses `proxy.ts`, not `middleware.ts`.
+- The app supports `INTEL_DB_PATH`. In production, point it at a path outside `~/utopiaintel` so the live SQLite file is not part of the deployed app tree.
 - The real Utopia `Slot` value from `kingdom_details` is stored on `kingdom_provinces` and should be treated as data, not inferred from current table order.
 - `scripts/replay-debug-log.ts` can replay local or production `intel_debug.jsonl` files into the local `intel.db` for one-off backfills such as kingdom slots or direct survey effects.
 - Gains are a same-page kingdom view, switched with `/kingdom/[loc]?view=gains`, rather than a separate standalone page.
