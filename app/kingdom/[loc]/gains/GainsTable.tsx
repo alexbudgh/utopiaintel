@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Tooltip, type TooltipLine } from "@/app/components/Tooltip";
 import type { KingdomSnapshotProvince, ProvinceRow } from "@/lib/db";
 import { estimateBreakability, estimateTraditionalMarchAcres } from "@/lib/gains";
 import type { GainsPageData } from "@/lib/gains-page";
 import { formatNum, formatTimestamp } from "@/lib/ui";
+
+const ATTACKER_COL_WIDTH = "w-52 min-w-52";
+const TARGET_COL_WIDTH = "w-36 min-w-36";
 
 function averageNetworth(provinces: { networth: number }[]): number | null {
   if (provinces.length === 0) return null;
@@ -599,6 +602,7 @@ export function GainsTable({
 }) {
   const [data, setData] = useState(initial);
   const [selectedRowId, setSelectedRowId] = useState<number | null>(null);
+  const headerScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const id = setInterval(async () => {
@@ -683,13 +687,30 @@ export function GainsTable({
 
   const targetLatestByName = new Map(targetLatest.map((p) => [p.name, p] as const));
 
+  const renderTargetHeader = (defender: KingdomSnapshotProvince) => (
+    <Tooltip content={`${defender.slot != null ? `Slot ${defender.slot}\n` : ""}${defender.name}\nNW ${defender.networth.toLocaleString()}\nLand ${defender.land.toLocaleString()}`}>
+      <div>
+        {defender.slot != null && (
+          <span className="mr-1.5 text-[10px] tabular-nums text-gray-500">#{defender.slot}</span>
+        )}
+        {defender.name}
+      </div>
+      <div className="mt-1 text-[10px] font-normal text-gray-500">
+        {formatNum(defender.networth)} / {formatNum(defender.land)}a
+      </div>
+    </Tooltip>
+  );
+
   return wrap(
     <>
-      <div className="overflow-x-auto">
-        <table className="min-w-full border-separate border-spacing-0 text-xs">
+      <div
+        ref={headerScrollRef}
+        className="sticky top-0 z-40 overflow-hidden border-b border-gray-800 bg-gray-950"
+      >
+        <table className="border-separate border-spacing-0 text-xs">
           <thead>
             <tr>
-              <th className="sticky left-0 z-10 border-b border-r border-gray-800 bg-gray-950 px-3 py-2 text-left font-medium text-gray-300">
+              <th className={`${ATTACKER_COL_WIDTH} sticky left-0 z-30 border-r border-gray-800 bg-gray-950 px-3 py-2 text-left font-medium text-gray-300`}>
                 {selfKingdom}
                 <div className="mt-1 text-[10px] font-normal text-gray-500">
                   avg NW {formatNum(Math.round(selfAvgNetworth))}
@@ -698,23 +719,24 @@ export function GainsTable({
               {targetSnapshot.provinces.map((defender) => (
                 <th
                   key={defender.name}
-                  className="border-b border-r border-gray-800 bg-gray-950 px-3 py-2 text-right font-medium text-gray-300"
+                  className={`${TARGET_COL_WIDTH} border-r border-gray-800 bg-gray-950 px-3 py-2 text-right font-medium text-gray-300`}
                 >
-                  <Tooltip content={`${defender.slot != null ? `Slot ${defender.slot}\n` : ""}${defender.name}\nNW ${defender.networth.toLocaleString()}\nLand ${defender.land.toLocaleString()}`}>
-                    <div>
-                      {defender.slot != null && (
-                        <span className="mr-1.5 text-[10px] tabular-nums text-gray-500">#{defender.slot}</span>
-                      )}
-                      {defender.name}
-                    </div>
-                    <div className="mt-1 text-[10px] font-normal text-gray-500">
-                      {formatNum(defender.networth)} / {formatNum(defender.land)}a
-                    </div>
-                  </Tooltip>
+                  {renderTargetHeader(defender)}
                 </th>
               ))}
             </tr>
           </thead>
+        </table>
+      </div>
+      <div
+        className="overflow-x-auto"
+        onScroll={(event) => {
+          if (headerScrollRef.current) {
+            headerScrollRef.current.scrollLeft = event.currentTarget.scrollLeft;
+          }
+        }}
+      >
+        <table className="border-separate border-spacing-0 text-xs">
           <tbody>
             {selfProvinces.map((attacker) => (
               <tr
@@ -725,7 +747,7 @@ export function GainsTable({
                 }`}
               >
                 <th
-                  className={`sticky left-0 z-10 border-b border-r border-gray-800 px-3 py-2 text-left font-medium ${
+                  className={`${ATTACKER_COL_WIDTH} sticky left-0 z-10 border-b border-r border-gray-800 px-3 py-2 text-left font-medium ${
                     selectedRowId === attacker.id
                       ? "bg-blue-950 text-blue-100"
                       : "bg-gray-950 text-gray-200"
@@ -769,7 +791,7 @@ export function GainsTable({
                   return (
                     <td
                       key={`${attacker.id}:${defender.name}`}
-                      className={`border-b border-r border-gray-800 px-3 py-2 text-right tabular-nums transition-colors ${
+                      className={`${TARGET_COL_WIDTH} border-b border-r border-gray-800 px-3 py-2 text-right tabular-nums transition-colors ${
                         selectedRowId === attacker.id ? "shadow-[inset_0_1px_0_rgba(59,130,246,0.45),inset_0_-1px_0_rgba(59,130,246,0.45)]" : ""
                       } ${tone.cell}`}
                     >
