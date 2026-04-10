@@ -72,9 +72,12 @@ Do not store real province names, kingdom names, or player names in source code,
 - Current spy/thievery intel commonly arrives as `/wol/game/thievery?...&o=SPY_ON_*`; detection must inspect the `o` query param, not only the pathname.
 - Utopia kingdom pages can arrive as `/wol/game/kingdom_details/<x>/<y>`, not just bare `/wol/game/kingdom_details`.
 - This repo is on Next.js 16. Root request interception now uses `proxy.ts`, not `middleware.ts`.
+- The real Utopia `Slot` value from `kingdom_details` is stored on `kingdom_provinces` and should be treated as data, not inferred from current table order.
+- `scripts/replay-debug-log.ts` can replay local or production `intel_debug.jsonl` files into the local `intel.db` for one-off backfills such as kingdom slots or direct survey effects.
 - Gains are a same-page kingdom view, switched with `/kingdom/[loc]?view=gains`, rather than a separate standalone page.
 - Gains calculations use the latest accessible `kingdom_details` snapshots for both self and target kingdom average NW.
 - Gains currently model directional relation modifiers plus war-vs-out-of-war MAP behavior. The remaining assumptions are exposed in the top `Assumptions` pill in gains view.
+- The gains matrix header uses a dedicated sticky header layer above the scrollable body; horizontal alignment is maintained by mirroring `scrollLeft` from the body container to the header container.
 - When debugging live ingest or missing intel, the production source of truth is the live server DB and PM2 logs on `utopiaintel`, not the local workspace DB copy.
 
 ## Build & deploy
@@ -85,3 +88,6 @@ rsync -avz --exclude=intel.db .next/standalone/ ecosystem.config.js utopiaintel:
 rsync -avz .next/static/ utopiaintel:~/utopiaintel/.next/static/
 ssh utopiaintel "cd ~/utopiaintel && pm2 reload ecosystem.config.js --update-env"
 ```
+
+Keep that order strict. Reloading PM2 before both `rsync` steps finish can leave
+production with mismatched server and static assets.
