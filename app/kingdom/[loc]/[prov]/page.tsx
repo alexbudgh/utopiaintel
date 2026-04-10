@@ -51,6 +51,14 @@ function maybeRoundedValue(
   return tip ? <Tooltip content={tip}>{displayed}</Tooltip> : displayed;
 }
 
+function formatEffectLabel(effect: { name: string; durationText: string | null; remainingTicks: number | null; effectivenessPercent: number | null }): string {
+  const parts: string[] = [];
+  if (effect.effectivenessPercent != null) parts.push(`${effect.effectivenessPercent.toFixed(1)}%`);
+  if (effect.remainingTicks != null) parts.push(`${effect.remainingTicks} ticks left`);
+  else if (effect.durationText) parts.push(effect.durationText);
+  return parts.length ? `${effect.name} (${parts.join(", ")})` : effect.name;
+}
+
 export default async function ProvincePage({
   params,
 }: {
@@ -238,7 +246,12 @@ export default async function ProvincePage({
               {d.status.overpopulated && <span className="text-sm text-yellow-400">Overpopulated</span>}
               {d.status.war          && <span className="text-sm text-orange-400">At war</span>}
               {d.status.hitStatus    && <span className="text-sm text-gray-300">{d.status.hitStatus}</span>}
-              {!d.status.plagued && !d.status.overpopulated && !d.status.war && !d.status.hitStatus && (
+              {d.effects.map((effect) => (
+                <span key={`${effect.kind}:${effect.name}:${effect.durationText ?? ""}`} className="text-sm text-blue-300">
+                  {formatEffectLabel(effect)}
+                </span>
+              ))}
+              {!d.status.plagued && !d.status.overpopulated && !d.status.war && !d.status.hitStatus && d.effects.length === 0 && (
                 <span className="text-sm text-gray-600">No flags</span>
               )}
             </div>

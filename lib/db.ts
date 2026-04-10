@@ -144,6 +144,21 @@ function initSchema(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_status_prov_time
       ON province_status(province_id, received_at DESC);
 
+    CREATE TABLE IF NOT EXISTS province_effects (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      province_id INTEGER NOT NULL REFERENCES provinces(id),
+      effect_name TEXT NOT NULL,
+      effect_kind TEXT NOT NULL,
+      duration_text TEXT,
+      remaining_ticks INTEGER,
+      effectiveness_percent REAL,
+      source TEXT NOT NULL DEFAULT 'sot',
+      saved_by TEXT,
+      received_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_effects_prov_time
+      ON province_effects(province_id, received_at DESC);
+
     -- Dimension: SoM military effectiveness + army detail (som only)
     CREATE TABLE IF NOT EXISTS military_intel (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -265,6 +280,8 @@ function initSchema(db: Database.Database) {
   if (!hasCol("survey_intel", "thievery_effectiveness")) db.exec("ALTER TABLE survey_intel ADD COLUMN thievery_effectiveness REAL");
   if (!hasCol("survey_intel", "thief_prevent_chance"))   db.exec("ALTER TABLE survey_intel ADD COLUMN thief_prevent_chance REAL");
   if (!hasCol("survey_intel", "castles_effect"))         db.exec("ALTER TABLE survey_intel ADD COLUMN castles_effect REAL");
+  if (!hasCol("province_effects", "remaining_ticks")) db.exec("ALTER TABLE province_effects ADD COLUMN remaining_ticks INTEGER");
+  if (!hasCol("province_effects", "effectiveness_percent")) db.exec("ALTER TABLE province_effects ADD COLUMN effectiveness_percent REAL");
   if (!hasCol("kingdom_intel", "their_attitude_to_us")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN their_attitude_to_us TEXT");
   if (!hasCol("kingdom_intel", "their_attitude_points")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN their_attitude_points REAL");
   if (!hasCol("kingdom_intel", "our_attitude_to_them")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN our_attitude_to_them TEXT");
@@ -348,6 +365,22 @@ export function storeSoT(data: SoTData, savedBy: string, keyHash: string, isSelf
       INSERT INTO province_status (province_id, plagued, overpopulated, hit_status, war, saved_by)
       VALUES (?, ?, ?, ?, ?, ?)
     `).run(provId, data.plagued ? 1 : 0, data.overpopulated ? 1 : 0, data.hitStatus, data.war ? 1 : 0, savedBy);
+
+    const insertEffect = db.prepare(`
+      INSERT INTO province_effects (province_id, effect_name, effect_kind, duration_text, remaining_ticks, effectiveness_percent, source, saved_by)
+      VALUES (?, ?, ?, ?, ?, ?, 'sot', ?)
+    `);
+    for (const effect of data.activeEffects) {
+      insertEffect.run(
+        provId,
+        effect.name,
+        effect.kind,
+        effect.durationText,
+        effect.remainingTicks,
+        effect.effectivenessPercent,
+        savedBy,
+      );
+    }
   })();
 }
 
@@ -849,6 +882,7 @@ export interface ProvinceDetail {
   troops: { soldiers: number | null; offSpecs: number | null; defSpecs: number | null; elites: number | null; warHorses: number | null; peasants: number | null; source: string; receivedAt: string } | null;
   resources: { money: number | null; food: number | null; runes: number | null; prisoners: number | null; tradeBalance: number | null; buildingEfficiency: number | null; thieves: number | null; stealth: number | null; wizards: number | null; mana: number | null; receivedAt: string } | null;
   status: { plagued: boolean; overpopulated: boolean; hitStatus: string | null; war: boolean; receivedAt: string } | null;
+  effects: { name: string; kind: string; durationText: string | null; remainingTicks: number | null; effectivenessPercent: number | null; receivedAt: string }[];
   militaryIntel: { ome: number | null; dme: number | null; receivedAt: string; armies: ArmyRow[] } | null;
   survey: { receivedAt: string; buildings: BuildingRow[] } | null;
   sciences: { receivedAt: string; sciences: ScienceRow[] } | null;
@@ -861,13 +895,13 @@ export function getProvinceDetail(name: string, kingdom: string, keyHash: string
     "SELECT id, name, kingdom FROM provinces WHERE name = ? AND kingdom = ?"
   ).get(name, kingdom) as { id: number; name: string; kingdom: string } | undefined;
 
-  if (!prov) return { province: null, overview: null, totalMilitary: null, homeMilitary: null, troops: null, resources: null, status: null, militaryIntel: null, survey: null, sciences: null };
+  if (!prov) return { province: null, overview: null, totalMilitary: null, homeMilitary: null, troops: null, resources: null, status: null, effects: [], militaryIntel: null, survey: null, sciences: null };
 
   // Auth check
   const allowed = db.prepare(
     "SELECT 1 FROM intel_partitions WHERE key_hash = ? AND province_id = ?"
   ).get(keyHash, prov.id);
-  if (!allowed) return { province: null, overview: null, totalMilitary: null, homeMilitary: null, troops: null, resources: null, status: null, militaryIntel: null, survey: null, sciences: null };
+  if (!allowed) return { province: null, overview: null, totalMilitary: null, homeMilitary: null, troops: null, resources: null, status: null, effects: [], militaryIntel: null, survey: null, sciences: null };
 
   const id = prov.id;
 
@@ -900,6 +934,21 @@ export function getProvinceDetail(name: string, kingdom: string, keyHash: string
     "SELECT plagued, overpopulated, hit_status, war, received_at FROM province_status WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
   ).get(id) as any;
   const status = statusRaw ? { plagued: !!statusRaw.plagued, overpopulated: !!statusRaw.overpopulated, hitStatus: statusRaw.hit_status, war: !!statusRaw.war, receivedAt: statusRaw.received_at } : null;
+
+  const effects = db.prepare(
+    `SELECT effect_name, effect_kind, duration_text, remaining_ticks, effectiveness_percent, received_at
+     FROM (
+       SELECT effect_name, effect_kind, duration_text, remaining_ticks, effectiveness_percent, received_at,
+              row_number() OVER (
+                PARTITION BY effect_name, effect_kind
+                ORDER BY received_at DESC, id DESC
+              ) AS rn
+       FROM province_effects
+       WHERE province_id = ?
+     )
+     WHERE rn = 1
+     ORDER BY effect_kind ASC, effect_name ASC`
+  ).all(id) as Array<{ effect_name: string; effect_kind: string; duration_text: string | null; remaining_ticks: number | null; effectiveness_percent: number | null; received_at: string }>;
 
   const miRaw = db.prepare(
     "SELECT id, ome, dme, received_at FROM military_intel WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
@@ -937,7 +986,26 @@ export function getProvinceDetail(name: string, kingdom: string, keyHash: string
     sciences = { receivedAt: sosRaw.received_at, sciences: sciRows.map((s) => ({ science: s.science, books: s.books, effect: s.effect })) };
   }
 
-  return { province: prov, overview, totalMilitary, homeMilitary, troops, resources, status, militaryIntel, survey, sciences };
+  return {
+    province: prov,
+    overview,
+    totalMilitary,
+    homeMilitary,
+    troops,
+    resources,
+    status,
+    effects: effects.map((effect) => ({
+      name: effect.effect_name,
+      kind: effect.effect_kind,
+      durationText: effect.duration_text,
+      remainingTicks: effect.remaining_ticks,
+      effectivenessPercent: effect.effectiveness_percent,
+      receivedAt: effect.received_at,
+    })),
+    militaryIntel,
+    survey,
+    sciences,
+  };
 }
 
 export function cleanupExpired() {

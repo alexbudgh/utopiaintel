@@ -229,7 +229,15 @@ Money\t278,911\tWizards\t6,606 (100%)
 Food\t21,199\tWar Horses\t398
 Runes\t36,020\tPrisoners\t0
 Trade Balance\t494,370\tOff. Points\t366,485
-Networth\t517,597 gold coins\tDef. Points\t294,463`;
+Networth\t517,597 gold coins\tDef. Points\t294,463
+Our Kingdom has concluded WAR with Example (1:11)! Our post war ceasefire state will expire on June 15 of YR8!
+
+We are covered by the Onslaught ritual with 91.7% effectiveness left! The ritual will be lifted in 56 days.
+
+Info
+Duration: Builders Boon ( 1 day ) Inspire Army ( - )
+
+Armies : (1.00 days left) (0) (1.05 days left) (0)`;
 
 function throneTextWithRuler(ruler: string): string {
   return THRONE_TEXT.replace(
@@ -333,6 +341,10 @@ test("parseSoT — throne page (self-intel)", () => {
   assert.equal(r.offPoints, 366485);
   assert.equal(r.defPoints, 294463);
   assert.equal(r.money, 278911);
+  assert.deepEqual(r.activeEffects, [
+    { name: "Builders Boon", kind: "spell", durationText: "1 day", remainingTicks: 1, effectivenessPercent: null },
+    { name: "Onslaught ritual", kind: "ritual", durationText: "91.7%, 56 days", remainingTicks: 56, effectivenessPercent: 91.7 },
+  ]);
   assert.equal(r.accuracy, 100);
 });
 

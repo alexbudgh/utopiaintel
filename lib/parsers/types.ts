@@ -36,6 +36,13 @@ export interface SoTData extends ProvinceId {
   overpopulated: boolean;
   hitStatus: string;
   war: boolean;
+  activeEffects: Array<{
+    name: string;
+    kind: "spell" | "ritual";
+    durationText: string | null;
+    remainingTicks: number | null;
+    effectivenessPercent: number | null;
+  }>;
   accuracy: number;
 }
 

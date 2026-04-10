@@ -39,6 +39,44 @@ const PLAGUE_RE = /The Plague has spread throughout our people/;
 const OVERPOP_RE = /Riots due to housing shortages/;
 const HIT_RE = /province has been attacked (pretty heavily|moderately|a little|extremely badly)/;
 const WAR_RE = /Our Kingdom is at WAR!/;
+const DURATION_RE = /^Duration:\s*(.+)$/im;
+const RITUAL_RE = /We are covered by the ([^.]+?) ritual with ([\d.]+%) effectiveness left! The ritual will be lifted in ([^.]+)\./i;
+
+function normalizeWhitespace(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function parseDurationEffects(text: string): SoTData["activeEffects"] {
+  const match = DURATION_RE.exec(text);
+  if (!match) return [];
+
+  return [...match[1].matchAll(/([A-Za-z][A-Za-z' ]*[A-Za-z])\s*\(\s*([^)]+?)\s*\)/g)]
+    .map(([, name, duration]) => ({
+      name: normalizeWhitespace(name),
+      kind: "spell" as const,
+      durationText: normalizeWhitespace(duration),
+      remainingTicks: parseDurationTicks(duration),
+      effectivenessPercent: null,
+    }))
+    .filter((effect) => effect.durationText !== "-");
+}
+
+function parseDurationTicks(duration: string): number | null {
+  const match = /(\d+)\s*day/i.exec(duration);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+function parseRitualEffect(text: string): SoTData["activeEffects"][number] | null {
+  const match = RITUAL_RE.exec(text);
+  if (!match) return null;
+  return {
+    name: `${normalizeWhitespace(match[1])} ritual`,
+    kind: "ritual",
+    durationText: `${normalizeWhitespace(match[2])}, ${normalizeWhitespace(match[3])}`,
+    remainingTicks: parseDurationTicks(match[3]),
+    effectivenessPercent: parseFloat(match[2]),
+  };
+}
 
 export function parseSoT(text: string): SoTData | null {
   const provMatch = PROVINCE_RE.exec(text);
@@ -101,6 +139,9 @@ export function parseSoT(text: string): SoTData | null {
   if (!nd) return null;
 
   const hitMatch = HIT_RE.exec(text);
+  const activeEffects = parseDurationEffects(text);
+  const ritualEffect = parseRitualEffect(text);
+  if (ritualEffect) activeEffects.push(ritualEffect);
 
   return {
     name,
@@ -133,6 +174,7 @@ export function parseSoT(text: string): SoTData | null {
     overpopulated: OVERPOP_RE.test(text),
     hitStatus: hitMatch ? hitMatch[1] : "",
     war: WAR_RE.test(text),
+    activeEffects,
     accuracy,
   };
 }
