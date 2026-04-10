@@ -359,7 +359,17 @@ function estimateTitle(
   return (
     <div className="flex w-[30rem] max-w-[calc(100vw-2rem)] flex-col gap-2">
       <div className="rounded border border-gray-700 bg-gray-950/80 px-3 py-2">
-        <div className="text-sm font-medium text-gray-100">{attacker.name} → {defender.name}</div>
+        <div className="text-sm font-medium text-gray-100">
+          {attacker.slot != null && (
+            <span className="mr-1.5 text-xs tabular-nums text-gray-400">#{attacker.slot}</span>
+          )}
+          {attacker.name}
+          <span className="mx-2 text-gray-500">→</span>
+          {defender.slot != null && (
+            <span className="mr-1.5 text-xs tabular-nums text-gray-400">#{defender.slot}</span>
+          )}
+          {defender.name}
+        </div>
         <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-gray-400">
           <div>Attacker: {formatNum(attacker.networth)} NW / {attacker.land?.toLocaleString() ?? "—"}a</div>
           <div>Defender: {defender.networth.toLocaleString()} NW / {defender.land.toLocaleString()}a</div>
