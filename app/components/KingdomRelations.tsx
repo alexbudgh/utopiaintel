@@ -58,7 +58,7 @@ export function KingdomRelations({
     });
   }
 
-  if (primaryOpenRelation) {
+  if (primaryOpenRelation?.location) {
     sections.push({
       standalone: true,
       node: (
@@ -77,7 +77,7 @@ export function KingdomRelations({
       standalone: true,
       node: (
         <Tooltip content="Hostile actions are blocked while a Non-Aggression Pact or ceasefire is active.">
-          {primaryOpenRelation ? (
+          {primaryOpenRelation?.location ? (
             <Link href={`/kingdom/${encodeURIComponent(primaryOpenRelation.location)}`} className={`rounded border px-2 py-0.5 text-[11px] font-medium hover:opacity-80 transition-opacity ${relationBadgeClass(relationSnapshot?.ourAttitudeToThem ?? relationSnapshot?.theirAttitudeToUs ?? null)}`}>
               Non-Aggression Pact
             </Link>

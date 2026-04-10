@@ -50,16 +50,16 @@ function relationSummary(
           War · {warTarget}
         </Link>
       )}
-      {openRelation && (
+      {openRelation?.location && (
         <Link href={`/kingdom/${encodeURIComponent(openRelation.location)}`} className={`rounded border px-2 py-0.5 font-medium hover:opacity-80 transition-opacity ${relationBadgeClass(openRelation.status)}`}>
           {openRelation.status} · {openRelation.location}
         </Link>
       )}
-      {mutualCeasefire ? (
-        <Link href={`/kingdom/${encodeURIComponent(openLoc!)}`} className={`rounded border px-2 py-0.5 font-medium hover:opacity-80 transition-opacity ${relationBadgeClass(relationSnapshot?.ourAttitudeToThem ?? relationSnapshot?.theirAttitudeToUs ?? null)}`}>
+      {mutualCeasefire && openLoc ? (
+        <Link href={`/kingdom/${encodeURIComponent(openLoc)}`} className={`rounded border px-2 py-0.5 font-medium hover:opacity-80 transition-opacity ${relationBadgeClass(relationSnapshot?.ourAttitudeToThem ?? relationSnapshot?.theirAttitudeToUs ?? null)}`}>
           Non-Aggression Pact
         </Link>
-      ) : relationSnapshot?.theirAttitudeToUs && openLoc && (
+      ) : !mutualCeasefire && relationSnapshot?.theirAttitudeToUs && openLoc && (
         <>
           <span className="text-gray-500">They → us</span>
           <Link href={`/kingdom/${encodeURIComponent(openLoc)}`} className={`rounded border px-2 py-0.5 font-medium hover:opacity-80 transition-opacity ${relationBadgeClass(relationSnapshot.theirAttitudeToUs)}`}>
