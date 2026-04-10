@@ -246,14 +246,14 @@ export default async function ProvincePage({
                   {d.militaryIntel.armies.map((a: ArmyRow, i: number) => (
                     <tr key={i} className="border-b border-gray-700/50 text-gray-200">
                       <td className="py-1 pr-4 text-gray-400 font-mono text-xs">{a.armyType}</td>
-                      <td className="py-1 pr-4 text-right tabular-nums">{maybeRoundedValue(formatNum(a.generals), a.generals)}</td>
-                      <td className="py-1 pr-4 text-right tabular-nums">{maybeRoundedValue(formatNum(a.soldiers), a.soldiers)}</td>
-                      <td className="py-1 pr-4 text-right tabular-nums">{maybeRoundedValue(formatNum(a.offSpecs), a.offSpecs)}</td>
-                      <td className="py-1 pr-4 text-right tabular-nums">{maybeRoundedValue(formatNum(a.defSpecs), a.defSpecs)}</td>
-                      <td className="py-1 pr-4 text-right tabular-nums">{maybeRoundedValue(formatNum(a.elites), a.elites)}</td>
-                      <td className="py-1 pr-4 text-right tabular-nums">{maybeRoundedValue(formatNum(a.warHorses), a.warHorses)}</td>
-                      <td className="py-1 pr-4 text-right tabular-nums">{maybeRoundedValue(formatNum(a.thieves), a.thieves)}</td>
-                      <td className="py-1 pr-4 text-right tabular-nums">{a.landGained > 0 ? maybeRoundedValue(formatNum(a.landGained), a.landGained) : "—"}</td>
+                      <td className="py-1 pr-4 text-right tabular-nums">{a.generals.toLocaleString()}</td>
+                      <td className="py-1 pr-4 text-right tabular-nums">{a.soldiers.toLocaleString()}</td>
+                      <td className="py-1 pr-4 text-right tabular-nums">{a.offSpecs.toLocaleString()}</td>
+                      <td className="py-1 pr-4 text-right tabular-nums">{a.defSpecs.toLocaleString()}</td>
+                      <td className="py-1 pr-4 text-right tabular-nums">{a.elites.toLocaleString()}</td>
+                      <td className="py-1 pr-4 text-right tabular-nums">{a.warHorses.toLocaleString()}</td>
+                      <td className="py-1 pr-4 text-right tabular-nums">{a.thieves.toLocaleString()}</td>
+                      <td className="py-1 pr-4 text-right tabular-nums">{a.landGained > 0 ? a.landGained.toLocaleString() : "—"}</td>
                       <td className="py-1 text-right tabular-nums">{a.returnDays != null ? maybeRoundedValue(a.returnDays.toFixed(1) + "d", a.returnDays, { suffix: "d" }) : "—"}</td>
                     </tr>
                   ))}
