@@ -6,6 +6,7 @@ import { createHash } from "crypto";
 import { Tooltip } from "@/app/components/Tooltip";
 import { getProvinceDetail } from "@/lib/db";
 import { freshnessColor, formatNum, timeAgo, fullValueTooltip } from "@/lib/ui";
+import { BAD_SPELL_NAMES } from "@/lib/effects";
 import type { ArmyRow, BuildingRow, ScienceRow } from "@/lib/db";
 import AutoRefresh from "./AutoRefresh";
 
@@ -59,20 +60,7 @@ function formatEffectLabel(effect: { name: string; durationText: string | null; 
   return parts.length ? `${effect.name} (${parts.join(", ")})` : effect.name;
 }
 
-const BAD_SPELLS = new Set([
-  "Amnesia",
-  "Chastity",
-  "Explosions",
-  "Fireball",
-  "Fool's Gold",
-  "Greed",
-  "Lightning Strike",
-  "Meteor Showers",
-  "Nightmares",
-  "Pitfalls",
-  "Storms",
-  "Vermin",
-]);
+const BAD_SPELLS: Set<string> = new Set(BAD_SPELL_NAMES);
 
 function effectBucket(effect: { name: string; kind: string }): "ritual" | "bad" | "good" {
   if (effect.kind === "ritual") return "ritual";
