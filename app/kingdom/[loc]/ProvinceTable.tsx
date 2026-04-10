@@ -11,6 +11,8 @@ import { computeWizardCount, NW_PER_WIZARD } from "@/lib/nw";
 const COLUMNS = [
   { key: "race",        label: "Race",        group: "Overview",  desc: "Race"                                        },
   { key: "personality", label: "Personality", group: "Overview",  desc: "Personality"                                 },
+  { key: "good_spells", label: "Good Spells", group: "Overview",  desc: "Active good spells from latest self-throne data" },
+  { key: "bad_spells",  label: "Bad Spells",  group: "Overview",  desc: "Active bad spells from latest self-throne data" },
   { key: "land",        label: "Land",        group: "Overview",  desc: "Acres of land"                               },
   { key: "networth",    label: "NW",          group: "Overview",  desc: "Networth"                                    },
   { key: "hit_status",  label: "MAP",         group: "Overview",  desc: "Multi-Attack Protection warning from SoT\nExamples: a little, moderately, pretty heavily, extremely badly" },
@@ -52,7 +54,7 @@ type SortKey = ColKey | "province";
 type SortDir = "asc" | "desc";
 
 const VIEWS: Record<string, ColKey[]> = {
-  Overview:  ["race", "personality", "land", "networth", "off_points", "def_points", "def_home", "hit_status", "peasants", "building_efficiency", "age"],
+  Overview:  ["race", "personality", "good_spells", "bad_spells", "land", "networth", "off_points", "def_points", "def_home", "hit_status", "peasants", "building_efficiency", "age"],
   Military:  ["land", "off_points", "def_points", "off_home", "def_home", "ome", "dme", "soldiers_home", "off_specs_home", "def_specs_home", "elites_home", "peasants", "age"],
   Resources: ["land", "networth", "money", "food", "runes", "prisoners", "trade_balance", "war_horses", "peasants", "thieves", "wizards", "age"],
   "T/M":     ["land", "rtpa", "mtpa", "otpa", "dtpa", "rwpa", "mwpa", "age"],
@@ -73,6 +75,8 @@ function sortValueFor(p: ProvinceRow, key: SortKey): number | string | null {
     case "province": return p.name;
     case "race": return p.race;
     case "personality": return p.personality;
+    case "good_spells": return p.good_spell_count ?? 0;
+    case "bad_spells": return p.bad_spell_count ?? 0;
     case "land": return p.land;
     case "networth": return p.networth;
     case "hit_status": return p.hit_status;
@@ -170,6 +174,7 @@ function computeMwpa(p: ProvinceRow): number | null {
 
 function ageFor(p: ProvinceRow, key: ColKey): string | null {
   if (key === "age") return p.overview_age ?? p.military_age;
+  if (key === "good_spells" || key === "bad_spells") return p.effects_age ?? null;
   if (["soldiers", "off_specs", "def_specs", "elites", "war_horses", "peasants"].includes(key)) return p.troops_age;
   if (["soldiers_home", "off_specs_home", "def_specs_home", "elites_home"].includes(key)) return p.troops_home_age;
   if (["money", "food", "runes", "prisoners", "trade_balance", "building_efficiency", "wizards"].includes(key)) return p.resources_age;
@@ -187,6 +192,7 @@ function ageFor(p: ProvinceRow, key: ColKey): string | null {
 }
 
 function sourceFor(p: ProvinceRow, key: ColKey): string | null {
+  if (key === "good_spells" || key === "bad_spells") return p.effects_age ? "throne" : null;
   if (["soldiers", "off_specs", "def_specs", "elites", "war_horses", "peasants"].includes(key)) return p.troops_source;
   if (["soldiers_home", "off_specs_home", "def_specs_home", "elites_home"].includes(key)) return "som";
   if (["money", "food", "runes", "prisoners", "trade_balance", "building_efficiency", "thieves", "wizards"].includes(key)) return p.resources_source;
@@ -214,6 +220,18 @@ function tipFor(p: ProvinceRow, key: ColKey): string {
     if (p.overview_age) lines.push(`overview (${p.overview_source ?? "?"}): ${timeAgo(p.overview_age)} · ${formatTimestamp(p.overview_age)}`);
     if (p.military_age) lines.push(`military (sot): ${timeAgo(p.military_age)} · ${formatTimestamp(p.military_age)}`);
     return lines.join("\n");
+  }
+  if (key === "good_spells") {
+    const lines = [];
+    if (p.good_spell_details) lines.push(p.good_spell_details.split(" | ").join(", "));
+    if (p.effects_age) lines.push(`throne: ${timeAgo(p.effects_age)} · ${formatTimestamp(p.effects_age)}`);
+    return lines.length ? lines.join("\n") : "No active good spell data";
+  }
+  if (key === "bad_spells") {
+    const lines = [];
+    if (p.bad_spell_details) lines.push(p.bad_spell_details.split(" | ").join(", "));
+    if (p.effects_age) lines.push(`throne: ${timeAgo(p.effects_age)} · ${formatTimestamp(p.effects_age)}`);
+    return lines.length ? lines.join("\n") : "No active bad spell data";
   }
   if (key === "rtpa") {
     if (p.thieves == null || !p.land) return "No thieves or land data";
@@ -348,6 +366,12 @@ function cellValue(p: ProvinceRow, key: ColKey): React.ReactNode {
   switch (key) {
     case "race":        return <span className="font-mono text-gray-400">{p.race ?? "—"}</span>;
     case "personality": return <span className="text-gray-400">{p.personality ?? "—"}</span>;
+    case "good_spells": return (p.good_spell_count ?? 0) > 0
+      ? <span className="rounded border border-blue-500/40 bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-300">+{p.good_spell_count}</span>
+      : "—";
+    case "bad_spells": return (p.bad_spell_count ?? 0) > 0
+      ? <span className="rounded border border-red-500/40 bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-red-300">-{p.bad_spell_count}</span>
+      : "—";
     case "land":        return p.land != null ? p.land.toLocaleString() : "—";
     case "networth":    return formatNum(p.networth);
     case "hit_status":  return p.hit_status ?? "—";

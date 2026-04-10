@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
+import { BAD_SPELL_NAMES } from "./effects";
 import type {
   SoTData,
   SurveyData,
@@ -17,6 +18,7 @@ const DB_PATH = process.env.INTEL_DB_PATH || path.join(process.cwd(), "intel.db"
 const TTL_DAYS = 7;
 
 let _db: Database.Database | null = null;
+const BAD_SPELL_SQL_LIST = BAD_SPELL_NAMES.map((name) => `'${name.replaceAll("'", "''")}'`).join(", ");
 
 export function getDb(): Database.Database {
   if (!_db) {
@@ -742,6 +744,11 @@ export interface ProvinceRow {
   resources_source: string | null;
   hit_status: string | null;
   status_age: string | null;
+  effects_age?: string | null;
+  good_spell_details?: string | null;
+  bad_spell_details?: string | null;
+  good_spell_count?: number | null;
+  bad_spell_count?: number | null;
   ome: number | null;
   dme: number | null;
   som_age: string | null;
@@ -761,6 +768,25 @@ export interface ProvinceRow {
 export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceRow[] {
   const db = getDb();
   return db.prepare(`
+    WITH latest_effects AS (
+      SELECT province_id, effect_name, effect_kind, remaining_ticks, received_at,
+             row_number() OVER (
+               PARTITION BY province_id, effect_name, effect_kind
+               ORDER BY received_at DESC, id DESC
+             ) AS rn
+      FROM province_effects
+    ),
+    spell_summary AS (
+      SELECT province_id,
+             MAX(received_at) AS effects_age,
+             group_concat(CASE WHEN effect_kind = 'spell' AND effect_name NOT IN (${BAD_SPELL_SQL_LIST}) THEN effect_name || CASE WHEN remaining_ticks IS NOT NULL THEN ' (' || remaining_ticks || ')' ELSE '' END END, ' | ') AS good_spell_details,
+             group_concat(CASE WHEN effect_kind = 'spell' AND effect_name IN (${BAD_SPELL_SQL_LIST}) THEN effect_name || CASE WHEN remaining_ticks IS NOT NULL THEN ' (' || remaining_ticks || ')' ELSE '' END END, ' | ') AS bad_spell_details,
+             SUM(CASE WHEN effect_kind = 'spell' AND effect_name NOT IN (${BAD_SPELL_SQL_LIST}) THEN 1 ELSE 0 END) AS good_spell_count,
+             SUM(CASE WHEN effect_kind = 'spell' AND effect_name IN (${BAD_SPELL_SQL_LIST}) THEN 1 ELSE 0 END) AS bad_spell_count
+      FROM latest_effects
+      WHERE rn = 1
+      GROUP BY province_id
+    )
     SELECT p.id, p.name, p.kingdom,
            (
              SELECT kp.slot
@@ -794,6 +820,7 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
            (SELECT p2.thieves FROM province_resources p2 WHERE p2.province_id = p.id AND p2.thieves IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS thieves,
            (SELECT p2.received_at FROM province_resources p2 WHERE p2.province_id = p.id AND p2.thieves IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS thieves_age,
            ps.hit_status, ps.received_at AS status_age,
+           ss.effects_age, ss.good_spell_details, ss.bad_spell_details, ss.good_spell_count, ss.bad_spell_count,
            hmp.mod_off_at_home AS off_home, hmp.mod_def_at_home AS def_home, hmp.received_at AS home_mil_age,
            mi.ome, mi.dme, mi.received_at AS som_age,
            (SELECT si.received_at FROM sos_intel si WHERE si.province_id = p.id ORDER BY si.received_at DESC LIMIT 1) AS sciences_age,
@@ -832,6 +859,7 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
       SELECT id FROM province_status
       WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1
     )
+    LEFT JOIN spell_summary ss ON ss.province_id = p.id
     LEFT JOIN home_military_points hmp ON hmp.id = (
       SELECT id FROM home_military_points
       WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1
