@@ -91,3 +91,5 @@ ssh utopiaintel "pm2 reload utopiaintel"
 
 Keep that order strict. Reloading PM2 before both `rsync` steps finish can leave
 production with mismatched server and static assets.
+Keep `--exclude=intel.db` on the standalone sync: Next's standalone output can
+contain a copied SQLite file, and syncing it will overwrite the live DB.
