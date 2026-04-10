@@ -766,6 +766,7 @@ export interface ProvinceRow {
   armies_out_count: number | null;
   land_incoming: number | null;
   earliest_return: number | null;
+  armies_out_json: string | null;
 }
 
 export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceRow[] {
@@ -839,7 +840,8 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
            (SELECT SUM(sb.in_progress) FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1)) AS buildings_in_progress,
            (SELECT COUNT(*) FROM som_armies WHERE military_intel_id = mi.id AND return_days IS NOT NULL) AS armies_out_count,
            (SELECT SUM(land_gained) FROM som_armies WHERE military_intel_id = mi.id AND return_days IS NOT NULL) AS land_incoming,
-           (SELECT MIN(return_days) FROM som_armies WHERE military_intel_id = mi.id AND return_days IS NOT NULL) AS earliest_return
+           (SELECT MIN(return_days) FROM som_armies WHERE military_intel_id = mi.id AND return_days IS NOT NULL) AS earliest_return,
+           (SELECT json_group_array(json_object('type', army_type, 'soldiers', soldiers, 'offSpecs', off_specs, 'defSpecs', def_specs, 'elites', elites, 'land', land_gained, 'eta', return_days)) FROM som_armies WHERE military_intel_id = mi.id AND return_days IS NOT NULL) AS armies_out_json
     FROM provinces p
     LEFT JOIN province_overview po ON po.id = (
       SELECT id FROM province_overview

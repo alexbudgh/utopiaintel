@@ -227,16 +227,25 @@ function tipFor(p: ProvinceRow, key: ColKey): string {
   }
   if (key === "armies") {
     if (!p.som_age) return "No SoM data";
-    const parts: string[] = [];
-    if ((p.armies_out_count ?? 0) > 0) {
-      parts.push(`${p.armies_out_count} arm${p.armies_out_count === 1 ? "y" : "ies"} out`);
-      if (p.land_incoming) parts.push(`${p.land_incoming.toLocaleString()} land incoming`);
-      if (p.earliest_return != null) parts.push(`soonest return ${p.earliest_return.toFixed(1)}d`);
+    const lines: string[] = [];
+    const armies: Array<{ type: string; soldiers: number; offSpecs: number; defSpecs: number; elites: number; land: number; eta: number }> =
+      p.armies_out_json ? JSON.parse(p.armies_out_json) : [];
+    if (armies.length === 0) {
+      lines.push("All armies home");
     } else {
-      parts.push("All armies home");
+      for (const a of armies) {
+        const units = [
+          a.soldiers ? `${a.soldiers.toLocaleString()} sol` : null,
+          a.offSpecs ? `${a.offSpecs.toLocaleString()} off` : null,
+          a.defSpecs ? `${a.defSpecs.toLocaleString()} def` : null,
+          a.elites   ? `${a.elites.toLocaleString()} eli` : null,
+        ].filter(Boolean).join(", ") || "no units";
+        const land = a.land > 0 ? ` +${a.land.toLocaleString()}a` : "";
+        lines.push(`${a.type}: ${units}${land} · ${a.eta.toFixed(1)}d`);
+      }
     }
-    parts.push(`som: ${timeAgo(p.som_age)} · ${formatTimestamp(p.som_age)}`);
-    return parts.join("\n");
+    lines.push(`som: ${timeAgo(p.som_age)} · ${formatTimestamp(p.som_age)}`);
+    return lines.join("\n");
   }
   if (key === "good_spells") {
     const lines = [];

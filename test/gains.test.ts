@@ -75,6 +75,7 @@ function makeProvince(overrides: Partial<ProvinceRow>): ProvinceRow {
     armies_out_count: null,
     land_incoming: null,
     earliest_return: null,
+    armies_out_json: null,
     ...overrides,
   };
 }
