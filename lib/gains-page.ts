@@ -1,8 +1,10 @@
 import {
   getBoundKingdom,
   getKingdomProvinces,
+  getKingdomRitual,
   getLatestKingdomSnapshot,
   type KingdomSnapshot,
+  type KingdomRitual,
   type ProvinceRow,
 } from "@/lib/db";
 
@@ -13,6 +15,7 @@ export interface GainsPageData {
   targetLatest: ProvinceRow[];
   selfSnapshot: KingdomSnapshot | null;
   targetSnapshot: KingdomSnapshot | null;
+  targetRitual: KingdomRitual | null;
 }
 
 export function getGainsPageData(targetKingdom: string, keyHash: string): GainsPageData {
@@ -26,6 +29,7 @@ export function getGainsPageData(targetKingdom: string, keyHash: string): GainsP
       targetLatest: [],
       selfSnapshot: null,
       targetSnapshot: null,
+      targetRitual: null,
     };
   }
 
@@ -36,5 +40,6 @@ export function getGainsPageData(targetKingdom: string, keyHash: string): GainsP
     targetLatest: getKingdomProvinces(targetKingdom, keyHash),
     selfSnapshot: getLatestKingdomSnapshot(selfKingdom, keyHash),
     targetSnapshot: getLatestKingdomSnapshot(targetKingdom, keyHash),
+    targetRitual: getKingdomRitual(targetKingdom, keyHash),
   };
 }

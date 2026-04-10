@@ -139,6 +139,25 @@ function castlesBreakdown(
   };
 }
 
+function barrierBreakdown(
+  barrierEffect: number | null,
+  barrierFactor: number,
+): { branch: string; calc: string; tone: TooltipLine["tone"] } {
+  if (barrierEffect == null) {
+    return {
+      branch: "Barrier ritual: not active on target kingdom",
+      calc: "Barrier factor: 1",
+      tone: "muted",
+    };
+  }
+
+  return {
+    branch: `Barrier ritual: active at ${barrierEffect.toFixed(2)}% effective battle loss reduction`,
+    calc: `Barrier factor: 1 - ${barrierEffect.toFixed(2)}% = ${barrierFactor.toFixed(3)}`,
+    tone: barrierFactor < 1 ? "warn" : "muted",
+  };
+}
+
 function siegeBreakdown(
   siegeEffect: number | null,
   siegeFactor: number,
@@ -247,6 +266,7 @@ function estimateTitle(
   relationState: "war" | "oow",
   ourAttitudeToThem: string | null,
   theirAttitudeToUs: string | null,
+  defenderBarrierEffect: number | null,
 ): ReactNode {
   const estimate = estimateTraditionalMarchAcres({
     attackerLand: attacker.land,
@@ -257,6 +277,7 @@ function estimateTitle(
     targetKingdomAvgNetworth: targetAvgNetworth,
     defenderHitStatus: defenderLatest?.hit_status ?? null,
     defenderCastlesEffect: defenderLatest?.castles_effect ?? null,
+    defenderBarrierEffect,
     attackerSiegeEffect: attacker.siege_effect ?? null,
     relationState,
     ourAttitudeToThem,
@@ -281,12 +302,14 @@ function estimateTitle(
     estimate.rknwFactor *
     estimate.mapFactor *
     estimate.castlesFactor *
+    estimate.barrierFactor *
     estimate.siegeFactor *
     estimate.combinedRelationFactor;
   const rpnwInfo = rpnwBreakdown(estimate.rpnw);
   const rknwInfo = rknwBreakdown(estimate.rknw);
   const mapInfo = mapBreakdown(defenderLatest?.hit_status ?? null, relationState, estimate.mapFactor);
   const castlesInfo = castlesBreakdown(defenderLatest?.castles_effect ?? null, estimate.castlesFactor);
+  const barrierInfo = barrierBreakdown(estimate.barrierEffect, estimate.barrierFactor);
   const siegeInfo = siegeBreakdown(attacker.siege_effect ?? null, estimate.siegeFactor);
   const mutualCeasefire =
     isNonAggressionPact(ourAttitudeToThem) &&
@@ -470,6 +493,13 @@ function estimateTitle(
             <div className={castlesInfo.tone === "bad" ? "text-red-300" : castlesInfo.tone === "warn" ? "text-amber-300" : castlesInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
               {castlesInfo.calc}
             </div>
+            <Row label="Barrier ritual" value={estimate.barrierEffect != null ? `${estimate.barrierEffect.toFixed(2)}% battle loss reduction` : "not active"} tone={estimate.barrierEffect != null ? "text-gray-100" : "text-gray-500"} />
+            <div className={barrierInfo.tone === "bad" ? "text-red-300" : barrierInfo.tone === "warn" ? "text-amber-300" : barrierInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
+              {barrierInfo.branch}
+            </div>
+            <div className={barrierInfo.tone === "bad" ? "text-red-300" : barrierInfo.tone === "warn" ? "text-amber-300" : barrierInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
+              {barrierInfo.calc}
+            </div>
             <Row label="Siege" value={estimate.siegeEffect != null ? `${estimate.siegeEffect.toFixed(2)}% battle gains` : "unknown"} tone={estimate.siegeEffect != null ? "text-gray-100" : "text-gray-500"} />
             <div className={siegeInfo.tone === "bad" ? "text-red-300" : siegeInfo.tone === "warn" ? "text-amber-300" : siegeInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
               {siegeInfo.branch}
@@ -495,6 +525,8 @@ function estimateTitle(
           <span className={factorClass(estimate.mapFactor)}>{estimate.mapFactor.toFixed(3)}</span>
           <span className="text-gray-500"> * </span>
           <span className={factorClass(estimate.castlesFactor)}>{estimate.castlesFactor.toFixed(3)}</span>
+          <span className="text-gray-500"> * </span>
+          <span className={factorClass(estimate.barrierFactor)}>{estimate.barrierFactor.toFixed(3)}</span>
           <span className="text-gray-500"> * </span>
           <span className={factorClass(estimate.siegeFactor)}>{estimate.siegeFactor.toFixed(3)}</span>
           <span className="text-gray-500"> * </span>
@@ -591,6 +623,9 @@ function stateBadges(
   if (estimate.castlesFactor < 1) {
     badges.push(<span key="castles" className="text-[9px] font-medium uppercase tracking-wide text-orange-300">CASTLES</span>);
   }
+  if (estimate.barrierFactor < 1) {
+    badges.push(<span key="barrier" className="text-[9px] font-medium uppercase tracking-wide text-purple-300">BARRIER</span>);
+  }
   if (estimate.siegeFactor > 1) {
     badges.push(<span key="siege" className="text-[9px] font-medium uppercase tracking-wide text-emerald-300">SIEGE</span>);
   }
@@ -632,7 +667,10 @@ export function GainsTable({
     return () => clearInterval(id);
   }, [data.targetKingdom]);
 
-  const { targetKingdom, selfKingdom, selfProvinces, targetLatest, selfSnapshot, targetSnapshot } = data;
+  const { targetKingdom, selfKingdom, selfProvinces, targetLatest, selfSnapshot, targetSnapshot, targetRitual } = data;
+  const defenderBarrierEffect = targetRitual?.name === "Barrier ritual" && targetRitual.effectivenessPercent != null
+    ? (targetRitual.effectivenessPercent / 100) * 10
+    : null;
   const kingdomHref = `/kingdom/${encodeURIComponent(targetKingdom)}`;
   const gainsHref = `${kingdomHref}?view=gains`;
   const btnBase = "px-2.5 py-1 rounded text-xs border transition-colors";
@@ -655,7 +693,8 @@ export function GainsTable({
           { text: "Castles uses the direct lower-loss percentage shown on the latest survey." },
           { text: "Siege uses the direct Battle Gains percentage shown on the latest SoS." },
           { text: "Relations use the current directional Unfriendly and Hostile gains modifiers from the target snapshot." },
-          { text: "Still assumes neutral race/personality gains mods, dragons, attack-time adjustment, ritual, anonymity, and mist.", tone: "muted" },
+          { text: "Barrier ritual uses effectivenessPercent × 10% as the battle loss reduction applied to defender." },
+          { text: "Still assumes neutral race/personality gains mods, dragons, attack-time adjustment, anonymity, and mist.", tone: "muted" },
         ]}
       >
         <span className={`${btnBase} ${btnInactive}`}>Assumptions</span>
@@ -799,6 +838,7 @@ export function GainsTable({
                     targetKingdomAvgNetworth: targetAvgNetworth,
                     defenderHitStatus: defenderLatest?.hit_status ?? null,
                     defenderCastlesEffect: defenderLatest?.castles_effect ?? null,
+                    defenderBarrierEffect,
                     attackerSiegeEffect: attacker.siege_effect ?? null,
                     relationState,
                     ourAttitudeToThem: targetSnapshot.ourAttitudeToThem,
@@ -815,7 +855,7 @@ export function GainsTable({
                         selectedRowId === attacker.id ? "shadow-[inset_0_1px_0_rgba(59,130,246,0.45),inset_0_-1px_0_rgba(59,130,246,0.45)]" : ""
                       } ${tone.cell}`}
                     >
-                      <Tooltip content={estimateTitle(attacker, defender, selfAvgNetworth, targetAvgNetworth, defenderLatest, relationState, targetSnapshot.ourAttitudeToThem, targetSnapshot.theirAttitudeToUs)}>
+                      <Tooltip content={estimateTitle(attacker, defender, selfAvgNetworth, targetAvgNetworth, defenderLatest, relationState, targetSnapshot.ourAttitudeToThem, targetSnapshot.theirAttitudeToUs, defenderBarrierEffect)}>
                         <div className={tone.value}>
                           {estimate ? estimate.roundedAcres.toLocaleString() : "—"}
                         </div>
