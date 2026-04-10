@@ -763,6 +763,9 @@ export interface ProvinceRow {
   castles_effect: number | null;
   buildings_built: number | null;
   buildings_in_progress: number | null;
+  armies_out_count: number | null;
+  land_incoming: number | null;
+  earliest_return: number | null;
 }
 
 export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceRow[] {
@@ -833,7 +836,10 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
            (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND ss.science = 'Channeling' ORDER BY si.received_at DESC LIMIT 1) AS channeling_effect,
            (SELECT SUM(ss.books) FROM sos_sciences ss WHERE ss.sos_intel_id = (SELECT id FROM sos_intel WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1)) AS science_total_books,
            (SELECT SUM(sb.built) FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1) AND sb.building != 'Barren Land') AS buildings_built,
-           (SELECT SUM(sb.in_progress) FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1)) AS buildings_in_progress
+           (SELECT SUM(sb.in_progress) FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1)) AS buildings_in_progress,
+           (SELECT COUNT(*) FROM som_armies WHERE military_intel_id = mi.id AND return_days IS NOT NULL) AS armies_out_count,
+           (SELECT SUM(land_gained) FROM som_armies WHERE military_intel_id = mi.id AND return_days IS NOT NULL) AS land_incoming,
+           (SELECT MIN(return_days) FROM som_armies WHERE military_intel_id = mi.id AND return_days IS NOT NULL) AS earliest_return
     FROM provinces p
     LEFT JOIN province_overview po ON po.id = (
       SELECT id FROM province_overview

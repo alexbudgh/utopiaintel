@@ -72,6 +72,9 @@ function makeProvince(overrides: Partial<ProvinceRow>): ProvinceRow {
     castles_effect: null,
     buildings_built: null,
     buildings_in_progress: null,
+    armies_out_count: null,
+    land_incoming: null,
+    earliest_return: null,
     ...overrides,
   };
 }
