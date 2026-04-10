@@ -41,39 +41,39 @@ function relationSummary(
 
   if (!relationSnapshot && !openRelation && !warTarget) return null;
 
+  const openLoc = openRelation?.location ?? null;
+
   return (
     <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
       {warTarget && (
-        <span className="rounded border border-orange-500/40 bg-orange-950/30 px-2 py-0.5 font-medium text-orange-200">
+        <Link href={`/kingdom/${encodeURIComponent(warTarget)}`} className="rounded border border-orange-500/40 bg-orange-950/30 px-2 py-0.5 font-medium text-orange-200 hover:border-orange-400/60 transition-colors">
           War · {warTarget}
-        </span>
+        </Link>
       )}
       {openRelation && (
-        <span className={`rounded border px-2 py-0.5 font-medium ${relationBadgeClass(openRelation.status)}`}>
+        <Link href={`/kingdom/${encodeURIComponent(openRelation.location)}`} className={`rounded border px-2 py-0.5 font-medium hover:opacity-80 transition-opacity ${relationBadgeClass(openRelation.status)}`}>
           {openRelation.status} · {openRelation.location}
-        </span>
+        </Link>
       )}
       {mutualCeasefire ? (
-        <>
-          <span className={`rounded border px-2 py-0.5 font-medium ${relationBadgeClass(relationSnapshot?.ourAttitudeToThem ?? relationSnapshot?.theirAttitudeToUs ?? null)}`}>
-            Non-Aggression Pact
-          </span>
-        </>
-      ) : relationSnapshot?.theirAttitudeToUs && (
+        <Link href={`/kingdom/${encodeURIComponent(openLoc!)}`} className={`rounded border px-2 py-0.5 font-medium hover:opacity-80 transition-opacity ${relationBadgeClass(relationSnapshot?.ourAttitudeToThem ?? relationSnapshot?.theirAttitudeToUs ?? null)}`}>
+          Non-Aggression Pact
+        </Link>
+      ) : relationSnapshot?.theirAttitudeToUs && openLoc && (
         <>
           <span className="text-gray-500">They → us</span>
-          <span className={`rounded border px-2 py-0.5 font-medium ${relationBadgeClass(relationSnapshot.theirAttitudeToUs)}`}>
+          <Link href={`/kingdom/${encodeURIComponent(openLoc)}`} className={`rounded border px-2 py-0.5 font-medium hover:opacity-80 transition-opacity ${relationBadgeClass(relationSnapshot.theirAttitudeToUs)}`}>
             {relationSnapshot.theirAttitudeToUs}
-          </span>
+          </Link>
           <span className="text-gray-500">({formatRelationPoints(relationSnapshot.theirAttitudePoints)})</span>
         </>
       )}
-      {!mutualCeasefire && relationSnapshot?.ourAttitudeToThem && (
+      {!mutualCeasefire && relationSnapshot?.ourAttitudeToThem && openLoc && (
         <>
           <span className="text-gray-500">Us → them</span>
-          <span className={`rounded border px-2 py-0.5 font-medium ${relationBadgeClass(relationSnapshot.ourAttitudeToThem)}`}>
+          <Link href={`/kingdom/${encodeURIComponent(openLoc)}`} className={`rounded border px-2 py-0.5 font-medium hover:opacity-80 transition-opacity ${relationBadgeClass(relationSnapshot.ourAttitudeToThem)}`}>
             {relationSnapshot.ourAttitudeToThem}
-          </span>
+          </Link>
           <span className="text-gray-500">({formatRelationPoints(relationSnapshot.ourAttitudePoints)})</span>
         </>
       )}
@@ -132,11 +132,11 @@ export default async function Home() {
           <ul className="space-y-2">
             {kingdomRows.map(({ kd, snapshot, relationSnapshot, ritual }) => (
               <li key={kd.location}>
-                <Link
-                  href={`/kingdom/${kd.location}`}
-                  className="block rounded-lg bg-gray-800 px-4 py-3 hover:bg-gray-700 transition-colors"
-                >
-                  <div className="flex items-center justify-between gap-4">
+                <div className="rounded-lg bg-gray-800 px-4 py-3">
+                  <Link
+                    href={`/kingdom/${kd.location}`}
+                    className="flex items-center justify-between gap-4 hover:opacity-80 transition-opacity"
+                  >
                     <div className="min-w-0">
                       <span className="font-mono font-semibold text-gray-100">
                         {kd.location}
@@ -151,7 +151,7 @@ export default async function Home() {
                     <span className={`text-sm ${freshnessColor(kd.last_seen)}`}>
                       {timeAgo(kd.last_seen)}
                     </span>
-                  </div>
+                  </Link>
                   {ritual && (
                     <div className="mt-1.5 flex items-center gap-1.5 text-[11px]">
                       <span className="rounded border border-purple-500/40 bg-purple-500/10 px-2 py-0.5 font-medium text-purple-300">
@@ -162,7 +162,7 @@ export default async function Home() {
                     </div>
                   )}
                   {relationSummary(kd.location, boundKingdom, snapshot, relationSnapshot)}
-                </Link>
+                </div>
               </li>
             ))}
           </ul>

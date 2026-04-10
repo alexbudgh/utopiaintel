@@ -47,12 +47,13 @@ export function KingdomRelations({
   }
 
   if (isWarWithBoundKingdom || isSelfWarPage) {
+    const warLoc = relationSnapshot?.warTarget ?? snapshot?.warTarget;
     sections.push({
       standalone: true,
       node: (
-        <span className="rounded border border-orange-500/40 bg-orange-950/30 px-2 py-0.5 font-semibold tracking-wide text-orange-200">
-          War · {relationSnapshot?.warTarget ?? snapshot?.warTarget}
-        </span>
+        <Link href={`/kingdom/${encodeURIComponent(warLoc!)}`} className="rounded border border-orange-500/40 bg-orange-950/30 px-2 py-0.5 font-semibold tracking-wide text-orange-200 hover:border-orange-400/60 transition-colors">
+          War · {warLoc}
+        </Link>
       ),
     });
   }
@@ -76,29 +77,42 @@ export function KingdomRelations({
       standalone: true,
       node: (
         <Tooltip content="Hostile actions are blocked while a Non-Aggression Pact or ceasefire is active.">
-          <span className={`rounded border px-2 py-0.5 text-[11px] font-medium ${relationBadgeClass(relationSnapshot?.ourAttitudeToThem ?? relationSnapshot?.theirAttitudeToUs ?? null)}`}>
+          <Link href={`/kingdom/${encodeURIComponent(primaryOpenRelation!.location)}`} className={`rounded border px-2 py-0.5 text-[11px] font-medium hover:opacity-80 transition-opacity ${relationBadgeClass(relationSnapshot?.ourAttitudeToThem ?? relationSnapshot?.theirAttitudeToUs ?? null)}`}>
             Non-Aggression Pact
-          </span>
+          </Link>
         </Tooltip>
       ),
     });
   } else if (relationSnapshot && (relationSnapshot.theirAttitudeToUs || relationSnapshot.ourAttitudeToThem)) {
+    const relLoc = primaryOpenRelation?.location;
     sections.push({
       standalone: false,
       node: (
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2 text-gray-300">
             <span className="w-20 text-gray-500">They → us</span>
-            <span className={`rounded border px-2 py-0.5 text-[11px] font-medium ${relationBadgeClass(relationSnapshot.theirAttitudeToUs)}`}>
-              {relationSnapshot.theirAttitudeToUs ?? "Unknown"}
-            </span>
+            {relLoc ? (
+              <Link href={`/kingdom/${encodeURIComponent(relLoc)}`} className={`rounded border px-2 py-0.5 text-[11px] font-medium hover:opacity-80 transition-opacity ${relationBadgeClass(relationSnapshot.theirAttitudeToUs)}`}>
+                {relationSnapshot.theirAttitudeToUs ?? "Unknown"}
+              </Link>
+            ) : (
+              <span className={`rounded border px-2 py-0.5 text-[11px] font-medium ${relationBadgeClass(relationSnapshot.theirAttitudeToUs)}`}>
+                {relationSnapshot.theirAttitudeToUs ?? "Unknown"}
+              </span>
+            )}
             <span className="text-gray-400">({formatRelationPoints(relationSnapshot.theirAttitudePoints)})</span>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-gray-300">
             <span className="w-20 text-gray-500">Us → them</span>
-            <span className={`rounded border px-2 py-0.5 text-[11px] font-medium ${relationBadgeClass(relationSnapshot.ourAttitudeToThem)}`}>
-              {relationSnapshot.ourAttitudeToThem ?? "Unknown"}
-            </span>
+            {relLoc ? (
+              <Link href={`/kingdom/${encodeURIComponent(relLoc)}`} className={`rounded border px-2 py-0.5 text-[11px] font-medium hover:opacity-80 transition-opacity ${relationBadgeClass(relationSnapshot.ourAttitudeToThem)}`}>
+                {relationSnapshot.ourAttitudeToThem ?? "Unknown"}
+              </Link>
+            ) : (
+              <span className={`rounded border px-2 py-0.5 text-[11px] font-medium ${relationBadgeClass(relationSnapshot.ourAttitudeToThem)}`}>
+                {relationSnapshot.ourAttitudeToThem ?? "Unknown"}
+              </span>
+            )}
             <span className="text-gray-400">({formatRelationPoints(relationSnapshot.ourAttitudePoints)})</span>
           </div>
         </div>
@@ -110,9 +124,9 @@ export function KingdomRelations({
     sections.push({
       standalone: true,
       node: (
-        <span className="rounded border border-orange-500/40 bg-orange-950/30 px-2 py-0.5 font-medium text-orange-200">
+        <Link href={`/kingdom/${encodeURIComponent(snapshot.warTarget)}`} className="rounded border border-orange-500/40 bg-orange-950/30 px-2 py-0.5 font-medium text-orange-200 hover:border-orange-400/60 transition-colors">
           War · {snapshot.warTarget}
-        </span>
+        </Link>
       ),
     });
   }
