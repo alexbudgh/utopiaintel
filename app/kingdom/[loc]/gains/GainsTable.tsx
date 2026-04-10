@@ -716,7 +716,7 @@ export function GainsTable({
         {defender.name}
       </div>
       <div className="mt-1 text-[10px] font-normal text-gray-500">
-        {formatNum(defender.networth)} / {formatNum(defender.land)}a
+        {formatNum(defender.networth)} / {defender.land.toLocaleString()}a
       </div>
     </Tooltip>
   );
@@ -784,7 +784,7 @@ export function GainsTable({
                       {attacker.name}
                     </Link>
                     <div className={`mt-1 text-[10px] font-normal ${selectedRowId === attacker.id ? "text-blue-300/80" : "text-gray-500"}`}>
-                      {formatNum(attacker.networth)} / {formatNum(attacker.land)}a
+                      {formatNum(attacker.networth)} / {attacker.land?.toLocaleString() ?? "—"}a
                     </div>
                   </Tooltip>
                 </th>
