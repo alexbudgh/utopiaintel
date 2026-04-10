@@ -153,6 +153,12 @@ export default async function Home() {
                       <span className="font-mono font-semibold text-gray-100">
                         {kd.location}
                       </span>
+                      {kd.location === boundKingdom && (
+                        <span className="ml-1.5 text-xs font-medium text-blue-400">★</span>
+                      )}
+                      {kd.location === selfWarTarget && (
+                        <span className="ml-1.5 text-xs font-medium text-orange-400">⚔</span>
+                      )}
                       {snapshot?.name && (
                         <div className="text-xs text-gray-500">{snapshot.name}</div>
                       )}
