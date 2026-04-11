@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { cookies, headers } from "next/headers";
 import { createHash } from "crypto";
-import { getBoundKingdom, getKingdoms, getLatestKingdomSnapshot, getKingdomRitual, type KingdomSnapshot } from "@/lib/db";
+import { getBoundKingdom, getKingdoms, getLatestKingdomSnapshot, getKingdomRitual, getKingdomDragon, type KingdomSnapshot } from "@/lib/db";
 import { IntelSetupCard } from "@/app/components/IntelSetupCard";
 import { IntelSetupButton } from "@/app/components/IntelSetupButton";
 import { freshnessColor, timeAgo } from "@/lib/ui";
@@ -98,7 +98,8 @@ export default async function Home() {
         ? getLatestKingdomSnapshot(openRelation.location, keyHash) ?? snapshot
         : snapshot;
     const ritual = getKingdomRitual(kd.location, keyHash);
-    return { kd, snapshot, relationSnapshot, ritual };
+    const dragon = getKingdomDragon(kd.location, keyHash);
+    return { kd, snapshot, relationSnapshot, ritual, dragon };
   });
 
   const selfWarTarget = boundKingdom
@@ -142,7 +143,7 @@ export default async function Home() {
       ) : (
         <div className="space-y-4">
           <ul className="space-y-2">
-            {kingdomRows.map(({ kd, snapshot, relationSnapshot, ritual }) => (
+            {kingdomRows.map(({ kd, snapshot, relationSnapshot, ritual, dragon }) => (
               <li key={kd.location}>
                 <div className="rounded-lg bg-gray-800 px-4 py-3">
                   <Link
@@ -170,13 +171,20 @@ export default async function Home() {
                       {timeAgo(kd.last_seen)}
                     </span>
                   </Link>
-                  {ritual && (
-                    <div className="mt-1.5 flex items-center gap-1.5 text-[11px]">
-                      <span className="rounded border border-purple-500/40 bg-purple-500/10 px-2 py-0.5 font-medium text-purple-300">
-                        {ritual.name}
-                        {ritual.remainingTicks != null && ` · ${ritual.remainingTicks}t`}
-                        {ritual.effectivenessPercent != null && ` · ${ritual.effectivenessPercent.toFixed(1)}%`}
-                      </span>
+                  {(ritual || dragon) && (
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+                      {dragon && (
+                        <span className="rounded border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 font-medium text-rose-300">
+                          {dragon.dragonType} Dragon · {dragon.dragonName}
+                        </span>
+                      )}
+                      {ritual && (
+                        <span className="rounded border border-purple-500/40 bg-purple-500/10 px-2 py-0.5 font-medium text-purple-300">
+                          {ritual.name}
+                          {ritual.remainingTicks != null && ` · ${ritual.remainingTicks}t`}
+                          {ritual.effectivenessPercent != null && ` · ${ritual.effectivenessPercent.toFixed(1)}%`}
+                        </span>
+                      )}
                     </div>
                   )}
                   {relationSummary(kd.location, boundKingdom, snapshot, relationSnapshot)}
