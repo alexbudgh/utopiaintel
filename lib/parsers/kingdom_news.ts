@@ -53,10 +53,14 @@ const MARCH_UNKNOWN_RE = new RegExp(`^An unknown province from ([^(]+?)\\s*${KDL
 const FAILED_RE     = new RegExp(`^(?:In intra-kingdom war )?${UNKNOWN_PROV_RE.source} attempted to invade ${PROV_REF}`);
 // Dragon arrived against us from news (different from SoT ravage)
 const DRAGON_ARRIVED_RE = new RegExp(`^A (\\w+) Dragon, ([^,]+), from ([^(]+?)\\s*${KDLOC} has begun ravaging our lands!`);
+// Dragon completed and launched by us: "X has completed our dragon, Name, and it sets flight to ravage Y (X:Y)!"
+const DRAGON_LAUNCHED_RE = new RegExp(`^(.+?) has completed our dragon, ([^,]+), and it sets flight to ravage ([^(]+?)\\s*${KDLOC}!`);
 // Dragon slain
 const DRAGON_SLAIN_RE   = /^(.+?) has slain the dragon, ([^,]+), ravaging our lands!/;
 // Ritual started
 const RITUAL_STARTED_RE = /^We have started developing a ritual! \((.+?)\)!/;
+// Ritual now active
+const RITUAL_ACTIVE_RE  = /^A ritual is covering our lands! \((.+?)\)/;
 
 const AID_RE                    = /^(.+?) has sent an aid shipment to (.+?)\.$/;
 const WAR_DECLARED_RE           = new RegExp(`^We have declared WAR on ([^(]+?)\\s*${KDLOC}!`);
@@ -160,6 +164,16 @@ function classifyEvent(text: string): Omit<KingdomNewsEvent, "gameDate" | "rawTe
     dragonType: null, dragonName: null,
   };
 
+  m = DRAGON_LAUNCHED_RE.exec(text);
+  if (m) return {
+    eventType: "dragon_by_us",
+    attackerName: null, attackerKingdom: null,
+    defenderName: null, defenderKingdom: null,
+    acres: null, books: null,
+    senderName: null, receiverName: null, relationKingdom: m[4],
+    dragonType: null, dragonName: m[2].trim(),
+  };
+
   m = DRAGON_ARRIVED_RE.exec(text);
   if (m) return {
     eventType: "dragon_against_us",
@@ -181,6 +195,16 @@ function classifyEvent(text: string): Omit<KingdomNewsEvent, "gameDate" | "rawTe
   };
 
   m = RITUAL_STARTED_RE.exec(text);
+  if (m) return {
+    eventType: "ritual_started",
+    attackerName: null, attackerKingdom: null,
+    defenderName: null, defenderKingdom: null,
+    acres: null, books: null,
+    senderName: null, receiverName: null, relationKingdom: null,
+    dragonType: null, dragonName: m[1].trim(),
+  };
+
+  m = RITUAL_ACTIVE_RE.exec(text);
   if (m) return {
     eventType: "ritual_started",
     attackerName: null, attackerKingdom: null,
