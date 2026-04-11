@@ -22,6 +22,7 @@ function makeProvince(overrides: Partial<ProvinceRow>): ProvinceRow {
     kingdom: "7:5",
     race: "Orc",
     personality: null,
+    honor_title: null,
     land: 1000,
     networth: 300000,
     overview_age: null,

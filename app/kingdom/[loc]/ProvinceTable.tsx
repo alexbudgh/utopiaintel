@@ -12,6 +12,7 @@ import { computeAmbushRawOff } from "@/lib/ambush";
 const COLUMNS = [
   { key: "race",        label: "Race",        group: "Overview",  desc: "Race"                                        },
   { key: "personality", label: "Personality", group: "Overview",  desc: "Personality"                                 },
+  { key: "honor_title", label: "Honor",       group: "Overview",  desc: "Honor title (from SoT or kingdom page)"      },
   { key: "good_spells", label: "Good Spells", group: "Overview",  desc: "Active good spells from latest self-throne data" },
   { key: "bad_spells",  label: "Bad Spells",  group: "Overview",  desc: "Active bad spells from latest self-throne data" },
   { key: "land",        label: "Land",        group: "Overview",  desc: "Acres of land"                               },
@@ -56,7 +57,7 @@ type SortKey = ColKey | "province";
 type SortDir = "asc" | "desc";
 
 const VIEWS: Record<string, ColKey[]> = {
-  Overview:  ["race", "personality", "good_spells", "bad_spells", "land", "networth", "armies", "off_points", "def_points", "def_home", "hit_status", "peasants", "building_efficiency", "age"],
+  Overview:  ["race", "personality", "honor_title", "good_spells", "bad_spells", "land", "networth", "armies", "off_points", "def_points", "def_home", "hit_status", "peasants", "building_efficiency", "age"],
   Military:  ["land", "armies", "off_points", "def_points", "off_home", "def_home", "ome", "dme", "soldiers_home", "off_specs_home", "def_specs_home", "elites_home", "peasants", "age"],
   Resources: ["land", "networth", "money", "food", "runes", "prisoners", "trade_balance", "war_horses", "peasants", "thieves", "wizards", "age"],
   "T/M":     ["land", "rtpa", "mtpa", "otpa", "dtpa", "rwpa", "mwpa", "age"],
@@ -77,6 +78,7 @@ function sortValueFor(p: ProvinceRow, key: SortKey): number | string | null {
     case "province": return p.name;
     case "race": return p.race;
     case "personality": return p.personality;
+    case "honor_title": return p.honor_title;
     case "good_spells": return p.good_spell_count ?? 0;
     case "bad_spells": return p.bad_spell_count ?? 0;
     case "armies": return p.armies_out_count ?? 0;
@@ -393,8 +395,9 @@ function tooltipContentFor(p: ProvinceRow, key: ColKey): string {
 
 function cellValue(p: ProvinceRow, key: ColKey): React.ReactNode {
   switch (key) {
-    case "race":        return <span className="font-mono text-gray-400">{p.race ?? "—"}</span>;
+    case "race":        return <span className="text-gray-400">{p.race ?? "—"}</span>;
     case "personality": return <span className="text-gray-400">{p.personality ?? "—"}</span>;
+    case "honor_title": return <span className="text-gray-400">{p.honor_title ?? "—"}</span>;
     case "armies": {
       if (!p.som_age) return "—";
       const out = p.armies_out_count ?? 0;

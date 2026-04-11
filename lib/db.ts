@@ -708,6 +708,7 @@ export interface ProvinceRow {
   kingdom: string;
   race: string | null;
   personality: string | null;
+  honor_title: string | null;
   land: number | null;
   networth: number | null;
   overview_age: string | null;
@@ -816,7 +817,7 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
              ORDER BY ki.received_at DESC
              LIMIT 1
            ) AS slot,
-           po.race, po.personality, po.land, po.networth, po.received_at AS overview_age, po.source AS overview_source,
+           po.race, po.personality, po.honor_title, po.land, po.networth, po.received_at AS overview_age, po.source AS overview_source,
            tmp.off_points, tmp.def_points, tmp.received_at AS military_age,
            pt.soldiers, pt.off_specs, pt.def_specs, pt.elites, pt.war_horses, pt.peasants, pt.received_at AS troops_age, pt.source AS troops_source,
            pt_home.soldiers AS soldiers_home, pt_home.off_specs AS off_specs_home, pt_home.def_specs AS def_specs_home, pt_home.elites AS elites_home, pt_home.received_at AS troops_home_age,
