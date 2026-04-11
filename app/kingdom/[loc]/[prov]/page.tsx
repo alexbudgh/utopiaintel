@@ -63,8 +63,9 @@ function formatEffectLabel(effect: { name: string; durationText: string | null; 
 
 const BAD_SPELLS: Set<string> = new Set(BAD_SPELL_NAMES);
 
-function effectBucket(effect: { name: string; kind: string }): "ritual" | "bad" | "good" {
+function effectBucket(effect: { name: string; kind: string }): "ritual" | "thievery" | "bad" | "good" {
   if (effect.kind === "ritual") return "ritual";
+  if (effect.kind === "thievery") return "thievery";
   return BAD_SPELLS.has(effect.name) ? "bad" : "good";
 }
 
@@ -105,6 +106,7 @@ export default async function ProvincePage({
   const d = getProvinceDetail(name, kingdom, keyHash);
   const goodEffects = d.effects.filter((effect) => effectBucket(effect) === "good");
   const badEffects = d.effects.filter((effect) => effectBucket(effect) === "bad");
+  const thiefEffects = d.effects.filter((effect) => effectBucket(effect) === "thievery");
   const ritualEffects = d.effects.filter((effect) => effectBucket(effect) === "ritual");
 
   if (!d.province) {
@@ -296,6 +298,7 @@ export default async function ProvincePage({
               </div>
               <EffectGroup label="Good Spells" tone="text-blue-300" effects={goodEffects} />
               <EffectGroup label="Bad Spells" tone="text-red-300" effects={badEffects} />
+              <EffectGroup label="Thief Ops" tone="text-amber-300" effects={thiefEffects} />
               <EffectGroup label="Ritual" tone="text-purple-300" effects={ritualEffects} />
             </div>
           </Card>

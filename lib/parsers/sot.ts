@@ -35,6 +35,8 @@ const SUFFIX_PERSONALITY_GROUP = Object.keys(SUFFIX_PERSONALITY_MAP).join("|");
 const PREFIX_PERS_TITLE_RE = new RegExp(`^[tT]he (${PREFIX_PERSONALITY_GROUP})\\s+(${HONOR_TITLE_GROUP})\\b`, "i");
 const SUFFIX_PERS_TITLE_RE = new RegExp(`\\bthe (${SUFFIX_PERSONALITY_GROUP})\\b`, "i");
 
+const THIEF_OP_DURATION_NAMES = new Set(["Incite Riots"]);
+
 const PLAGUE_RE = /The Plague has spread throughout our people/;
 const OVERPOP_RE = /Riots due to housing shortages/;
 const DRAGON_RE = /The (\w+) Dragon, ([^,]+), ravages our lands!/;
@@ -55,7 +57,7 @@ function parseDurationEffects(text: string): SoTData["activeEffects"] {
   return [...match[1].matchAll(/([A-Za-z][A-Za-z' ]*[A-Za-z])\s*\(\s*([^)]+?)\s*\)/g)]
     .map(([, name, duration]) => ({
       name: normalizeWhitespace(name),
-      kind: "spell" as const,
+      kind: (THIEF_OP_DURATION_NAMES.has(normalizeWhitespace(name)) ? "thievery" : "spell") as "spell" | "thievery",
       durationText: normalizeWhitespace(duration),
       remainingTicks: parseDurationTicks(duration),
       effectivenessPercent: null,

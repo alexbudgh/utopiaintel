@@ -41,7 +41,7 @@ export interface SoTData extends ProvinceId {
   war: boolean;
   activeEffects: Array<{
     name: string;
-    kind: "spell" | "ritual";
+    kind: "spell" | "ritual" | "thievery";
     durationText: string | null;
     remainingTicks: number | null;
     effectivenessPercent: number | null;
