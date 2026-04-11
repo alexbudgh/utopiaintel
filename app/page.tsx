@@ -174,16 +174,16 @@ export default async function Home() {
                   {(ritual || dragon) && (
                     <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
                       {dragon && (
-                        <span className="rounded border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 font-medium text-rose-300">
+                        <a href="https://utopiaguide.chaos-intel.com/main/Dragons/" target="_blank" rel="noopener noreferrer" className="rounded border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 font-medium text-rose-300 hover:border-rose-400/60 transition-colors">
                           {dragon.dragonType} Dragon · {dragon.dragonName}
-                        </span>
+                        </a>
                       )}
                       {ritual && (
-                        <span className="rounded border border-purple-500/40 bg-purple-500/10 px-2 py-0.5 font-medium text-purple-300">
+                        <a href="https://utopiaguide.chaos-intel.com/misc/Ritual/" target="_blank" rel="noopener noreferrer" className="rounded border border-purple-500/40 bg-purple-500/10 px-2 py-0.5 font-medium text-purple-300 hover:border-purple-400/60 transition-colors">
                           {ritual.name}
                           {ritual.remainingTicks != null && ` · ${ritual.remainingTicks}t`}
                           {ritual.effectivenessPercent != null && ` · ${ritual.effectivenessPercent.toFixed(1)}%`}
-                        </span>
+                        </a>
                       )}
                     </div>
                   )}

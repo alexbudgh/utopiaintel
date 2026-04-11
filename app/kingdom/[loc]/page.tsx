@@ -81,14 +81,14 @@ export default async function KingdomPage({
       {(dragon || ritual) && (
         <div className="mb-4 flex flex-wrap gap-2">
           {dragon && (
-            <div className="inline-flex items-center gap-2 rounded border border-rose-500/40 bg-rose-500/10 px-3 py-1.5 text-sm text-rose-300">
+            <a href="https://utopiaguide.chaos-intel.com/main/Dragons/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded border border-rose-500/40 bg-rose-500/10 px-3 py-1.5 text-sm text-rose-300 hover:border-rose-400/60 transition-colors">
               <span className="font-medium">{dragon.dragonType} Dragon</span>
               <span className="text-rose-400">{dragon.dragonName}</span>
               <span className="text-rose-600 text-xs">{timeAgo(dragon.receivedAt)}</span>
-            </div>
+            </a>
           )}
           {ritual && (
-            <div className="inline-flex items-center gap-2 rounded border border-purple-500/40 bg-purple-500/10 px-3 py-1.5 text-sm text-purple-300">
+            <a href="https://utopiaguide.chaos-intel.com/misc/Ritual/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded border border-purple-500/40 bg-purple-500/10 px-3 py-1.5 text-sm text-purple-300 hover:border-purple-400/60 transition-colors">
               <span className="font-medium">{ritual.name}</span>
               {ritual.effectivenessPercent != null && (
                 <span className="text-purple-400">{ritual.effectivenessPercent.toFixed(1)}%</span>
@@ -97,7 +97,7 @@ export default async function KingdomPage({
                 <span className="text-purple-500">{ritual.remainingTicks} ticks left</span>
               )}
               <span className="text-purple-600 text-xs">{timeAgo(ritual.receivedAt)}</span>
-            </div>
+            </a>
           )}
         </div>
       )}
