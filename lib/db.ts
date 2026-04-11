@@ -801,12 +801,15 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
   const db = getDb();
   return db.prepare(`
     WITH latest_effects AS (
-      SELECT province_id, effect_name, effect_kind, remaining_ticks, received_at,
+      SELECT pe.province_id, pe.effect_name, pe.effect_kind, pe.remaining_ticks, pe.received_at,
              row_number() OVER (
-               PARTITION BY province_id, effect_name, effect_kind
-               ORDER BY received_at DESC, id DESC
+               PARTITION BY pe.province_id, pe.effect_name, pe.effect_kind
+               ORDER BY pe.id DESC
              ) AS rn
-      FROM province_effects
+      FROM province_effects pe
+      WHERE pe.received_at = (
+        SELECT MAX(pe2.received_at) FROM province_effects pe2 WHERE pe2.province_id = pe.province_id
+      )
     ),
     spell_summary AS (
       SELECT province_id,
@@ -967,6 +970,9 @@ export function getKingdomRitual(kingdom: string, keyHash: string): KingdomRitua
     JOIN provinces p ON p.id = pe.province_id
     JOIN intel_partitions ip ON ip.province_id = p.id AND ip.key_hash = ?
     WHERE p.kingdom = ? AND pe.effect_kind = 'ritual'
+      AND pe.received_at = (
+        SELECT MAX(pe2.received_at) FROM province_effects pe2 WHERE pe2.province_id = pe.province_id
+      )
     ORDER BY pe.received_at DESC, pe.id DESC
     LIMIT 1
   `).get(keyHash, kingdom) as { effect_name: string; remaining_ticks: number | null; effectiveness_percent: number | null; received_at: string } | undefined;
@@ -1052,14 +1058,15 @@ export function getProvinceDetail(name: string, kingdom: string, keyHash: string
        SELECT effect_name, effect_kind, duration_text, remaining_ticks, effectiveness_percent, received_at,
               row_number() OVER (
                 PARTITION BY effect_name, effect_kind
-                ORDER BY received_at DESC, id DESC
+                ORDER BY id DESC
               ) AS rn
        FROM province_effects
        WHERE province_id = ?
+         AND received_at = (SELECT MAX(pe2.received_at) FROM province_effects pe2 WHERE pe2.province_id = ?)
      )
      WHERE rn = 1
      ORDER BY effect_kind ASC, effect_name ASC`
-  ).all(id) as Array<{ effect_name: string; effect_kind: string; duration_text: string | null; remaining_ticks: number | null; effectiveness_percent: number | null; received_at: string }>;
+  ).all(id, id) as Array<{ effect_name: string; effect_kind: string; duration_text: string | null; remaining_ticks: number | null; effectiveness_percent: number | null; received_at: string }>;
 
   const miRaw = db.prepare(
     "SELECT id, ome, dme, received_at FROM military_intel WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
