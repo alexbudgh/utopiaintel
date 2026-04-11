@@ -592,12 +592,16 @@ function breakMarker(attacker: ProvinceRow, defenderLatest: ProvinceRow | null) 
 
 function gainsTone(
   estimate: NonNullable<ReturnType<typeof estimateTraditionalMarchAcres>> | null,
+  defenderLand: number,
 ): { cell: string; value: string } {
   if (!estimate) return { cell: "bg-gray-950/40", value: "text-gray-500" };
-  if (estimate.roundedAcres === 0) return { cell: "bg-gray-950/60", value: "text-gray-300" };
-  if (estimate.roundedAcres < 50) return { cell: "bg-amber-950/20", value: "text-amber-200" };
-  if (estimate.roundedAcres < 100) return { cell: "bg-lime-950/25", value: "text-lime-200" };
-  return { cell: "bg-green-950/30", value: "text-green-200" };
+  if (estimate.roundedAcres === 0) return { cell: "bg-gray-950/60", value: "text-gray-400" };
+  const pct = defenderLand > 0 ? (estimate.rawAcres / defenderLand) * 100 : 0;
+  if (pct < 5)  return { cell: "bg-red-950/30",    value: "text-red-300" };
+  if (pct < 8)  return { cell: "bg-amber-950/25",  value: "text-amber-200" };
+  if (pct < 10) return { cell: "bg-gray-950/40",   value: "text-gray-200" };
+  if (pct < 11) return { cell: "bg-lime-950/25",   value: "text-lime-200" };
+  return           { cell: "bg-green-950/30",   value: "text-green-200" };
 }
 
 function stateBadges(
@@ -847,7 +851,7 @@ export function GainsTable({
                     theirAttitudeToUs: targetSnapshot.theirAttitudeToUs,
                   });
                   const breakability = estimateBreakability(attacker, defenderLatest);
-                  const tone = gainsTone(estimate);
+                  const tone = gainsTone(estimate, defender.land);
                   const badges = stateBadges(estimate, breakability);
 
                   return (
