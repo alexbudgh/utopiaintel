@@ -748,15 +748,17 @@ export function GainsTable({
 
   const renderTargetHeader = (defender: KingdomSnapshotProvince) => (
     <Tooltip content={`${defender.slot != null ? `Slot ${defender.slot}\n` : ""}${defender.name}\nNW ${defender.networth.toLocaleString()}\nLand ${defender.land.toLocaleString()}`}>
-      <div>
-        {defender.slot != null && (
-          <span className="mr-1.5 text-[10px] tabular-nums text-gray-500">#{defender.slot}</span>
-        )}
-        {defender.name}
-      </div>
-      <div className="mt-1 text-[10px] font-normal text-gray-500">
-        {formatNum(defender.networth)} / {defender.land.toLocaleString()}a
-      </div>
+      <Link href={`/kingdom/${encodeURIComponent(targetKingdom)}/${encodeURIComponent(defender.name)}`} className="hover:text-blue-300 transition-colors">
+        <div>
+          {defender.slot != null && (
+            <span className="mr-1.5 text-[10px] tabular-nums text-gray-500">#{defender.slot}</span>
+          )}
+          {defender.name}
+        </div>
+        <div className="mt-1 text-[10px] font-normal text-gray-500">
+          {formatNum(defender.networth)} / {defender.land.toLocaleString()}a
+        </div>
+      </Link>
     </Tooltip>
   );
 
