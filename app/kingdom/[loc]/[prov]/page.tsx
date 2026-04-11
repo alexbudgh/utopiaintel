@@ -284,7 +284,7 @@ export default async function ProvincePage({
               {d.status.plagued      && <span className="text-sm text-red-400">Plagued</span>}
               {d.status.overpopulated && <span className="text-sm text-yellow-400">Overpopulated</span>}
               {d.status.war          && <span className="text-sm text-orange-400">At war</span>}
-              {d.status.hitStatus    && <span className="text-sm text-gray-300">{d.status.hitStatus}</span>}
+              {d.status.hitStatus    && <span className="text-sm text-gray-300">MAP: hit {d.status.hitStatus}</span>}
               {!d.status.plagued && !d.status.overpopulated && !d.status.war && !d.status.hitStatus && d.effects.length === 0 && (
                 <span className="text-sm text-gray-600">No flags</span>
               )}
