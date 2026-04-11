@@ -539,7 +539,13 @@ export function ProvinceTable({
   const visibleCols = COLUMNS.filter((c) => visible.has(c.key));
   const sortedProvinces = sort
     ? [...provinces].sort((a, b) => {
-        const cmp = compareSortValues(sortValueFor(a, sort.key), sortValueFor(b, sort.key));
+        const av = sortValueFor(a, sort.key);
+        const bv = sortValueFor(b, sort.key);
+        // nulls always sink to the bottom regardless of direction
+        if (av == null && bv == null) return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+        if (av == null) return 1;
+        if (bv == null) return -1;
+        const cmp = compareSortValues(av, bv);
         if (cmp !== 0) return sort.dir === "asc" ? cmp : -cmp;
         return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
       })
