@@ -446,14 +446,14 @@ function estimateTitle(
 
         <div className="mt-2 grid gap-2 md:grid-cols-2">
           <Section title="Relative NW">
-            <Row label="RPNW" value={`${fmt(defender.networth)} / ${fmt(attacker.networth ?? 0)} = ${estimate.rpnw.toFixed(3)}`} tone="text-gray-100" />
+            <Row label="RPNW" value={`${fmt(defender.networth)} / ${fmt(attacker.networth ?? 0)} = ${estimate.rpnw.toFixed(3)} (${(estimate.rpnw * 100).toFixed(1)}%)`} tone="text-gray-100" />
             <div className={factorClass(estimate.rpnwFactor)}>
               {rpnwInfo.branch}
             </div>
             <div className={factorClass(estimate.rpnwFactor)}>
               {rpnwInfo.calc}
             </div>
-            <Row label="RKNW" value={`${fmt(targetAvgNetworth)} / ${fmt(selfAvgNetworth)} = ${estimate.rknw.toFixed(3)}`} tone="text-gray-100" />
+            <Row label="RKNW" value={`${fmt(targetAvgNetworth)} / ${fmt(selfAvgNetworth)} = ${estimate.rknw.toFixed(3)} (${(estimate.rknw * 100).toFixed(1)}%)`} tone="text-gray-100" />
             <div className={factorClass(estimate.rknwFactor)}>
               {rknwInfo.branch}
             </div>
