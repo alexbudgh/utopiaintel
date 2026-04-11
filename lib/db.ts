@@ -964,6 +964,10 @@ export function getKingdomDragon(kingdom: string, keyHash: string): KingdomDrago
     JOIN provinces p ON p.id = ps.province_id
     JOIN intel_partitions ip ON ip.province_id = p.id AND ip.key_hash = ?
     WHERE p.kingdom = ? AND ps.dragon_type IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM province_status ps2
+        WHERE ps2.province_id = ps.province_id AND ps2.id > ps.id AND ps2.dragon_type IS NULL
+      )
     ORDER BY ps.received_at DESC, ps.id DESC
     LIMIT 1
   `).get(keyHash, kingdom) as { dragon_type: string; dragon_name: string; received_at: string } | undefined;
