@@ -296,7 +296,7 @@ export default async function ProvincePage({
                 <span className="text-sm text-gray-600">No flags</span>
               )}
               </div>
-              <EffectGroup label="Good Spells" tone="text-blue-300" effects={goodEffects} />
+              <EffectGroup label="Good Spells" tone="text-green-300" effects={goodEffects} />
               <EffectGroup label="Bad Spells" tone="text-red-300" effects={badEffects} />
               <EffectGroup label="Thief Ops" tone="text-amber-300" effects={thiefEffects} />
               <EffectGroup label="Ritual" tone="text-purple-300" effects={ritualEffects} />
