@@ -8,9 +8,10 @@ import {
   storeSoT,
   storeKingdom,
   storeSurvey,
+  storeKingdomNews,
 } from "../lib/db";
 
-type ReplayType = "kingdom" | "survey" | "sot";
+type ReplayType = "kingdom" | "survey" | "sot" | "kingdom_news";
 
 interface DebugEntry {
   url: string;
@@ -19,7 +20,7 @@ interface DebugEntry {
   received_at?: string;
 }
 
-const allowedTypes = new Set<ReplayType>(["kingdom", "survey", "sot"]);
+const allowedTypes = new Set<ReplayType>(["kingdom", "survey", "sot", "kingdom_news"]);
 
 function normalizeReceivedAt(receivedAt: string): string {
   const date = new Date(receivedAt);
@@ -148,13 +149,18 @@ function replayEntry(entry: DebugEntry, keyHash: string, allowed: Set<ReplayType
     return "sot";
   }
 
+  if (parsed.type === "kingdom_news") {
+    storeKingdomNews(parsed.data, keyHash);
+    return "kingdom_news";
+  }
+
   return null;
 }
 
 function main() {
   const args = process.argv.slice(2);
   if (args.length === 0) {
-    throw new Error("Usage: tsx scripts/replay-debug-log.ts <jsonl...> [--types=kingdom,survey,sot]");
+    throw new Error("Usage: tsx scripts/replay-debug-log.ts <jsonl...> [--types=kingdom,survey,sot,kingdom_news]");
   }
 
   const typeArg = args.find((arg) => arg.startsWith("--types="));

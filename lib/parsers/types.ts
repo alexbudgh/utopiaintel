@@ -1,6 +1,6 @@
 // Shared types for all parsers
 
-export type IntelType = "sot" | "survey" | "som" | "sos" | "sod" | "infiltrate" | "kingdom" | "state";
+export type IntelType = "sot" | "survey" | "som" | "sos" | "sod" | "infiltrate" | "kingdom" | "state" | "kingdom_news";
 
 export interface ProvinceId {
   name: string;
@@ -151,4 +151,5 @@ export type ParseResult =
   | { type: "sod"; data: SoDData }
   | { type: "infiltrate"; data: InfiltrateData }
   | { type: "kingdom"; data: KingdomData }
-  | { type: "state"; data: StateData };
+  | { type: "state"; data: StateData }
+  | { type: "kingdom_news"; data: import("./kingdom_news").KingdomNewsData };

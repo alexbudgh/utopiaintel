@@ -7,6 +7,7 @@ import { parseSoD } from "./sod";
 import { parseInfiltrate } from "./infiltrate";
 import { parseKingdom } from "./kingdom";
 import { parseState } from "./state";
+import { parseKingdomNews } from "./kingdom_news";
 import type { ParseResult } from "./types";
 
 export type { ParseResult } from "./types";
@@ -48,6 +49,10 @@ export function parseIntel(url: string, dataSimple: string, selfProv?: string): 
       if (!selfProv) return null;
       const data = parseState(dataSimple, selfProv);
       return data ? { type: "state", data } : null;
+    }
+    case "kingdom_news": {
+      const data = parseKingdomNews(dataSimple);
+      return data ? { type: "kingdom_news", data } : null;
     }
   }
 }

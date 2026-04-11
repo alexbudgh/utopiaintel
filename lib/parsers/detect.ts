@@ -53,6 +53,7 @@ export function detectIntelType(url: string): IntelType | null {
   // Non-thievery pages
   if (pathname.endsWith("/survey")) return "survey";
   if (pathname === "/wol/game/kingdom" || pathname.startsWith("/wol/game/kingdom_details")) return "kingdom";
+  if (pathname === "/wol/game/kingdom_news" || pathname.startsWith("/wol/game/kingdom_news/")) return "kingdom_news";
 
   return null;
 }

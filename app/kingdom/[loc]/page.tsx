@@ -3,13 +3,14 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { cookies, headers } from "next/headers";
 import { createHash } from "crypto";
-import { getBoundKingdom, getKingdomProvinces, getLatestKingdomSnapshot, getKingdomRitual, getKingdomDragon } from "@/lib/db";
+import { getBoundKingdom, getKingdomProvinces, getLatestKingdomSnapshot, getKingdomRitual, getKingdomDragon, getKingdomNews } from "@/lib/db";
 import { timeAgo } from "@/lib/ui";
 import { KingdomRelations } from "@/app/components/KingdomRelations";
 import { IntelSetupCard } from "@/app/components/IntelSetupCard";
 import { IntelSetupButton } from "@/app/components/IntelSetupButton";
 import { ProvinceTable } from "./ProvinceTable";
 import { GainsTable } from "./gains/GainsTable";
+import { KingdomNewsTable } from "./KingdomNewsTable";
 import { KingdomJump } from "./KingdomJump";
 import { getGainsPageData } from "@/lib/gains-page";
 
@@ -38,6 +39,7 @@ export default async function KingdomPage({
     : null;
   const hasAnyIntel = provinces.length > 0 || !!snapshot;
   const gainsInitial = view === "gains" ? getGainsPageData(kingdom, keyHash) : null;
+  const newsEvents = view === "news" ? getKingdomNews(kingdom, keyHash) : null;
   const ritual = getKingdomRitual(kingdom, keyHash);
   const dragon = getKingdomDragon(kingdom, keyHash);
 
@@ -102,7 +104,9 @@ export default async function KingdomPage({
         </div>
       )}
 
-      {view === "gains" ? (
+      {view === "news" ? (
+        <KingdomNewsTable events={newsEvents!} kingdom={kingdom} />
+      ) : view === "gains" ? (
         <GainsTable initial={gainsInitial!} embedded />
       ) : hasAnyIntel ? (
         <ProvinceTable kingdom={kingdom} initial={provinces} />

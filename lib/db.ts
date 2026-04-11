@@ -13,6 +13,7 @@ import type {
   StateData,
   KingdomOpenRelation,
 } from "./parsers/types";
+import type { KingdomNewsData, KingdomNewsEvent } from "./parsers/kingdom_news";
 
 const DB_PATH = process.env.INTEL_DB_PATH || path.join(process.cwd(), "intel.db");
 const TTL_DAYS = 7;
@@ -274,6 +275,29 @@ function initSchema(db: Database.Database) {
       networth INTEGER NOT NULL,
       honor_title TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS kingdom_news (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kingdom TEXT NOT NULL,
+      game_date TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      raw_text TEXT NOT NULL,
+      attacker_name TEXT,
+      attacker_kingdom TEXT,
+      defender_name TEXT,
+      defender_kingdom TEXT,
+      acres INTEGER,
+      books INTEGER,
+      sender_name TEXT,
+      receiver_name TEXT,
+      relation_kingdom TEXT,
+      dragon_type TEXT,
+      dragon_name TEXT,
+      received_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(kingdom, game_date, raw_text)
+    );
+    CREATE INDEX IF NOT EXISTS idx_kingdom_news_kd_date
+      ON kingdom_news(kingdom, game_date DESC);
   `);
 
   // Additive migrations
@@ -1095,6 +1119,125 @@ export function getProvinceDetail(name: string, kingdom: string, keyHash: string
   };
 }
 
+export function storeKingdomNews(data: KingdomNewsData, keyHash: string) {
+  const db = getDb();
+  const kingdom = getBoundKingdom(keyHash);
+  if (!kingdom) return; // can't associate news without a bound kingdom
+
+  const ins = db.prepare(`
+    INSERT OR IGNORE INTO kingdom_news (
+      kingdom, game_date, event_type, raw_text,
+      attacker_name, attacker_kingdom,
+      defender_name, defender_kingdom,
+      acres, books,
+      sender_name, receiver_name,
+      relation_kingdom,
+      dragon_type, dragon_name
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const insertMany = db.transaction((events: KingdomNewsEvent[]) => {
+    for (const e of events) {
+      ins.run(
+        kingdom, e.gameDate, e.eventType, e.rawText,
+        e.attackerName, e.attackerKingdom,
+        e.defenderName, e.defenderKingdom,
+        e.acres, e.books,
+        e.senderName, e.receiverName,
+        e.relationKingdom,
+        e.dragonType, e.dragonName,
+      );
+    }
+  });
+
+  insertMany(data.events);
+}
+
+export interface KingdomNewsRow {
+  id: number;
+  kingdom: string;
+  gameDate: string;
+  eventType: string;
+  rawText: string;
+  attackerName: string | null;
+  attackerKingdom: string | null;
+  defenderName: string | null;
+  defenderKingdom: string | null;
+  acres: number | null;
+  books: number | null;
+  senderName: string | null;
+  receiverName: string | null;
+  relationKingdom: string | null;
+  dragonType: string | null;
+  dragonName: string | null;
+  receivedAt: string;
+}
+
+export function getKingdomNews(kingdom: string, keyHash: string, limit = 200): KingdomNewsRow[] {
+  const db = getDb();
+  // Access control: only return news if the key has any intel for that kingdom
+  const hasAccess = db.prepare(`
+    SELECT 1 FROM intel_partitions ip
+    JOIN provinces p ON p.id = ip.province_id
+    WHERE ip.key_hash = ? AND p.kingdom = ?
+    LIMIT 1
+  `).get(keyHash, kingdom);
+  if (!hasAccess) return [];
+
+  const rows = db.prepare(`
+    SELECT id, kingdom, game_date, event_type, raw_text,
+           attacker_name, attacker_kingdom,
+           defender_name, defender_kingdom,
+           acres, books,
+           sender_name, receiver_name,
+           relation_kingdom,
+           dragon_type, dragon_name,
+           received_at
+    FROM kingdom_news
+    WHERE kingdom = ?
+    ORDER BY game_date DESC, id DESC
+    LIMIT ?
+  `).all(kingdom, limit) as Array<{
+    id: number;
+    kingdom: string;
+    game_date: string;
+    event_type: string;
+    raw_text: string;
+    attacker_name: string | null;
+    attacker_kingdom: string | null;
+    defender_name: string | null;
+    defender_kingdom: string | null;
+    acres: number | null;
+    books: number | null;
+    sender_name: string | null;
+    receiver_name: string | null;
+    relation_kingdom: string | null;
+    dragon_type: string | null;
+    dragon_name: string | null;
+    received_at: string;
+  }>;
+
+  return rows.map((r) => ({
+    id: r.id,
+    kingdom: r.kingdom,
+    gameDate: r.game_date,
+    eventType: r.event_type,
+    rawText: r.raw_text,
+    attackerName: r.attacker_name,
+    attackerKingdom: r.attacker_kingdom,
+    defenderName: r.defender_name,
+    defenderKingdom: r.defender_kingdom,
+    acres: r.acres,
+    books: r.books,
+    senderName: r.sender_name,
+    receiverName: r.receiver_name,
+    relationKingdom: r.relation_kingdom,
+    dragonType: r.dragon_type,
+    dragonName: r.dragon_name,
+    receivedAt: r.received_at,
+  }));
+}
+
 export function cleanupExpired() {
   const db = getDb();
   const cutoff = `datetime('now', '-${TTL_DAYS} days')`;
@@ -1109,5 +1252,6 @@ export function cleanupExpired() {
     DELETE FROM survey_intel WHERE received_at < ${cutoff};
     DELETE FROM sos_intel WHERE received_at < ${cutoff};
     DELETE FROM kingdom_intel WHERE received_at < ${cutoff};
+    DELETE FROM kingdom_news WHERE received_at < ${cutoff};
   `);
 }

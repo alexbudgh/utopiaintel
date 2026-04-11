@@ -687,6 +687,9 @@ export function GainsTable({
         Province Table
       </Link>
       <span className={`${btnBase} ${btnActive}`}>Gains</span>
+      <Link href={`${kingdomHref}?view=news`} className={`${btnBase} ${btnInactive}`}>
+        News
+      </Link>
       <Tooltip
         content={[
           { text: "Traditional March land gains only.", tone: "strong" },

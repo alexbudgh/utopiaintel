@@ -13,6 +13,7 @@ import {
   storeInfiltrate,
   storeKingdom,
   storeState,
+  storeKingdomNews,
   cleanupExpired,
 } from "@/lib/db";
 
@@ -36,14 +37,15 @@ const DEBUG_LOG = process.env.INTEL_DEBUG === "1";
 const LOG_FILE = path.join(process.cwd(), "intel_debug.jsonl");
 
 const TABLES: Record<string, string[]> = {
-  sot:        ["province_overview", "total_military_points", "province_troops", "province_resources", "province_status"],
-  survey:     ["survey_intel", "survey_buildings"],
-  som:        ["home_military_points", "province_troops", "military_intel", "som_armies"],
-  sos:        ["sos_intel", "sos_sciences"],
-  sod:        ["home_military_points"],
-  infiltrate: ["province_resources"],
-  kingdom:    ["kingdom_intel", "kingdom_provinces", "province_overview"],
-  state:      ["province_overview", "province_resources", "province_troops"],
+  sot:          ["province_overview", "total_military_points", "province_troops", "province_resources", "province_status"],
+  survey:       ["survey_intel", "survey_buildings"],
+  som:          ["home_military_points", "province_troops", "military_intel", "som_armies"],
+  sos:          ["sos_intel", "sos_sciences"],
+  sod:          ["home_military_points"],
+  infiltrate:   ["province_resources"],
+  kingdom:      ["kingdom_intel", "kingdom_provinces", "province_overview"],
+  state:        ["province_overview", "province_resources", "province_troops"],
+  kingdom_news: ["kingdom_news"],
 };
 
 // Run TTL cleanup roughly once per 100 requests
@@ -98,8 +100,8 @@ export async function POST(request: NextRequest) {
   const isSelfThrone = pathname === "/wol/game/throne";
 
   const province = "name" in result.data ? result.data.name : "—";
-  const kingdom  = "kingdom" in result.data ? result.data.kingdom : "—";
-  intelLog(`${result.type.padEnd(7)}  ${province} (${kingdom})  from=${savedBy}  → ${TABLES[result.type]?.join(", ")}`);
+  const kingdom  = "kingdom" in result.data ? result.data.kingdom : result.type === "kingdom_news" ? `${result.data.events.length} events` : "—";
+  intelLog(`${result.type.padEnd(12)}  ${province} (${kingdom})  from=${savedBy}  → ${TABLES[result.type]?.join(", ")}`);
 
   switch (result.type) {
     case "sot":
@@ -125,6 +127,9 @@ export async function POST(request: NextRequest) {
       break;
     case "state":
       storeState(result.data, savedBy, keyHash);
+      break;
+    case "kingdom_news":
+      storeKingdomNews(result.data, keyHash);
       break;
   }
 
