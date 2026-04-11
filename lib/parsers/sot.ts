@@ -37,6 +37,7 @@ const SUFFIX_PERS_TITLE_RE = new RegExp(`\\bthe (${SUFFIX_PERSONALITY_GROUP})\\b
 
 const PLAGUE_RE = /The Plague has spread throughout our people/;
 const OVERPOP_RE = /Riots due to housing shortages/;
+const DRAGON_RE = /The (\w+) Dragon, ([^,]+), ravages our lands!/;
 const OVERPOP_DESERTERS_RE = /We expect roughly ([\d,]+) men from our military will desert/;
 const HIT_RE = /province has been attacked (pretty heavily|moderately|a little|extremely badly)/;
 const WAR_RE = /Our Kingdom is at WAR!/;
@@ -140,6 +141,7 @@ export function parseSoT(text: string): SoTData | null {
   if (!nd) return null;
 
   const hitMatch = HIT_RE.exec(text);
+  const dragonMatch = DRAGON_RE.exec(text);
   const activeEffects = parseDurationEffects(text);
   const ritualEffect = parseRitualEffect(text);
   if (ritualEffect) activeEffects.push(ritualEffect);
@@ -174,6 +176,8 @@ export function parseSoT(text: string): SoTData | null {
     plagued: PLAGUE_RE.test(text),
     overpopulated: OVERPOP_RE.test(text),
     overpopDeserters: (() => { const m = OVERPOP_DESERTERS_RE.exec(text); return m ? parseNum(m[1]) : null; })(),
+    dragonType: dragonMatch ? dragonMatch[1] : null,
+    dragonName: dragonMatch ? dragonMatch[2].trim() : null,
     hitStatus: hitMatch ? hitMatch[1] : "",
     war: WAR_RE.test(text),
     activeEffects,

@@ -35,6 +35,8 @@ export interface SoTData extends ProvinceId {
   plagued: boolean;
   overpopulated: boolean;
   overpopDeserters: number | null;
+  dragonType: string | null;
+  dragonName: string | null;
   hitStatus: string;
   war: boolean;
   activeEffects: Array<{
