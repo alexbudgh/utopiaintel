@@ -34,6 +34,7 @@ export interface SoTData extends ProvinceId {
   defPoints: number;
   plagued: boolean;
   overpopulated: boolean;
+  overpopDeserters: number | null;
   hitStatus: string;
   war: boolean;
   activeEffects: Array<{

@@ -291,6 +291,7 @@ function initSchema(db: Database.Database) {
   if (!hasCol("kingdom_intel", "hostility_meter_visible_until")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN hostility_meter_visible_until TEXT");
   if (!hasCol("kingdom_intel", "open_relations_json")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN open_relations_json TEXT");
   if (!hasCol("kingdom_provinces", "slot")) db.exec("ALTER TABLE kingdom_provinces ADD COLUMN slot INTEGER");
+  if (!hasCol("province_status", "overpop_deserters")) db.exec("ALTER TABLE province_status ADD COLUMN overpop_deserters INTEGER");
 }
 
 // Get or create province identity, return ID
@@ -364,9 +365,9 @@ export function storeSoT(data: SoTData, savedBy: string, keyHash: string, isSelf
 
     // 5. Status
     db.prepare(`
-      INSERT INTO province_status (province_id, plagued, overpopulated, hit_status, war, saved_by)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(provId, data.plagued ? 1 : 0, data.overpopulated ? 1 : 0, data.hitStatus, data.war ? 1 : 0, savedBy);
+      INSERT INTO province_status (province_id, plagued, overpopulated, overpop_deserters, hit_status, war, saved_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(provId, data.plagued ? 1 : 0, data.overpopulated ? 1 : 0, data.overpopDeserters ?? null, data.hitStatus, data.war ? 1 : 0, savedBy);
 
     const insertEffect = db.prepare(`
       INSERT INTO province_effects (province_id, effect_name, effect_kind, duration_text, remaining_ticks, effectiveness_percent, source, saved_by)
@@ -918,7 +919,7 @@ export interface ProvinceDetail {
   homeMilitary: { modOffAtHome: number | null; modDefAtHome: number | null; source: string; receivedAt: string } | null;
   troops: { soldiers: number | null; offSpecs: number | null; defSpecs: number | null; elites: number | null; warHorses: number | null; peasants: number | null; source: string; receivedAt: string } | null;
   resources: { money: number | null; food: number | null; runes: number | null; prisoners: number | null; tradeBalance: number | null; buildingEfficiency: number | null; thieves: number | null; stealth: number | null; wizards: number | null; mana: number | null; receivedAt: string } | null;
-  status: { plagued: boolean; overpopulated: boolean; hitStatus: string | null; war: boolean; receivedAt: string } | null;
+  status: { plagued: boolean; overpopulated: boolean; overpopDeserters: number | null; hitStatus: string | null; war: boolean; receivedAt: string } | null;
   effects: { name: string; kind: string; durationText: string | null; remainingTicks: number | null; effectivenessPercent: number | null; receivedAt: string }[];
   militaryIntel: { ome: number | null; dme: number | null; receivedAt: string; armies: ArmyRow[] } | null;
   survey: { receivedAt: string; buildings: BuildingRow[] } | null;
@@ -990,9 +991,9 @@ export function getProvinceDetail(name: string, kingdom: string, keyHash: string
   const resources = resRaw ? { money: resRaw.money, food: resRaw.food, runes: resRaw.runes, prisoners: resRaw.prisoners, tradeBalance: resRaw.trade_balance, buildingEfficiency: resRaw.building_efficiency, thieves: resRaw.thieves, stealth: resRaw.stealth, wizards: resRaw.wizards, mana: resRaw.mana, receivedAt: resRaw.received_at } : null;
 
   const statusRaw = db.prepare(
-    "SELECT plagued, overpopulated, hit_status, war, received_at FROM province_status WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
+    "SELECT plagued, overpopulated, overpop_deserters, hit_status, war, received_at FROM province_status WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
   ).get(id) as any;
-  const status = statusRaw ? { plagued: !!statusRaw.plagued, overpopulated: !!statusRaw.overpopulated, hitStatus: statusRaw.hit_status, war: !!statusRaw.war, receivedAt: statusRaw.received_at } : null;
+  const status = statusRaw ? { plagued: !!statusRaw.plagued, overpopulated: !!statusRaw.overpopulated, overpopDeserters: statusRaw.overpop_deserters ?? null, hitStatus: statusRaw.hit_status, war: !!statusRaw.war, receivedAt: statusRaw.received_at } : null;
 
   const effects = db.prepare(
     `SELECT effect_name, effect_kind, duration_text, remaining_ticks, effectiveness_percent, received_at

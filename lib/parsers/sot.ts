@@ -37,6 +37,7 @@ const SUFFIX_PERS_TITLE_RE = new RegExp(`\\bthe (${SUFFIX_PERSONALITY_GROUP})\\b
 
 const PLAGUE_RE = /The Plague has spread throughout our people/;
 const OVERPOP_RE = /Riots due to housing shortages/;
+const OVERPOP_DESERTERS_RE = /We expect roughly ([\d,]+) men from our military will desert/;
 const HIT_RE = /province has been attacked (pretty heavily|moderately|a little|extremely badly)/;
 const WAR_RE = /Our Kingdom is at WAR!/;
 const DURATION_RE = /^Duration:\s*(.+)$/im;
@@ -172,6 +173,7 @@ export function parseSoT(text: string): SoTData | null {
     defPoints: parseNum(nd[2]),
     plagued: PLAGUE_RE.test(text),
     overpopulated: OVERPOP_RE.test(text),
+    overpopDeserters: (() => { const m = OVERPOP_DESERTERS_RE.exec(text); return m ? parseNum(m[1]) : null; })(),
     hitStatus: hitMatch ? hitMatch[1] : "",
     war: WAR_RE.test(text),
     activeEffects,
