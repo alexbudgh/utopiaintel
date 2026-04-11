@@ -950,6 +950,27 @@ export function getKingdomRitual(kingdom: string, keyHash: string): KingdomRitua
   return { name: row.effect_name, remainingTicks: row.remaining_ticks, effectivenessPercent: row.effectiveness_percent, receivedAt: row.received_at };
 }
 
+export interface KingdomDragon {
+  dragonType: string;
+  dragonName: string;
+  receivedAt: string;
+}
+
+export function getKingdomDragon(kingdom: string, keyHash: string): KingdomDragon | null {
+  const db = getDb();
+  const row = db.prepare(`
+    SELECT ps.dragon_type, ps.dragon_name, ps.received_at
+    FROM province_status ps
+    JOIN provinces p ON p.id = ps.province_id
+    JOIN intel_partitions ip ON ip.province_id = p.id AND ip.key_hash = ?
+    WHERE p.kingdom = ? AND ps.dragon_type IS NOT NULL
+    ORDER BY ps.received_at DESC, ps.id DESC
+    LIMIT 1
+  `).get(keyHash, kingdom) as { dragon_type: string; dragon_name: string; received_at: string } | undefined;
+  if (!row) return null;
+  return { dragonType: row.dragon_type, dragonName: row.dragon_name, receivedAt: row.received_at };
+}
+
 export function getProvinceDetail(name: string, kingdom: string, keyHash: string): ProvinceDetail {
   const db = getDb();
 

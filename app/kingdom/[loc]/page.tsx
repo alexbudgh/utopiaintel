@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { cookies, headers } from "next/headers";
 import { createHash } from "crypto";
-import { getBoundKingdom, getKingdomProvinces, getLatestKingdomSnapshot, getKingdomRitual } from "@/lib/db";
+import { getBoundKingdom, getKingdomProvinces, getLatestKingdomSnapshot, getKingdomRitual, getKingdomDragon } from "@/lib/db";
 import { timeAgo } from "@/lib/ui";
 import { KingdomRelations } from "@/app/components/KingdomRelations";
 import { IntelSetupCard } from "@/app/components/IntelSetupCard";
@@ -39,6 +39,7 @@ export default async function KingdomPage({
   const hasAnyIntel = provinces.length > 0 || !!snapshot;
   const gainsInitial = view === "gains" ? getGainsPageData(kingdom, keyHash) : null;
   const ritual = getKingdomRitual(kingdom, keyHash);
+  const dragon = getKingdomDragon(kingdom, keyHash);
 
   return (
     <main className="p-6">
@@ -77,16 +78,27 @@ export default async function KingdomPage({
         </div>
       </div>
 
-      {ritual && (
-        <div className="mb-4 inline-flex items-center gap-2 rounded border border-purple-500/40 bg-purple-500/10 px-3 py-1.5 text-sm text-purple-300">
-          <span className="font-medium">{ritual.name}</span>
-          {ritual.effectivenessPercent != null && (
-            <span className="text-purple-400">{ritual.effectivenessPercent.toFixed(1)}%</span>
+      {(dragon || ritual) && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          {dragon && (
+            <div className="inline-flex items-center gap-2 rounded border border-rose-500/40 bg-rose-500/10 px-3 py-1.5 text-sm text-rose-300">
+              <span className="font-medium">{dragon.dragonType} Dragon</span>
+              <span className="text-rose-400">{dragon.dragonName}</span>
+              <span className="text-rose-600 text-xs">{timeAgo(dragon.receivedAt)}</span>
+            </div>
           )}
-          {ritual.remainingTicks != null && (
-            <span className="text-purple-500">{ritual.remainingTicks} ticks left</span>
+          {ritual && (
+            <div className="inline-flex items-center gap-2 rounded border border-purple-500/40 bg-purple-500/10 px-3 py-1.5 text-sm text-purple-300">
+              <span className="font-medium">{ritual.name}</span>
+              {ritual.effectivenessPercent != null && (
+                <span className="text-purple-400">{ritual.effectivenessPercent.toFixed(1)}%</span>
+              )}
+              {ritual.remainingTicks != null && (
+                <span className="text-purple-500">{ritual.remainingTicks} ticks left</span>
+              )}
+              <span className="text-purple-600 text-xs">{timeAgo(ritual.receivedAt)}</span>
+            </div>
           )}
-          <span className="text-purple-600 text-xs">{timeAgo(ritual.receivedAt)}</span>
         </div>
       )}
 
