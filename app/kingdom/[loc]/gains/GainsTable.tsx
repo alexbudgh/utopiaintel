@@ -863,7 +863,7 @@ export function GainsTable({
                     >
                       <Tooltip content={estimateTitle(attacker, defender, selfAvgNetworth, targetAvgNetworth, defenderLatest, relationState, targetSnapshot.ourAttitudeToThem, targetSnapshot.theirAttitudeToUs, defenderBarrierEffect)}>
                         <div className={tone.value}>
-                          {estimate ? estimate.roundedAcres.toLocaleString() : "—"}
+                          {estimate ? `${estimate.roundedAcres.toLocaleString()}a` : "—"}
                         </div>
                         <div className="mt-0.5 text-[10px] text-gray-500">
                           {estimate ? `${((estimate.rawAcres / defender.land) * 100).toFixed(1)}%` : "—"}
