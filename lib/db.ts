@@ -1382,7 +1382,7 @@ export function getLatestWarDate(kingdom: string, keyHash: string): string | nul
   return row?.game_date ?? null;
 }
 
-const COMBAT_TYPES = `'march','ambush','raze','pillage','loot'`;
+const COMBAT_TYPES = `'march','ambush','raze','pillage','loot','failed_attack'`;
 
 export interface NewsProvinceSummary {
   provinceName: string | null;

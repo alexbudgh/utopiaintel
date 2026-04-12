@@ -118,8 +118,8 @@ function EventDescription({ event }: { event: KingdomNewsRow }) {
   if (eventType === "failed_attack") {
     return (
       <span>
-        <ProvLink name={null} kingdom={attackerKingdom} />{" "}
-        <span className="text-gray-500">→</span>{" "}
+        <ProvLink name={attackerName} kingdom={attackerKingdom} />{" "}
+        <span className="text-gray-500">→ failed</span>{" "}
         <ProvLink name={defenderName} kingdom={defenderKingdom} />
       </span>
     );
@@ -223,7 +223,7 @@ function EventDescription({ event }: { event: KingdomNewsRow }) {
   return <span className="text-gray-400">{event.rawText}</span>;
 }
 
-const COMBAT_TYPES_SET = new Set(["march","ambush","raze","pillage","loot"]);
+const COMBAT_TYPES_SET = new Set(["march","ambush","raze","pillage","loot","failed_attack"]);
 const KD_COLORS = ["#60a5fa","#f87171","#34d399","#fbbf24","#a78bfa","#fb923c","#38bdf8","#f472b6"];
 
 function buildChartData(events: KingdomNewsRow[], ourKingdom: string) {
