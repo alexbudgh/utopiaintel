@@ -486,36 +486,57 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
             {summary.byKingdom.map((kd) => {
               const isOurs = kd.kingdom === summary.ourKingdom;
               const kdNet = kd.totalMarchAcresGained - kd.totalMarchAcresLost - kd.totalRazeAcresLost;
+              const gc = isOurs ? "text-green-300" : "text-red-300";
+              const lc = isOurs ? "text-red-300" : "text-green-300";
               return (
                 <div key={kd.kingdom} className="rounded-lg border border-gray-800 overflow-hidden">
                   <div className="flex items-center gap-3 px-3 py-1.5 bg-gray-800/60 border-b border-gray-800 text-xs">
                     <Link href={`/kingdom/${encodeURIComponent(kd.kingdom)}`} className="font-mono font-medium text-gray-200 hover:text-blue-300 transition-colors">
                       {kd.kingdom}{isOurs && <span className="ml-1 text-blue-400">★</span>}
                     </Link>
-                    {kd.totalHitsMade > 0  && <span className={isOurs ? "text-green-300" : "text-red-300"}>{kd.totalHitsMade} hits · {kd.totalMarchAcresGained.toLocaleString()}a gained{kd.totalRazeAcresDealt > 0 ? ` · ${kd.totalRazeAcresDealt.toLocaleString()}a razed` : ""}</span>}
-                    {kd.totalHitsTaken > 0 && <span className={isOurs ? "text-red-300"   : "text-green-300"}>{kd.totalHitsTaken} hits taken · {kd.totalMarchAcresLost.toLocaleString()}a lost{kd.totalRazeAcresLost > 0 ? ` · ${kd.totalRazeAcresLost.toLocaleString()}a razed` : ""}</span>}
+                    {kd.totalHitsMade > 0  && <span className={gc}>{kd.totalHitsMade} hits · {kd.totalMarchAcresGained.toLocaleString()}a gained{kd.totalRazeAcresDealt > 0 ? ` · ${kd.totalRazeAcresDealt.toLocaleString()}a razed` : ""}</span>}
+                    {kd.totalHitsTaken > 0 && <span className={lc}>{kd.totalHitsTaken} hits taken · {kd.totalMarchAcresLost.toLocaleString()}a lost{kd.totalRazeAcresLost > 0 ? ` · ${kd.totalRazeAcresLost.toLocaleString()}a razed` : ""}</span>}
                     {kdNet !== 0 && <span className={kdNet > 0 ? "text-green-300" : "text-red-300"}>net {kdNet > 0 ? "+" : ""}{kdNet.toLocaleString()}a</span>}
                   </div>
+                  <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-gray-800 text-gray-500">
-                        <th className="px-3 py-1 text-left font-normal">Province</th>
-                        <th className="px-3 py-1 text-right font-normal">Hits Made</th>
-                        <th className="px-3 py-1 text-right font-normal">March Gained</th>
-                        <th className="px-3 py-1 text-right font-normal">Raze Dealt</th>
-                        <th className="px-3 py-1 text-right font-normal">Hits Taken</th>
-                        <th className="px-3 py-1 text-right font-normal">March Lost</th>
-                        <th className="px-3 py-1 text-right font-normal">Raze Lost</th>
-                        <th className="px-3 py-1 text-right font-normal">Net</th>
-                        <th className="px-3 py-1 text-right font-normal">Books Looted</th>
+                        <th className="px-3 py-1 text-left font-normal" rowSpan={2}>Province</th>
+                        <th className="px-2 py-1 text-center font-normal border-l border-gray-800" colSpan={10}>Made →</th>
+                        <th className="px-2 py-1 text-center font-normal border-l border-gray-800" colSpan={10}>Taken ←</th>
+                        <th className="px-2 py-1 text-right font-normal border-l border-gray-800" rowSpan={2}>Net</th>
+                        <th className="px-2 py-1 text-right font-normal" rowSpan={2}>Books</th>
+                      </tr>
+                      <tr className="border-b border-gray-800 text-gray-500">
+                        <th className="px-2 py-1 text-right font-normal border-l border-gray-800">Total</th>
+                        <th className="px-2 py-1 text-right font-normal" title="Trad March">M</th>
+                        <th className="px-2 py-1 text-right font-normal" title="Ambush">A</th>
+                        <th className="px-2 py-1 text-right font-normal" title="Raze">Rz</th>
+                        <th className="px-2 py-1 text-right font-normal" title="Plunder">Pl</th>
+                        <th className="px-2 py-1 text-right font-normal" title="Learn">Lrn</th>
+                        <th className="px-2 py-1 text-right font-normal" title="Failed Attack">Fail</th>
+                        <th className="px-2 py-1 text-right font-normal text-gray-600" title="March acres gained">M.a</th>
+                        <th className="px-2 py-1 text-right font-normal text-gray-600" title="Ambush acres gained">A.a</th>
+                        <th className="px-2 py-1 text-right font-normal text-gray-600" title="Raze acres dealt">Rz.a</th>
+                        <th className="px-2 py-1 text-right font-normal border-l border-gray-800">Total</th>
+                        <th className="px-2 py-1 text-right font-normal" title="Trad March">M</th>
+                        <th className="px-2 py-1 text-right font-normal" title="Ambush">A</th>
+                        <th className="px-2 py-1 text-right font-normal" title="Raze">Rz</th>
+                        <th className="px-2 py-1 text-right font-normal" title="Plunder">Pl</th>
+                        <th className="px-2 py-1 text-right font-normal" title="Learn">Lrn</th>
+                        <th className="px-2 py-1 text-right font-normal" title="Failed Attack">Fail</th>
+                        <th className="px-2 py-1 text-right font-normal text-gray-600" title="March acres lost">M.a</th>
+                        <th className="px-2 py-1 text-right font-normal text-gray-600" title="Ambush acres lost">A.a</th>
+                        <th className="px-2 py-1 text-right font-normal text-gray-600" title="Raze acres lost">Rz.a</th>
                       </tr>
                     </thead>
                     <tbody>
                       {kd.provinces.map((p, i) => {
-                        const net = p.marchAcresGained - p.marchAcresLost - p.razeAcresLost;
+                        const net = p.marchAcresGained + p.ambushAcresGained - p.marchAcresLost - p.ambushAcresLost - p.razeAcresLost;
                         return (
                         <tr key={i} className={i % 2 === 0 ? "bg-gray-900/40" : "bg-gray-900/20"}>
-                          <td className="px-3 py-1.5 text-gray-300">
+                          <td className="px-3 py-1.5 text-gray-300 whitespace-nowrap">
                             {p.slot != null && <span className="text-gray-500 font-mono mr-1.5">{p.slot}</span>}
                             {p.provinceName
                               ? <>
@@ -529,13 +550,27 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
                               : <span className="text-gray-500 italic">Unknown</span>
                             }
                           </td>
-                          <td className="px-3 py-1.5 text-right font-mono"><Num n={p.hitsMade}          color={isOurs ? "text-green-300" : "text-red-300"} /></td>
-                          <td className="px-3 py-1.5 text-right font-mono"><Num n={p.marchAcresGained}  color={isOurs ? "text-green-300" : "text-red-300"} /></td>
-                          <td className="px-3 py-1.5 text-right font-mono"><Num n={p.razeAcresDealt}    color={isOurs ? "text-green-300" : "text-red-300"} /></td>
-                          <td className="px-3 py-1.5 text-right font-mono"><Num n={p.hitsTaken}         color={isOurs ? "text-red-300"   : "text-green-300"} /></td>
-                          <td className="px-3 py-1.5 text-right font-mono"><Num n={p.marchAcresLost}    color={isOurs ? "text-red-300"   : "text-green-300"} /></td>
-                          <td className="px-3 py-1.5 text-right font-mono"><Num n={p.razeAcresLost}     color={isOurs ? "text-red-300"   : "text-green-300"} /></td>
-                          <td className="px-3 py-1.5 text-right font-mono">
+                          <td className="px-2 py-1.5 text-right font-mono border-l border-gray-800"><Num n={p.hitsMade}          color={gc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.marchMade}          color={gc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.ambushMade}         color={gc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.razeMade}           color={gc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.plunderMade}        color={gc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.lootMade}           color={gc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.failedMade}         color={gc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.marchAcresGained}   color={gc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.ambushAcresGained}  color={gc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.razeAcresDealt}     color={gc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono border-l border-gray-800"><Num n={p.hitsTaken}    color={lc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.marchTaken}         color={lc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.ambushTaken}        color={lc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.razeTaken}          color={lc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.plunderTaken}       color={lc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.lootTaken}          color={lc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.failedTaken}        color={lc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.marchAcresLost}     color={lc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.ambushAcresLost}    color={lc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.razeAcresLost}      color={lc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono border-l border-gray-800">
                             {net !== 0
                               ? <span className={net > 0 ? "text-green-300" : "text-red-300"}>{net > 0 ? "+" : ""}{net.toLocaleString()}</span>
                               : <span className="text-gray-700">—</span>}
@@ -546,6 +581,7 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
                       })}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               );
             })}
@@ -641,51 +677,103 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
       {(() => {
         const combat = filtered.filter((e) => COMBAT_TYPES_SET.has(e.eventType));
         if (combat.length === 0) return null;
-        let hitsMade = 0, marchOut = 0, razeOut = 0, hitsTaken = 0, marchIn = 0, razeIn = 0, books = 0;
+        let hm = 0, mm = 0, am = 0, rm = 0, pm = 0, lm = 0, fm = 0;
+        let ht = 0, mt = 0, at = 0, rt = 0, pt = 0, lt = 0, ft = 0;
+        let marchOut = 0, ambushOut = 0, razeOut = 0;
+        let marchIn = 0, ambushIn = 0, razeIn = 0, books = 0;
         for (const e of combat) {
           const isOut = e.attackerKingdom === kingdom;
           const acres = e.acres ?? 0;
-          if (isOut) hitsMade++; else hitsTaken++;
-          if (e.eventType === "raze")       { if (isOut) razeOut += acres;  else razeIn += acres; }
-          else if (e.eventType === "loot")  { if (isOut) books += e.books ?? 0; }
-          else                              { if (isOut) marchOut += acres; else marchIn += acres; }
+          if (isOut) {
+            hm++;
+            if      (e.eventType === "march")         { mm++; marchOut  += acres; }
+            else if (e.eventType === "ambush")        { am++; ambushOut += acres; }
+            else if (e.eventType === "raze")          { rm++; razeOut   += acres; }
+            else if (e.eventType === "pillage")       { pm++; }
+            else if (e.eventType === "loot")          { lm++; books += e.books ?? 0; }
+            else if (e.eventType === "failed_attack") { fm++; }
+          } else {
+            ht++;
+            if      (e.eventType === "march")         { mt++; marchIn  += acres; }
+            else if (e.eventType === "ambush")        { at++; ambushIn += acres; }
+            else if (e.eventType === "raze")          { rt++; razeIn   += acres; }
+            else if (e.eventType === "pillage")       { pt++; }
+            else if (e.eventType === "loot")          { lt++; }
+            else if (e.eventType === "failed_attack") { ft++; }
+          }
         }
-        const net = marchOut - marchIn - razeIn;
+        const net = marchOut + ambushOut - marchIn - ambushIn - razeIn;
         return (
           <div className="mt-3 rounded-lg border border-gray-800 overflow-hidden text-xs">
             <div className="px-3 py-1.5 bg-gray-800/60 border-b border-gray-800 text-gray-400 font-medium">
               {provFilter ? `Totals — ${provFilter}` : "Totals"}
             </div>
+            <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-800 text-gray-500">
-                  <th className="px-3 py-1 text-right font-normal">Hits Made</th>
-                  <th className="px-3 py-1 text-right font-normal">March Gained</th>
-                  <th className="px-3 py-1 text-right font-normal">Raze Dealt</th>
-                  <th className="px-3 py-1 text-right font-normal">Hits Taken</th>
-                  <th className="px-3 py-1 text-right font-normal">March Lost</th>
-                  <th className="px-3 py-1 text-right font-normal">Raze Lost</th>
-                  <th className="px-3 py-1 text-right font-normal">Net</th>
-                  <th className="px-3 py-1 text-right font-normal">Books Looted</th>
+                  <th className="px-2 py-1 text-center font-normal border-r border-gray-800" colSpan={10}>Made →</th>
+                  <th className="px-2 py-1 text-center font-normal border-r border-gray-800" colSpan={10}>Taken ←</th>
+                  <th className="px-2 py-1 text-right font-normal border-r border-gray-800">Net</th>
+                  <th className="px-2 py-1 text-right font-normal">Books</th>
+                </tr>
+                <tr className="border-b border-gray-800 text-gray-500">
+                  <th className="px-2 py-1 text-right font-normal">Total</th>
+                  <th className="px-2 py-1 text-right font-normal" title="Trad March">M</th>
+                  <th className="px-2 py-1 text-right font-normal" title="Ambush">A</th>
+                  <th className="px-2 py-1 text-right font-normal" title="Raze">Rz</th>
+                  <th className="px-2 py-1 text-right font-normal" title="Plunder">Pl</th>
+                  <th className="px-2 py-1 text-right font-normal" title="Learn">Lrn</th>
+                  <th className="px-2 py-1 text-right font-normal" title="Failed Attack">Fail</th>
+                  <th className="px-2 py-1 text-right font-normal text-gray-600" title="March acres gained">M.a</th>
+                  <th className="px-2 py-1 text-right font-normal text-gray-600" title="Ambush acres gained">A.a</th>
+                  <th className="px-2 py-1 text-right font-normal text-gray-600 border-r border-gray-800" title="Raze acres dealt">Rz.a</th>
+                  <th className="px-2 py-1 text-right font-normal">Total</th>
+                  <th className="px-2 py-1 text-right font-normal" title="Trad March">M</th>
+                  <th className="px-2 py-1 text-right font-normal" title="Ambush">A</th>
+                  <th className="px-2 py-1 text-right font-normal" title="Raze">Rz</th>
+                  <th className="px-2 py-1 text-right font-normal" title="Plunder">Pl</th>
+                  <th className="px-2 py-1 text-right font-normal" title="Learn">Lrn</th>
+                  <th className="px-2 py-1 text-right font-normal" title="Failed Attack">Fail</th>
+                  <th className="px-2 py-1 text-right font-normal text-gray-600" title="March acres lost">M.a</th>
+                  <th className="px-2 py-1 text-right font-normal text-gray-600" title="Ambush acres lost">A.a</th>
+                  <th className="px-2 py-1 text-right font-normal text-gray-600 border-r border-gray-800" title="Raze acres lost">Rz.a</th>
+                  <th className="px-2 py-1 text-right font-normal border-r border-gray-800"></th>
+                  <th className="px-2 py-1 text-right font-normal"></th>
                 </tr>
               </thead>
               <tbody>
                 <tr className="bg-gray-900/40">
-                  <td className="px-3 py-1.5 text-right font-mono"><Num n={hitsMade}  color="text-green-300" /></td>
-                  <td className="px-3 py-1.5 text-right font-mono"><Num n={marchOut}  color="text-green-300" /></td>
-                  <td className="px-3 py-1.5 text-right font-mono"><Num n={razeOut}   color="text-green-300" /></td>
-                  <td className="px-3 py-1.5 text-right font-mono"><Num n={hitsTaken} color="text-red-300" /></td>
-                  <td className="px-3 py-1.5 text-right font-mono"><Num n={marchIn}   color="text-red-300" /></td>
-                  <td className="px-3 py-1.5 text-right font-mono"><Num n={razeIn}    color="text-red-300" /></td>
-                  <td className="px-3 py-1.5 text-right font-mono">
+                  <td className="px-2 py-1.5 text-right font-mono"><Num n={hm} color="text-green-300" /></td>
+                  <td className="px-2 py-1.5 text-right font-mono"><Num n={mm} color="text-green-300" /></td>
+                  <td className="px-2 py-1.5 text-right font-mono"><Num n={am} color="text-green-300" /></td>
+                  <td className="px-2 py-1.5 text-right font-mono"><Num n={rm} color="text-green-300" /></td>
+                  <td className="px-2 py-1.5 text-right font-mono"><Num n={pm} color="text-green-300" /></td>
+                  <td className="px-2 py-1.5 text-right font-mono"><Num n={lm} color="text-green-300" /></td>
+                  <td className="px-2 py-1.5 text-right font-mono"><Num n={fm} color="text-green-300" /></td>
+                  <td className="px-2 py-1.5 text-right font-mono"><Num n={marchOut}  color="text-green-300" /></td>
+                  <td className="px-2 py-1.5 text-right font-mono"><Num n={ambushOut} color="text-green-300" /></td>
+                  <td className="px-2 py-1.5 text-right font-mono border-r border-gray-800"><Num n={razeOut}   color="text-green-300" /></td>
+                  <td className="px-2 py-1.5 text-right font-mono"><Num n={ht} color="text-red-300" /></td>
+                  <td className="px-2 py-1.5 text-right font-mono"><Num n={mt} color="text-red-300" /></td>
+                  <td className="px-2 py-1.5 text-right font-mono"><Num n={at} color="text-red-300" /></td>
+                  <td className="px-2 py-1.5 text-right font-mono"><Num n={rt} color="text-red-300" /></td>
+                  <td className="px-2 py-1.5 text-right font-mono"><Num n={pt} color="text-red-300" /></td>
+                  <td className="px-2 py-1.5 text-right font-mono"><Num n={lt} color="text-red-300" /></td>
+                  <td className="px-2 py-1.5 text-right font-mono"><Num n={ft} color="text-red-300" /></td>
+                  <td className="px-2 py-1.5 text-right font-mono"><Num n={marchIn}  color="text-red-300" /></td>
+                  <td className="px-2 py-1.5 text-right font-mono"><Num n={ambushIn} color="text-red-300" /></td>
+                  <td className="px-2 py-1.5 text-right font-mono border-r border-gray-800"><Num n={razeIn}   color="text-red-300" /></td>
+                  <td className="px-2 py-1.5 text-right font-mono border-r border-gray-800">
                     {net !== 0
                       ? <span className={net > 0 ? "text-green-300" : "text-red-300"}>{net > 0 ? "+" : ""}{net.toLocaleString()}</span>
                       : <span className="text-gray-700">—</span>}
                   </td>
-                  <td className="px-3 py-1.5 text-right font-mono"><Num n={books} color="text-amber-300" /></td>
+                  <td className="px-2 py-1.5 text-right font-mono"><Num n={books} color="text-amber-300" /></td>
                 </tr>
               </tbody>
             </table>
+            </div>
           </div>
         );
       })()}

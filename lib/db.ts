@@ -1387,23 +1387,55 @@ const COMBAT_TYPES = `'march','ambush','raze','pillage','loot'`;
 export interface NewsProvinceSummary {
   provinceName: string | null;
   slot: number | null;
-  hitsMade: number;        // attacks this province launched
-  marchAcresGained: number; // acres captured via trad march
-  razeAcresDealt: number;  // acres razed from enemies (not gained by attacker)
-  hitsTaken: number;       // attacks this province received
-  marchAcresLost: number;  // acres lost via trad march
-  razeAcresLost: number;   // acres lost via raze
-  booksLooted: number;     // books looted by this province (loot events)
+  // Total + per-type hits made (as attacker)
+  hitsMade: number;
+  marchMade: number;
+  ambushMade: number;
+  razeMade: number;
+  plunderMade: number;
+  lootMade: number;
+  failedMade: number;
+  // Acre/book outcomes as attacker
+  marchAcresGained: number;
+  ambushAcresGained: number;
+  razeAcresDealt: number;
+  booksLooted: number;
+  // Total + per-type hits taken (as defender)
+  hitsTaken: number;
+  marchTaken: number;
+  ambushTaken: number;
+  razeTaken: number;
+  plunderTaken: number;
+  lootTaken: number;
+  failedTaken: number;
+  // Acre outcomes as defender
+  marchAcresLost: number;
+  ambushAcresLost: number;
+  razeAcresLost: number;
 }
 
 export interface NewsKingdomSummary {
   kingdom: string;
   provinces: NewsProvinceSummary[];
   totalHitsMade: number;
+  totalMarchMade: number;
+  totalAmbushMade: number;
+  totalRazeMade: number;
+  totalPlunderMade: number;
+  totalLootMade: number;
+  totalFailedMade: number;
   totalMarchAcresGained: number;
+  totalAmbushAcresGained: number;
   totalRazeAcresDealt: number;
   totalHitsTaken: number;
+  totalMarchTaken: number;
+  totalAmbushTaken: number;
+  totalRazeTaken: number;
+  totalPlunderTaken: number;
+  totalLootTaken: number;
+  totalFailedTaken: number;
   totalMarchAcresLost: number;
+  totalAmbushAcresLost: number;
   totalRazeAcresLost: number;
 }
 
@@ -1455,24 +1487,46 @@ export function getKingdomNewsSummary(kingdom: string, keyHash: string, from?: s
     event_type: string; acres: number | null; books: number | null;
   }[];
 
-  // Aggregate per-attacker and per-defender
-  const attackerMap = new Map<string, { attacker_name: string | null; attacker_kingdom: string; hits: number; marchAcres: number; razeAcres: number; books: number }>();
-  const defenderMap = new Map<string, { defender_name: string | null; defender_kingdom: string; hits: number; marchAcres: number; razeAcres: number }>();
+  type AttackerEntry = {
+    attacker_name: string | null; attacker_kingdom: string;
+    hits: number; marchHits: number; ambushHits: number; razeHits: number; pillageHits: number; lootHits: number; failedHits: number;
+    marchAcres: number; ambushAcres: number; razeAcres: number; books: number;
+  };
+  type DefenderEntry = {
+    defender_name: string | null; defender_kingdom: string;
+    hits: number; marchHits: number; ambushHits: number; razeHits: number; pillageHits: number; lootHits: number; failedHits: number;
+    marchAcres: number; ambushAcres: number; razeAcres: number;
+  };
+
+  const newAttacker = (name: string | null, kd: string): AttackerEntry =>
+    ({ attacker_name: name, attacker_kingdom: kd, hits: 0, marchHits: 0, ambushHits: 0, razeHits: 0, pillageHits: 0, lootHits: 0, failedHits: 0, marchAcres: 0, ambushAcres: 0, razeAcres: 0, books: 0 });
+  const newDefender = (name: string | null, kd: string): DefenderEntry =>
+    ({ defender_name: name, defender_kingdom: kd, hits: 0, marchHits: 0, ambushHits: 0, razeHits: 0, pillageHits: 0, lootHits: 0, failedHits: 0, marchAcres: 0, ambushAcres: 0, razeAcres: 0 });
+
+  const attackerMap = new Map<string, AttackerEntry>();
+  const defenderMap = new Map<string, DefenderEntry>();
 
   for (const r of combatRows) {
     const ak = `${r.attacker_name ?? ""}\0${r.attacker_kingdom}`;
-    const a = attackerMap.get(ak) ?? { attacker_name: r.attacker_name, attacker_kingdom: r.attacker_kingdom, hits: 0, marchAcres: 0, razeAcres: 0, books: 0 };
+    const a = attackerMap.get(ak) ?? newAttacker(r.attacker_name, r.attacker_kingdom);
     a.hits++;
-    if (r.event_type === "raze")       a.razeAcres  += r.acres ?? 0;
-    else if (r.event_type !== "loot")  a.marchAcres += r.acres ?? 0;
-    a.books += r.event_type === "loot" ? (r.books ?? 0) : 0;
+    if      (r.event_type === "march")         { a.marchHits++;   a.marchAcres  += r.acres ?? 0; }
+    else if (r.event_type === "ambush")        { a.ambushHits++;  a.ambushAcres += r.acres ?? 0; }
+    else if (r.event_type === "raze")          { a.razeHits++;    a.razeAcres   += r.acres ?? 0; }
+    else if (r.event_type === "pillage")       { a.pillageHits++; }
+    else if (r.event_type === "loot")          { a.lootHits++;    a.books       += r.books ?? 0; }
+    else if (r.event_type === "failed_attack") { a.failedHits++; }
     attackerMap.set(ak, a);
 
     const dk = `${r.defender_name ?? ""}\0${r.defender_kingdom}`;
-    const d = defenderMap.get(dk) ?? { defender_name: r.defender_name, defender_kingdom: r.defender_kingdom, hits: 0, marchAcres: 0, razeAcres: 0 };
+    const d = defenderMap.get(dk) ?? newDefender(r.defender_name, r.defender_kingdom);
     d.hits++;
-    if (r.event_type === "raze")      d.razeAcres  += r.acres ?? 0;
-    else if (r.event_type !== "loot") d.marchAcres += r.acres ?? 0;
+    if      (r.event_type === "march")         { d.marchHits++;   d.marchAcres  += r.acres ?? 0; }
+    else if (r.event_type === "ambush")        { d.ambushHits++;  d.ambushAcres += r.acres ?? 0; }
+    else if (r.event_type === "raze")          { d.razeHits++;    d.razeAcres   += r.acres ?? 0; }
+    else if (r.event_type === "pillage")       { d.pillageHits++; }
+    else if (r.event_type === "loot")          { d.lootHits++; }
+    else if (r.event_type === "failed_attack") { d.failedHits++; }
     defenderMap.set(dk, d);
   }
 
@@ -1481,32 +1535,39 @@ export function getKingdomNewsSummary(kingdom: string, keyHash: string, from?: s
 
   // Build per-province map keyed by (name, kd)
   type ProvKey = string;
-  const provMap = new Map<ProvKey, { kd: string; name: string | null; hitsMade: number; marchAcresGained: number; razeAcresDealt: number; hitsTaken: number; marchAcresLost: number; razeAcresLost: number; booksLooted: number }>();
+  type ProvEntry = {
+    kd: string; name: string | null;
+    hitsMade: number; marchMade: number; ambushMade: number; razeMade: number; pillageMade: number; lootMade: number; failedMade: number;
+    marchAcresGained: number; ambushAcresGained: number; razeAcresDealt: number; booksLooted: number;
+    hitsTaken: number; marchTaken: number; ambushTaken: number; razeTaken: number; pillageTaken: number; lootTaken: number; failedTaken: number;
+    marchAcresLost: number; ambushAcresLost: number; razeAcresLost: number;
+  };
 
+  const provMap = new Map<ProvKey, ProvEntry>();
   const provKey = (name: string | null, kd: string) => `${name ?? ""}\0${kd}`;
+  const emptyProv = (name: string | null, kd: string): ProvEntry => ({
+    kd, name,
+    hitsMade: 0, marchMade: 0, ambushMade: 0, razeMade: 0, pillageMade: 0, lootMade: 0, failedMade: 0,
+    marchAcresGained: 0, ambushAcresGained: 0, razeAcresDealt: 0, booksLooted: 0,
+    hitsTaken: 0, marchTaken: 0, ambushTaken: 0, razeTaken: 0, pillageTaken: 0, lootTaken: 0, failedTaken: 0,
+    marchAcresLost: 0, ambushAcresLost: 0, razeAcresLost: 0,
+  });
 
   for (const r of asAttacker) {
     const k = provKey(r.attacker_name, r.attacker_kingdom);
-    const existing = provMap.get(k);
-    if (existing) {
-      existing.hitsMade += r.hits;
-      existing.marchAcresGained += r.marchAcres;
-      existing.razeAcresDealt += r.razeAcres;
-      existing.booksLooted += r.books;
-    } else {
-      provMap.set(k, { kd: r.attacker_kingdom, name: r.attacker_name, hitsMade: r.hits, marchAcresGained: r.marchAcres, razeAcresDealt: r.razeAcres, hitsTaken: 0, marchAcresLost: 0, razeAcresLost: 0, booksLooted: r.books });
-    }
+    const p = provMap.get(k) ?? emptyProv(r.attacker_name, r.attacker_kingdom);
+    p.hitsMade += r.hits; p.marchMade += r.marchHits; p.ambushMade += r.ambushHits; p.razeMade += r.razeHits;
+    p.pillageMade += r.pillageHits; p.lootMade += r.lootHits; p.failedMade += r.failedHits;
+    p.marchAcresGained += r.marchAcres; p.ambushAcresGained += r.ambushAcres; p.razeAcresDealt += r.razeAcres; p.booksLooted += r.books;
+    provMap.set(k, p);
   }
   for (const r of asDefender) {
     const k = provKey(r.defender_name, r.defender_kingdom);
-    const existing = provMap.get(k);
-    if (existing) {
-      existing.hitsTaken += r.hits;
-      existing.marchAcresLost += r.marchAcres;
-      existing.razeAcresLost += r.razeAcres;
-    } else {
-      provMap.set(k, { kd: r.defender_kingdom, name: r.defender_name, hitsMade: 0, marchAcresGained: 0, razeAcresDealt: 0, hitsTaken: r.hits, marchAcresLost: r.marchAcres, razeAcresLost: r.razeAcres, booksLooted: 0 });
-    }
+    const p = provMap.get(k) ?? emptyProv(r.defender_name, r.defender_kingdom);
+    p.hitsTaken += r.hits; p.marchTaken += r.marchHits; p.ambushTaken += r.ambushHits; p.razeTaken += r.razeHits;
+    p.pillageTaken += r.pillageHits; p.lootTaken += r.lootHits; p.failedTaken += r.failedHits;
+    p.marchAcresLost += r.marchAcres; p.ambushAcresLost += r.ambushAcres; p.razeAcresLost += r.razeAcres;
+    provMap.set(k, p);
   }
 
   // Look up slots for all involved provinces
@@ -1528,7 +1589,15 @@ export function getKingdomNewsSummary(kingdom: string, keyHash: string, from?: s
   for (const p of provMap.values()) {
     const slot = p.name ? (slotMap.get(`${p.name}\0${p.kd}`) ?? null) : null;
     const list = kdMap.get(p.kd) ?? [];
-    list.push({ provinceName: p.name, slot, hitsMade: p.hitsMade, marchAcresGained: p.marchAcresGained, razeAcresDealt: p.razeAcresDealt, hitsTaken: p.hitsTaken, marchAcresLost: p.marchAcresLost, razeAcresLost: p.razeAcresLost, booksLooted: p.booksLooted });
+    list.push({
+      provinceName: p.name, slot,
+      hitsMade: p.hitsMade, marchMade: p.marchMade, ambushMade: p.ambushMade, razeMade: p.razeMade,
+      plunderMade: p.pillageMade, lootMade: p.lootMade, failedMade: p.failedMade,
+      marchAcresGained: p.marchAcresGained, ambushAcresGained: p.ambushAcresGained, razeAcresDealt: p.razeAcresDealt, booksLooted: p.booksLooted,
+      hitsTaken: p.hitsTaken, marchTaken: p.marchTaken, ambushTaken: p.ambushTaken, razeTaken: p.razeTaken,
+      plunderTaken: p.pillageTaken, lootTaken: p.lootTaken, failedTaken: p.failedTaken,
+      marchAcresLost: p.marchAcresLost, ambushAcresLost: p.ambushAcresLost, razeAcresLost: p.razeAcresLost,
+    });
     kdMap.set(p.kd, list);
   }
 
@@ -1539,15 +1608,29 @@ export function getKingdomNewsSummary(kingdom: string, keyHash: string, from?: s
       const netA = a.marchAcresGained - a.marchAcresLost - a.razeAcresLost;
       return netB - netA;
     });
+    const sum = <K extends keyof NewsProvinceSummary>(f: K) => provs.reduce((s, p) => s + (p[f] as number), 0);
     return {
-      kingdom: kd,
-      provinces: provs,
-      totalHitsMade:          provs.reduce((s, p) => s + p.hitsMade, 0),
-      totalMarchAcresGained:  provs.reduce((s, p) => s + p.marchAcresGained, 0),
-      totalRazeAcresDealt:    provs.reduce((s, p) => s + p.razeAcresDealt, 0),
-      totalHitsTaken:         provs.reduce((s, p) => s + p.hitsTaken, 0),
-      totalMarchAcresLost:    provs.reduce((s, p) => s + p.marchAcresLost, 0),
-      totalRazeAcresLost:     provs.reduce((s, p) => s + p.razeAcresLost, 0),
+      kingdom: kd, provinces: provs,
+      totalHitsMade:          sum("hitsMade"),
+      totalMarchMade:         sum("marchMade"),
+      totalAmbushMade:        sum("ambushMade"),
+      totalRazeMade:          sum("razeMade"),
+      totalPlunderMade:       sum("plunderMade"),
+      totalLootMade:          sum("lootMade"),
+      totalFailedMade:        sum("failedMade"),
+      totalMarchAcresGained:  sum("marchAcresGained"),
+      totalAmbushAcresGained: sum("ambushAcresGained"),
+      totalRazeAcresDealt:    sum("razeAcresDealt"),
+      totalHitsTaken:         sum("hitsTaken"),
+      totalMarchTaken:        sum("marchTaken"),
+      totalAmbushTaken:       sum("ambushTaken"),
+      totalRazeTaken:         sum("razeTaken"),
+      totalPlunderTaken:      sum("plunderTaken"),
+      totalLootTaken:         sum("lootTaken"),
+      totalFailedTaken:       sum("failedTaken"),
+      totalMarchAcresLost:    sum("marchAcresLost"),
+      totalAmbushAcresLost:   sum("ambushAcresLost"),
+      totalRazeAcresLost:     sum("razeAcresLost"),
     };
   });
 
