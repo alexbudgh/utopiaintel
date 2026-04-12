@@ -402,6 +402,7 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
   const [activeGroups, setActiveGroups] = useState<Set<string>>(DEFAULT_GROUPS);
   const [visibleCount, setVisibleCount] = useState(50);
   const [showChart, setShowChart] = useState(false);
+  const [provFilter, setProvFilter] = useState("");
   const btnBase = "px-2.5 py-1 rounded text-xs border transition-colors";
   const btnActive = "border-blue-500 text-blue-300 bg-blue-950/40";
   const btnInactive = "border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300";
@@ -502,7 +503,14 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
                           <td className="px-3 py-1.5 text-gray-300">
                             {p.slot != null && <span className="text-gray-500 font-mono mr-1.5">{p.slot}</span>}
                             {p.provinceName
-                              ? <Link href={`/kingdom/${encodeURIComponent(kd.kingdom)}/${encodeURIComponent(p.provinceName)}`} className="hover:text-blue-300 transition-colors">{p.provinceName}</Link>
+                              ? <>
+                                  <button type="button" onClick={() => setProvFilter((v) => v === p.provinceName ? "" : p.provinceName!)}
+                                    className={`hover:text-blue-300 transition-colors ${provFilter === p.provinceName ? "text-blue-300 underline" : ""}`}>
+                                    {p.provinceName}
+                                  </button>
+                                  <Link href={`/kingdom/${encodeURIComponent(kd.kingdom)}/${encodeURIComponent(p.provinceName)}`}
+                                    className="ml-1.5 text-gray-600 hover:text-gray-400 transition-colors text-[10px]" title="Province detail">↗</Link>
+                                </>
                               : <span className="text-gray-500 italic">Unknown</span>
                             }
                           </td>
@@ -530,7 +538,7 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
         </div>
       )}
 
-      <div className="mb-2 flex flex-wrap gap-1.5">
+      <div className="mb-2 flex flex-wrap gap-1.5 items-center">
         {TYPE_GROUPS.map((g) => {
           const active = activeGroups.has(g.label);
           return (
@@ -551,12 +559,35 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
             All
           </button>
         )}
+        <span className="ml-2 relative">
+          <input
+            type="text"
+            value={provFilter}
+            onChange={(e) => { setProvFilter(e.target.value); setVisibleCount(50); }}
+            placeholder="Filter province…"
+            className="rounded border border-gray-700 bg-gray-900 px-2.5 py-1 text-xs text-gray-300 placeholder-gray-600 focus:border-gray-500 focus:outline-none w-40"
+          />
+          {provFilter && (
+            <button type="button" onClick={() => setProvFilter("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300">×</button>
+          )}
+        </span>
       </div>
 
       {(() => {
         const filtered = events.filter((e) => {
           const group = TYPE_GROUPS.find((g) => g.types.includes(e.eventType));
-          return group ? activeGroups.has(group.label) : activeGroups.size === ALL_GROUPS.size;
+          if (!(group ? activeGroups.has(group.label) : activeGroups.size === ALL_GROUPS.size)) return false;
+          if (provFilter) {
+            const pf = provFilter.toLowerCase();
+            return (
+              e.attackerName?.toLowerCase().includes(pf) ||
+              e.defenderName?.toLowerCase().includes(pf) ||
+              e.senderName?.toLowerCase().includes(pf) ||
+              e.receiverName?.toLowerCase().includes(pf)
+            );
+          }
+          return true;
         });
         const visible = filtered.slice(0, visibleCount);
         const hasMore = filtered.length > visibleCount;
@@ -592,6 +623,49 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
           <span>{visibleCount} of {filtered.length} events</span>
         </div>
       )}
+      {(() => {
+        const combat = filtered.filter((e) => COMBAT_TYPES_SET.has(e.eventType));
+        if (combat.length === 0) return null;
+        let marchOut = 0, razeOut = 0, marchIn = 0, razeIn = 0;
+        for (const e of combat) {
+          const isOut = e.attackerKingdom === kingdom;
+          const acres = e.acres ?? 0;
+          if (e.eventType === "raze") { if (isOut) razeOut += acres; else razeIn += acres; }
+          else { if (isOut) marchOut += acres; else marchIn += acres; }
+        }
+        const net = marchOut - marchIn - razeIn;
+        return (
+          <div className="mt-3 rounded-lg border border-gray-800 overflow-hidden text-xs">
+            <div className="px-3 py-1.5 bg-gray-800/60 border-b border-gray-800 text-gray-400 font-medium">
+              {provFilter ? `Totals — ${provFilter}` : "Totals"}
+            </div>
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-800 text-gray-500">
+                  <th className="px-3 py-1 text-right font-normal">March Gained</th>
+                  <th className="px-3 py-1 text-right font-normal">Raze Dealt</th>
+                  <th className="px-3 py-1 text-right font-normal">March Lost</th>
+                  <th className="px-3 py-1 text-right font-normal">Raze Lost</th>
+                  <th className="px-3 py-1 text-right font-normal">Net</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="bg-gray-900/40">
+                  <td className="px-3 py-1.5 text-right font-mono">{marchOut > 0 ? <span className="text-green-300">{marchOut.toLocaleString()}</span> : <span className="text-gray-700">—</span>}</td>
+                  <td className="px-3 py-1.5 text-right font-mono">{razeOut > 0  ? <span className="text-green-300">{razeOut.toLocaleString()}</span>  : <span className="text-gray-700">—</span>}</td>
+                  <td className="px-3 py-1.5 text-right font-mono">{marchIn > 0  ? <span className="text-red-300">{marchIn.toLocaleString()}</span>    : <span className="text-gray-700">—</span>}</td>
+                  <td className="px-3 py-1.5 text-right font-mono">{razeIn > 0   ? <span className="text-red-300">{razeIn.toLocaleString()}</span>     : <span className="text-gray-700">—</span>}</td>
+                  <td className="px-3 py-1.5 text-right font-mono">
+                    {net !== 0
+                      ? <span className={net > 0 ? "text-green-300" : "text-red-300"}>{net > 0 ? "+" : ""}{net.toLocaleString()}</span>
+                      : <span className="text-gray-700">—</span>}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
         </>;
       })()}
     </>
