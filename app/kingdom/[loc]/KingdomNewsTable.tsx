@@ -212,24 +212,65 @@ function eventDirection(event: KingdomNewsRow, kingdom: string): "out" | "in" | 
   return null;
 }
 
+const UTOPIA_MONTHS = ["January","February","March","April","May","June","July"];
+
+interface DateParts { month: string; day: string; year: string }
+
+function parseDateParts(s?: string): DateParts {
+  if (!s) return { month: "", day: "", year: "" };
+  const m = /^(\w+)\s+(\d+)\s+of\s+YR(\d+)$/i.exec(s.trim());
+  if (!m) return { month: "", day: "", year: "" };
+  return { month: m[1], day: m[2], year: m[3] };
+}
+
+function formatDateParts({ month, day, year }: DateParts): string {
+  if (!month || !day || !year) return "";
+  return `${month} ${day} of YR${year}`;
+}
+
+function DateSelector({ value, onChange }: { value: DateParts; onChange: (v: DateParts) => void }) {
+  const sel = "rounded border border-gray-700 bg-gray-900 px-1.5 py-1 text-gray-300 focus:border-gray-500 focus:outline-none";
+  return (
+    <span className="inline-flex items-center gap-1">
+      <select value={value.month} onChange={(e) => onChange({ ...value, month: e.target.value })} className={sel}>
+        <option value="">Month</option>
+        {UTOPIA_MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
+      </select>
+      <input
+        type="number" min={1} max={24} value={value.day}
+        onChange={(e) => onChange({ ...value, day: e.target.value })}
+        placeholder="Day"
+        className={`${sel} w-14`}
+      />
+      <span className="text-gray-600 text-[11px]">YR</span>
+      <input
+        type="number" min={0} value={value.year}
+        onChange={(e) => onChange({ ...value, year: e.target.value })}
+        placeholder="Yr"
+        className={`${sel} w-12`}
+      />
+    </span>
+  );
+}
+
 function NewsDateFilter({ kingdom, from, to }: { kingdom: string; from?: string; to?: string }) {
   const router = useRouter();
-  const [fromVal, setFromVal] = useState(from ?? "");
-  const [toVal, setToVal]     = useState(to   ?? "");
+  const [fromParts, setFromParts] = useState<DateParts>(() => parseDateParts(from));
+  const [toParts,   setToParts]   = useState<DateParts>(() => parseDateParts(to));
 
   function apply(e: React.FormEvent) {
     e.preventDefault();
-    const base = `/kingdom/${encodeURIComponent(kingdom)}?view=news`;
-    const params = new URLSearchParams();
-    params.set("view", "news");
-    if (fromVal.trim()) params.set("from", fromVal.trim());
-    if (toVal.trim())   params.set("to",   toVal.trim());
+    const params = new URLSearchParams({ view: "news" });
+    const f = formatDateParts(fromParts);
+    const t = formatDateParts(toParts);
+    if (f) params.set("from", f);
+    if (t) params.set("to",   t);
     router.push(`/kingdom/${encodeURIComponent(kingdom)}?${params.toString()}`);
   }
 
   function clear() {
-    setFromVal("");
-    setToVal("");
+    setFromParts({ month: "", day: "", year: "" });
+    setToParts({   month: "", day: "", year: "" });
     router.push(`/kingdom/${encodeURIComponent(kingdom)}?view=news`);
   }
 
@@ -238,21 +279,9 @@ function NewsDateFilter({ kingdom, from, to }: { kingdom: string; from?: string;
   return (
     <form onSubmit={apply} className="mb-3 flex flex-wrap items-center gap-2 text-xs">
       <span className="text-gray-500">Date range:</span>
-      <input
-        type="text"
-        value={fromVal}
-        onChange={(e) => setFromVal(e.target.value)}
-        placeholder="e.g. March 1 of YR9"
-        className="w-44 rounded border border-gray-700 bg-gray-900 px-2 py-1 text-gray-300 placeholder-gray-600 focus:border-gray-500 focus:outline-none"
-      />
+      <DateSelector value={fromParts} onChange={setFromParts} />
       <span className="text-gray-600">–</span>
-      <input
-        type="text"
-        value={toVal}
-        onChange={(e) => setToVal(e.target.value)}
-        placeholder="e.g. March 24 of YR9"
-        className="w-44 rounded border border-gray-700 bg-gray-900 px-2 py-1 text-gray-300 placeholder-gray-600 focus:border-gray-500 focus:outline-none"
-      />
+      <DateSelector value={toParts} onChange={setToParts} />
       <button type="submit" className="rounded border border-gray-600 bg-gray-800 px-2.5 py-1 text-gray-300 hover:border-gray-400 hover:text-gray-100 transition-colors">
         Filter
       </button>
