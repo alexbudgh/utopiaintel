@@ -13,6 +13,7 @@ const TYPE_GROUPS: { label: string; types: string[] }[] = [
   { label: "Aid",       types: ["aid"] },
 ];
 const ALL_GROUPS = new Set(TYPE_GROUPS.map((g) => g.label));
+const DEFAULT_GROUPS = new Set(TYPE_GROUPS.map((g) => g.label).filter((l) => l !== "Aid"));
 
 const EVENT_LABEL: Record<string, string> = {
   march:               "Trad. March",
@@ -332,7 +333,7 @@ function NewsDateFilter({ kingdom, from, to, latestWarDate }: { kingdom: string;
 }
 
 export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWarDate }: { events: KingdomNewsRow[]; summary: KingdomNewsSummary; kingdom: string; from?: string; to?: string; latestWarDate?: string }) {
-  const [activeGroups, setActiveGroups] = useState<Set<string>>(ALL_GROUPS);
+  const [activeGroups, setActiveGroups] = useState<Set<string>>(DEFAULT_GROUPS);
   const btnBase = "px-2.5 py-1 rounded text-xs border transition-colors";
   const btnActive = "border-blue-500 text-blue-300 bg-blue-950/40";
   const btnInactive = "border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300";
@@ -464,7 +465,7 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
           );
         })}
         {activeGroups.size < ALL_GROUPS.size && (
-          <button type="button" onClick={() => setActiveGroups(ALL_GROUPS)}
+          <button type="button" onClick={() => setActiveGroups(new Set(ALL_GROUPS))}
             className={`${btnBase} ${btnInactive}`}>
             All
           </button>
