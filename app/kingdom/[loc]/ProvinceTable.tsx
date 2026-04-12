@@ -230,7 +230,7 @@ function tipFor(p: ProvinceRow, key: ColKey): string {
   }
   if (key === "armies") {
     if (!p.som_age) return "No SoM data";
-    const lines: string[] = [];
+    const lines: string[] = ["Armies out"];
     const armies: Array<{ type: string; soldiers: number; offSpecs: number; defSpecs: number; elites: number; land: number; eta: number }> =
       p.armies_out_json ? JSON.parse(p.armies_out_json) : [];
     if (armies.length === 0) {
