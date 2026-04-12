@@ -193,8 +193,8 @@ function classifyEvent(text: string): Omit<KingdomNewsEvent, "gameDate" | "rawTe
   m = FAILED_RE.exec(text);
   if (m) return {
     eventType: "failed_attack",
-    attackerName: null, attackerKingdom: m[1],
-    defenderName: m[2].trim(), defenderKingdom: m[3],
+    attackerName: null, attackerKingdom: m[2],
+    defenderName: m[3].trim(), defenderKingdom: m[4],
     acres: null, books: null,
     senderName: null, receiverName: null, relationKingdom: null,
     dragonType: null, dragonName: null,
