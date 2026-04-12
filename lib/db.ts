@@ -1204,7 +1204,7 @@ export function getKingdomNews(kingdom: string, keyHash: string, limit = 200, fr
            received_at
     FROM kingdom_news
     WHERE kingdom = ?
-    ORDER BY game_date DESC, id DESC
+    ORDER BY id DESC
     LIMIT ?
   `).all(kingdom, fetchLimit) as Array<{
     id: number;
@@ -1253,7 +1253,11 @@ export function getKingdomNews(kingdom: string, keyHash: string, limit = 200, fr
       dragonType: r.dragon_type,
       dragonName: r.dragon_name,
       receivedAt: r.received_at,
-    }));
+    }))
+    .sort((a, b) => {
+      const diff = parseUtopiaDate(b.gameDate) - parseUtopiaDate(a.gameDate);
+      return diff !== 0 ? diff : b.id - a.id;
+    });
 }
 
 const COMBAT_TYPES = `'march','invasion','ambush','raze','pillage','loot'`;
