@@ -5,6 +5,15 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { KingdomNewsRow, KingdomNewsSummary } from "@/lib/db";
 
+const TYPE_GROUPS: { label: string; types: string[] }[] = [
+  { label: "Combat",    types: ["march", "invasion", "ambush", "raze", "pillage", "loot", "failed_attack"] },
+  { label: "Relations", types: ["war_declared", "ceasefire_proposed", "ceasefire_accepted", "ceasefire_broken", "ceasefire_withdrawn"] },
+  { label: "Dragon",    types: ["dragon_by_us", "dragon_against_us", "dragon_slain"] },
+  { label: "Ritual",    types: ["ritual_started"] },
+  { label: "Aid",       types: ["aid"] },
+];
+const ALL_GROUPS = new Set(TYPE_GROUPS.map((g) => g.label));
+
 const EVENT_LABEL: Record<string, string> = {
   march:               "Trad. March",
   invasion:            "Trad. March",
@@ -323,6 +332,7 @@ function NewsDateFilter({ kingdom, from, to, latestWarDate }: { kingdom: string;
 }
 
 export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWarDate }: { events: KingdomNewsRow[]; summary: KingdomNewsSummary; kingdom: string; from?: string; to?: string; latestWarDate?: string }) {
+  const [activeGroups, setActiveGroups] = useState<Set<string>>(ALL_GROUPS);
   const btnBase = "px-2.5 py-1 rounded text-xs border transition-colors";
   const btnActive = "border-blue-500 text-blue-300 bg-blue-950/40";
   const btnInactive = "border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300";
@@ -438,8 +448,34 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
         </div>
       )}
 
+      <div className="mb-2 flex flex-wrap gap-1.5">
+        {TYPE_GROUPS.map((g) => {
+          const active = activeGroups.has(g.label);
+          return (
+            <button key={g.label} type="button"
+              onClick={() => setActiveGroups((prev) => {
+                const next = new Set(prev);
+                if (next.has(g.label)) { next.delete(g.label); } else { next.add(g.label); }
+                return next;
+              })}
+              className={`${btnBase} ${active ? btnActive : btnInactive}`}>
+              {g.label}
+            </button>
+          );
+        })}
+        {activeGroups.size < ALL_GROUPS.size && (
+          <button type="button" onClick={() => setActiveGroups(ALL_GROUPS)}
+            className={`${btnBase} ${btnInactive}`}>
+            All
+          </button>
+        )}
+      </div>
+
       <div className="space-y-1">
-        {events.map((event) => {
+        {events.filter((e) => {
+          const group = TYPE_GROUPS.find((g) => g.types.includes(e.eventType));
+          return group ? activeGroups.has(group.label) : activeGroups.size === ALL_GROUPS.size;
+        }).map((event) => {
           const dir = eventDirection(event, kingdom);
           const badge = DIR_BADGE[dir ?? "neutral"];
           const label = EVENT_LABEL[event.eventType] ?? "Event";
