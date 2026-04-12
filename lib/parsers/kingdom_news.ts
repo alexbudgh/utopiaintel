@@ -79,7 +79,7 @@ function classifyEvent(text: string): Omit<KingdomNewsEvent, "gameDate" | "rawTe
 
   m = INVASION_UNKNOWN_RE.exec(text);
   if (m) return {
-    eventType: "invasion",
+    eventType: "march",
     attackerName: null, attackerKingdom: m[2],
     defenderName: m[3].trim(), defenderKingdom: m[4],
     acres: parseNum(m[5]), books: null,
@@ -99,7 +99,7 @@ function classifyEvent(text: string): Omit<KingdomNewsEvent, "gameDate" | "rawTe
 
   m = INVASION_RE.exec(text);
   if (m) return {
-    eventType: "invasion",
+    eventType: "march",
     attackerName: m[1].trim(), attackerKingdom: m[2],
     defenderName: m[3].trim(), defenderKingdom: m[4],
     acres: parseNum(m[5]), books: null,

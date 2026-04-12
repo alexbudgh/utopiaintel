@@ -8,7 +8,7 @@ import type { KingdomNewsRow, KingdomNewsSummary } from "@/lib/db";
 import { parseUtopiaDate } from "@/lib/ui";
 
 const TYPE_GROUPS: { label: string; types: string[] }[] = [
-  { label: "Combat",    types: ["march", "invasion", "ambush", "raze", "pillage", "loot", "failed_attack"] },
+  { label: "Combat",    types: ["march", "ambush", "raze", "pillage", "loot", "failed_attack"] },
   { label: "Relations", types: ["war_declared", "ceasefire_proposed", "ceasefire_accepted", "ceasefire_broken", "ceasefire_withdrawn"] },
   { label: "Dragon",    types: ["dragon_by_us", "dragon_against_us", "dragon_slain"] },
   { label: "Ritual",    types: ["ritual_started"] },
@@ -19,7 +19,6 @@ const DEFAULT_GROUPS = new Set(TYPE_GROUPS.map((g) => g.label).filter((l) => l !
 
 const EVENT_LABEL: Record<string, string> = {
   march:               "Trad. March",
-  invasion:            "Trad. March",
   ambush:              "Ambush",
   raze:                "Raze",
   pillage:             "Pillage",
@@ -55,7 +54,7 @@ function EventDescription({ event }: { event: KingdomNewsRow }) {
     );
   }
 
-  if (eventType === "march" || eventType === "invasion") {
+  if (eventType === "march") {
     return (
       <span>
         <KdLink name={attackerName} kingdom={attackerKingdom} />{" "}
@@ -209,7 +208,7 @@ function EventDescription({ event }: { event: KingdomNewsRow }) {
   return <span className="text-gray-400">{event.rawText}</span>;
 }
 
-const COMBAT_TYPES_SET = new Set(["march","invasion","ambush","raze","pillage","loot"]);
+const COMBAT_TYPES_SET = new Set(["march","ambush","raze","pillage","loot"]);
 const KD_COLORS = ["#60a5fa","#f87171","#34d399","#fbbf24","#a78bfa","#fb923c","#38bdf8","#f472b6"];
 
 function buildChartData(events: KingdomNewsRow[], ourKingdom: string) {
