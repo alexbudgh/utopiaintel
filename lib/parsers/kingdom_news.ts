@@ -54,7 +54,9 @@ const MARCH_RE      = new RegExp(`^${PROV_REF} captured (${INT}) acres of land f
 // Unknown province march: "An unknown province from X captured N acres of land from Y"
 const MARCH_UNKNOWN_RE = new RegExp(`^An unknown province from ([^(]+?)\\s*${KDLOC} captured (${INT}) acres of land from ${PROV_REF}`);
 // Unknown province failed: standard and intra-kingdom war variant
-const FAILED_RE     = new RegExp(`^(?:In intra-kingdom war )?${UNKNOWN_PROV_RE.source} attempted to invade ${PROV_REF}`);
+const FAILED_RE          = new RegExp(`^(?:In intra-kingdom war )?${UNKNOWN_PROV_RE.source} attempted to invade ${PROV_REF}`);
+// Known attacker failed: "X attempted to invade Y" or "X attempted an invasion of Y"
+const FAILED_KNOWN_RE    = new RegExp(`^${PROV_REF} attempted (?:to invade|an invasion of) ${PROV_REF}`);
 // Dragon arrived against us from news (different from SoT ravage)
 const DRAGON_ARRIVED_RE = new RegExp(`^A (\\w+) Dragon, ([^,]+), from ([^(]+?)\\s*${KDLOC} has begun ravaging our lands!`);
 // Dragon completed and launched by us: "X has completed our dragon, Name, and it sets flight to ravage Y (X:Y)!"
@@ -193,6 +195,16 @@ function classifyEvent(text: string): Omit<KingdomNewsEvent, "gameDate" | "rawTe
     eventType: "failed_attack",
     attackerName: null, attackerKingdom: m[1],
     defenderName: m[2].trim(), defenderKingdom: m[3],
+    acres: null, books: null,
+    senderName: null, receiverName: null, relationKingdom: null,
+    dragonType: null, dragonName: null,
+  };
+
+  m = FAILED_KNOWN_RE.exec(text);
+  if (m) return {
+    eventType: "failed_attack",
+    attackerName: m[1].trim(), attackerKingdom: m[2],
+    defenderName: m[3].trim(), defenderKingdom: m[4],
     acres: null, books: null,
     senderName: null, receiverName: null, relationKingdom: null,
     dragonType: null, dragonName: null,
