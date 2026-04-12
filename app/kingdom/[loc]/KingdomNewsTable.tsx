@@ -580,6 +580,42 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
                         );
                       })}
                     </tbody>
+                    {kd.provinces.length > 1 && (() => {
+                      const kdTotalNet = kd.totalMarchAcresGained + kd.totalAmbushAcresGained - kd.totalMarchAcresLost - kd.totalAmbushAcresLost - kd.totalRazeAcresLost;
+                      return (
+                      <tfoot>
+                        <tr className="border-t border-gray-700 text-gray-400 font-medium bg-gray-900/60">
+                          <td className="px-3 py-1.5 text-gray-500 text-[11px]">Total</td>
+                          <td className="px-2 py-1.5 text-right font-mono border-l border-gray-800"><Num n={kd.totalHitsMade}          color={gc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalMarchMade}          color={gc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalAmbushMade}         color={gc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalRazeMade}           color={gc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalPlunderMade}        color={gc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalLootMade}           color={gc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalFailedMade}         color={gc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalMarchAcresGained}   color={gc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalAmbushAcresGained}  color={gc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalRazeAcresDealt}     color={gc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono border-l border-gray-800"><Num n={kd.totalHitsTaken}    color={lc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalMarchTaken}         color={lc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalAmbushTaken}        color={lc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalRazeTaken}          color={lc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalPlunderTaken}       color={lc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalLootTaken}          color={lc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalFailedTaken}        color={lc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalMarchAcresLost}     color={lc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalAmbushAcresLost}    color={lc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalRazeAcresLost}      color={lc} /></td>
+                          <td className="px-2 py-1.5 text-right font-mono border-l border-gray-800">
+                            {kdTotalNet !== 0
+                              ? <span className={kdTotalNet > 0 ? "text-green-300" : "text-red-300"}>{kdTotalNet > 0 ? "+" : ""}{kdTotalNet.toLocaleString()}</span>
+                              : <span className="text-gray-700">—</span>}
+                          </td>
+                          <td className="px-3 py-1.5 text-right font-mono"><Num n={kd.provinces.reduce((s, p) => s + p.booksLooted, 0)} color="text-amber-300" /></td>
+                        </tr>
+                      </tfoot>
+                      );
+                    })()}
                   </table>
                   </div>
                 </div>
