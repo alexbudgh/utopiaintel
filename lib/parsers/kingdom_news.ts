@@ -37,6 +37,9 @@ function parseProvRef(text: string): { name: string; kingdom: string } | null {
 // Patterns for each event type. Capture groups named inline via positional indices.
 // Format: attacker PROV_REF ... verb ... defender PROV_REF
 const INVASION_RE   = new RegExp(`^${PROV_REF} invaded ${PROV_REF} and captured (${INT}) acres`);
+// Unknown province variants — must be checked before general patterns
+const INVASION_UNKNOWN_RE    = new RegExp(`^An unknown province from ([^(]+?)\\s*${KDLOC} invaded ${PROV_REF} and captured (${INT}) acres`);
+const AMBUSH_ARMIES_UNKNOWN_RE = new RegExp(`^An unknown province from ([^(]+?)\\s*${KDLOC} ambushed armies from ${PROV_REF} and took (${INT}) acres`);
 // Both "ambushed armies from Y and took N acres" and "recaptured N acres [of land] from Y"
 // are the Ambush attack type in Utopia.
 const AMBUSH_ARMIES_RE = new RegExp(`^${PROV_REF} ambushed armies from ${PROV_REF} and took (${INT}) acres`);
@@ -73,6 +76,26 @@ const DRAGON_AGAINST_US_RE      = new RegExp(`^([^(]+?)\\s*${KDLOC} has begun th
 
 function classifyEvent(text: string): Omit<KingdomNewsEvent, "gameDate" | "rawText"> {
   let m: RegExpExecArray | null;
+
+  m = INVASION_UNKNOWN_RE.exec(text);
+  if (m) return {
+    eventType: "invasion",
+    attackerName: null, attackerKingdom: m[2],
+    defenderName: m[3].trim(), defenderKingdom: m[4],
+    acres: parseNum(m[5]), books: null,
+    senderName: null, receiverName: null, relationKingdom: null,
+    dragonType: null, dragonName: null,
+  };
+
+  m = AMBUSH_ARMIES_UNKNOWN_RE.exec(text);
+  if (m) return {
+    eventType: "ambush",
+    attackerName: null, attackerKingdom: m[2],
+    defenderName: m[3].trim(), defenderKingdom: m[4],
+    acres: parseNum(m[5]), books: null,
+    senderName: null, receiverName: null, relationKingdom: null,
+    dragonType: null, dragonName: null,
+  };
 
   m = INVASION_RE.exec(text);
   if (m) return {
