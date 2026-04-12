@@ -1411,9 +1411,9 @@ export function getKingdomNewsSummary(kingdom: string, keyHash: string, from?: s
     kdMap.set(p.kd, list);
   }
 
-  // Build kingdom summaries, sort provinces within each by hitsMade desc then hitsTaken desc
+  // Build kingdom summaries, sort provinces within each by net acres desc
   const byKingdom: NewsKingdomSummary[] = [...kdMap.entries()].map(([kd, provs]) => {
-    provs.sort((a, b) => (b.hitsMade - a.hitsMade) || (b.hitsTaken - a.hitsTaken));
+    provs.sort((a, b) => (b.acresGained - b.acresLost) - (a.acresGained - a.acresLost));
     return {
       kingdom: kd,
       provinces: provs,
