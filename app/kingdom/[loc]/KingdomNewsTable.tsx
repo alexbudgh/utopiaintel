@@ -334,6 +334,7 @@ function NewsDateFilter({ kingdom, from, to, latestWarDate }: { kingdom: string;
 
 export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWarDate }: { events: KingdomNewsRow[]; summary: KingdomNewsSummary; kingdom: string; from?: string; to?: string; latestWarDate?: string }) {
   const [activeGroups, setActiveGroups] = useState<Set<string>>(DEFAULT_GROUPS);
+  const [visibleCount, setVisibleCount] = useState(50);
   const btnBase = "px-2.5 py-1 rounded text-xs border transition-colors";
   const btnActive = "border-blue-500 text-blue-300 bg-blue-950/40";
   const btnInactive = "border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300";
@@ -454,29 +455,34 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
           const active = activeGroups.has(g.label);
           return (
             <button key={g.label} type="button"
-              onClick={() => setActiveGroups((prev) => {
+              onClick={() => { setVisibleCount(50); setActiveGroups((prev) => {
                 const next = new Set(prev);
                 if (next.has(g.label)) { next.delete(g.label); } else { next.add(g.label); }
                 return next;
-              })}
+              }); }}
               className={`${btnBase} ${active ? btnActive : btnInactive}`}>
               {g.label}
             </button>
           );
         })}
         {activeGroups.size < ALL_GROUPS.size && (
-          <button type="button" onClick={() => setActiveGroups(new Set(ALL_GROUPS))}
+          <button type="button" onClick={() => { setVisibleCount(50); setActiveGroups(new Set(ALL_GROUPS)); }}
             className={`${btnBase} ${btnInactive}`}>
             All
           </button>
         )}
       </div>
 
-      <div className="space-y-1">
-        {events.filter((e) => {
+      {(() => {
+        const filtered = events.filter((e) => {
           const group = TYPE_GROUPS.find((g) => g.types.includes(e.eventType));
           return group ? activeGroups.has(group.label) : activeGroups.size === ALL_GROUPS.size;
-        }).map((event) => {
+        });
+        const visible = filtered.slice(0, visibleCount);
+        const hasMore = filtered.length > visibleCount;
+        return <>
+      <div className="space-y-1">
+        {visible.map((event) => {
           const dir = eventDirection(event, kingdom);
           const badge = DIR_BADGE[dir ?? "neutral"];
           const label = EVENT_LABEL[event.eventType] ?? "Event";
@@ -497,6 +503,17 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
           );
         })}
       </div>
+      {hasMore && (
+        <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
+          <button type="button" onClick={() => setVisibleCount((n) => n + 50)}
+            className="rounded border border-gray-700 bg-gray-900 px-3 py-1.5 text-gray-300 hover:border-gray-500 hover:text-gray-100 transition-colors">
+            Load more
+          </button>
+          <span>{visibleCount} of {filtered.length} events</span>
+        </div>
+      )}
+        </>;
+      })()}
     </>
   );
 }
