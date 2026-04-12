@@ -237,16 +237,18 @@ function tipFor(p: ProvinceRow, key: ColKey): string {
       lines.push("All armies home");
     } else {
       for (const a of armies) {
-        const units = [
+        const unitParts = [
           a.soldiers ? `${a.soldiers.toLocaleString()} sol` : null,
           a.offSpecs ? `${a.offSpecs.toLocaleString()} off` : null,
           a.defSpecs ? `${a.defSpecs.toLocaleString()} def` : null,
           a.elites   ? `${a.elites.toLocaleString()} eli` : null,
-        ].filter(Boolean).join(", ") || "no units";
+        ].filter(Boolean);
+        const units = unitParts.length ? ` ${unitParts.join(", ")}` : "";
         const land = a.land > 0 ? ` +${a.land.toLocaleString()}a` : "";
-        const ambush = computeAmbushRawOff(p.race, a);
+        const hasUnits = a.soldiers || a.offSpecs || a.defSpecs || a.elites;
+        const ambush = hasUnits ? computeAmbushRawOff(p.race, a) : null;
         const ambushStr = ambush != null ? ` | ambush ${Math.ceil(ambush).toLocaleString()}` : "";
-        lines.push(`${a.type}: ${units}${land} · ${a.eta.toFixed(1)}d${ambushStr}`);
+        lines.push(`${a.type}:${units}${land} · ${a.eta.toFixed(1)}d${ambushStr}`);
       }
     }
     lines.push(`som: ${timeAgo(p.som_age)} · ${formatTimestamp(p.som_age)}`);

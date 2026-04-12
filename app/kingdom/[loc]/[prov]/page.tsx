@@ -238,16 +238,16 @@ export default async function ProvincePage({
                   {d.militaryIntel.armies.map((a: ArmyRow, i: number) => (
                     <tr key={i} className="border-b border-gray-700/50 text-gray-200">
                       <td className="py-1 pr-4 text-gray-400 font-mono text-xs">{a.armyType}</td>
-                      <td className="py-1 pr-4 text-right tabular-nums">{a.generals.toLocaleString()}</td>
-                      <td className="py-1 pr-4 text-right tabular-nums">{a.soldiers.toLocaleString()}</td>
-                      <td className="py-1 pr-4 text-right tabular-nums">{a.offSpecs.toLocaleString()}</td>
-                      <td className="py-1 pr-4 text-right tabular-nums">{a.defSpecs.toLocaleString()}</td>
-                      <td className="py-1 pr-4 text-right tabular-nums">{a.elites.toLocaleString()}</td>
-                      <td className="py-1 pr-4 text-right tabular-nums">{a.warHorses.toLocaleString()}</td>
-                      <td className="py-1 pr-4 text-right tabular-nums">{a.thieves.toLocaleString()}</td>
-                      <td className="py-1 pr-4 text-right tabular-nums">{a.landGained > 0 ? a.landGained.toLocaleString() : "—"}</td>
+                      <td className="py-1 pr-4 text-right tabular-nums">{a.generals != null ? a.generals.toLocaleString() : "—"}</td>
+                      <td className="py-1 pr-4 text-right tabular-nums">{a.soldiers != null ? a.soldiers.toLocaleString() : "—"}</td>
+                      <td className="py-1 pr-4 text-right tabular-nums">{a.offSpecs != null ? a.offSpecs.toLocaleString() : "—"}</td>
+                      <td className="py-1 pr-4 text-right tabular-nums">{a.defSpecs != null ? a.defSpecs.toLocaleString() : "—"}</td>
+                      <td className="py-1 pr-4 text-right tabular-nums">{a.elites != null ? a.elites.toLocaleString() : "—"}</td>
+                      <td className="py-1 pr-4 text-right tabular-nums">{a.warHorses != null ? a.warHorses.toLocaleString() : "—"}</td>
+                      <td className="py-1 pr-4 text-right tabular-nums">{a.thieves != null ? a.thieves.toLocaleString() : "—"}</td>
+                      <td className="py-1 pr-4 text-right tabular-nums">{a.landGained != null && a.landGained > 0 ? a.landGained.toLocaleString() : "—"}</td>
                       <td className="py-1 pr-4 text-right tabular-nums">{a.returnDays != null ? maybeRoundedValue(a.returnDays.toFixed(1) + "d", a.returnDays, { suffix: "d" }) : "—"}</td>
-                      <td className="py-1 text-right tabular-nums text-yellow-300/80">{(() => { const v = a.returnDays != null ? computeAmbushRawOff(d.overview?.race, a) : null; return v != null ? Math.ceil(v).toLocaleString() : "—"; })()}</td>
+                      <td className="py-1 text-right tabular-nums text-yellow-300/80">{(() => { const v = a.returnDays != null && a.elites != null && a.offSpecs != null && a.soldiers != null ? computeAmbushRawOff(d.overview?.race, a as { elites: number; offSpecs: number; soldiers: number }) : null; return v != null ? Math.ceil(v).toLocaleString() : "—"; })()}</td>
                     </tr>
                   ))}
                 </tbody>

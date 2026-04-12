@@ -109,6 +109,7 @@ function setLatestSoTTimestamps(provinceName: string, kingdom: string, savedBy: 
   stamp("province_troops");
   stamp("province_resources");
   stamp("province_status");
+  stamp("military_intel");
   db.prepare(`
     UPDATE province_effects
     SET received_at = ?

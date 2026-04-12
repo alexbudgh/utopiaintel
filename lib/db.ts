@@ -319,6 +319,7 @@ function initSchema(db: Database.Database) {
   if (!hasCol("province_status", "overpop_deserters")) db.exec("ALTER TABLE province_status ADD COLUMN overpop_deserters INTEGER");
   if (!hasCol("province_status", "dragon_type")) db.exec("ALTER TABLE province_status ADD COLUMN dragon_type TEXT");
   if (!hasCol("province_status", "dragon_name")) db.exec("ALTER TABLE province_status ADD COLUMN dragon_name TEXT");
+  if (!hasCol("military_intel", "source")) db.exec("ALTER TABLE military_intel ADD COLUMN source TEXT NOT NULL DEFAULT 'som'");
   if (!hasCol("kingdom_news", "game_date_ord")) {
     db.exec("ALTER TABLE kingdom_news ADD COLUMN game_date_ord INTEGER");
     // Backfill ordinal for existing rows
@@ -418,6 +419,22 @@ export function storeSoT(data: SoTData, savedBy: string, keyHash: string, isSelf
         effect.effectivenessPercent,
         savedBy,
       );
+    }
+
+    // 6. Armies out (self-throne only)
+    if (isSelfThrone && data.armiesOut?.length) {
+      const milResult = db.prepare(`
+        INSERT INTO military_intel (province_id, ome, dme, source, saved_by, accuracy)
+        VALUES (?, NULL, NULL, 'throne', ?, ?)
+      `).run(provId, savedBy, data.accuracy);
+      const milId = milResult.lastInsertRowid;
+      const insArmy = db.prepare(`
+        INSERT INTO som_armies (military_intel_id, army_type, land_gained, return_days)
+        VALUES (?, ?, ?, ?)
+      `);
+      data.armiesOut.forEach((a, i) => {
+        insArmy.run(milId, `out_${i + 1}`, a.acres, a.daysLeft);
+      });
     }
   })();
 }
@@ -789,6 +806,7 @@ export interface ProvinceRow {
   ome: number | null;
   dme: number | null;
   som_age: string | null;
+  throne_age: string | null;
   sciences_age: string | null;
   crime_effect: number | null;
   channeling_effect: number | null;
@@ -803,12 +821,63 @@ export interface ProvinceRow {
   armies_out_count: number | null;
   land_incoming: number | null;
   earliest_return: number | null;
+  som_armies_json: string | null;
+  throne_armies_json: string | null;
   armies_out_json: string | null;
+}
+
+type SomArmy = { type: string; generals: number; soldiers: number; offSpecs: number; defSpecs: number; elites: number; warHorses: number; thieves: number; land: number; eta: number };
+type ThroneArmy = { type: string; land: number; eta: number };
+
+function mergeArmyArrays(somArmies: SomArmy[], throneArmies: ThroneArmy[], throneNewer: boolean): ArmyRow[] {
+  if (!throneNewer || throneArmies.length === 0) {
+    return somArmies.map((a) => ({
+      armyType: a.type, generals: a.generals, soldiers: a.soldiers,
+      offSpecs: a.offSpecs, defSpecs: a.defSpecs, elites: a.elites,
+      warHorses: a.warHorses, thieves: a.thieves, landGained: a.land, returnDays: a.eta,
+    }));
+  }
+  const somByType = new Map(somArmies.map((a) => [a.type, a]));
+  const outArmies: ArmyRow[] = throneArmies.map((t) => {
+    const s = somByType.get(t.type);
+    return {
+      armyType: t.type,
+      generals: s?.generals ?? null, soldiers: s?.soldiers ?? null,
+      offSpecs: s?.offSpecs ?? null, defSpecs: s?.defSpecs ?? null, elites: s?.elites ?? null,
+      warHorses: s?.warHorses ?? null, thieves: s?.thieves ?? null,
+      landGained: t.land ?? s?.land ?? null, returnDays: t.eta,
+    };
+  });
+  const nonOutArmies: ArmyRow[] = somArmies
+    .filter((a) => !a.type.startsWith("out_"))
+    .map((a) => ({
+      armyType: a.type, generals: a.generals, soldiers: a.soldiers,
+      offSpecs: a.offSpecs, defSpecs: a.defSpecs, elites: a.elites,
+      warHorses: a.warHorses, thieves: a.thieves, landGained: a.land, returnDays: a.eta,
+    }));
+  return [...nonOutArmies, ...outArmies];
+}
+
+function mergeArmiesJson(
+  somJson: string | null,
+  throneJson: string | null,
+  somAge: string | null,
+  throneAge: string | null,
+): string | null {
+  if (!somJson && !throneJson) return null;
+  const throneNewer = !!(throneAge && (!somAge || throneAge > somAge));
+  const somArmies: SomArmy[] = somJson ? JSON.parse(somJson) : [];
+  const throneArmies: ThroneArmy[] = throneJson ? JSON.parse(throneJson) : [];
+  const merged = mergeArmyArrays(somArmies, throneArmies, throneNewer);
+  return merged.length ? JSON.stringify(merged.map((a) => ({
+    type: a.armyType, soldiers: a.soldiers ?? 0, offSpecs: a.offSpecs ?? 0,
+    defSpecs: a.defSpecs ?? 0, elites: a.elites ?? 0, land: a.landGained ?? 0, eta: a.returnDays,
+  }))) : null;
 }
 
 export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceRow[] {
   const db = getDb();
-  return db.prepare(`
+  const rows = db.prepare(`
     WITH latest_effects AS (
       SELECT pe.province_id, pe.effect_name, pe.effect_kind, pe.remaining_ticks, pe.received_at,
              row_number() OVER (
@@ -878,10 +947,12 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
            (SELECT SUM(ss.books) FROM sos_sciences ss WHERE ss.sos_intel_id = (SELECT id FROM sos_intel WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1)) AS science_total_books,
            (SELECT SUM(sb.built) FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1) AND sb.building != 'Barren Land') AS buildings_built,
            (SELECT SUM(sb.in_progress) FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1)) AS buildings_in_progress,
-           (SELECT COUNT(*) FROM som_armies WHERE military_intel_id = mi.id AND return_days IS NOT NULL) AS armies_out_count,
-           (SELECT SUM(land_gained) FROM som_armies WHERE military_intel_id = mi.id AND return_days IS NOT NULL) AS land_incoming,
-           (SELECT MIN(return_days) FROM som_armies WHERE military_intel_id = mi.id AND return_days IS NOT NULL) AS earliest_return,
-           (SELECT json_group_array(json_object('type', army_type, 'soldiers', soldiers, 'offSpecs', off_specs, 'defSpecs', def_specs, 'elites', elites, 'land', land_gained, 'eta', return_days)) FROM som_armies WHERE military_intel_id = mi.id AND return_days IS NOT NULL) AS armies_out_json
+           mi_throne.received_at AS throne_age,
+           (SELECT COUNT(*) FROM som_armies WHERE military_intel_id = (CASE WHEN mi_throne.id IS NOT NULL AND (mi.id IS NULL OR mi_throne.received_at > mi.received_at) THEN mi_throne.id ELSE mi.id END) AND return_days IS NOT NULL) AS armies_out_count,
+           (SELECT SUM(land_gained) FROM som_armies WHERE military_intel_id = (CASE WHEN mi_throne.id IS NOT NULL AND (mi.id IS NULL OR mi_throne.received_at > mi.received_at) THEN mi_throne.id ELSE mi.id END) AND return_days IS NOT NULL) AS land_incoming,
+           (SELECT MIN(return_days) FROM som_armies WHERE military_intel_id = (CASE WHEN mi_throne.id IS NOT NULL AND (mi.id IS NULL OR mi_throne.received_at > mi.received_at) THEN mi_throne.id ELSE mi.id END) AND return_days IS NOT NULL) AS earliest_return,
+           (SELECT json_group_array(json_object('type', army_type, 'generals', generals, 'soldiers', soldiers, 'offSpecs', off_specs, 'defSpecs', def_specs, 'elites', elites, 'warHorses', war_horses, 'thieves', thieves, 'land', land_gained, 'eta', return_days)) FROM som_armies WHERE military_intel_id = mi.id AND return_days IS NOT NULL) AS som_armies_json,
+           (SELECT json_group_array(json_object('type', army_type, 'land', land_gained, 'eta', return_days)) FROM som_armies WHERE military_intel_id = mi_throne.id AND return_days IS NOT NULL) AS throne_armies_json
     FROM provinces p
     LEFT JOIN province_overview po ON po.id = (
       SELECT id FROM province_overview
@@ -914,7 +985,11 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
     )
     LEFT JOIN military_intel mi ON mi.id = (
       SELECT id FROM military_intel
-      WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1
+      WHERE province_id = p.id AND source = 'som' ORDER BY received_at DESC LIMIT 1
+    )
+    LEFT JOIN military_intel mi_throne ON mi_throne.id = (
+      SELECT id FROM military_intel
+      WHERE province_id = p.id AND source = 'throne' ORDER BY received_at DESC LIMIT 1
     )
     WHERE p.kingdom = ?
       AND EXISTS (
@@ -923,18 +998,23 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
       )
     ORDER BY po.networth DESC NULLS LAST
   `).all(keyHash, kingdom, keyHash) as ProvinceRow[];
+
+  for (const row of rows) {
+    row.armies_out_json = mergeArmiesJson(row.som_armies_json, row.throne_armies_json, row.som_age, row.throne_age);
+  }
+  return rows;
 }
 
 export interface ArmyRow {
   armyType: string;
-  generals: number;
-  soldiers: number;
-  offSpecs: number;
-  defSpecs: number;
-  elites: number;
-  warHorses: number;
-  thieves: number;
-  landGained: number;
+  generals: number | null;
+  soldiers: number | null;
+  offSpecs: number | null;
+  defSpecs: number | null;
+  elites: number | null;
+  warHorses: number | null;
+  thieves: number | null;
+  landGained: number | null;
   returnDays: number | null;
 }
 
@@ -1078,16 +1158,31 @@ export function getProvinceDetail(name: string, kingdom: string, keyHash: string
   ).all(id, id) as Array<{ effect_name: string; effect_kind: string; duration_text: string | null; remaining_ticks: number | null; effectiveness_percent: number | null; received_at: string }>;
 
   const miRaw = db.prepare(
-    "SELECT id, ome, dme, received_at FROM military_intel WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
+    "SELECT id, ome, dme, received_at FROM military_intel WHERE province_id = ? AND source = 'som' ORDER BY received_at DESC LIMIT 1"
+  ).get(id) as any;
+  const miThroneRaw = db.prepare(
+    "SELECT id, received_at FROM military_intel WHERE province_id = ? AND source = 'throne' ORDER BY received_at DESC LIMIT 1"
   ).get(id) as any;
   let militaryIntel = null;
-  if (miRaw) {
-    const armies = db.prepare(
+  if (miRaw || miThroneRaw) {
+    const somRaw: any[] = miRaw ? db.prepare(
       "SELECT army_type, generals, soldiers, off_specs, def_specs, elites, war_horses, thieves, land_gained, return_days FROM som_armies WHERE military_intel_id = ?"
-    ).all(miRaw.id) as any[];
+    ).all(miRaw.id) : [];
+    const throneRaw: any[] = miThroneRaw ? db.prepare(
+      "SELECT army_type, land_gained, return_days FROM som_armies WHERE military_intel_id = ?"
+    ).all(miThroneRaw.id) : [];
+
+    const somArmies: SomArmy[] = somRaw.map((a) => ({
+      type: a.army_type, generals: a.generals, soldiers: a.soldiers,
+      offSpecs: a.off_specs, defSpecs: a.def_specs, elites: a.elites,
+      warHorses: a.war_horses, thieves: a.thieves, land: a.land_gained, eta: a.return_days,
+    }));
+    const throneArmies: ThroneArmy[] = throneRaw.map((a) => ({ type: a.army_type, land: a.land_gained, eta: a.return_days }));
+    const throneNewer = !!(miThroneRaw && (!miRaw || miThroneRaw.received_at > miRaw.received_at));
+
     militaryIntel = {
-      ome: miRaw.ome, dme: miRaw.dme, receivedAt: miRaw.received_at,
-      armies: armies.map((a) => ({ armyType: a.army_type, generals: a.generals, soldiers: a.soldiers, offSpecs: a.off_specs, defSpecs: a.def_specs, elites: a.elites, warHorses: a.war_horses, thieves: a.thieves, landGained: a.land_gained, returnDays: a.return_days })),
+      ome: miRaw?.ome ?? null, dme: miRaw?.dme ?? null, receivedAt: miRaw?.received_at ?? miThroneRaw?.received_at,
+      armies: mergeArmyArrays(somArmies, throneArmies, throneNewer),
     };
   }
 

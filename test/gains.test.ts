@@ -62,6 +62,7 @@ function makeProvince(overrides: Partial<ProvinceRow>): ProvinceRow {
     ome: null,
     dme: null,
     som_age: null,
+    throne_age: null,
     sciences_age: null,
     crime_effect: null,
     channeling_effect: null,
@@ -76,6 +77,8 @@ function makeProvince(overrides: Partial<ProvinceRow>): ProvinceRow {
     armies_out_count: null,
     land_incoming: null,
     earliest_return: null,
+    som_armies_json: null,
+    throne_armies_json: null,
     armies_out_json: null,
     ...overrides,
   };

@@ -37,6 +37,8 @@ const SUFFIX_PERS_TITLE_RE = new RegExp(`\\bthe (${SUFFIX_PERSONALITY_GROUP})\\b
 
 const THIEF_OP_DURATION_NAMES = new Set(["Incite Riots"]);
 
+const ARMIES_RE = /Armies\s*:/i;
+const ARMY_GROUP_RE = /\((\d+\.?\d*)\s*days?\s*left\)\s*\(([\d,]+)\)/g;
 const PLAGUE_RE = /The Plague has spread throughout our people/;
 const OVERPOP_RE = /Riots due to housing shortages/;
 const DRAGON_RE = /The (\w+) Dragon, ([^,]+), ravages our lands!/;
@@ -148,6 +150,13 @@ export function parseSoT(text: string): SoTData | null {
   const ritualEffect = parseRitualEffect(text);
   if (ritualEffect) activeEffects.push(ritualEffect);
 
+  const armiesOut: { daysLeft: number; acres: number }[] = [];
+  if (ARMIES_RE.test(text)) {
+    for (const m of text.matchAll(ARMY_GROUP_RE)) {
+      armiesOut.push({ daysLeft: parseFloat(m[1]), acres: parseNum(m[2]) });
+    }
+  }
+
   return {
     name,
     kingdom,
@@ -184,5 +193,6 @@ export function parseSoT(text: string): SoTData | null {
     war: WAR_RE.test(text),
     activeEffects,
     accuracy,
+    armiesOut: armiesOut.length > 0 ? armiesOut : undefined,
   };
 }

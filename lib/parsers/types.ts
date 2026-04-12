@@ -47,6 +47,7 @@ export interface SoTData extends ProvinceId {
     effectivenessPercent: number | null;
   }>;
   accuracy: number;
+  armiesOut?: { daysLeft: number; acres: number }[];
 }
 
 export interface SurveyBuilding {
