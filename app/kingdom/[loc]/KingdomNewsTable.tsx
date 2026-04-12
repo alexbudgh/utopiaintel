@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import type { KingdomNewsRow, KingdomNewsSummary } from "@/lib/db";
 
 const EVENT_LABEL: Record<string, string> = {
@@ -210,7 +212,60 @@ function eventDirection(event: KingdomNewsRow, kingdom: string): "out" | "in" | 
   return null;
 }
 
-export function KingdomNewsTable({ events, summary, kingdom }: { events: KingdomNewsRow[]; summary: KingdomNewsSummary; kingdom: string }) {
+function NewsDateFilter({ kingdom, from, to }: { kingdom: string; from?: string; to?: string }) {
+  const router = useRouter();
+  const [fromVal, setFromVal] = useState(from ?? "");
+  const [toVal, setToVal]     = useState(to   ?? "");
+
+  function apply(e: React.FormEvent) {
+    e.preventDefault();
+    const base = `/kingdom/${encodeURIComponent(kingdom)}?view=news`;
+    const params = new URLSearchParams();
+    params.set("view", "news");
+    if (fromVal.trim()) params.set("from", fromVal.trim());
+    if (toVal.trim())   params.set("to",   toVal.trim());
+    router.push(`/kingdom/${encodeURIComponent(kingdom)}?${params.toString()}`);
+  }
+
+  function clear() {
+    setFromVal("");
+    setToVal("");
+    router.push(`/kingdom/${encodeURIComponent(kingdom)}?view=news`);
+  }
+
+  const hasFilter = !!(from || to);
+
+  return (
+    <form onSubmit={apply} className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+      <span className="text-gray-500">Date range:</span>
+      <input
+        type="text"
+        value={fromVal}
+        onChange={(e) => setFromVal(e.target.value)}
+        placeholder="e.g. March 1 of YR9"
+        className="w-44 rounded border border-gray-700 bg-gray-900 px-2 py-1 text-gray-300 placeholder-gray-600 focus:border-gray-500 focus:outline-none"
+      />
+      <span className="text-gray-600">–</span>
+      <input
+        type="text"
+        value={toVal}
+        onChange={(e) => setToVal(e.target.value)}
+        placeholder="e.g. March 24 of YR9"
+        className="w-44 rounded border border-gray-700 bg-gray-900 px-2 py-1 text-gray-300 placeholder-gray-600 focus:border-gray-500 focus:outline-none"
+      />
+      <button type="submit" className="rounded border border-gray-600 bg-gray-800 px-2.5 py-1 text-gray-300 hover:border-gray-400 hover:text-gray-100 transition-colors">
+        Filter
+      </button>
+      {hasFilter && (
+        <button type="button" onClick={clear} className="text-gray-500 hover:text-gray-300 transition-colors">
+          ✕ clear
+        </button>
+      )}
+    </form>
+  );
+}
+
+export function KingdomNewsTable({ events, summary, kingdom, from, to }: { events: KingdomNewsRow[]; summary: KingdomNewsSummary; kingdom: string; from?: string; to?: string }) {
   const btnBase = "px-2.5 py-1 rounded text-xs border transition-colors";
   const btnActive = "border-blue-500 text-blue-300 bg-blue-950/40";
   const btnInactive = "border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300";
@@ -231,6 +286,7 @@ export function KingdomNewsTable({ events, summary, kingdom }: { events: Kingdom
     return (
       <>
         {controls}
+        <NewsDateFilter kingdom={kingdom} from={from} to={to} />
         <div className="rounded-lg border border-gray-800 bg-gray-900/50 px-5 py-6 text-sm text-gray-400">
           No news events recorded yet. Browse the kingdom news page in Utopia to submit intel.
         </div>
@@ -248,6 +304,7 @@ export function KingdomNewsTable({ events, summary, kingdom }: { events: Kingdom
   return (
     <>
       {controls}
+      <NewsDateFilter kingdom={kingdom} from={from} to={to} />
 
       {hasSummary && (
         <div className="mb-4">

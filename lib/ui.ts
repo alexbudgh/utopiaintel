@@ -1,3 +1,16 @@
+const UTOPIA_MONTHS = ["January","February","March","April","May","June","July"];
+
+/** Convert "Month D of YRN" → sortable ordinal (year*168 + monthIdx*24 + day-1). Returns -1 if unparseable. */
+export function parseUtopiaDate(date: string): number {
+  const m = /^(\w+)\s+(\d+)\s+of\s+YR(\d+)$/i.exec(date.trim());
+  if (!m) return -1;
+  const monthIdx = UTOPIA_MONTHS.indexOf(m[1]);
+  if (monthIdx === -1) return -1;
+  const day = parseInt(m[2], 10);
+  const year = parseInt(m[3], 10);
+  return year * 7 * 24 + monthIdx * 24 + (day - 1);
+}
+
 // SQLite datetime('now') produces "YYYY-MM-DD HH:MM:SS" without timezone —
 // treat as UTC by normalising to an ISO 8601 string with Z suffix.
 function parseUtc(iso: string): number {

@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
 import { BAD_SPELL_NAMES } from "./effects";
+import { parseUtopiaDate } from "./ui";
 import type {
   SoTData,
   SurveyData,
@@ -1180,7 +1181,7 @@ export interface KingdomNewsRow {
   receivedAt: string;
 }
 
-export function getKingdomNews(kingdom: string, keyHash: string, limit = 200): KingdomNewsRow[] {
+export function getKingdomNews(kingdom: string, keyHash: string, limit = 200, from?: string, to?: string): KingdomNewsRow[] {
   const db = getDb();
   // Access control: only return news if the key has any intel for that kingdom
   const hasAccess = db.prepare(`
@@ -1191,6 +1192,7 @@ export function getKingdomNews(kingdom: string, keyHash: string, limit = 200): K
   `).get(keyHash, kingdom);
   if (!hasAccess) return [];
 
+  const fetchLimit = (from || to) ? 10000 : limit;
   const rows = db.prepare(`
     SELECT id, kingdom, game_date, event_type, raw_text,
            attacker_name, attacker_kingdom,
@@ -1204,7 +1206,7 @@ export function getKingdomNews(kingdom: string, keyHash: string, limit = 200): K
     WHERE kingdom = ?
     ORDER BY game_date DESC, id DESC
     LIMIT ?
-  `).all(kingdom, limit) as Array<{
+  `).all(kingdom, fetchLimit) as Array<{
     id: number;
     kingdom: string;
     game_date: string;
@@ -1224,25 +1226,34 @@ export function getKingdomNews(kingdom: string, keyHash: string, limit = 200): K
     received_at: string;
   }>;
 
-  return rows.map((r) => ({
-    id: r.id,
-    kingdom: r.kingdom,
-    gameDate: r.game_date,
-    eventType: r.event_type,
-    rawText: r.raw_text,
-    attackerName: r.attacker_name,
-    attackerKingdom: r.attacker_kingdom,
-    defenderName: r.defender_name,
-    defenderKingdom: r.defender_kingdom,
-    acres: r.acres,
-    books: r.books,
-    senderName: r.sender_name,
-    receiverName: r.receiver_name,
-    relationKingdom: r.relation_kingdom,
-    dragonType: r.dragon_type,
-    dragonName: r.dragon_name,
-    receivedAt: r.received_at,
-  }));
+  const fromOrd = from ? parseUtopiaDate(from) : -1;
+  const toOrd   = to   ? parseUtopiaDate(to)   : Infinity;
+
+  return rows
+    .filter((r) => {
+      if (!from && !to) return true;
+      const ord = parseUtopiaDate(r.game_date);
+      return ord >= fromOrd && ord <= toOrd;
+    })
+    .map((r) => ({
+      id: r.id,
+      kingdom: r.kingdom,
+      gameDate: r.game_date,
+      eventType: r.event_type,
+      rawText: r.raw_text,
+      attackerName: r.attacker_name,
+      attackerKingdom: r.attacker_kingdom,
+      defenderName: r.defender_name,
+      defenderKingdom: r.defender_kingdom,
+      acres: r.acres,
+      books: r.books,
+      senderName: r.sender_name,
+      receiverName: r.receiver_name,
+      relationKingdom: r.relation_kingdom,
+      dragonType: r.dragon_type,
+      dragonName: r.dragon_name,
+      receivedAt: r.received_at,
+    }));
 }
 
 const COMBAT_TYPES = `'march','invasion','ambush','raze','pillage','loot'`;
@@ -1273,7 +1284,7 @@ export interface KingdomNewsSummary {
   byKingdom: NewsKingdomSummary[];
 }
 
-export function getKingdomNewsSummary(kingdom: string, keyHash: string): KingdomNewsSummary {
+export function getKingdomNewsSummary(kingdom: string, keyHash: string, from?: string, to?: string): KingdomNewsSummary {
   const db = getDb();
   const hasAccess = db.prepare(`
     SELECT 1 FROM intel_partitions ip
@@ -1284,26 +1295,50 @@ export function getKingdomNewsSummary(kingdom: string, keyHash: string): Kingdom
   const empty: KingdomNewsSummary = { ourKingdom: kingdom, totalAcresIn: 0, totalAcresOut: 0, uniqueAttackers: 0, byKingdom: [] };
   if (!hasAccess) return empty;
 
-  // All attacking activity: group by (attacker_name, attacker_kingdom)
-  const asAttacker = db.prepare(`
-    SELECT attacker_name, attacker_kingdom,
-           COUNT(*) as hits,
-           COALESCE(SUM(CASE WHEN event_type != 'loot' THEN acres ELSE 0 END), 0) as acres,
-           COALESCE(SUM(CASE WHEN event_type  = 'loot' THEN books ELSE 0 END), 0) as books
-    FROM kingdom_news
-    WHERE kingdom = ? AND event_type IN (${COMBAT_TYPES}) AND attacker_kingdom IS NOT NULL
-    GROUP BY attacker_name, attacker_kingdom
-  `).all(kingdom) as { attacker_name: string | null; attacker_kingdom: string; hits: number; acres: number; books: number }[];
+  const fromOrd = from ? parseUtopiaDate(from) : -1;
+  const toOrd   = to   ? parseUtopiaDate(to)   : Infinity;
 
-  // All defending activity: group by (defender_name, defender_kingdom)
-  const asDefender = db.prepare(`
-    SELECT defender_name, defender_kingdom,
-           COUNT(*) as hits,
-           COALESCE(SUM(CASE WHEN event_type != 'loot' THEN acres ELSE 0 END), 0) as acres
+  // Fetch all raw combat rows, filter by date range in TypeScript
+  const rawRows = db.prepare(`
+    SELECT attacker_name, attacker_kingdom, defender_name, defender_kingdom,
+           event_type, acres, books, game_date
     FROM kingdom_news
-    WHERE kingdom = ? AND event_type IN (${COMBAT_TYPES}) AND defender_kingdom IS NOT NULL
-    GROUP BY defender_name, defender_kingdom
-  `).all(kingdom) as { defender_name: string | null; defender_kingdom: string; hits: number; acres: number }[];
+    WHERE kingdom = ? AND event_type IN (${COMBAT_TYPES})
+      AND attacker_kingdom IS NOT NULL AND defender_kingdom IS NOT NULL
+  `).all(kingdom) as {
+    attacker_name: string | null; attacker_kingdom: string;
+    defender_name: string | null; defender_kingdom: string;
+    event_type: string; acres: number | null; books: number | null;
+    game_date: string;
+  }[];
+
+  const combatRows = rawRows.filter((r) => {
+    if (!from && !to) return true;
+    const ord = parseUtopiaDate(r.game_date);
+    return ord >= fromOrd && ord <= toOrd;
+  });
+
+  // Aggregate per-attacker and per-defender
+  const attackerMap = new Map<string, { attacker_name: string | null; attacker_kingdom: string; hits: number; acres: number; books: number }>();
+  const defenderMap = new Map<string, { defender_name: string | null; defender_kingdom: string; hits: number; acres: number }>();
+
+  for (const r of combatRows) {
+    const ak = `${r.attacker_name ?? ""}\0${r.attacker_kingdom}`;
+    const a = attackerMap.get(ak) ?? { attacker_name: r.attacker_name, attacker_kingdom: r.attacker_kingdom, hits: 0, acres: 0, books: 0 };
+    a.hits++;
+    a.acres  += r.event_type !== "loot" ? (r.acres ?? 0) : 0;
+    a.books  += r.event_type === "loot" ? (r.books ?? 0) : 0;
+    attackerMap.set(ak, a);
+
+    const dk = `${r.defender_name ?? ""}\0${r.defender_kingdom}`;
+    const d = defenderMap.get(dk) ?? { defender_name: r.defender_name, defender_kingdom: r.defender_kingdom, hits: 0, acres: 0 };
+    d.hits++;
+    d.acres += r.event_type !== "loot" ? (r.acres ?? 0) : 0;
+    defenderMap.set(dk, d);
+  }
+
+  const asAttacker = [...attackerMap.values()];
+  const asDefender = [...defenderMap.values()];
 
   // Build per-province map keyed by (name, kd)
   type ProvKey = string;

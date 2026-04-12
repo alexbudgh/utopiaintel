@@ -19,10 +19,10 @@ export default async function KingdomPage({
   searchParams,
 }: {
   params: Promise<{ loc: string }>;
-  searchParams: Promise<{ view?: string }>;
+  searchParams: Promise<{ view?: string; from?: string; to?: string }>;
 }) {
   const { loc } = await params;
-  const { view } = await searchParams;
+  const { view, from, to } = await searchParams;
   const kingdom = decodeURIComponent(loc);
   const hdrs = await headers();
   const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host") ?? "";
@@ -39,8 +39,8 @@ export default async function KingdomPage({
     : null;
   const hasAnyIntel = provinces.length > 0 || !!snapshot;
   const gainsInitial = view === "gains" ? getGainsPageData(kingdom, keyHash) : null;
-  const newsEvents = view === "news" ? getKingdomNews(kingdom, keyHash) : null;
-  const newsSummary = view === "news" ? getKingdomNewsSummary(kingdom, keyHash) : null;
+  const newsEvents = view === "news" ? getKingdomNews(kingdom, keyHash, 200, from, to) : null;
+  const newsSummary = view === "news" ? getKingdomNewsSummary(kingdom, keyHash, from, to) : null;
   const ritual = getKingdomRitual(kingdom, keyHash);
   const dragon = getKingdomDragon(kingdom, keyHash);
 
@@ -106,7 +106,7 @@ export default async function KingdomPage({
       )}
 
       {view === "news" ? (
-        <KingdomNewsTable events={newsEvents!} summary={newsSummary!} kingdom={kingdom} />
+        <KingdomNewsTable events={newsEvents!} summary={newsSummary!} kingdom={kingdom} from={from} to={to} />
       ) : view === "gains" ? (
         <GainsTable initial={gainsInitial!} embedded />
       ) : hasAnyIntel ? (
