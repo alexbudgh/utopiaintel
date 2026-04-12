@@ -257,12 +257,13 @@ function NewsDateFilter({ kingdom, from, to }: { kingdom: string; from?: string;
   const router = useRouter();
   const [fromParts, setFromParts] = useState<DateParts>(() => parseDateParts(from));
   const [toParts,   setToParts]   = useState<DateParts>(() => parseDateParts(to));
+  const [toLatest,  setToLatest]  = useState(!to);
 
   function apply(e: React.FormEvent) {
     e.preventDefault();
     const params = new URLSearchParams({ view: "news" });
     const f = formatDateParts(fromParts);
-    const t = formatDateParts(toParts);
+    const t = toLatest ? "" : formatDateParts(toParts);
     if (f) params.set("from", f);
     if (t) params.set("to",   t);
     router.push(`/kingdom/${encodeURIComponent(kingdom)}?${params.toString()}`);
@@ -271,18 +272,32 @@ function NewsDateFilter({ kingdom, from, to }: { kingdom: string; from?: string;
   function clear() {
     setFromParts({ month: "", day: "", year: "" });
     setToParts({   month: "", day: "", year: "" });
+    setToLatest(true);
     router.push(`/kingdom/${encodeURIComponent(kingdom)}?view=news`);
   }
 
   const hasFilter = !!(from || to);
+  const btnBase = "rounded border px-2.5 py-1 transition-colors";
 
   return (
     <form onSubmit={apply} className="mb-3 flex flex-wrap items-center gap-2 text-xs">
       <span className="text-gray-500">Date range:</span>
       <DateSelector value={fromParts} onChange={setFromParts} />
       <span className="text-gray-600">–</span>
-      <DateSelector value={toParts} onChange={setToParts} />
-      <button type="submit" className="rounded border border-gray-600 bg-gray-800 px-2.5 py-1 text-gray-300 hover:border-gray-400 hover:text-gray-100 transition-colors">
+      {toLatest
+        ? <button type="button" onClick={() => setToLatest(false)}
+            className={`${btnBase} border-blue-700 bg-blue-950/40 text-blue-300 hover:border-blue-500`}>
+            Latest
+          </button>
+        : <>
+            <DateSelector value={toParts} onChange={setToParts} />
+            <button type="button" onClick={() => { setToParts({ month: "", day: "", year: "" }); setToLatest(true); }}
+              className={`${btnBase} border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300`}>
+              Latest
+            </button>
+          </>
+      }
+      <button type="submit" className={`${btnBase} border-gray-600 bg-gray-800 text-gray-300 hover:border-gray-400 hover:text-gray-100`}>
         Filter
       </button>
       {hasFilter && (
