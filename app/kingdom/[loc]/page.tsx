@@ -39,7 +39,7 @@ export default async function KingdomPage({
     : null;
   const hasAnyIntel = provinces.length > 0 || !!snapshot;
   const gainsInitial = view === "gains" ? getGainsPageData(kingdom, keyHash) : null;
-  const newsEvents = view === "news" ? getKingdomNews(kingdom, keyHash, 200, from, to) : null;
+  const newsEvents = view === "news" ? getKingdomNews(kingdom, keyHash, from, to) : null;
   const newsSummary = view === "news" ? getKingdomNewsSummary(kingdom, keyHash, from, to) : null;
   const ritual = getKingdomRitual(kingdom, keyHash);
   const dragon = getKingdomDragon(kingdom, keyHash);

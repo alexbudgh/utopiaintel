@@ -319,6 +319,14 @@ function initSchema(db: Database.Database) {
   if (!hasCol("province_status", "overpop_deserters")) db.exec("ALTER TABLE province_status ADD COLUMN overpop_deserters INTEGER");
   if (!hasCol("province_status", "dragon_type")) db.exec("ALTER TABLE province_status ADD COLUMN dragon_type TEXT");
   if (!hasCol("province_status", "dragon_name")) db.exec("ALTER TABLE province_status ADD COLUMN dragon_name TEXT");
+  if (!hasCol("kingdom_news", "game_date_ord")) {
+    db.exec("ALTER TABLE kingdom_news ADD COLUMN game_date_ord INTEGER");
+    // Backfill ordinal for existing rows
+    const allRows = db.prepare("SELECT id, game_date FROM kingdom_news").all() as { id: number; game_date: string }[];
+    const upd = db.prepare("UPDATE kingdom_news SET game_date_ord = ? WHERE id = ?");
+    db.transaction(() => { for (const r of allRows) upd.run(parseUtopiaDate(r.game_date), r.id); })();
+    db.exec("CREATE INDEX IF NOT EXISTS idx_kingdom_news_kd_ord ON kingdom_news(kingdom, game_date_ord DESC)");
+  }
 }
 
 // Get or create province identity, return ID
@@ -1134,20 +1142,20 @@ export function storeKingdomNews(data: KingdomNewsData, keyHash: string) {
 
   const ins = db.prepare(`
     INSERT OR IGNORE INTO kingdom_news (
-      kingdom, game_date, event_type, raw_text,
+      kingdom, game_date, game_date_ord, event_type, raw_text,
       attacker_name, attacker_kingdom,
       defender_name, defender_kingdom,
       acres, books,
       sender_name, receiver_name,
       relation_kingdom,
       dragon_type, dragon_name
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const insertMany = db.transaction((events: KingdomNewsEvent[]) => {
     for (const e of events) {
       ins.run(
-        kingdom, e.gameDate, e.eventType, e.rawText,
+        kingdom, e.gameDate, parseUtopiaDate(e.gameDate), e.eventType, e.rawText,
         e.attackerName, e.attackerKingdom,
         e.defenderName, e.defenderKingdom,
         e.acres, e.books,
@@ -1181,7 +1189,9 @@ export interface KingdomNewsRow {
   receivedAt: string;
 }
 
-export function getKingdomNews(kingdom: string, keyHash: string, limit = 200, from?: string, to?: string): KingdomNewsRow[] {
+const UTOPIA_MONTH_DAYS = 24; // days per Utopia month
+
+export function getKingdomNews(kingdom: string, keyHash: string, from?: string, to?: string): KingdomNewsRow[] {
   const db = getDb();
   // Access control: only return news if the key has any intel for that kingdom
   const hasAccess = db.prepare(`
@@ -1192,7 +1202,19 @@ export function getKingdomNews(kingdom: string, keyHash: string, limit = 200, fr
   `).get(keyHash, kingdom);
   if (!hasAccess) return [];
 
-  const fetchLimit = (from || to) ? 10000 : limit;
+  // Determine ordinal bounds — default to last 3 Utopia months
+  let fromOrd: number;
+  let toOrd: number;
+  if (from || to) {
+    fromOrd = from ? parseUtopiaDate(from) : 0;
+    toOrd   = to   ? parseUtopiaDate(to)   : 999999;
+  } else {
+    const maxRow = db.prepare(`SELECT MAX(game_date_ord) as m FROM kingdom_news WHERE kingdom = ?`).get(kingdom) as { m: number | null };
+    const maxOrd = maxRow?.m ?? 0;
+    fromOrd = maxOrd - 3 * UTOPIA_MONTH_DAYS + 1;
+    toOrd   = 999999;
+  }
+
   const rows = db.prepare(`
     SELECT id, kingdom, game_date, event_type, raw_text,
            attacker_name, attacker_kingdom,
@@ -1203,10 +1225,9 @@ export function getKingdomNews(kingdom: string, keyHash: string, limit = 200, fr
            dragon_type, dragon_name,
            received_at
     FROM kingdom_news
-    WHERE kingdom = ?
-    ORDER BY id DESC
-    LIMIT ?
-  `).all(kingdom, fetchLimit) as Array<{
+    WHERE kingdom = ? AND game_date_ord >= ? AND game_date_ord <= ?
+    ORDER BY game_date_ord DESC, id DESC
+  `).all(kingdom, fromOrd, toOrd) as Array<{
     id: number;
     kingdom: string;
     game_date: string;
@@ -1226,38 +1247,25 @@ export function getKingdomNews(kingdom: string, keyHash: string, limit = 200, fr
     received_at: string;
   }>;
 
-  const fromOrd = from ? parseUtopiaDate(from) : -1;
-  const toOrd   = to   ? parseUtopiaDate(to)   : Infinity;
-
-  return rows
-    .filter((r) => {
-      if (!from && !to) return true;
-      const ord = parseUtopiaDate(r.game_date);
-      return ord >= fromOrd && ord <= toOrd;
-    })
-    .map((r) => ({
-      id: r.id,
-      kingdom: r.kingdom,
-      gameDate: r.game_date,
-      eventType: r.event_type,
-      rawText: r.raw_text,
-      attackerName: r.attacker_name,
-      attackerKingdom: r.attacker_kingdom,
-      defenderName: r.defender_name,
-      defenderKingdom: r.defender_kingdom,
-      acres: r.acres,
-      books: r.books,
-      senderName: r.sender_name,
-      receiverName: r.receiver_name,
-      relationKingdom: r.relation_kingdom,
-      dragonType: r.dragon_type,
-      dragonName: r.dragon_name,
-      receivedAt: r.received_at,
-    }))
-    .sort((a, b) => {
-      const diff = parseUtopiaDate(b.gameDate) - parseUtopiaDate(a.gameDate);
-      return diff !== 0 ? diff : b.id - a.id;
-    });
+  return rows.map((r) => ({
+    id: r.id,
+    kingdom: r.kingdom,
+    gameDate: r.game_date,
+    eventType: r.event_type,
+    rawText: r.raw_text,
+    attackerName: r.attacker_name,
+    attackerKingdom: r.attacker_kingdom,
+    defenderName: r.defender_name,
+    defenderKingdom: r.defender_kingdom,
+    acres: r.acres,
+    books: r.books,
+    senderName: r.sender_name,
+    receiverName: r.receiver_name,
+    relationKingdom: r.relation_kingdom,
+    dragonType: r.dragon_type,
+    dragonName: r.dragon_name,
+    receivedAt: r.received_at,
+  }));
 }
 
 const COMBAT_TYPES = `'march','invasion','ambush','raze','pillage','loot'`;
@@ -1299,28 +1307,32 @@ export function getKingdomNewsSummary(kingdom: string, keyHash: string, from?: s
   const empty: KingdomNewsSummary = { ourKingdom: kingdom, totalAcresIn: 0, totalAcresOut: 0, uniqueAttackers: 0, byKingdom: [] };
   if (!hasAccess) return empty;
 
-  const fromOrd = from ? parseUtopiaDate(from) : -1;
-  const toOrd   = to   ? parseUtopiaDate(to)   : Infinity;
+  // Determine ordinal bounds — default to last 3 Utopia months (same as getKingdomNews)
+  let fromOrd: number;
+  let toOrd: number;
+  if (from || to) {
+    fromOrd = from ? parseUtopiaDate(from) : 0;
+    toOrd   = to   ? parseUtopiaDate(to)   : 999999;
+  } else {
+    const maxRow = db.prepare(`SELECT MAX(game_date_ord) as m FROM kingdom_news WHERE kingdom = ?`).get(kingdom) as { m: number | null };
+    const maxOrd = maxRow?.m ?? 0;
+    fromOrd = maxOrd - 3 * UTOPIA_MONTH_DAYS + 1;
+    toOrd   = 999999;
+  }
 
-  // Fetch all raw combat rows, filter by date range in TypeScript
-  const rawRows = db.prepare(`
+  // Fetch raw combat rows filtered by date ordinal in SQL
+  const combatRows = db.prepare(`
     SELECT attacker_name, attacker_kingdom, defender_name, defender_kingdom,
-           event_type, acres, books, game_date
+           event_type, acres, books
     FROM kingdom_news
     WHERE kingdom = ? AND event_type IN (${COMBAT_TYPES})
       AND attacker_kingdom IS NOT NULL AND defender_kingdom IS NOT NULL
-  `).all(kingdom) as {
+      AND game_date_ord >= ? AND game_date_ord <= ?
+  `).all(kingdom, fromOrd, toOrd) as {
     attacker_name: string | null; attacker_kingdom: string;
     defender_name: string | null; defender_kingdom: string;
     event_type: string; acres: number | null; books: number | null;
-    game_date: string;
   }[];
-
-  const combatRows = rawRows.filter((r) => {
-    if (!from && !to) return true;
-    const ord = parseUtopiaDate(r.game_date);
-    return ord >= fromOrd && ord <= toOrd;
-  });
 
   // Aggregate per-attacker and per-defender
   const attackerMap = new Map<string, { attacker_name: string | null; attacker_kingdom: string; hits: number; acres: number; books: number }>();
