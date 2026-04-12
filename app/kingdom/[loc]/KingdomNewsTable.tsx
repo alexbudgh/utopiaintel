@@ -410,6 +410,7 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
                         return (
                         <tr key={i} className={i % 2 === 0 ? "bg-gray-900/40" : "bg-gray-900/20"}>
                           <td className="px-3 py-1.5 text-gray-300">
+                            {p.slot != null && <span className="text-gray-500 font-mono mr-1.5">{p.slot}</span>}
                             {p.provinceName
                               ? <Link href={`/kingdom/${encodeURIComponent(kd.kingdom)}/${encodeURIComponent(p.provinceName)}`} className="hover:text-blue-300 transition-colors">{p.provinceName}</Link>
                               : <span className="text-gray-500 italic">Unknown</span>

@@ -1291,6 +1291,7 @@ const COMBAT_TYPES = `'march','invasion','ambush','raze','pillage','loot'`;
 
 export interface NewsProvinceSummary {
   provinceName: string | null;
+  slot: number | null;
   hitsMade: number;    // attacks this province launched
   acresGained: number; // acres captured by this province
   hitsTaken: number;   // attacks this province received
@@ -1403,11 +1404,26 @@ export function getKingdomNewsSummary(kingdom: string, keyHash: string, from?: s
     }
   }
 
+  // Look up slots for all involved provinces
+  const kingdoms = [...new Set([...provMap.values()].map((p) => p.kd))];
+  const slotMap = new Map<string, number | null>();
+  if (kingdoms.length > 0) {
+    const placeholders = kingdoms.map(() => "?").join(",");
+    const slotRows = db.prepare(`
+      SELECT kp.name, ki.location as kingdom, kp.slot
+      FROM kingdom_provinces kp
+      JOIN kingdom_intel ki ON ki.id = kp.kingdom_intel_id
+      WHERE ki.location IN (${placeholders}) AND kp.name IS NOT NULL
+    `).all(...kingdoms) as { name: string; kingdom: string; slot: number | null }[];
+    for (const r of slotRows) slotMap.set(`${r.name}\0${r.kingdom}`, r.slot);
+  }
+
   // Group provinces by kingdom
   const kdMap = new Map<string, NewsProvinceSummary[]>();
   for (const p of provMap.values()) {
+    const slot = p.name ? (slotMap.get(`${p.name}\0${p.kd}`) ?? null) : null;
     const list = kdMap.get(p.kd) ?? [];
-    list.push({ provinceName: p.name, hitsMade: p.hitsMade, acresGained: p.acresGained, hitsTaken: p.hitsTaken, acresLost: p.acresLost, booksLooted: p.booksLooted });
+    list.push({ provinceName: p.name, slot, hitsMade: p.hitsMade, acresGained: p.acresGained, hitsTaken: p.hitsTaken, acresLost: p.acresLost, booksLooted: p.booksLooted });
     kdMap.set(p.kd, list);
   }
 
