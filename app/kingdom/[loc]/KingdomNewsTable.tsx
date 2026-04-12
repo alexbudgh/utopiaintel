@@ -281,8 +281,9 @@ function NewsDateFilter({ kingdom, from, to, latestWarDate }: { kingdom: string;
 
   function setWarRange() {
     if (!latestWarDate) return;
-    const params = new URLSearchParams({ view: "news", from: latestWarDate });
-    router.push(`/kingdom/${encodeURIComponent(kingdom)}?${params.toString()}`);
+    setFromParts(parseDateParts(latestWarDate));
+    setToParts({ month: "", day: "", year: "" });
+    setToLatest(true);
   }
 
   return (
