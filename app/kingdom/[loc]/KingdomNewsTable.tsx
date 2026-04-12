@@ -641,12 +641,14 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
       {(() => {
         const combat = filtered.filter((e) => COMBAT_TYPES_SET.has(e.eventType));
         if (combat.length === 0) return null;
-        let marchOut = 0, razeOut = 0, marchIn = 0, razeIn = 0;
+        let hitsMade = 0, marchOut = 0, razeOut = 0, hitsTaken = 0, marchIn = 0, razeIn = 0, books = 0;
         for (const e of combat) {
           const isOut = e.attackerKingdom === kingdom;
           const acres = e.acres ?? 0;
-          if (e.eventType === "raze") { if (isOut) razeOut += acres; else razeIn += acres; }
-          else { if (isOut) marchOut += acres; else marchIn += acres; }
+          if (isOut) hitsMade++; else hitsTaken++;
+          if (e.eventType === "raze")       { if (isOut) razeOut += acres;  else razeIn += acres; }
+          else if (e.eventType === "loot")  { if (isOut) books += e.books ?? 0; }
+          else                              { if (isOut) marchOut += acres; else marchIn += acres; }
         }
         const net = marchOut - marchIn - razeIn;
         return (
@@ -657,24 +659,30 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-800 text-gray-500">
+                  <th className="px-3 py-1 text-right font-normal">Hits Made</th>
                   <th className="px-3 py-1 text-right font-normal">March Gained</th>
                   <th className="px-3 py-1 text-right font-normal">Raze Dealt</th>
+                  <th className="px-3 py-1 text-right font-normal">Hits Taken</th>
                   <th className="px-3 py-1 text-right font-normal">March Lost</th>
                   <th className="px-3 py-1 text-right font-normal">Raze Lost</th>
                   <th className="px-3 py-1 text-right font-normal">Net</th>
+                  <th className="px-3 py-1 text-right font-normal">Books Looted</th>
                 </tr>
               </thead>
               <tbody>
                 <tr className="bg-gray-900/40">
-                  <td className="px-3 py-1.5 text-right font-mono">{marchOut > 0 ? <span className="text-green-300">{marchOut.toLocaleString()}</span> : <span className="text-gray-700">—</span>}</td>
-                  <td className="px-3 py-1.5 text-right font-mono">{razeOut > 0  ? <span className="text-green-300">{razeOut.toLocaleString()}</span>  : <span className="text-gray-700">—</span>}</td>
-                  <td className="px-3 py-1.5 text-right font-mono">{marchIn > 0  ? <span className="text-red-300">{marchIn.toLocaleString()}</span>    : <span className="text-gray-700">—</span>}</td>
-                  <td className="px-3 py-1.5 text-right font-mono">{razeIn > 0   ? <span className="text-red-300">{razeIn.toLocaleString()}</span>     : <span className="text-gray-700">—</span>}</td>
+                  <td className="px-3 py-1.5 text-right font-mono"><Num n={hitsMade}  color="text-green-300" /></td>
+                  <td className="px-3 py-1.5 text-right font-mono"><Num n={marchOut}  color="text-green-300" /></td>
+                  <td className="px-3 py-1.5 text-right font-mono"><Num n={razeOut}   color="text-green-300" /></td>
+                  <td className="px-3 py-1.5 text-right font-mono"><Num n={hitsTaken} color="text-red-300" /></td>
+                  <td className="px-3 py-1.5 text-right font-mono"><Num n={marchIn}   color="text-red-300" /></td>
+                  <td className="px-3 py-1.5 text-right font-mono"><Num n={razeIn}    color="text-red-300" /></td>
                   <td className="px-3 py-1.5 text-right font-mono">
                     {net !== 0
                       ? <span className={net > 0 ? "text-green-300" : "text-red-300"}>{net > 0 ? "+" : ""}{net.toLocaleString()}</span>
                       : <span className="text-gray-700">—</span>}
                   </td>
+                  <td className="px-3 py-1.5 text-right font-mono"><Num n={books} color="text-amber-300" /></td>
                 </tr>
               </tbody>
             </table>
