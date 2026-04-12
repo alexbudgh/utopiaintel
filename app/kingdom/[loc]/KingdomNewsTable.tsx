@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine, ResponsiveContainer, Legend } from "recharts";
 import type { KingdomNewsRow, KingdomNewsSummary } from "@/lib/db";
+import { parseUtopiaDate } from "@/lib/ui";
 
 const TYPE_GROUPS: { label: string; types: string[] }[] = [
   { label: "Combat",    types: ["march", "invasion", "ambush", "raze", "pillage", "loot", "failed_attack"] },
@@ -207,6 +209,71 @@ function EventDescription({ event }: { event: KingdomNewsRow }) {
   return <span className="text-gray-400">{event.rawText}</span>;
 }
 
+const COMBAT_TYPES_SET = new Set(["march","invasion","ambush","raze","pillage","loot"]);
+const KD_COLORS = ["#60a5fa","#f87171","#34d399","#fbbf24","#a78bfa","#fb923c","#38bdf8","#f472b6"];
+
+function buildChartData(events: KingdomNewsRow[], ourKingdom: string) {
+  // Collect all kingdoms and dates involved in combat
+  const kdSet = new Set<string>();
+  const dateAcres = new Map<string, Map<string, number>>(); // date → kd → net delta
+
+  for (const e of events) {
+    if (!COMBAT_TYPES_SET.has(e.eventType) || e.acres == null) continue;
+    const { attackerKingdom, defenderKingdom, acres, gameDate } = e;
+    if (!attackerKingdom || !defenderKingdom) continue;
+    kdSet.add(attackerKingdom);
+    kdSet.add(defenderKingdom);
+    if (!dateAcres.has(gameDate)) dateAcres.set(gameDate, new Map());
+    const day = dateAcres.get(gameDate)!;
+    day.set(attackerKingdom, (day.get(attackerKingdom) ?? 0) + acres);
+    day.set(defenderKingdom, (day.get(defenderKingdom) ?? 0) - acres);
+  }
+
+  const kingdoms = [...kdSet].sort((a, b) => a === ourKingdom ? -1 : b === ourKingdom ? 1 : a.localeCompare(b));
+  const dates = [...dateAcres.keys()].sort((a, b) => parseUtopiaDate(a) - parseUtopiaDate(b));
+
+  // Build cumulative running net per kingdom
+  const running = new Map<string, number>(kingdoms.map((k) => [k, 0]));
+  const chartData = dates.map((date) => {
+    const day = dateAcres.get(date)!;
+    for (const kd of kingdoms) running.set(kd, (running.get(kd) ?? 0) + (day.get(kd) ?? 0));
+    const point: Record<string, string | number> = { date };
+    for (const kd of kingdoms) point[kd] = running.get(kd)!;
+    return point;
+  });
+
+  return { chartData, kingdoms };
+}
+
+function NewsChart({ events, ourKingdom }: { events: KingdomNewsRow[]; ourKingdom: string }) {
+  const { chartData, kingdoms } = useMemo(() => buildChartData(events, ourKingdom), [events, ourKingdom]);
+  if (chartData.length === 0) return <div className="text-xs text-gray-500 py-4">No combat data to chart.</div>;
+
+  return (
+    <div className="mb-4 rounded-lg border border-gray-800 bg-gray-900/50 p-3">
+      <ResponsiveContainer width="100%" height={220}>
+        <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+          <XAxis dataKey="date" tick={{ fill: "#6b7280", fontSize: 10 }} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fill: "#6b7280", fontSize: 10 }} tickLine={false} axisLine={false} width={48}
+            tickFormatter={(v) => v === 0 ? "0" : `${v > 0 ? "+" : ""}${(v/1000).toFixed(0)}k`} />
+          <ReferenceLine y={0} stroke="#374151" strokeDasharray="3 3" />
+          <Tooltip
+            contentStyle={{ background: "#111827", border: "1px solid #374151", fontSize: 11, borderRadius: 6 }}
+            labelStyle={{ color: "#9ca3af" }}
+            formatter={(val, name) => { const n = Number(val); return [`${n > 0 ? "+" : ""}${n.toLocaleString()}a`, String(name)]; }}
+          />
+          <Legend wrapperStyle={{ fontSize: 11, color: "#9ca3af" }} />
+          {kingdoms.map((kd, i) => (
+            <Line key={kd} type="monotone" dataKey={kd} stroke={KD_COLORS[i % KD_COLORS.length]}
+              dot={false} strokeWidth={kd === ourKingdom ? 2 : 1.5}
+              strokeDasharray={kd === ourKingdom ? undefined : "4 2"} />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 function eventDirection(event: KingdomNewsRow, kingdom: string): "out" | "in" | null {
   const { eventType, attackerKingdom, defenderKingdom } = event;
   // Combat/march events: check which side is ours
@@ -335,6 +402,7 @@ function NewsDateFilter({ kingdom, from, to, latestWarDate }: { kingdom: string;
 export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWarDate }: { events: KingdomNewsRow[]; summary: KingdomNewsSummary; kingdom: string; from?: string; to?: string; latestWarDate?: string }) {
   const [activeGroups, setActiveGroups] = useState<Set<string>>(DEFAULT_GROUPS);
   const [visibleCount, setVisibleCount] = useState(50);
+  const [showChart, setShowChart] = useState(false);
   const btnBase = "px-2.5 py-1 rounded text-xs border transition-colors";
   const btnActive = "border-blue-500 text-blue-300 bg-blue-950/40";
   const btnInactive = "border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300";
@@ -348,6 +416,10 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
         Gains
       </Link>
       <span className={`${btnBase} ${btnActive}`}>News</span>
+      <button type="button" onClick={() => setShowChart((v) => !v)}
+        className={`${btnBase} ${showChart ? btnActive : btnInactive} ml-2`}>
+        Chart
+      </button>
     </div>
   );
 
@@ -376,6 +448,8 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
     <>
       {controls}
       <NewsDateFilter kingdom={kingdom} from={from} to={to} latestWarDate={latestWarDate} />
+
+      {showChart && <NewsChart events={events} ourKingdom={summary.ourKingdom} />}
 
       {hasSummary && (
         <div className="mb-4">
