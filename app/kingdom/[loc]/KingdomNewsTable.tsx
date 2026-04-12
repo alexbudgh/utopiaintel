@@ -390,6 +390,7 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
                     </Link>
                     {kd.totalHitsMade > 0  && <span className={isOurs ? "text-green-300" : "text-red-300"}>{kd.totalHitsMade} hits · {kd.totalAcresGained.toLocaleString()}a gained</span>}
                     {kd.totalHitsTaken > 0 && <span className={isOurs ? "text-red-300"   : "text-green-300"}>{kd.totalHitsTaken} hits taken · {kd.totalAcresLost.toLocaleString()}a lost</span>}
+                    {(() => { const net = kd.totalAcresGained - kd.totalAcresLost; return net !== 0 && <span className={net > 0 ? "text-green-300" : "text-red-300"}>net {net > 0 ? "+" : ""}{net.toLocaleString()}a</span>; })()}
                   </div>
                   <table className="w-full text-xs">
                     <thead>
@@ -399,11 +400,14 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
                         <th className="px-3 py-1 text-right font-normal">Acres Gained</th>
                         <th className="px-3 py-1 text-right font-normal">Hits Taken</th>
                         <th className="px-3 py-1 text-right font-normal">Acres Lost</th>
+                        <th className="px-3 py-1 text-right font-normal">Net</th>
                         <th className="px-3 py-1 text-right font-normal">Books Looted</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {kd.provinces.map((p, i) => (
+                      {kd.provinces.map((p, i) => {
+                        const net = p.acresGained - p.acresLost;
+                        return (
                         <tr key={i} className={i % 2 === 0 ? "bg-gray-900/40" : "bg-gray-900/20"}>
                           <td className="px-3 py-1.5 text-gray-300">
                             {p.provinceName
@@ -415,9 +419,15 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
                           <td className="px-3 py-1.5 text-right font-mono"><Num n={p.acresGained} color={isOurs ? "text-green-300" : "text-red-300"} /></td>
                           <td className="px-3 py-1.5 text-right font-mono"><Num n={p.hitsTaken}   color={isOurs ? "text-red-300"   : "text-green-300"} /></td>
                           <td className="px-3 py-1.5 text-right font-mono"><Num n={p.acresLost}   color={isOurs ? "text-red-300"   : "text-green-300"} /></td>
+                          <td className="px-3 py-1.5 text-right font-mono">
+                            {net !== 0
+                              ? <span className={net > 0 ? "text-green-300" : "text-red-300"}>{net > 0 ? "+" : ""}{net.toLocaleString()}</span>
+                              : <span className="text-gray-700">—</span>}
+                          </td>
                           <td className="px-3 py-1.5 text-right font-mono"><Num n={p.booksLooted} color="text-amber-300" /></td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
