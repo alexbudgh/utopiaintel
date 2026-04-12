@@ -332,7 +332,9 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to }: { event
         {controls}
         <NewsDateFilter kingdom={kingdom} from={from} to={to} />
         <div className="rounded-lg border border-gray-800 bg-gray-900/50 px-5 py-6 text-sm text-gray-400">
-          No news events recorded yet. Browse the kingdom news page in Utopia to submit intel.
+          {(from || to)
+            ? "No events in the selected date range."
+            : "No news events recorded yet. Browse the kingdom news page in Utopia to submit intel."}
         </div>
       </>
     );
