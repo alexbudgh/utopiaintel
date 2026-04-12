@@ -436,7 +436,7 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
     );
   }
 
-  const net = summary.totalAcresOut - summary.totalAcresIn;
+  const net = (summary.totalMarchAcresOut - summary.totalMarchAcresIn) - summary.totalRazeAcresIn;
   const hasSummary = summary.byKingdom.length > 0;
 
   function Num({ n, color }: { n: number; color: string }) {
@@ -454,9 +454,11 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
         <div className="mb-4">
           {/* Headline stats */}
           <div className="mb-3 flex flex-wrap gap-3 text-xs text-gray-400">
-            <span>Lost <span className="text-red-300 font-medium">{summary.totalAcresIn.toLocaleString()}a</span></span>
+            <span>March lost <span className="text-red-300 font-medium">{summary.totalMarchAcresIn.toLocaleString()}a</span></span>
+            {summary.totalRazeAcresIn > 0 && <><span>·</span><span>Razed <span className="text-red-300 font-medium">{summary.totalRazeAcresIn.toLocaleString()}a</span></span></>}
             <span>·</span>
-            <span>Gained <span className="text-green-300 font-medium">{summary.totalAcresOut.toLocaleString()}a</span></span>
+            <span>March gained <span className="text-green-300 font-medium">{summary.totalMarchAcresOut.toLocaleString()}a</span></span>
+            {summary.totalRazeAcresOut > 0 && <><span>·</span><span>Razed them <span className="text-green-300 font-medium">{summary.totalRazeAcresOut.toLocaleString()}a</span></span></>}
             <span>·</span>
             <span>Net <span className={`font-medium ${net >= 0 ? "text-green-300" : "text-red-300"}`}>{net >= 0 ? "+" : ""}{net.toLocaleString()}a</span></span>
             <span>·</span>
@@ -467,31 +469,34 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
           <div className="flex flex-col gap-3">
             {summary.byKingdom.map((kd) => {
               const isOurs = kd.kingdom === summary.ourKingdom;
+              const kdNet = kd.totalMarchAcresGained - kd.totalMarchAcresLost - kd.totalRazeAcresLost;
               return (
                 <div key={kd.kingdom} className="rounded-lg border border-gray-800 overflow-hidden">
                   <div className="flex items-center gap-3 px-3 py-1.5 bg-gray-800/60 border-b border-gray-800 text-xs">
                     <Link href={`/kingdom/${encodeURIComponent(kd.kingdom)}`} className="font-mono font-medium text-gray-200 hover:text-blue-300 transition-colors">
                       {kd.kingdom}{isOurs && <span className="ml-1 text-blue-400">★</span>}
                     </Link>
-                    {kd.totalHitsMade > 0  && <span className={isOurs ? "text-green-300" : "text-red-300"}>{kd.totalHitsMade} hits · {kd.totalAcresGained.toLocaleString()}a gained</span>}
-                    {kd.totalHitsTaken > 0 && <span className={isOurs ? "text-red-300"   : "text-green-300"}>{kd.totalHitsTaken} hits taken · {kd.totalAcresLost.toLocaleString()}a lost</span>}
-                    {(() => { const net = kd.totalAcresGained - kd.totalAcresLost; return net !== 0 && <span className={net > 0 ? "text-green-300" : "text-red-300"}>net {net > 0 ? "+" : ""}{net.toLocaleString()}a</span>; })()}
+                    {kd.totalHitsMade > 0  && <span className={isOurs ? "text-green-300" : "text-red-300"}>{kd.totalHitsMade} hits · {kd.totalMarchAcresGained.toLocaleString()}a gained{kd.totalRazeAcresDealt > 0 ? ` · ${kd.totalRazeAcresDealt.toLocaleString()}a razed` : ""}</span>}
+                    {kd.totalHitsTaken > 0 && <span className={isOurs ? "text-red-300"   : "text-green-300"}>{kd.totalHitsTaken} hits taken · {kd.totalMarchAcresLost.toLocaleString()}a lost{kd.totalRazeAcresLost > 0 ? ` · ${kd.totalRazeAcresLost.toLocaleString()}a razed` : ""}</span>}
+                    {kdNet !== 0 && <span className={kdNet > 0 ? "text-green-300" : "text-red-300"}>net {kdNet > 0 ? "+" : ""}{kdNet.toLocaleString()}a</span>}
                   </div>
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-gray-800 text-gray-500">
                         <th className="px-3 py-1 text-left font-normal">Province</th>
                         <th className="px-3 py-1 text-right font-normal">Hits Made</th>
-                        <th className="px-3 py-1 text-right font-normal">Acres Gained</th>
+                        <th className="px-3 py-1 text-right font-normal">March Gained</th>
+                        <th className="px-3 py-1 text-right font-normal">Raze Dealt</th>
                         <th className="px-3 py-1 text-right font-normal">Hits Taken</th>
-                        <th className="px-3 py-1 text-right font-normal">Acres Lost</th>
+                        <th className="px-3 py-1 text-right font-normal">March Lost</th>
+                        <th className="px-3 py-1 text-right font-normal">Raze Lost</th>
                         <th className="px-3 py-1 text-right font-normal">Net</th>
                         <th className="px-3 py-1 text-right font-normal">Books Looted</th>
                       </tr>
                     </thead>
                     <tbody>
                       {kd.provinces.map((p, i) => {
-                        const net = p.acresGained - p.acresLost;
+                        const net = p.marchAcresGained - p.marchAcresLost - p.razeAcresLost;
                         return (
                         <tr key={i} className={i % 2 === 0 ? "bg-gray-900/40" : "bg-gray-900/20"}>
                           <td className="px-3 py-1.5 text-gray-300">
@@ -501,10 +506,12 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
                               : <span className="text-gray-500 italic">Unknown</span>
                             }
                           </td>
-                          <td className="px-3 py-1.5 text-right font-mono"><Num n={p.hitsMade}    color={isOurs ? "text-green-300" : "text-red-300"} /></td>
-                          <td className="px-3 py-1.5 text-right font-mono"><Num n={p.acresGained} color={isOurs ? "text-green-300" : "text-red-300"} /></td>
-                          <td className="px-3 py-1.5 text-right font-mono"><Num n={p.hitsTaken}   color={isOurs ? "text-red-300"   : "text-green-300"} /></td>
-                          <td className="px-3 py-1.5 text-right font-mono"><Num n={p.acresLost}   color={isOurs ? "text-red-300"   : "text-green-300"} /></td>
+                          <td className="px-3 py-1.5 text-right font-mono"><Num n={p.hitsMade}          color={isOurs ? "text-green-300" : "text-red-300"} /></td>
+                          <td className="px-3 py-1.5 text-right font-mono"><Num n={p.marchAcresGained}  color={isOurs ? "text-green-300" : "text-red-300"} /></td>
+                          <td className="px-3 py-1.5 text-right font-mono"><Num n={p.razeAcresDealt}    color={isOurs ? "text-green-300" : "text-red-300"} /></td>
+                          <td className="px-3 py-1.5 text-right font-mono"><Num n={p.hitsTaken}         color={isOurs ? "text-red-300"   : "text-green-300"} /></td>
+                          <td className="px-3 py-1.5 text-right font-mono"><Num n={p.marchAcresLost}    color={isOurs ? "text-red-300"   : "text-green-300"} /></td>
+                          <td className="px-3 py-1.5 text-right font-mono"><Num n={p.razeAcresLost}     color={isOurs ? "text-red-300"   : "text-green-300"} /></td>
                           <td className="px-3 py-1.5 text-right font-mono">
                             {net !== 0
                               ? <span className={net > 0 ? "text-green-300" : "text-red-300"}>{net > 0 ? "+" : ""}{net.toLocaleString()}</span>

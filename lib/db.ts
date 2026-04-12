@@ -1387,26 +1387,32 @@ const COMBAT_TYPES = `'march','ambush','raze','pillage','loot'`;
 export interface NewsProvinceSummary {
   provinceName: string | null;
   slot: number | null;
-  hitsMade: number;    // attacks this province launched
-  acresGained: number; // acres captured by this province
-  hitsTaken: number;   // attacks this province received
-  acresLost: number;   // acres lost by this province
-  booksLooted: number; // books looted by this province (loot events)
+  hitsMade: number;        // attacks this province launched
+  marchAcresGained: number; // acres captured via trad march
+  razeAcresDealt: number;  // acres razed from enemies (not gained by attacker)
+  hitsTaken: number;       // attacks this province received
+  marchAcresLost: number;  // acres lost via trad march
+  razeAcresLost: number;   // acres lost via raze
+  booksLooted: number;     // books looted by this province (loot events)
 }
 
 export interface NewsKingdomSummary {
   kingdom: string;
   provinces: NewsProvinceSummary[];
   totalHitsMade: number;
-  totalAcresGained: number;
+  totalMarchAcresGained: number;
+  totalRazeAcresDealt: number;
   totalHitsTaken: number;
-  totalAcresLost: number;
+  totalMarchAcresLost: number;
+  totalRazeAcresLost: number;
 }
 
 export interface KingdomNewsSummary {
   ourKingdom: string;
-  totalAcresIn: number;
-  totalAcresOut: number;
+  totalMarchAcresIn: number;
+  totalRazeAcresIn: number;
+  totalMarchAcresOut: number;
+  totalRazeAcresOut: number;
   uniqueAttackers: number;
   byKingdom: NewsKingdomSummary[];
 }
@@ -1419,7 +1425,7 @@ export function getKingdomNewsSummary(kingdom: string, keyHash: string, from?: s
     WHERE ip.key_hash = ? AND p.kingdom = ?
     LIMIT 1
   `).get(keyHash, kingdom);
-  const empty: KingdomNewsSummary = { ourKingdom: kingdom, totalAcresIn: 0, totalAcresOut: 0, uniqueAttackers: 0, byKingdom: [] };
+  const empty: KingdomNewsSummary = { ourKingdom: kingdom, totalMarchAcresIn: 0, totalRazeAcresIn: 0, totalMarchAcresOut: 0, totalRazeAcresOut: 0, uniqueAttackers: 0, byKingdom: [] };
   if (!hasAccess) return empty;
 
   // Determine ordinal bounds — default to last 3 Utopia months (same as getKingdomNews)
@@ -1450,21 +1456,23 @@ export function getKingdomNewsSummary(kingdom: string, keyHash: string, from?: s
   }[];
 
   // Aggregate per-attacker and per-defender
-  const attackerMap = new Map<string, { attacker_name: string | null; attacker_kingdom: string; hits: number; acres: number; books: number }>();
-  const defenderMap = new Map<string, { defender_name: string | null; defender_kingdom: string; hits: number; acres: number }>();
+  const attackerMap = new Map<string, { attacker_name: string | null; attacker_kingdom: string; hits: number; marchAcres: number; razeAcres: number; books: number }>();
+  const defenderMap = new Map<string, { defender_name: string | null; defender_kingdom: string; hits: number; marchAcres: number; razeAcres: number }>();
 
   for (const r of combatRows) {
     const ak = `${r.attacker_name ?? ""}\0${r.attacker_kingdom}`;
-    const a = attackerMap.get(ak) ?? { attacker_name: r.attacker_name, attacker_kingdom: r.attacker_kingdom, hits: 0, acres: 0, books: 0 };
+    const a = attackerMap.get(ak) ?? { attacker_name: r.attacker_name, attacker_kingdom: r.attacker_kingdom, hits: 0, marchAcres: 0, razeAcres: 0, books: 0 };
     a.hits++;
-    a.acres  += r.event_type !== "loot" ? (r.acres ?? 0) : 0;
-    a.books  += r.event_type === "loot" ? (r.books ?? 0) : 0;
+    if (r.event_type === "raze")       a.razeAcres  += r.acres ?? 0;
+    else if (r.event_type !== "loot")  a.marchAcres += r.acres ?? 0;
+    a.books += r.event_type === "loot" ? (r.books ?? 0) : 0;
     attackerMap.set(ak, a);
 
     const dk = `${r.defender_name ?? ""}\0${r.defender_kingdom}`;
-    const d = defenderMap.get(dk) ?? { defender_name: r.defender_name, defender_kingdom: r.defender_kingdom, hits: 0, acres: 0 };
+    const d = defenderMap.get(dk) ?? { defender_name: r.defender_name, defender_kingdom: r.defender_kingdom, hits: 0, marchAcres: 0, razeAcres: 0 };
     d.hits++;
-    d.acres += r.event_type !== "loot" ? (r.acres ?? 0) : 0;
+    if (r.event_type === "raze")      d.razeAcres  += r.acres ?? 0;
+    else if (r.event_type !== "loot") d.marchAcres += r.acres ?? 0;
     defenderMap.set(dk, d);
   }
 
@@ -1473,7 +1481,7 @@ export function getKingdomNewsSummary(kingdom: string, keyHash: string, from?: s
 
   // Build per-province map keyed by (name, kd)
   type ProvKey = string;
-  const provMap = new Map<ProvKey, { kd: string; name: string | null; hitsMade: number; acresGained: number; hitsTaken: number; acresLost: number; booksLooted: number }>();
+  const provMap = new Map<ProvKey, { kd: string; name: string | null; hitsMade: number; marchAcresGained: number; razeAcresDealt: number; hitsTaken: number; marchAcresLost: number; razeAcresLost: number; booksLooted: number }>();
 
   const provKey = (name: string | null, kd: string) => `${name ?? ""}\0${kd}`;
 
@@ -1482,10 +1490,11 @@ export function getKingdomNewsSummary(kingdom: string, keyHash: string, from?: s
     const existing = provMap.get(k);
     if (existing) {
       existing.hitsMade += r.hits;
-      existing.acresGained += r.acres;
+      existing.marchAcresGained += r.marchAcres;
+      existing.razeAcresDealt += r.razeAcres;
       existing.booksLooted += r.books;
     } else {
-      provMap.set(k, { kd: r.attacker_kingdom, name: r.attacker_name, hitsMade: r.hits, acresGained: r.acres, hitsTaken: 0, acresLost: 0, booksLooted: r.books });
+      provMap.set(k, { kd: r.attacker_kingdom, name: r.attacker_name, hitsMade: r.hits, marchAcresGained: r.marchAcres, razeAcresDealt: r.razeAcres, hitsTaken: 0, marchAcresLost: 0, razeAcresLost: 0, booksLooted: r.books });
     }
   }
   for (const r of asDefender) {
@@ -1493,9 +1502,10 @@ export function getKingdomNewsSummary(kingdom: string, keyHash: string, from?: s
     const existing = provMap.get(k);
     if (existing) {
       existing.hitsTaken += r.hits;
-      existing.acresLost += r.acres;
+      existing.marchAcresLost += r.marchAcres;
+      existing.razeAcresLost += r.razeAcres;
     } else {
-      provMap.set(k, { kd: r.defender_kingdom, name: r.defender_name, hitsMade: 0, acresGained: 0, hitsTaken: r.hits, acresLost: r.acres, booksLooted: 0 });
+      provMap.set(k, { kd: r.defender_kingdom, name: r.defender_name, hitsMade: 0, marchAcresGained: 0, razeAcresDealt: 0, hitsTaken: r.hits, marchAcresLost: r.marchAcres, razeAcresLost: r.razeAcres, booksLooted: 0 });
     }
   }
 
@@ -1518,20 +1528,26 @@ export function getKingdomNewsSummary(kingdom: string, keyHash: string, from?: s
   for (const p of provMap.values()) {
     const slot = p.name ? (slotMap.get(`${p.name}\0${p.kd}`) ?? null) : null;
     const list = kdMap.get(p.kd) ?? [];
-    list.push({ provinceName: p.name, slot, hitsMade: p.hitsMade, acresGained: p.acresGained, hitsTaken: p.hitsTaken, acresLost: p.acresLost, booksLooted: p.booksLooted });
+    list.push({ provinceName: p.name, slot, hitsMade: p.hitsMade, marchAcresGained: p.marchAcresGained, razeAcresDealt: p.razeAcresDealt, hitsTaken: p.hitsTaken, marchAcresLost: p.marchAcresLost, razeAcresLost: p.razeAcresLost, booksLooted: p.booksLooted });
     kdMap.set(p.kd, list);
   }
 
   // Build kingdom summaries, sort provinces within each by net acres desc
   const byKingdom: NewsKingdomSummary[] = [...kdMap.entries()].map(([kd, provs]) => {
-    provs.sort((a, b) => (b.acresGained - b.acresLost) - (a.acresGained - a.acresLost));
+    provs.sort((a, b) => {
+      const netB = b.marchAcresGained - b.marchAcresLost - b.razeAcresLost;
+      const netA = a.marchAcresGained - a.marchAcresLost - a.razeAcresLost;
+      return netB - netA;
+    });
     return {
       kingdom: kd,
       provinces: provs,
-      totalHitsMade:   provs.reduce((s, p) => s + p.hitsMade, 0),
-      totalAcresGained: provs.reduce((s, p) => s + p.acresGained, 0),
-      totalHitsTaken:  provs.reduce((s, p) => s + p.hitsTaken, 0),
-      totalAcresLost:  provs.reduce((s, p) => s + p.acresLost, 0),
+      totalHitsMade:          provs.reduce((s, p) => s + p.hitsMade, 0),
+      totalMarchAcresGained:  provs.reduce((s, p) => s + p.marchAcresGained, 0),
+      totalRazeAcresDealt:    provs.reduce((s, p) => s + p.razeAcresDealt, 0),
+      totalHitsTaken:         provs.reduce((s, p) => s + p.hitsTaken, 0),
+      totalMarchAcresLost:    provs.reduce((s, p) => s + p.marchAcresLost, 0),
+      totalRazeAcresLost:     provs.reduce((s, p) => s + p.razeAcresLost, 0),
     };
   });
 
@@ -1539,14 +1555,18 @@ export function getKingdomNewsSummary(kingdom: string, keyHash: string, from?: s
   byKingdom.sort((a, b) => {
     if (a.kingdom === kingdom) return 1;
     if (b.kingdom === kingdom) return -1;
-    return (b.totalHitsMade - a.totalHitsMade) || (a.totalAcresGained - b.totalAcresGained);
+    return (b.totalHitsMade - a.totalHitsMade) || (a.totalMarchAcresGained - b.totalMarchAcresGained);
   });
 
-  const totalAcresIn = byKingdom.filter(k => k.kingdom !== kingdom).reduce((s, k) => s + k.totalAcresGained, 0);
-  const totalAcresOut = byKingdom.find(k => k.kingdom === kingdom)?.totalAcresGained ?? 0;
+  const ours = byKingdom.find(k => k.kingdom === kingdom);
+  const enemies = byKingdom.filter(k => k.kingdom !== kingdom);
+  const totalMarchAcresIn  = enemies.reduce((s, k) => s + k.totalMarchAcresGained, 0);
+  const totalRazeAcresIn   = enemies.reduce((s, k) => s + k.totalRazeAcresDealt, 0);
+  const totalMarchAcresOut = ours?.totalMarchAcresGained ?? 0;
+  const totalRazeAcresOut  = ours?.totalRazeAcresDealt ?? 0;
   const uniqueAttackers = asAttacker.filter(r => r.attacker_kingdom !== kingdom).length;
 
-  return { ourKingdom: kingdom, totalAcresIn, totalAcresOut, uniqueAttackers, byKingdom };
+  return { ourKingdom: kingdom, totalMarchAcresIn, totalRazeAcresIn, totalMarchAcresOut, totalRazeAcresOut, uniqueAttackers, byKingdom };
 }
 
 export function cleanupExpired() {

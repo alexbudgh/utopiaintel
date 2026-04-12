@@ -45,6 +45,7 @@ const AMBUSH_ARMIES_UNKNOWN_RE = new RegExp(`^An unknown province from ([^(]+?)\
 const AMBUSH_ARMIES_RE = new RegExp(`^${PROV_REF} ambushed armies from ${PROV_REF} and took (${INT}) acres`);
 const AMBUSH_RE     = new RegExp(`^${PROV_REF} recaptured (${INT}) acres(?:\\s+of\\s+land)?\\s+from ${PROV_REF}`);
 const RAZE_RE       = new RegExp(`^${PROV_REF} razed (${INT}) acres of ${PROV_REF}`);
+const RAZE_INVADED_RE = new RegExp(`^${PROV_REF} invaded ${PROV_REF} and razed (${INT}) acres`);
 const PILLAGE_RE    = new RegExp(`^${PROV_REF} (?:attacked and pillaged the lands of|invaded and pillaged) ${PROV_REF}`);
 // "invaded/attacked and looted N books from"
 const LOOT_RE       = new RegExp(`^${PROV_REF} (?:invaded|attacked) and looted (${INT}) books from ${PROV_REF}`);
@@ -133,6 +134,16 @@ function classifyEvent(text: string): Omit<KingdomNewsEvent, "gameDate" | "rawTe
     attackerName: m[1].trim(), attackerKingdom: m[2],
     defenderName: m[4].trim(), defenderKingdom: m[5],
     acres: parseNum(m[3]), books: null,
+    senderName: null, receiverName: null, relationKingdom: null,
+    dragonType: null, dragonName: null,
+  };
+
+  m = RAZE_INVADED_RE.exec(text);
+  if (m) return {
+    eventType: "raze",
+    attackerName: m[1].trim(), attackerKingdom: m[2],
+    defenderName: m[3].trim(), defenderKingdom: m[4],
+    acres: parseNum(m[5]), books: null,
     senderName: null, receiverName: null, relationKingdom: null,
     dragonType: null, dragonName: null,
   };
