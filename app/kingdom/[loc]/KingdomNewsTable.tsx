@@ -253,7 +253,7 @@ function DateSelector({ value, onChange }: { value: DateParts; onChange: (v: Dat
   );
 }
 
-function NewsDateFilter({ kingdom, from, to }: { kingdom: string; from?: string; to?: string }) {
+function NewsDateFilter({ kingdom, from, to, latestWarDate }: { kingdom: string; from?: string; to?: string; latestWarDate?: string }) {
   const router = useRouter();
   const [fromParts, setFromParts] = useState<DateParts>(() => parseDateParts(from));
   const [toParts,   setToParts]   = useState<DateParts>(() => parseDateParts(to));
@@ -279,8 +279,20 @@ function NewsDateFilter({ kingdom, from, to }: { kingdom: string; from?: string;
   const hasFilter = !!(from || to);
   const btnBase = "rounded border px-2.5 py-1 transition-colors";
 
+  function setWarRange() {
+    if (!latestWarDate) return;
+    const params = new URLSearchParams({ view: "news", from: latestWarDate });
+    router.push(`/kingdom/${encodeURIComponent(kingdom)}?${params.toString()}`);
+  }
+
   return (
     <form onSubmit={apply} className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+      {latestWarDate && (
+        <button type="button" onClick={setWarRange}
+          className={`${btnBase} border-amber-700/60 bg-amber-950/30 text-amber-400 hover:border-amber-500 hover:text-amber-300`}>
+          Since war
+        </button>
+      )}
       <span className="text-gray-500">Date range:</span>
       <DateSelector value={fromParts} onChange={setFromParts} />
       <span className="text-gray-600">–</span>
@@ -309,7 +321,7 @@ function NewsDateFilter({ kingdom, from, to }: { kingdom: string; from?: string;
   );
 }
 
-export function KingdomNewsTable({ events, summary, kingdom, from, to }: { events: KingdomNewsRow[]; summary: KingdomNewsSummary; kingdom: string; from?: string; to?: string }) {
+export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWarDate }: { events: KingdomNewsRow[]; summary: KingdomNewsSummary; kingdom: string; from?: string; to?: string; latestWarDate?: string }) {
   const btnBase = "px-2.5 py-1 rounded text-xs border transition-colors";
   const btnActive = "border-blue-500 text-blue-300 bg-blue-950/40";
   const btnInactive = "border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300";
@@ -330,7 +342,7 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to }: { event
     return (
       <>
         {controls}
-        <NewsDateFilter kingdom={kingdom} from={from} to={to} />
+        <NewsDateFilter kingdom={kingdom} from={from} to={to} latestWarDate={latestWarDate} />
         <div className="rounded-lg border border-gray-800 bg-gray-900/50 px-5 py-6 text-sm text-gray-400">
           {(from || to)
             ? "No events in the selected date range."
@@ -350,7 +362,7 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to }: { event
   return (
     <>
       {controls}
-      <NewsDateFilter kingdom={kingdom} from={from} to={to} />
+      <NewsDateFilter kingdom={kingdom} from={from} to={to} latestWarDate={latestWarDate} />
 
       {hasSummary && (
         <div className="mb-4">

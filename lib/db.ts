@@ -1268,6 +1268,25 @@ export function getKingdomNews(kingdom: string, keyHash: string, from?: string, 
   }));
 }
 
+/** Returns the game_date of the most recent war_declared event for this kingdom, or null if none. */
+export function getLatestWarDate(kingdom: string, keyHash: string): string | null {
+  const db = getDb();
+  const hasAccess = db.prepare(`
+    SELECT 1 FROM intel_partitions ip
+    JOIN provinces p ON p.id = ip.province_id
+    WHERE ip.key_hash = ? AND p.kingdom = ?
+    LIMIT 1
+  `).get(keyHash, kingdom);
+  if (!hasAccess) return null;
+  const row = db.prepare(`
+    SELECT game_date FROM kingdom_news
+    WHERE kingdom = ? AND event_type = 'war_declared'
+    ORDER BY game_date_ord DESC, id DESC
+    LIMIT 1
+  `).get(kingdom) as { game_date: string } | undefined;
+  return row?.game_date ?? null;
+}
+
 const COMBAT_TYPES = `'march','invasion','ambush','raze','pillage','loot'`;
 
 export interface NewsProvinceSummary {
