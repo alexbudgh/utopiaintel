@@ -54,12 +54,28 @@ function EventDescription({ event }: { event: KingdomNewsRow }) {
     );
   }
 
+  // Province reference: shows "Unknown province (kd)" when name is null
+  function ProvLink({ name, kingdom }: { name: string | null; kingdom: string | null }) {
+    if (!kingdom) return <span className="text-gray-300">{name ?? "Unknown province"}</span>;
+    if (!name) return (
+      <span>
+        <span className="text-gray-500 italic">Unknown province</span>{" "}
+        <Link href={`/kingdom/${encodeURIComponent(kingdom)}`} className="text-blue-300 hover:text-blue-200 transition-colors font-mono text-[11px]">({kingdom})</Link>
+      </span>
+    );
+    return (
+      <Link href={`/kingdom/${encodeURIComponent(kingdom)}/${encodeURIComponent(name)}`} className="text-gray-300 hover:text-blue-200 transition-colors">
+        {name}<span className="text-gray-500 font-mono text-[11px]"> ({kingdom})</span>
+      </Link>
+    );
+  }
+
   if (eventType === "march") {
     return (
       <span>
-        <KdLink name={attackerName} kingdom={attackerKingdom} />{" "}
+        <ProvLink name={attackerName} kingdom={attackerKingdom} />{" "}
         <span className="text-gray-500">→</span>{" "}
-        <KdLink name={defenderName} kingdom={defenderKingdom} />
+        <ProvLink name={defenderName} kingdom={defenderKingdom} />
         {acres != null && <span className="text-gray-400"> · {acres.toLocaleString()}a</span>}
       </span>
     );
@@ -69,9 +85,9 @@ function EventDescription({ event }: { event: KingdomNewsRow }) {
     const verb = eventType === "pillage" ? "pillaged" : "ambushed";
     return (
       <span>
-        <KdLink name={attackerName} kingdom={attackerKingdom} />{" "}
+        <ProvLink name={attackerName} kingdom={attackerKingdom} />{" "}
         <span className="text-gray-500">{verb}</span>{" "}
-        <KdLink name={defenderName} kingdom={defenderKingdom} />
+        <ProvLink name={defenderName} kingdom={defenderKingdom} />
         {acres != null && <span className="text-gray-400"> · {acres.toLocaleString()}a</span>}
       </span>
     );
@@ -80,9 +96,9 @@ function EventDescription({ event }: { event: KingdomNewsRow }) {
   if (eventType === "raze") {
     return (
       <span>
-        <KdLink name={attackerName} kingdom={attackerKingdom} />{" "}
+        <ProvLink name={attackerName} kingdom={attackerKingdom} />{" "}
         <span className="text-gray-500">razed</span>{" "}
-        <KdLink name={defenderName} kingdom={defenderKingdom} />
+        <ProvLink name={defenderName} kingdom={defenderKingdom} />
         {acres != null && <span className="text-gray-400"> · {acres.toLocaleString()}a</span>}
       </span>
     );
@@ -91,9 +107,9 @@ function EventDescription({ event }: { event: KingdomNewsRow }) {
   if (eventType === "loot") {
     return (
       <span>
-        <KdLink name={attackerName} kingdom={attackerKingdom} />{" "}
+        <ProvLink name={attackerName} kingdom={attackerKingdom} />{" "}
         <span className="text-gray-500">looted</span>{" "}
-        <KdLink name={defenderName} kingdom={defenderKingdom} />
+        <ProvLink name={defenderName} kingdom={defenderKingdom} />
         {books != null && <span className="text-gray-400"> · {books.toLocaleString()} books</span>}
       </span>
     );
@@ -102,10 +118,9 @@ function EventDescription({ event }: { event: KingdomNewsRow }) {
   if (eventType === "failed_attack") {
     return (
       <span>
-        <span className="text-gray-500">Unknown from </span>
-        <KdLink name={null} kingdom={attackerKingdom} />{" "}
+        <ProvLink name={null} kingdom={attackerKingdom} />{" "}
         <span className="text-gray-500">→</span>{" "}
-        <KdLink name={defenderName} kingdom={defenderKingdom} />
+        <ProvLink name={defenderName} kingdom={defenderKingdom} />
       </span>
     );
   }
