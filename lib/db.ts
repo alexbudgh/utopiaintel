@@ -1245,6 +1245,129 @@ export function getKingdomNews(kingdom: string, keyHash: string, limit = 200): K
   }));
 }
 
+const COMBAT_TYPES = `'march','invasion','ambush','raze','pillage','loot'`;
+
+export interface NewsProvinceSummary {
+  provinceName: string | null;
+  hitsMade: number;    // attacks this province launched
+  acresGained: number; // acres captured by this province
+  hitsTaken: number;   // attacks this province received
+  acresLost: number;   // acres lost by this province
+  booksLooted: number; // books looted by this province (loot events)
+}
+
+export interface NewsKingdomSummary {
+  kingdom: string;
+  provinces: NewsProvinceSummary[];
+  totalHitsMade: number;
+  totalAcresGained: number;
+  totalHitsTaken: number;
+  totalAcresLost: number;
+}
+
+export interface KingdomNewsSummary {
+  ourKingdom: string;
+  totalAcresIn: number;
+  totalAcresOut: number;
+  uniqueAttackers: number;
+  byKingdom: NewsKingdomSummary[];
+}
+
+export function getKingdomNewsSummary(kingdom: string, keyHash: string): KingdomNewsSummary {
+  const db = getDb();
+  const hasAccess = db.prepare(`
+    SELECT 1 FROM intel_partitions ip
+    JOIN provinces p ON p.id = ip.province_id
+    WHERE ip.key_hash = ? AND p.kingdom = ?
+    LIMIT 1
+  `).get(keyHash, kingdom);
+  const empty: KingdomNewsSummary = { ourKingdom: kingdom, totalAcresIn: 0, totalAcresOut: 0, uniqueAttackers: 0, byKingdom: [] };
+  if (!hasAccess) return empty;
+
+  // All attacking activity: group by (attacker_name, attacker_kingdom)
+  const asAttacker = db.prepare(`
+    SELECT attacker_name, attacker_kingdom,
+           COUNT(*) as hits,
+           COALESCE(SUM(CASE WHEN event_type != 'loot' THEN acres ELSE 0 END), 0) as acres,
+           COALESCE(SUM(CASE WHEN event_type  = 'loot' THEN books ELSE 0 END), 0) as books
+    FROM kingdom_news
+    WHERE kingdom = ? AND event_type IN (${COMBAT_TYPES}) AND attacker_kingdom IS NOT NULL
+    GROUP BY attacker_name, attacker_kingdom
+  `).all(kingdom) as { attacker_name: string | null; attacker_kingdom: string; hits: number; acres: number; books: number }[];
+
+  // All defending activity: group by (defender_name, defender_kingdom)
+  const asDefender = db.prepare(`
+    SELECT defender_name, defender_kingdom,
+           COUNT(*) as hits,
+           COALESCE(SUM(CASE WHEN event_type != 'loot' THEN acres ELSE 0 END), 0) as acres
+    FROM kingdom_news
+    WHERE kingdom = ? AND event_type IN (${COMBAT_TYPES}) AND defender_kingdom IS NOT NULL
+    GROUP BY defender_name, defender_kingdom
+  `).all(kingdom) as { defender_name: string | null; defender_kingdom: string; hits: number; acres: number }[];
+
+  // Build per-province map keyed by (name, kd)
+  type ProvKey = string;
+  const provMap = new Map<ProvKey, { kd: string; name: string | null; hitsMade: number; acresGained: number; hitsTaken: number; acresLost: number; booksLooted: number }>();
+
+  const provKey = (name: string | null, kd: string) => `${name ?? ""}\0${kd}`;
+
+  for (const r of asAttacker) {
+    const k = provKey(r.attacker_name, r.attacker_kingdom);
+    const existing = provMap.get(k);
+    if (existing) {
+      existing.hitsMade += r.hits;
+      existing.acresGained += r.acres;
+      existing.booksLooted += r.books;
+    } else {
+      provMap.set(k, { kd: r.attacker_kingdom, name: r.attacker_name, hitsMade: r.hits, acresGained: r.acres, hitsTaken: 0, acresLost: 0, booksLooted: r.books });
+    }
+  }
+  for (const r of asDefender) {
+    const k = provKey(r.defender_name, r.defender_kingdom);
+    const existing = provMap.get(k);
+    if (existing) {
+      existing.hitsTaken += r.hits;
+      existing.acresLost += r.acres;
+    } else {
+      provMap.set(k, { kd: r.defender_kingdom, name: r.defender_name, hitsMade: 0, acresGained: 0, hitsTaken: r.hits, acresLost: r.acres, booksLooted: 0 });
+    }
+  }
+
+  // Group provinces by kingdom
+  const kdMap = new Map<string, NewsProvinceSummary[]>();
+  for (const p of provMap.values()) {
+    const list = kdMap.get(p.kd) ?? [];
+    list.push({ provinceName: p.name, hitsMade: p.hitsMade, acresGained: p.acresGained, hitsTaken: p.hitsTaken, acresLost: p.acresLost, booksLooted: p.booksLooted });
+    kdMap.set(p.kd, list);
+  }
+
+  // Build kingdom summaries, sort provinces within each by hitsMade desc then hitsTaken desc
+  const byKingdom: NewsKingdomSummary[] = [...kdMap.entries()].map(([kd, provs]) => {
+    provs.sort((a, b) => (b.hitsMade - a.hitsMade) || (b.hitsTaken - a.hitsTaken));
+    return {
+      kingdom: kd,
+      provinces: provs,
+      totalHitsMade:   provs.reduce((s, p) => s + p.hitsMade, 0),
+      totalAcresGained: provs.reduce((s, p) => s + p.acresGained, 0),
+      totalHitsTaken:  provs.reduce((s, p) => s + p.hitsTaken, 0),
+      totalAcresLost:  provs.reduce((s, p) => s + p.acresLost, 0),
+    };
+  });
+
+  // Our kingdom last, enemy kingdoms sorted by hitsMade (attacks against us) desc
+  byKingdom.sort((a, b) => {
+    if (a.kingdom === kingdom) return 1;
+    if (b.kingdom === kingdom) return -1;
+    return (b.totalHitsMade - a.totalHitsMade) || (a.totalAcresGained - b.totalAcresGained);
+  });
+
+  const totalAcresIn = byKingdom.filter(k => k.kingdom !== kingdom).reduce((s, k) => s + k.totalAcresGained, 0);
+  const totalAcresOut = byKingdom.find(k => k.kingdom === kingdom)?.totalAcresGained ?? 0;
+  const uniqueAttackers = asAttacker.filter(r => r.attacker_kingdom !== kingdom).length;
+
+  return { ourKingdom: kingdom, totalAcresIn, totalAcresOut, uniqueAttackers, byKingdom };
+}
+
 export function cleanupExpired() {
   const db = getDb();
   const cutoff = `datetime('now', '-${TTL_DAYS} days')`;

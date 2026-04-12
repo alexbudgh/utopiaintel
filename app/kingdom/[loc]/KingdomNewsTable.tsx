@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { KingdomNewsRow } from "@/lib/db";
+import type { KingdomNewsRow, KingdomNewsSummary } from "@/lib/db";
 
 const EVENT_LABEL: Record<string, string> = {
   march:               "Trad. March",
@@ -210,7 +210,7 @@ function eventDirection(event: KingdomNewsRow, kingdom: string): "out" | "in" | 
   return null;
 }
 
-export function KingdomNewsTable({ events, kingdom }: { events: KingdomNewsRow[]; kingdom: string }) {
+export function KingdomNewsTable({ events, summary, kingdom }: { events: KingdomNewsRow[]; summary: KingdomNewsSummary; kingdom: string }) {
   const btnBase = "px-2.5 py-1 rounded text-xs border transition-colors";
   const btnActive = "border-blue-500 text-blue-300 bg-blue-950/40";
   const btnInactive = "border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300";
@@ -238,9 +238,79 @@ export function KingdomNewsTable({ events, kingdom }: { events: KingdomNewsRow[]
     );
   }
 
+  const net = summary.totalAcresOut - summary.totalAcresIn;
+  const hasSummary = summary.byKingdom.length > 0;
+
+  function Num({ n, color }: { n: number; color: string }) {
+    return n > 0 ? <span className={color}>{n.toLocaleString()}</span> : <span className="text-gray-700">—</span>;
+  }
+
   return (
     <>
       {controls}
+
+      {hasSummary && (
+        <div className="mb-4">
+          {/* Headline stats */}
+          <div className="mb-3 flex flex-wrap gap-3 text-xs text-gray-400">
+            <span>Lost <span className="text-red-300 font-medium">{summary.totalAcresIn.toLocaleString()}a</span></span>
+            <span>·</span>
+            <span>Gained <span className="text-green-300 font-medium">{summary.totalAcresOut.toLocaleString()}a</span></span>
+            <span>·</span>
+            <span>Net <span className={`font-medium ${net >= 0 ? "text-green-300" : "text-red-300"}`}>{net >= 0 ? "+" : ""}{net.toLocaleString()}a</span></span>
+            <span>·</span>
+            <span><span className="text-gray-300 font-medium">{summary.uniqueAttackers}</span> unique attacker{summary.uniqueAttackers !== 1 ? "s" : ""}</span>
+          </div>
+
+          {/* Per-kingdom tables */}
+          <div className="flex flex-col gap-3">
+            {summary.byKingdom.map((kd) => {
+              const isOurs = kd.kingdom === summary.ourKingdom;
+              return (
+                <div key={kd.kingdom} className="rounded-lg border border-gray-800 overflow-hidden">
+                  <div className="flex items-center gap-3 px-3 py-1.5 bg-gray-800/60 border-b border-gray-800 text-xs">
+                    <Link href={`/kingdom/${encodeURIComponent(kd.kingdom)}`} className="font-mono font-medium text-gray-200 hover:text-blue-300 transition-colors">
+                      {kd.kingdom}{isOurs && <span className="ml-1 text-blue-400">★</span>}
+                    </Link>
+                    {kd.totalHitsMade > 0  && <span className={isOurs ? "text-green-300" : "text-red-300"}>{kd.totalHitsMade} hits · {kd.totalAcresGained.toLocaleString()}a gained</span>}
+                    {kd.totalHitsTaken > 0 && <span className={isOurs ? "text-red-300"   : "text-green-300"}>{kd.totalHitsTaken} hits taken · {kd.totalAcresLost.toLocaleString()}a lost</span>}
+                  </div>
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-gray-800 text-gray-500">
+                        <th className="px-3 py-1 text-left font-normal">Province</th>
+                        <th className="px-3 py-1 text-right font-normal">Hits Made</th>
+                        <th className="px-3 py-1 text-right font-normal">Acres Gained</th>
+                        <th className="px-3 py-1 text-right font-normal">Hits Taken</th>
+                        <th className="px-3 py-1 text-right font-normal">Acres Lost</th>
+                        <th className="px-3 py-1 text-right font-normal">Books Looted</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {kd.provinces.map((p, i) => (
+                        <tr key={i} className={i % 2 === 0 ? "bg-gray-900/40" : "bg-gray-900/20"}>
+                          <td className="px-3 py-1.5 text-gray-300">
+                            {p.provinceName
+                              ? <Link href={`/kingdom/${encodeURIComponent(kd.kingdom)}/${encodeURIComponent(p.provinceName)}`} className="hover:text-blue-300 transition-colors">{p.provinceName}</Link>
+                              : <span className="text-gray-500 italic">Unknown</span>
+                            }
+                          </td>
+                          <td className="px-3 py-1.5 text-right font-mono"><Num n={p.hitsMade}    color={isOurs ? "text-green-300" : "text-red-300"} /></td>
+                          <td className="px-3 py-1.5 text-right font-mono"><Num n={p.acresGained} color={isOurs ? "text-green-300" : "text-red-300"} /></td>
+                          <td className="px-3 py-1.5 text-right font-mono"><Num n={p.hitsTaken}   color={isOurs ? "text-red-300"   : "text-green-300"} /></td>
+                          <td className="px-3 py-1.5 text-right font-mono"><Num n={p.acresLost}   color={isOurs ? "text-red-300"   : "text-green-300"} /></td>
+                          <td className="px-3 py-1.5 text-right font-mono"><Num n={p.booksLooted} color="text-amber-300" /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="space-y-1">
         {events.map((event) => {
           const dir = eventDirection(event, kingdom);

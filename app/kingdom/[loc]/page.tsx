@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { cookies, headers } from "next/headers";
 import { createHash } from "crypto";
-import { getBoundKingdom, getKingdomProvinces, getLatestKingdomSnapshot, getKingdomRitual, getKingdomDragon, getKingdomNews } from "@/lib/db";
+import { getBoundKingdom, getKingdomProvinces, getLatestKingdomSnapshot, getKingdomRitual, getKingdomDragon, getKingdomNews, getKingdomNewsSummary } from "@/lib/db";
 import { timeAgo } from "@/lib/ui";
 import { KingdomRelations } from "@/app/components/KingdomRelations";
 import { IntelSetupCard } from "@/app/components/IntelSetupCard";
@@ -40,6 +40,7 @@ export default async function KingdomPage({
   const hasAnyIntel = provinces.length > 0 || !!snapshot;
   const gainsInitial = view === "gains" ? getGainsPageData(kingdom, keyHash) : null;
   const newsEvents = view === "news" ? getKingdomNews(kingdom, keyHash) : null;
+  const newsSummary = view === "news" ? getKingdomNewsSummary(kingdom, keyHash) : null;
   const ritual = getKingdomRitual(kingdom, keyHash);
   const dragon = getKingdomDragon(kingdom, keyHash);
 
@@ -105,7 +106,7 @@ export default async function KingdomPage({
       )}
 
       {view === "news" ? (
-        <KingdomNewsTable events={newsEvents!} kingdom={kingdom} />
+        <KingdomNewsTable events={newsEvents!} summary={newsSummary!} kingdom={kingdom} />
       ) : view === "gains" ? (
         <GainsTable initial={gainsInitial!} embedded />
       ) : hasAnyIntel ? (
