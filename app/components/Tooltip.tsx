@@ -8,12 +8,17 @@ export interface TooltipLine {
   tone?: "default" | "muted" | "strong" | "good" | "warn" | "bad";
 }
 
-function lineClass(tone: TooltipLine["tone"], isFirst: boolean): string {
-  if (tone === "bad") return "text-red-300 font-medium";
-  if (tone === "warn") return "text-amber-300 font-medium";
-  if (tone === "good") return "text-green-300 font-medium";
-  if (tone === "strong") return "text-gray-100 font-medium";
+export function toneClass(tone: TooltipLine["tone"]): string {
+  if (tone === "bad") return "text-red-300";
+  if (tone === "warn") return "text-amber-300";
+  if (tone === "good") return "text-green-300";
+  if (tone === "strong") return "text-gray-100";
   if (tone === "muted") return "text-gray-500";
+  return "text-gray-400";
+}
+
+function lineClass(tone: TooltipLine["tone"], isFirst: boolean): string {
+  if (tone != null) return toneClass(tone) + " font-medium";
   return isFirst ? "text-gray-100 font-medium" : "text-gray-400";
 }
 

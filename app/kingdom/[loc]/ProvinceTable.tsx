@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { Tooltip, type TooltipLine } from "@/app/components/Tooltip";
+import { Tooltip, toneClass, type TooltipLine } from "@/app/components/Tooltip";
 import type { ProvinceRow } from "@/lib/db";
 import { freshnessColor, formatNum, timeAgo, formatTimestamp, sameTick, fullValueTooltip, parseUtc } from "@/lib/ui";
 import { computeWizardCount, NW_PER_WIZARD } from "@/lib/nw";
@@ -186,7 +186,10 @@ function ageFor(p: ProvinceRow, key: ColKey): string | null {
     ].filter((v): v is string => v != null);
     return candidates.length ? candidates.reduce((a, b) => (a > b ? a : b)) : null;
   }
-  if (key === "armies") return p.som_age;
+  if (key === "armies") {
+    const candidates = [p.som_age, p.throne_age].filter((v): v is string => v != null);
+    return candidates.length ? candidates.reduce((a, b) => (a > b ? a : b)) : null;
+  }
   if (key === "good_spells" || key === "bad_spells") return p.effects_age ?? null;
   if (["soldiers", "off_specs", "def_specs", "elites", "war_horses", "peasants"].includes(key)) return p.troops_age;
   if (["soldiers_home", "off_specs_home", "def_specs_home", "elites_home"].includes(key)) return p.troops_home_age;
@@ -305,7 +308,8 @@ function tipFor(p: ProvinceRow, key: ColKey): string | TooltipLine[] | React.Rea
               </tbody>
             </table>
         }
-        <div className="mt-1 text-gray-500">{`som: ${timeAgo(p.som_age)} · ${formatTimestamp(p.som_age)}`}</div>
+        {p.som_age && <div className={`mt-1 text-xs ${toneClass(freshnessToTone(p.som_age))}`}>{`som: ${timeAgo(p.som_age)} · ${formatTimestamp(p.som_age)}`}</div>}
+        {p.throne_age && <div className={`mt-0.5 text-xs ${toneClass(freshnessToTone(p.throne_age))}`}>{`throne: ${timeAgo(p.throne_age)} · ${formatTimestamp(p.throne_age)}`}</div>}
       </div>
     );
   }
@@ -461,7 +465,7 @@ function cellValue(p: ProvinceRow, key: ColKey): React.ReactNode {
       const out = p.armies_out_count ?? 0;
       if (out === 0) return <span className="text-gray-600">home</span>;
       return (
-        <span className="text-yellow-300 font-mono text-xs">
+        <span className="font-mono text-xs">
           {out}✦
           {p.land_incoming ? ` +${p.land_incoming.toLocaleString()}a` : ""}
           {p.earliest_return != null ? ` ${p.earliest_return.toFixed(1)}d` : ""}
