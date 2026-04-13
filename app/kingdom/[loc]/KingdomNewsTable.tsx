@@ -233,6 +233,7 @@ function buildChartData(events: KingdomNewsRow[], ourKingdom: string) {
 
   for (const e of events) {
     if (!COMBAT_TYPES_SET.has(e.eventType) || e.acres == null) continue;
+    if (e.eventType === "raze") continue; // raze doesn't transfer land
     const { attackerKingdom, defenderKingdom, acres, gameDate } = e;
     if (!attackerKingdom || !defenderKingdom) continue;
     kdSet.add(attackerKingdom);
