@@ -452,7 +452,7 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
     );
   }
 
-  const net = (summary.totalMarchAcresOut - summary.totalMarchAcresIn) - summary.totalRazeAcresIn;
+  const net = summary.totalMarchAcresOut - summary.totalMarchAcresIn;
   const hasSummary = summary.byKingdom.length > 0;
 
   function Num({ n, color }: { n: number; color: string }) {
@@ -485,7 +485,7 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
           <div className="flex flex-col gap-3">
             {summary.byKingdom.map((kd) => {
               const isOurs = kd.kingdom === summary.ourKingdom;
-              const kdNet = kd.totalMarchAcresGained - kd.totalMarchAcresLost - kd.totalRazeAcresLost;
+              const kdNet = kd.totalMarchAcresGained + kd.totalAmbushAcresGained - kd.totalMarchAcresLost - kd.totalAmbushAcresLost;
               const gc = isOurs ? "text-green-300" : "text-red-300";
               const lc = isOurs ? "text-red-300" : "text-green-300";
               return (
@@ -533,7 +533,7 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
                     </thead>
                     <tbody>
                       {kd.provinces.map((p, i) => {
-                        const net = p.marchAcresGained + p.ambushAcresGained - p.marchAcresLost - p.ambushAcresLost - p.razeAcresLost;
+                        const net = p.marchAcresGained + p.ambushAcresGained - p.marchAcresLost - p.ambushAcresLost;
                         return (
                         <tr key={i} className={i % 2 === 0 ? "bg-gray-900/40" : "bg-gray-900/20"}>
                           <td className="px-3 py-1.5 text-gray-300 whitespace-nowrap">
@@ -581,7 +581,7 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
                       })}
                     </tbody>
                     {kd.provinces.length > 1 && (() => {
-                      const kdTotalNet = kd.totalMarchAcresGained + kd.totalAmbushAcresGained - kd.totalMarchAcresLost - kd.totalAmbushAcresLost - kd.totalRazeAcresLost;
+                      const kdTotalNet = kd.totalMarchAcresGained + kd.totalAmbushAcresGained - kd.totalMarchAcresLost - kd.totalAmbushAcresLost;
                       return (
                       <tfoot>
                         <tr className="border-t border-gray-700 text-gray-400 font-medium bg-gray-900/60">
