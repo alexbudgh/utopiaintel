@@ -65,6 +65,10 @@ Writes to `intel_debug.jsonl`.
 
 Do not store real province names, kingdom names, or player names in source code, comments, commit messages, or test fixtures. Use generic placeholders (e.g. "TestProvince", "7:5") instead. Real game data lives only in `intel.db` and `intel_debug.jsonl`, which are gitignored.
 
+## Utopia time
+
+1 Utopia day (also called a tick) = 1 real-world hour. Army ETAs, spell durations, and other game timers are expressed in Utopia days/ticks. When converting between game days and wall-clock time, use 3_600_000 ms per day (not 86_400_000).
+
 ## Code style
 
 - Prefer reusing existing utilities over duplicating logic. For example, use `parseUtc` from `lib/ui.ts` wherever SQLite timestamps need parsing, rather than reimplementing the `replace(" ", "T") + "Z"` pattern inline.

@@ -230,6 +230,17 @@ function tpaStaleReason(p: ProvinceRow, needSoS: boolean, needSurvey: boolean): 
   return "data not from same tick";
 }
 
+// Returns the age of whichever source (som/throne) is actually providing army data
+function armiesSourceAge(p: ProvinceRow): string | null {
+  const throneNewer = !!(p.throne_age && (!p.som_age || p.throne_age > p.som_age));
+  return throneNewer ? p.throne_age : p.som_age;
+}
+
+// Adjust a stored ETA (Utopia days/ticks = real hours) for elapsed time since capture
+function adjustEta(eta: number, sourceAge: string): number {
+  return Math.max(0, eta - (Date.now() - parseUtc(sourceAge)) / 3_600_000);
+}
+
 function freshnessToTone(age: string): TooltipLine["tone"] {
   const hrs = (Date.now() - parseUtc(age)) / 3_600_000;
   if (hrs < 1) return "good";
@@ -266,6 +277,7 @@ function tipFor(p: ProvinceRow, key: ColKey): string | TooltipLine[] | React.Rea
     if (!p.som_age) return "No SoM data";
     type ArmyEntry = { type: string; soldiers: number; offSpecs: number; defSpecs: number; elites: number; land: number; eta: number };
     const armies: ArmyEntry[] = p.armies_out_json ? JSON.parse(p.armies_out_json) : [];
+    const srcAge = armiesSourceAge(p);
     const ambushes = armies.map((a) => {
       const hasUnits = a.soldiers || a.offSpecs || a.defSpecs || a.elites;
       return hasUnits ? computeAmbushRawOff(p.race, a) : null;
@@ -301,7 +313,7 @@ function tipFor(p: ProvinceRow, key: ColKey): string | TooltipLine[] | React.Rea
                     <td className={td}>{a.defSpecs ? a.defSpecs.toLocaleString() : "—"}</td>
                     <td className={td}>{a.elites ? a.elites.toLocaleString() : "—"}</td>
                     <td className={td}>{a.land > 0 ? a.land.toLocaleString() : "—"}</td>
-                    <td className={td}>{a.eta.toFixed(1)}d</td>
+                    <td className={td}>{srcAge ? (adjustEta(a.eta, srcAge) > 0 ? `${adjustEta(a.eta, srcAge).toFixed(1)}d` : "ret?") : `${a.eta.toFixed(1)}d`}</td>
                     {showAmbush && <td className={td}>{ambushes[i] != null ? Math.ceil(ambushes[i]!).toLocaleString() : "—"}</td>}
                   </tr>
                 ))}
@@ -461,14 +473,16 @@ function cellValue(p: ProvinceRow, key: ColKey): React.ReactNode {
     case "personality": return <span className="text-gray-400">{p.personality ?? "—"}</span>;
     case "honor_title": return <span className="text-gray-400">{p.honor_title ?? "—"}</span>;
     case "armies": {
-      if (!p.som_age) return "—";
+      const srcAge = armiesSourceAge(p);
+      if (!srcAge) return "—";
       const out = p.armies_out_count ?? 0;
       if (out === 0) return <span className="text-gray-600">home</span>;
+      const eta = p.earliest_return != null ? adjustEta(p.earliest_return, srcAge) : null;
       return (
         <span className="font-mono text-xs">
           {out}✦
           {p.land_incoming ? ` +${p.land_incoming.toLocaleString()}a` : ""}
-          {p.earliest_return != null ? ` ${p.earliest_return.toFixed(1)}d` : ""}
+          {eta != null ? (eta > 0 ? ` ${eta.toFixed(1)}d` : " ret?") : ""}
         </span>
       );
     }
