@@ -65,6 +65,10 @@ Writes to `intel_debug.jsonl`.
 
 Do not store real province names, kingdom names, or player names in source code, comments, commit messages, or test fixtures. Use generic placeholders (e.g. "TestProvince", "7:5") instead. Real game data lives only in `intel.db` and `intel_debug.jsonl`, which are gitignored.
 
+## Code style
+
+- Prefer reusing existing utilities over duplicating logic. For example, use `parseUtc` from `lib/ui.ts` wherever SQLite timestamps need parsing, rather than reimplementing the `replace(" ", "T") + "Z"` pattern inline.
+
 ## Implementation notes
 
 - A self `/wol/game/throne` submission is the authoritative source for binding `key_hash -> kingdom`.
