@@ -13,7 +13,7 @@ export function parseUtopiaDate(date: string): number {
 
 // SQLite datetime('now') produces "YYYY-MM-DD HH:MM:SS" without timezone —
 // treat as UTC by normalising to an ISO 8601 string with Z suffix.
-function parseUtc(iso: string): number {
+export function parseUtc(iso: string): number {
   return new Date(iso.replace(" ", "T") + "Z").getTime();
 }
 

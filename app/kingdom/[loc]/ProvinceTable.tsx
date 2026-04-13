@@ -3,9 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { Tooltip } from "@/app/components/Tooltip";
+import { Tooltip, type TooltipLine } from "@/app/components/Tooltip";
 import type { ProvinceRow } from "@/lib/db";
-import { freshnessColor, formatNum, timeAgo, formatTimestamp, sameTick, fullValueTooltip } from "@/lib/ui";
+import { freshnessColor, formatNum, timeAgo, formatTimestamp, sameTick, fullValueTooltip, parseUtc } from "@/lib/ui";
 import { computeWizardCount, NW_PER_WIZARD } from "@/lib/nw";
 import { computeAmbushRawOff } from "@/lib/ambush";
 
@@ -178,7 +178,14 @@ function computeMwpa(p: ProvinceRow): number | null {
 }
 
 function ageFor(p: ProvinceRow, key: ColKey): string | null {
-  if (key === "age") return p.overview_age ?? p.military_age;
+  if (key === "age") {
+    const candidates = [
+      p.overview_age, p.military_age, p.troops_age, p.troops_home_age,
+      p.home_mil_age, p.thieves_age, p.resources_age, p.status_age,
+      p.effects_age ?? null, p.som_age, p.throne_age, p.sciences_age, p.survey_age,
+    ].filter((v): v is string => v != null);
+    return candidates.length ? candidates.reduce((a, b) => (a > b ? a : b)) : null;
+  }
   if (key === "armies") return p.som_age;
   if (key === "good_spells" || key === "bad_spells") return p.effects_age ?? null;
   if (["soldiers", "off_specs", "def_specs", "elites", "war_horses", "peasants"].includes(key)) return p.troops_age;
@@ -220,13 +227,37 @@ function tpaStaleReason(p: ProvinceRow, needSoS: boolean, needSurvey: boolean): 
   return "data not from same tick";
 }
 
-function tipFor(p: ProvinceRow, key: ColKey): string {
-  // Special case: age column shows both overview and military ages
+function freshnessToTone(age: string): TooltipLine["tone"] {
+  const hrs = (Date.now() - parseUtc(age)) / 3_600_000;
+  if (hrs < 1) return "good";
+  if (hrs < 6) return "warn";
+  return "bad";
+}
+
+function tipFor(p: ProvinceRow, key: ColKey): string | TooltipLine[] {
+  // Special case: age column shows all intel source ages
   if (key === "age") {
-    const lines = [];
-    if (p.overview_age) lines.push(`overview (${p.overview_source ?? "?"}): ${timeAgo(p.overview_age)} · ${formatTimestamp(p.overview_age)}`);
-    if (p.military_age) lines.push(`military (sot): ${timeAgo(p.military_age)} · ${formatTimestamp(p.military_age)}`);
-    return lines.join("\n");
+    const entries: Array<{ label: string; age: string }> = [
+      p.overview_age  ? { label: `overview (${p.overview_source ?? "?"})`,       age: p.overview_age  } : null,
+      p.military_age  ? { label: "sot",                                           age: p.military_age  } : null,
+      p.som_age       ? { label: "som",                                           age: p.som_age       } : null,
+      p.throne_age    ? { label: "throne",                                        age: p.throne_age    } : null,
+      p.troops_age    ? { label: `troops (${p.troops_source ?? "?"})`,            age: p.troops_age    } : null,
+      p.resources_age ? { label: `resources (${p.resources_source ?? "?"})`,     age: p.resources_age } : null,
+      p.home_mil_age  ? { label: "off/def home (som/sod)",                       age: p.home_mil_age  } : null,
+      p.sciences_age  ? { label: "sciences",                                     age: p.sciences_age  } : null,
+      p.survey_age    ? { label: "survey",                                       age: p.survey_age    } : null,
+      p.effects_age   ? { label: "spells",                                       age: p.effects_age   } : null,
+      p.status_age    ? { label: "status",                                       age: p.status_age    } : null,
+    ].filter((e): e is { label: string; age: string } => e !== null);
+    entries.sort((a, b) => (a.age > b.age ? -1 : a.age < b.age ? 1 : 0));
+    return [
+      { text: "Intel ages", tone: "strong" },
+      ...entries.map(({ label, age }) => ({
+        text: `${label}: ${timeAgo(age)} · ${formatTimestamp(age)}`,
+        tone: freshnessToTone(age),
+      })),
+    ];
   }
   if (key === "armies") {
     if (!p.som_age) return "No SoM data";
@@ -389,9 +420,10 @@ function roundedValueTipFor(p: ProvinceRow, key: ColKey): string | null {
   }
 }
 
-function tooltipContentFor(p: ProvinceRow, key: ColKey): string {
+function tooltipContentFor(p: ProvinceRow, key: ColKey): string | TooltipLine[] {
   const rounded = roundedValueTipFor(p, key);
   const base = tipFor(p, key);
+  if (Array.isArray(base)) return base;
   return [rounded, base].filter(Boolean).join("\n");
 }
 
@@ -446,7 +478,7 @@ function cellValue(p: ProvinceRow, key: ColKey): React.ReactNode {
     case "thieves":     return formatNum(p.thieves);
     case "wizards":     return formatNum(p.wizards);
     case "age": {
-      const a = p.overview_age ?? p.military_age;
+      const a = ageFor(p, "age");
       return <span className={freshnessColor(a)}>{timeAgo(a)}</span>;
     }
     case "rtpa": { const v = computeRtpa(p); return v != null ? v.toFixed(2) : "—"; }
