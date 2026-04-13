@@ -452,7 +452,10 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
     );
   }
 
-  const net = summary.totalMarchAcresOut - summary.totalMarchAcresIn;
+  const oursKd = summary.byKingdom.find(k => k.kingdom === summary.ourKingdom);
+  const net = oursKd
+    ? oursKd.totalMarchAcresGained + oursKd.totalAmbushAcresGained - oursKd.totalMarchAcresLost - oursKd.totalAmbushAcresLost
+    : 0;
   const hasSummary = summary.byKingdom.length > 0;
 
   function Num({ n, color }: { n: number; color: string }) {
@@ -471,9 +474,11 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
           {/* Headline stats */}
           <div className="mb-3 flex flex-wrap gap-3 text-xs text-gray-400">
             <span>March lost <span className="text-red-300 font-medium">{summary.totalMarchAcresIn.toLocaleString()}a</span></span>
+            {(oursKd?.totalAmbushAcresLost ?? 0) > 0 && <><span>·</span><span>Ambush lost <span className="text-red-300 font-medium">{oursKd!.totalAmbushAcresLost.toLocaleString()}a</span></span></>}
             {summary.totalRazeAcresIn > 0 && <><span>·</span><span>Razed <span className="text-red-300 font-medium">{summary.totalRazeAcresIn.toLocaleString()}a</span></span></>}
             <span>·</span>
             <span>March gained <span className="text-green-300 font-medium">{summary.totalMarchAcresOut.toLocaleString()}a</span></span>
+            {(oursKd?.totalAmbushAcresGained ?? 0) > 0 && <><span>·</span><span>Ambush gained <span className="text-green-300 font-medium">{oursKd!.totalAmbushAcresGained.toLocaleString()}a</span></span></>}
             {summary.totalRazeAcresOut > 0 && <><span>·</span><span>Razed them <span className="text-green-300 font-medium">{summary.totalRazeAcresOut.toLocaleString()}a</span></span></>}
             <span>·</span>
             <span>Net <span className={`font-medium ${net >= 0 ? "text-green-300" : "text-red-300"}`}>{net >= 0 ? "+" : ""}{net.toLocaleString()}a</span></span>
