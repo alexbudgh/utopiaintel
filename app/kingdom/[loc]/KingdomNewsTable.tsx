@@ -413,7 +413,7 @@ function NewsDateFilter({ kingdom, from, to, latestWarDate }: { kingdom: string;
   );
 }
 
-export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWarDate }: { events: KingdomNewsRow[]; summary: KingdomNewsSummary; kingdom: string; from?: string; to?: string; latestWarDate?: string }) {
+export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWarDate, warTarget }: { events: KingdomNewsRow[]; summary: KingdomNewsSummary; kingdom: string; from?: string; to?: string; latestWarDate?: string; warTarget?: string }) {
   const [activeGroups, setActiveGroups] = useState<Set<string>>(DEFAULT_GROUPS);
   const [visibleCount, setVisibleCount] = useState(50);
   const [showChart, setShowChart] = useState(false);
@@ -540,6 +540,7 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
                         <span className="font-mono font-semibold text-sm text-gray-200">{kd.kingdom}</span>
                         {kd.kingdomName && <span className="text-gray-400 text-sm">{kd.kingdomName}</span>}
                         {isOurs && <span className="text-blue-400">★</span>}
+                        {warTarget && kd.kingdom === warTarget && <span className="text-orange-400">⚔</span>}
                       </Link>
                       {kdNet !== 0 && (
                         <span className={`text-lg font-bold ${kdNet > 0 ? "text-green-300" : "text-red-300"}`}>
