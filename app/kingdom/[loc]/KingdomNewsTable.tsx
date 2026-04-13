@@ -418,6 +418,7 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
   const [visibleCount, setVisibleCount] = useState(50);
   const [showChart, setShowChart] = useState(false);
   const [provFilter, setProvFilter] = useState("");
+  const [provSort, setProvSort] = useState<{ col: string; dir: 1 | -1 }>({ col: "net", dir: -1 });
   const btnBase = "px-2.5 py-1 rounded text-xs border transition-colors";
   const btnActive = "border-blue-500 text-blue-300 bg-blue-950/40";
   const btnInactive = "border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300";
@@ -457,6 +458,44 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
     ? oursKd.totalMarchAcresGained + oursKd.totalAmbushAcresGained - oursKd.totalMarchAcresLost - oursKd.totalAmbushAcresLost
     : 0;
   const hasSummary = summary.byKingdom.length > 0;
+
+  type ProvSortCol = "name" | "hitsMade" | "marchMade" | "ambushMade" | "razeMade" | "plunderMade" | "lootMade" | "failedMade"
+    | "marchAcresGained" | "ambushAcresGained" | "razeAcresDealt"
+    | "hitsTaken" | "marchTaken" | "ambushTaken" | "razeTaken" | "plunderTaken" | "lootTaken" | "failedTaken"
+    | "marchAcresLost" | "ambushAcresLost" | "razeAcresLost" | "net" | "booksLooted";
+
+  function provSortVal(p: (typeof summary.byKingdom)[0]["provinces"][0], col: ProvSortCol): number | string {
+    if (col === "net") return p.marchAcresGained + p.ambushAcresGained - p.marchAcresLost - p.ambushAcresLost;
+    if (col === "name") return p.provinceName ?? "";
+    return p[col];
+  }
+
+  function sortedProvs(provinces: typeof summary.byKingdom[0]["provinces"]) {
+    return [...provinces].sort((a, b) => {
+      const av = provSortVal(a, provSort.col as ProvSortCol);
+      const bv = provSortVal(b, provSort.col as ProvSortCol);
+      if (typeof av === "string") return provSort.dir * (av as string).localeCompare(bv as string);
+      return provSort.dir * ((av as number) - (bv as number));
+    });
+  }
+
+  function SortTh({ col, children, className, title, rowSpan, colSpan }: {
+    col: ProvSortCol; children: React.ReactNode; className?: string; title?: string; rowSpan?: number; colSpan?: number;
+  }) {
+    const active = provSort.col === col;
+    const arrow = active ? (provSort.dir === -1 ? " ↓" : " ↑") : "";
+    return (
+      <th
+        className={`px-2 py-1 font-normal cursor-pointer select-none hover:text-gray-300 transition-colors ${active ? "text-gray-300" : ""} ${className ?? ""}`}
+        title={title}
+        rowSpan={rowSpan}
+        colSpan={colSpan}
+        onClick={() => setProvSort(s => s.col === col ? { col, dir: s.dir === -1 ? 1 : -1 } : { col, dir: -1 })}
+      >
+        {children}{arrow}
+      </th>
+    );
+  }
 
   function Num({ n, color }: { n: number; color: string }) {
     return n > 0 ? <span className={color}>{n.toLocaleString()}</span> : <span className="text-gray-700">—</span>;
@@ -507,37 +546,37 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-gray-800 text-gray-500">
-                        <th className="px-3 py-1 text-left font-normal" rowSpan={2}>Province</th>
+                        <SortTh col="name" className="text-left border-r border-gray-800" rowSpan={2}>Province</SortTh>
                         <th className="px-2 py-1 text-center font-normal border-l border-gray-800" colSpan={10}>Made →</th>
                         <th className="px-2 py-1 text-center font-normal border-l border-gray-800" colSpan={10}>Taken ←</th>
-                        <th className="px-2 py-1 text-right font-normal border-l border-gray-800" rowSpan={2}>Net</th>
-                        <th className="px-2 py-1 text-right font-normal" rowSpan={2}>Books</th>
+                        <SortTh col="net" className="text-right border-l border-gray-800" rowSpan={2}>Net</SortTh>
+                        <SortTh col="booksLooted" className="text-right" rowSpan={2}>Books</SortTh>
                       </tr>
                       <tr className="border-b border-gray-800 text-gray-500">
-                        <th className="px-2 py-1 text-right font-normal border-l border-gray-800">Total</th>
-                        <th className="px-2 py-1 text-right font-normal" title="Trad March">M</th>
-                        <th className="px-2 py-1 text-right font-normal" title="Ambush">A</th>
-                        <th className="px-2 py-1 text-right font-normal" title="Raze">Rz</th>
-                        <th className="px-2 py-1 text-right font-normal" title="Plunder">Pl</th>
-                        <th className="px-2 py-1 text-right font-normal" title="Learn">Lrn</th>
-                        <th className="px-2 py-1 text-right font-normal" title="Failed Attack">Fail</th>
-                        <th className="px-2 py-1 text-right font-normal text-gray-600" title="March acres gained">M.a</th>
-                        <th className="px-2 py-1 text-right font-normal text-gray-600" title="Ambush acres gained">A.a</th>
-                        <th className="px-2 py-1 text-right font-normal text-gray-600" title="Raze acres dealt">Rz.a</th>
-                        <th className="px-2 py-1 text-right font-normal border-l border-gray-800">Total</th>
-                        <th className="px-2 py-1 text-right font-normal" title="Trad March">M</th>
-                        <th className="px-2 py-1 text-right font-normal" title="Ambush">A</th>
-                        <th className="px-2 py-1 text-right font-normal" title="Raze">Rz</th>
-                        <th className="px-2 py-1 text-right font-normal" title="Plunder">Pl</th>
-                        <th className="px-2 py-1 text-right font-normal" title="Learn">Lrn</th>
-                        <th className="px-2 py-1 text-right font-normal" title="Failed Attack">Fail</th>
-                        <th className="px-2 py-1 text-right font-normal text-gray-600" title="March acres lost">M.a</th>
-                        <th className="px-2 py-1 text-right font-normal text-gray-600" title="Ambush acres lost">A.a</th>
-                        <th className="px-2 py-1 text-right font-normal text-gray-600" title="Raze acres lost">Rz.a</th>
+                        <SortTh col="hitsMade"        className="text-right border-l border-gray-800">Total</SortTh>
+                        <SortTh col="marchMade"       className="text-right" title="Trad March">M</SortTh>
+                        <SortTh col="ambushMade"      className="text-right" title="Ambush">A</SortTh>
+                        <SortTh col="razeMade"        className="text-right" title="Raze">Rz</SortTh>
+                        <SortTh col="plunderMade"     className="text-right" title="Plunder">Pl</SortTh>
+                        <SortTh col="lootMade"        className="text-right" title="Learn">Lrn</SortTh>
+                        <SortTh col="failedMade"      className="text-right" title="Failed Attack">Fail</SortTh>
+                        <SortTh col="marchAcresGained"  className="text-right text-gray-600" title="March acres gained">M.a</SortTh>
+                        <SortTh col="ambushAcresGained" className="text-right text-gray-600" title="Ambush acres gained">A.a</SortTh>
+                        <SortTh col="razeAcresDealt"    className="text-right text-gray-600" title="Raze acres dealt">Rz.a</SortTh>
+                        <SortTh col="hitsTaken"       className="text-right border-l border-gray-800">Total</SortTh>
+                        <SortTh col="marchTaken"      className="text-right" title="Trad March">M</SortTh>
+                        <SortTh col="ambushTaken"     className="text-right" title="Ambush">A</SortTh>
+                        <SortTh col="razeTaken"       className="text-right" title="Raze">Rz</SortTh>
+                        <SortTh col="plunderTaken"    className="text-right" title="Plunder">Pl</SortTh>
+                        <SortTh col="lootTaken"       className="text-right" title="Learn">Lrn</SortTh>
+                        <SortTh col="failedTaken"     className="text-right" title="Failed Attack">Fail</SortTh>
+                        <SortTh col="marchAcresLost"  className="text-right text-gray-600" title="March acres lost">M.a</SortTh>
+                        <SortTh col="ambushAcresLost" className="text-right text-gray-600" title="Ambush acres lost">A.a</SortTh>
+                        <SortTh col="razeAcresLost"   className="text-right text-gray-600" title="Raze acres lost">Rz.a</SortTh>
                       </tr>
                     </thead>
                     <tbody>
-                      {kd.provinces.map((p, i) => {
+                      {sortedProvs(kd.provinces).map((p, i) => {
                         const net = p.marchAcresGained + p.ambushAcresGained - p.marchAcresLost - p.ambushAcresLost;
                         return (
                         <tr key={i} className={i % 2 === 0 ? "bg-gray-900/40" : "bg-gray-900/20"}>
