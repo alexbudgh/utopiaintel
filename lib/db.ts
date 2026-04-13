@@ -1642,10 +1642,10 @@ export function getKingdomNewsSummary(kingdom: string, keyHash: string, from?: s
     };
   });
 
-  // Our kingdom last, enemy kingdoms sorted by hitsMade (attacks against us) desc
+  // Our kingdom first, enemy kingdoms sorted by hitsMade (attacks against us) desc
   byKingdom.sort((a, b) => {
-    if (a.kingdom === kingdom) return 1;
-    if (b.kingdom === kingdom) return -1;
+    if (a.kingdom === kingdom) return -1;
+    if (b.kingdom === kingdom) return 1;
     return (b.totalHitsMade - a.totalHitsMade) || (a.totalMarchAcresGained - b.totalMarchAcresGained);
   });
 
