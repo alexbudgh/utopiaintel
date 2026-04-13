@@ -1416,6 +1416,7 @@ export interface NewsProvinceSummary {
 
 export interface NewsKingdomSummary {
   kingdom: string;
+  kingdomName: string | null;
   provinces: NewsProvinceSummary[];
   totalHitsMade: number;
   totalMarchMade: number;
@@ -1601,6 +1602,13 @@ export function getKingdomNewsSummary(kingdom: string, keyHash: string, from?: s
     kdMap.set(p.kd, list);
   }
 
+  // Fetch latest name for each kingdom location
+  const kdNames = new Map<string, string>();
+  for (const loc of kdMap.keys()) {
+    const row = db.prepare(`SELECT name FROM kingdom_intel WHERE location = ? ORDER BY received_at DESC LIMIT 1`).get(loc) as { name: string } | undefined;
+    if (row) kdNames.set(loc, row.name);
+  }
+
   // Build kingdom summaries, sort provinces within each by net acres desc
   const byKingdom: NewsKingdomSummary[] = [...kdMap.entries()].map(([kd, provs]) => {
     provs.sort((a, b) => {
@@ -1610,7 +1618,7 @@ export function getKingdomNewsSummary(kingdom: string, keyHash: string, from?: s
     });
     const sum = <K extends keyof NewsProvinceSummary>(f: K) => provs.reduce((s, p) => s + (p[f] as number), 0);
     return {
-      kingdom: kd, provinces: provs,
+      kingdom: kd, kingdomName: kdNames.get(kd) ?? null, provinces: provs,
       totalHitsMade:          sum("hitsMade"),
       totalMarchMade:         sum("marchMade"),
       totalAmbushMade:        sum("ambushMade"),

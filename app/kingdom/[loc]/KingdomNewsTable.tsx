@@ -534,13 +534,38 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
               const lc = isOurs ? "text-red-300" : "text-green-300";
               return (
                 <div key={kd.kingdom} className="rounded-lg border border-gray-800 overflow-hidden">
-                  <div className="flex items-center gap-3 px-3 py-1.5 bg-gray-800/60 border-b border-gray-800 text-xs">
-                    <Link href={`/kingdom/${encodeURIComponent(kd.kingdom)}`} className="font-mono font-medium text-gray-200 hover:text-blue-300 transition-colors">
-                      {kd.kingdom}{isOurs && <span className="ml-1 text-blue-400">★</span>}
-                    </Link>
-                    {kd.totalHitsMade > 0  && <span className={gc}>{kd.totalHitsMade} hits · {kd.totalMarchAcresGained.toLocaleString()}a gained{kd.totalRazeAcresDealt > 0 ? ` · ${kd.totalRazeAcresDealt.toLocaleString()}a razed` : ""}</span>}
-                    {kd.totalHitsTaken > 0 && <span className={lc}>{kd.totalHitsTaken} hits taken · {kd.totalMarchAcresLost.toLocaleString()}a lost{kd.totalRazeAcresLost > 0 ? ` · ${kd.totalRazeAcresLost.toLocaleString()}a razed` : ""}</span>}
-                    {kdNet !== 0 && <span className={kdNet > 0 ? "text-green-300" : "text-red-300"}>net {kdNet > 0 ? "+" : ""}{kdNet.toLocaleString()}a</span>}
+                  <div className="px-3 py-2 bg-gray-800/60 border-b border-gray-800">
+                    <div className="flex items-baseline gap-3 mb-1">
+                      <Link href={`/kingdom/${encodeURIComponent(kd.kingdom)}`} className="hover:text-blue-300 transition-colors flex items-baseline gap-1.5">
+                        <span className="font-mono font-semibold text-sm text-gray-200">{kd.kingdom}</span>
+                        {kd.kingdomName && <span className="text-gray-400 text-sm">{kd.kingdomName}</span>}
+                        {isOurs && <span className="text-blue-400">★</span>}
+                      </Link>
+                      {kdNet !== 0 && (
+                        <span className={`text-lg font-bold ${kdNet > 0 ? "text-green-300" : "text-red-300"}`}>
+                          {kdNet > 0 ? "+" : ""}{kdNet.toLocaleString()}a
+                        </span>
+                      )}
+                      {kd.totalHitsMade > 0 && (
+                        <span className={`text-sm font-medium ${gc}`}>↑ {kd.totalHitsMade}</span>
+                      )}
+                      {kd.totalHitsTaken > 0 && (
+                        <span className={`text-sm font-medium ${lc}`}>↓ {kd.totalHitsTaken}</span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500">
+                      {kd.totalHitsMade > 0 && <>
+                        <span><span className={gc}>{kd.totalMarchAcresGained.toLocaleString()}a march</span> gained</span>
+                        {kd.totalAmbushAcresGained > 0 && <span><span className={gc}>{kd.totalAmbushAcresGained.toLocaleString()}a ambush</span> gained</span>}
+                        {kd.totalRazeAcresDealt > 0 && <span><span className={gc}>{kd.totalRazeAcresDealt.toLocaleString()}a</span> razed</span>}
+                      </>}
+                      {kd.totalHitsMade > 0 && kd.totalHitsTaken > 0 && <span className="text-gray-700">·</span>}
+                      {kd.totalHitsTaken > 0 && <>
+                        <span><span className={lc}>{kd.totalMarchAcresLost.toLocaleString()}a march</span> lost</span>
+                        {kd.totalAmbushAcresLost > 0 && <span><span className={lc}>{kd.totalAmbushAcresLost.toLocaleString()}a ambush</span> lost</span>}
+                        {kd.totalRazeAcresLost > 0 && <span><span className={lc}>{kd.totalRazeAcresLost.toLocaleString()}a</span> razed away</span>}
+                      </>}
+                    </div>
                   </div>
                   <div className="overflow-x-auto">
                   <table className="w-full text-xs">
