@@ -234,7 +234,7 @@ function freshnessToTone(age: string): TooltipLine["tone"] {
   return "bad";
 }
 
-function tipFor(p: ProvinceRow, key: ColKey): string | TooltipLine[] {
+function tipFor(p: ProvinceRow, key: ColKey): string | TooltipLine[] | React.ReactElement {
   // Special case: age column shows all intel source ages
   if (key === "age") {
     const entries: Array<{ label: string; age: string }> = [
@@ -261,29 +261,53 @@ function tipFor(p: ProvinceRow, key: ColKey): string | TooltipLine[] {
   }
   if (key === "armies") {
     if (!p.som_age) return "No SoM data";
-    const lines: string[] = ["Armies out"];
-    const armies: Array<{ type: string; soldiers: number; offSpecs: number; defSpecs: number; elites: number; land: number; eta: number }> =
-      p.armies_out_json ? JSON.parse(p.armies_out_json) : [];
-    if (armies.length === 0) {
-      lines.push("All armies home");
-    } else {
-      for (const a of armies) {
-        const unitParts = [
-          a.soldiers ? `${a.soldiers.toLocaleString()} sol` : null,
-          a.offSpecs ? `${a.offSpecs.toLocaleString()} off` : null,
-          a.defSpecs ? `${a.defSpecs.toLocaleString()} def` : null,
-          a.elites   ? `${a.elites.toLocaleString()} eli` : null,
-        ].filter(Boolean);
-        const units = unitParts.length ? ` ${unitParts.join(", ")}` : "";
-        const land = a.land > 0 ? ` +${a.land.toLocaleString()}a` : "";
-        const hasUnits = a.soldiers || a.offSpecs || a.defSpecs || a.elites;
-        const ambush = hasUnits ? computeAmbushRawOff(p.race, a) : null;
-        const ambushStr = ambush != null ? ` | ambush ${Math.ceil(ambush).toLocaleString()}` : "";
-        lines.push(`${a.type}:${units}${land} · ${a.eta.toFixed(1)}d${ambushStr}`);
-      }
-    }
-    lines.push(`som: ${timeAgo(p.som_age)} · ${formatTimestamp(p.som_age)}`);
-    return lines.join("\n");
+    type ArmyEntry = { type: string; soldiers: number; offSpecs: number; defSpecs: number; elites: number; land: number; eta: number };
+    const armies: ArmyEntry[] = p.armies_out_json ? JSON.parse(p.armies_out_json) : [];
+    const ambushes = armies.map((a) => {
+      const hasUnits = a.soldiers || a.offSpecs || a.defSpecs || a.elites;
+      return hasUnits ? computeAmbushRawOff(p.race, a) : null;
+    });
+    const showAmbush = ambushes.some((v) => v != null);
+    const th = "px-2 py-0.5 text-gray-400 font-normal text-right";
+    const td = "px-2 py-0.5 tabular-nums text-right text-gray-200";
+    const tdL = "px-2 py-0.5 text-gray-200";
+    return (
+      <div className="text-xs">
+        <div className="font-medium text-gray-100 mb-1">Armies out</div>
+        {armies.length === 0
+          ? <div className="text-gray-400">All armies home</div>
+          : <table>
+              <thead>
+                <tr className="border-b border-gray-700">
+                  <th className={tdL}>Army</th>
+                  <th className={th}>Sol</th>
+                  <th className={th}>OffS</th>
+                  <th className={th}>DefS</th>
+                  <th className={th}>Eli</th>
+                  <th className={th}>Land</th>
+                  <th className={th}>ETA</th>
+                  {showAmbush && <th className={th}>Ambush</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {armies.map((a, i) => (
+                  <tr key={i} className="border-b border-gray-800">
+                    <td className={tdL}>{a.type}</td>
+                    <td className={td}>{a.soldiers ? a.soldiers.toLocaleString() : "—"}</td>
+                    <td className={td}>{a.offSpecs ? a.offSpecs.toLocaleString() : "—"}</td>
+                    <td className={td}>{a.defSpecs ? a.defSpecs.toLocaleString() : "—"}</td>
+                    <td className={td}>{a.elites ? a.elites.toLocaleString() : "—"}</td>
+                    <td className={td}>{a.land > 0 ? a.land.toLocaleString() : "—"}</td>
+                    <td className={td}>{a.eta.toFixed(1)}d</td>
+                    {showAmbush && <td className={td}>{ambushes[i] != null ? Math.ceil(ambushes[i]!).toLocaleString() : "—"}</td>}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+        }
+        <div className="mt-1 text-gray-500">{`som: ${timeAgo(p.som_age)} · ${formatTimestamp(p.som_age)}`}</div>
+      </div>
+    );
   }
   if (key === "good_spells") {
     const lines = [];
@@ -420,10 +444,10 @@ function roundedValueTipFor(p: ProvinceRow, key: ColKey): string | null {
   }
 }
 
-function tooltipContentFor(p: ProvinceRow, key: ColKey): string | TooltipLine[] {
+function tooltipContentFor(p: ProvinceRow, key: ColKey): string | TooltipLine[] | React.ReactElement {
   const rounded = roundedValueTipFor(p, key);
   const base = tipFor(p, key);
-  if (Array.isArray(base)) return base;
+  if (Array.isArray(base) || typeof base === "object" && base !== null) return base;
   return [rounded, base].filter(Boolean).join("\n");
 }
 
