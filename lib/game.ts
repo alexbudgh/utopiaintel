@@ -41,7 +41,7 @@ export const BUILDINGS = [
   "Barren Land", "Homes", "Farms", "Mills", "Banks",
   "Training Grounds", "Armouries", "Military Barracks",
   "Forts", "Guard Stations", "Hospitals", "Guilds",
-  "Towers", "Thieves' Dens", "Watch Towers", "Libraries",
+  "Towers", "Thieves' Dens", "Watch Towers", "Universities", "Libraries",
   "Schools", "Stables", "Dungeons", "Unknown",
 ];
 export const BUILDING_GROUP = BUILDINGS.join("|");

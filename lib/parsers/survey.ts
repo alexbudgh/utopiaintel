@@ -22,7 +22,9 @@ export function parseSurvey(text: string, selfProv?: string): SurveyData | null 
     const amounts = m[2].trim().split(/[\s*]+/).map(parseNum);
     const total = amounts.reduce((a, b) => a + b, 0);
 
-    if (total === 0) continue;
+    // For self surveys, keep 0-built entries so razed buildings overwrite stale DB data.
+    // For enemy surveys, skip 0s (noise from the effects table's "next 1%" rows).
+    if (total === 0 && !selfProv) continue;
 
     // First occurrence = built, second = in progress
     const existing = buildings.find((b) => b.building === building);
