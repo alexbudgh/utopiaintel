@@ -8,6 +8,7 @@ import type { ProvinceRow } from "@/lib/db";
 import { freshnessColor, formatNum, timeAgo, formatTimestamp, sameTick, fullValueTooltip, parseUtc } from "@/lib/ui";
 import { computeWizardCount, NW_PER_WIZARD } from "@/lib/nw";
 import { computeAmbushRawOff } from "@/lib/ambush";
+import { estimatePop } from "@/lib/population";
 
 const COLUMNS = [
   { key: "race",        label: "Race",        group: "Overview",  desc: "Race"                                        },
@@ -43,6 +44,7 @@ const COLUMNS = [
   { key: "trade_balance", label: "Trade bal.",    group: "Resources", desc: "Trade balance"                           },
   { key: "thieves",     label: "Thieves",     group: "Resources", desc: "Thieves"                                     },
   { key: "wizards",     label: "Wizards",     group: "Resources", desc: "Wizards"                                     },
+  { key: "pop_pct",     label: "Pop%",        group: "Resources", desc: "Current population / max population\nSelf: direct from council state\nEnemy: estimated from SoT+SoM+Survey+SoS\n~prefix = wizards estimated from NW residual" },
   { key: "age",         label: "Age",         group: "Overview",  desc: "Most recent intel across all sources\nOther columns may have older data — hover them to check"    },
   { key: "rtpa",        label: "rTPA",        group: "T/M",       desc: "Raw TPA = thieves / land\nNeeds: Infiltrate Thieves' Dens + SoT (same tick)"                   },
   { key: "mtpa",        label: "mTPA",        group: "T/M",       desc: "Modified TPA = rTPA × (1 + Crime%)\nNeeds: rTPA sources + SoS (same tick)"                     },
@@ -59,7 +61,7 @@ type SortDir = "asc" | "desc";
 const VIEWS: Record<string, ColKey[]> = {
   Overview:  ["race", "personality", "honor_title", "good_spells", "bad_spells", "land", "networth", "armies", "off_points", "def_points", "def_home", "hit_status", "peasants", "building_efficiency", "age"],
   Military:  ["land", "armies", "off_points", "def_points", "off_home", "def_home", "ome", "dme", "soldiers_home", "off_specs_home", "def_specs_home", "elites_home", "peasants", "age"],
-  Resources: ["land", "networth", "money", "food", "runes", "prisoners", "trade_balance", "war_horses", "peasants", "thieves", "wizards", "age"],
+  Resources: ["land", "networth", "money", "food", "runes", "prisoners", "trade_balance", "war_horses", "peasants", "thieves", "wizards", "pop_pct", "age"],
   "T/M":     ["land", "rtpa", "mtpa", "otpa", "dtpa", "rwpa", "mwpa", "age"],
 };
 const VIEW_NAMES = Object.keys(VIEWS);
@@ -116,6 +118,7 @@ function sortValueFor(p: ProvinceRow, key: SortKey): number | string | null {
     case "dtpa": return computeDtpa(p);
     case "rwpa": return computeRwpa(p);
     case "mwpa": return computeMwpa(p);
+    case "pop_pct": return computePopPct(p)?.pct ?? null;
   }
 }
 
@@ -152,6 +155,31 @@ function computeDtpa(p: ProvinceRow): number | null {
   if (mtpa == null || p.watch_towers_effect == null) return null;
   if (!sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age)) return null;
   return mtpa * (1 + p.watch_towers_effect / 100);
+}
+
+function computePopPct(p: ProvinceRow): { pct: number; estimated: boolean } | null {
+  // Self-province: direct council state values
+  if (p.total_pop != null && p.max_pop != null && p.max_pop > 0) {
+    return { pct: p.total_pop / p.max_pop, estimated: false };
+  }
+  // Enemy: estimate from available intel
+  const pop = estimatePop({
+    race: p.race, honor_title: p.honor_title, personality: p.personality,
+    barren_land: p.barren_land, homes_built: p.homes_built,
+    buildings_built: p.buildings_built, buildings_in_progress: p.buildings_in_progress,
+    survey_age: p.survey_age, housing_effect: p.housing_effect,
+    sciences_age: p.sciences_age, science_total_books: p.science_total_books,
+    networth: p.networth, land: p.land,
+    peasants: p.peasants, soldiers: p.soldiers, off_specs: p.off_specs,
+    def_specs: p.def_specs, elites: p.elites, war_horses: p.war_horses,
+    money: p.money, thieves: p.thieves, thieves_age: p.thieves_age,
+    wizards: p.wizards, prisoners: p.prisoners,
+    troops_age: p.troops_age, resources_age: p.resources_age,
+    training_off_specs: null, training_def_specs: null,
+    training_elites: null, training_thieves: null, som_age: p.som_age,
+  });
+  if (pop.currentPop == null || pop.maxPop == null || pop.maxPop === 0) return null;
+  return { pct: pop.currentPop / pop.maxPop, estimated: pop.wizardsEstimated };
 }
 
 function computeRwpa(p: ProvinceRow): number | null {
@@ -204,6 +232,7 @@ function ageFor(p: ProvinceRow, key: ColKey): string | null {
   if (key === "otpa" || key === "dtpa") return p.survey_age;
   if (key === "rwpa") return p.survey_age;
   if (key === "mwpa") return p.sciences_age;
+  if (key === "pop_pct") return p.resources_age ?? p.survey_age;
   return p.overview_age;
 }
 
@@ -529,6 +558,13 @@ function cellValue(p: ProvinceRow, key: ColKey): React.ReactNode {
     case "dtpa": { const v = computeDtpa(p); return v != null ? v.toFixed(2) : "—"; }
     case "rwpa": { const v = computeRwpa(p); return v != null ? v.toFixed(2) : "—"; }
     case "mwpa": { const v = computeMwpa(p); return v != null ? v.toFixed(2) : "—"; }
+    case "pop_pct": {
+      const r = computePopPct(p);
+      if (!r) return "—";
+      const pct = Math.round(r.pct * 100);
+      const color = pct >= 95 ? "text-red-400" : pct >= 80 ? "text-yellow-400" : "text-green-400";
+      return <span className={color}>{r.estimated ? "~" : ""}{pct}%</span>;
+    }
   }
 }
 
