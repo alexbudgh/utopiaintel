@@ -183,13 +183,10 @@ export default async function ProvincePage({
                 const pct = cur != null && max != null && max > 0 ? cur / max : null;
                 const barPct = pct != null ? Math.min(100, pct * 100) : null;
                 const barColor = pct == null ? "bg-gray-600"
-                  : pct >= 1    ? "bg-red-500"
-                  : pct >= 0.95 ? "bg-red-400"
-                  : pct >= 0.80 ? "bg-yellow-400"
+                  : pct > 1  ? "bg-red-500"
                   : "bg-green-500";
                 const pctColor = pct == null ? "text-gray-400"
-                  : pct >= 0.95 ? "text-red-300"
-                  : pct >= 0.80 ? "text-yellow-300"
+                  : pct > 1  ? "text-red-300"
                   : "text-green-300";
                 const needs = [...new Set([...pop.needsForMax, ...pop.needsForCurrent])];
                 const tooltipLines: TooltipLine[] = [
