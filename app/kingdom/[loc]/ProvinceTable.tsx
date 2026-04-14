@@ -14,8 +14,6 @@ const COLUMNS = [
   { key: "race",        label: "Race",        group: "Overview",  desc: "Race"                                        },
   { key: "personality", label: "Personality", group: "Overview",  desc: "Personality"                                 },
   { key: "honor_title", label: "Honor",       group: "Overview",  desc: "Honor title (from SoT or kingdom page)"      },
-  { key: "good_spells", label: "Good Spells", group: "Overview",  desc: "Active good spells from latest self-throne data" },
-  { key: "bad_spells",  label: "Bad Spells",  group: "Overview",  desc: "Active bad spells from latest self-throne data" },
   { key: "land",        label: "Land",        group: "Overview",  desc: "Acres of land"                               },
   { key: "networth",    label: "NW",          group: "Overview",  desc: "Networth"                                    },
   { key: "pop_pct",     label: "Pop%",        group: "Overview",  desc: "Current population / max population\nSelf: direct from council state\nEnemy: estimated from SoT+SoM+Survey+SoS\n~prefix = wizards estimated from NW residual" },
@@ -36,6 +34,8 @@ const COLUMNS = [
   { key: "elites_home",    label: "EliHome",  group: "Troops",    desc: "Elites at home (SoM)"                        },
   { key: "off_home",       label: "OffHome",  group: "Military",  desc: "Modified offense at home (SoM)"              },
   { key: "def_home",       label: "DefHome",  group: "Military",  desc: "Modified defense at home (SoM/SoD)"          },
+  { key: "good_spells", label: "Good Spells", group: "Overview",  desc: "Active good spells from latest self-throne data" },
+  { key: "bad_spells",  label: "Bad Spells",  group: "Overview",  desc: "Active bad spells from latest self-throne data" },
   { key: "ome",         label: "OME",         group: "Military",  desc: "Offensive military effectiveness % (SoM)"    },
   { key: "dme",         label: "DME",         group: "Military",  desc: "Defensive military effectiveness % (SoM)"    },
   { key: "money",         label: "Gold",          group: "Resources", desc: "Gold on hand"                            },
@@ -59,7 +59,7 @@ type SortKey = ColKey | "province";
 type SortDir = "asc" | "desc";
 
 const VIEWS: Record<string, ColKey[]> = {
-  Overview:  ["race", "personality", "honor_title", "good_spells", "bad_spells", "land", "networth", "pop_pct", "armies", "off_points", "def_points", "def_home", "hit_status", "peasants", "building_efficiency", "age"],
+  Overview:  ["race", "personality", "honor_title", "land", "networth", "pop_pct", "armies", "off_points", "def_points", "def_home", "good_spells", "bad_spells", "hit_status", "peasants", "building_efficiency", "age"],
   Military:  ["land", "armies", "off_points", "def_points", "off_home", "def_home", "ome", "dme", "soldiers_home", "off_specs_home", "def_specs_home", "elites_home", "peasants", "age"],
   Resources: ["land", "networth", "pop_pct", "money", "food", "runes", "prisoners", "trade_balance", "war_horses", "peasants", "thieves", "wizards", "age"],
   "T/M":     ["land", "rtpa", "mtpa", "otpa", "dtpa", "rwpa", "mwpa", "age"],
@@ -756,7 +756,7 @@ export function ProvinceTable({
       )}
 
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="min-w-max w-full text-sm">
           <thead>
             <tr className="text-left text-gray-400 border-b border-gray-700">
               <th className="py-2 pr-4 font-medium">
