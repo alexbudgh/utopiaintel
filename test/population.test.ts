@@ -234,6 +234,39 @@ test("estimatePop — currentPop: null when SoT and SoM are different ticks", ()
   assert.ok(needsForCurrent.some((s) => s.includes("same tick")));
 });
 
+test("estimatePop — maxPop: War Hero multiplies honor effect by 1.5×", () => {
+  // Duke base bonus = 0.10; War Hero mod = 1.5 → honorMult = 1 + 0.10 * 1.5 = 1.15
+  const { maxPop } = estimatePop(makeInputs({
+    buildings_built: 1000,
+    barren_land: 0,
+    homes_built: 0,
+    buildings_in_progress: 0,
+    housing_effect: 0,
+    survey_age: T1,
+    sciences_age: T1,
+    honor_title: "Duke",
+    personality: "War Hero",
+  }));
+  // rawCap = 1000 * 25 = 25000; * 1.0 (race) * 1.0 (housing) * 1.15 (honor+warHero)
+  assert.equal(maxPop, Math.round(25000 * 1.15));
+});
+
+test("estimatePop — maxPop: Paladin adds flat 5% pop bonus", () => {
+  // Paladin personality: +0.05 pop bonus; honorMult = 1 + 0 + 0.05 = 1.05
+  const { maxPop } = estimatePop(makeInputs({
+    buildings_built: 1000,
+    barren_land: 0,
+    homes_built: 0,
+    buildings_in_progress: 0,
+    housing_effect: 0,
+    survey_age: T1,
+    sciences_age: T1,
+    personality: "Paladin",
+  }));
+  // rawCap = 25000; * 1.05 = 26250
+  assert.equal(maxPop, Math.round(25000 * 1.05));
+});
+
 test("estimatePop — wizardsEstimated: false when wizards directly known", () => {
   const { wizardsEstimated } = estimatePop(makeInputs({
     peasants: 1000,
@@ -251,4 +284,36 @@ test("estimatePop — wizardsEstimated: false when wizards directly known", () =
     som_age: T1,
   }));
   assert.equal(wizardsEstimated, false);
+});
+
+test("estimatePop — wizardsEstimated: true when wizards inferred from NW residual", () => {
+  // Provide enough NW data for computeWizardCount to return a non-null estimate,
+  // but leave wizards=null so the NW residual path is taken.
+  const { wizardsEstimated, currentPop } = estimatePop(makeInputs({
+    networth: 300000,
+    land: 1000,
+    race: "Human",
+    peasants: 10000,
+    soldiers: 2000,
+    off_specs: 1000,
+    def_specs: 1000,
+    elites: 500,
+    war_horses: 0,
+    prisoners: 0,
+    thieves: 300,
+    money: 500000,
+    buildings_built: 1000,
+    buildings_in_progress: 0,
+    science_total_books: 5000,
+    wizards: null,   // not directly known → triggers NW residual
+    training_off_specs: 0,
+    training_def_specs: 0,
+    training_elites: 0,
+    training_thieves: 0,
+    troops_age: T1,
+    resources_age: T1,
+    som_age: T1,
+  }));
+  assert.equal(wizardsEstimated, true);
+  assert.ok(currentPop != null, "currentPop should be non-null when NW residual estimate succeeds");
 });
