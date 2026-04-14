@@ -447,7 +447,8 @@ function roundedValueTipFor(p: ProvinceRow, key: ColKey): string | null {
     case "runes":
     case "prisoners":
     case "thieves":
-    case "wizards": {
+    case "wizards":
+    case "free_specialist_credits": {
       const value = sortValueFor(p, key);
       return typeof value === "number" ? fullValueTooltip(formatNum(value), value) : null;
     }

@@ -356,18 +356,18 @@ export default async function ProvincePage({
         <Card title="Resources" age={d.resources?.receivedAt}>
           {d.resources ? (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8">
-              <KV label="Money" value={maybeRoundedValue(formatNum(d.resources.money), d.resources.money)} />
-              <KV label="Food" value={maybeRoundedValue(formatNum(d.resources.food), d.resources.food)} />
-              <KV label="Runes" value={maybeRoundedValue(formatNum(d.resources.runes), d.resources.runes)} />
-              <KV label="Mana" value={maybeRoundedValue(formatNum(d.resources.mana), d.resources.mana)} />
-              <KV label="Prisoners" value={maybeRoundedValue(formatNum(d.resources.prisoners), d.resources.prisoners)} />
-              <KV label="Trade balance" value={d.resources.tradeBalance != null ? maybeRoundedValue(`${d.resources.tradeBalance >= 0 ? "+" : ""}${formatNum(d.resources.tradeBalance)}`, d.resources.tradeBalance) : "—"} />
+              <KV label="Money" value={d.resources.money != null ? d.resources.money.toLocaleString() : "—"} />
+              <KV label="Food" value={d.resources.food != null ? d.resources.food.toLocaleString() : "—"} />
+              <KV label="Runes" value={d.resources.runes != null ? d.resources.runes.toLocaleString() : "—"} />
+              <KV label="Mana" value={d.resources.mana != null ? d.resources.mana.toLocaleString() : "—"} />
+              <KV label="Prisoners" value={d.resources.prisoners != null ? d.resources.prisoners.toLocaleString() : "—"} />
+              <KV label="Trade balance" value={d.resources.tradeBalance != null ? `${d.resources.tradeBalance >= 0 ? "+" : ""}${d.resources.tradeBalance.toLocaleString()}` : "—"} />
               <KV label="Efficiency" value={d.resources.buildingEfficiency != null ? d.resources.buildingEfficiency + "%" : "—"} />
-              <KV label="Thieves" value={maybeRoundedValue(formatNum(d.resources.thieves), d.resources.thieves)} />
+              <KV label="Thieves" value={d.resources.thieves != null ? d.resources.thieves.toLocaleString() : "—"} />
               <KV label="Stealth" value={d.resources.stealth != null ? d.resources.stealth + "%" : "—"} />
-              <KV label="Wizards" value={maybeRoundedValue(formatNum(d.resources.wizards), d.resources.wizards)} />
+              <KV label="Wizards" value={d.resources.wizards != null ? d.resources.wizards.toLocaleString() : "—"} />
               {d.resources.freeSpecialistCredits != null && (
-                <KV label="Spec credits" value={formatNum(d.resources.freeSpecialistCredits)} />
+                <KV label="Spec credits" value={d.resources.freeSpecialistCredits.toLocaleString()} />
               )}
             </div>
           ) : <NoData />}
