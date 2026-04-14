@@ -5,8 +5,21 @@ const RACE_POP_FACTOR: Record<string, number> = {
   Halfling: 1.1,
 };
 
+// Honor title → population multiplier (from the Titles of Nobility table)
+const HONOR_POP_FACTOR: Record<string, number> = {
+  Knight: 1.01, Lady: 1.01,
+  Lord: 1.02, "Noble Lady": 1.02,
+  Baron: 1.03, Baroness: 1.03,
+  Viscount: 1.04, Viscountess: 1.04,
+  Count: 1.06, Countess: 1.06,
+  Marquis: 1.08, Marchioness: 1.08,
+  Duke: 1.10, Duchess: 1.10,
+  Prince: 1.12, Princess: 1.12,
+};
+
 export interface PopInputs {
   race: string | null;
+  honor_title: string | null;
   // for maxPop — from survey
   barren_land: number | null;
   homes_built: number | null;
@@ -73,11 +86,16 @@ export function estimatePop(p: PopInputs): PopEstimate {
   if (hasSurvey && hasHousing && surveyAndSciSameTick) {
     const barren = p.barren_land ?? 0;
     const homes = p.homes_built ?? 0;
-    const otherBuilt = Math.max(0, (p.buildings_built ?? 0) - homes);
-    const rawCap = barren * 15 + homes * 35 + otherBuilt * 25;
+    // Economy.md: Raw Living Space = (Built + In Progress) * 25 + Barren * 15 + Homes * 10
+    // buildings_built already excludes barren; homes bonus (10 extra) on top of the 25 already in built
+    const rawCap = (p.buildings_built ?? 0) * 25
+                 + (p.buildings_in_progress ?? 0) * 25
+                 + barren * 15
+                 + homes * 10;
     const raceFactor = (p.race && RACE_POP_FACTOR[p.race]) ? RACE_POP_FACTOR[p.race] : 1.0;
     const housingMult = 1 + (p.housing_effect ?? 0) / 100;
-    maxPop = Math.round(rawCap * raceFactor * housingMult);
+    const honorMult = (p.honor_title && HONOR_POP_FACTOR[p.honor_title]) ? HONOR_POP_FACTOR[p.honor_title] : 1.0;
+    maxPop = Math.round(rawCap * raceFactor * housingMult * honorMult);
   }
 
   // --- Current population ---
