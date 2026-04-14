@@ -9,6 +9,7 @@ import { parseSoD } from "../lib/parsers/sod";
 import { parseInfiltrate } from "../lib/parsers/infiltrate";
 import { parseKingdom } from "../lib/parsers/kingdom";
 import { parseTrainArmy } from "../lib/parsers/train_army";
+import { parseKingdomNews } from "../lib/parsers/kingdom_news";
 import { parseUtopiaDate, formatUtopiaDate } from "../lib/ui";
 
 // ---------------------------------------------------------------------------
@@ -694,4 +695,152 @@ test("formatUtopiaDate — last day of last month is July 24", () => {
   const ord = parseUtopiaDate("July 24 of YR1");
   assert.equal(ord, 2 * 7 * 24 - 1);
   assert.equal(formatUtopiaDate(ord), "July 24 of YR1");
+});
+
+// ---------------------------------------------------------------------------
+// parseKingdomNews
+// ---------------------------------------------------------------------------
+
+// Helpers
+function mkLine(date: string, text: string) { return `${date}\t${text}`; }
+function parseOne(text: string) {
+  const r = parseKingdomNews(text);
+  assert.ok(r && r.events.length === 1, "expected exactly one event");
+  return r!.events[0];
+}
+
+test("parseKingdomNews — invasion (march) with slot prefix", () => {
+  const e = parseOne(mkLine("May 1 of YR9", "12 - Napoleon Dynamite (4:9) captured 501 acres of land from 3 - Who Knows (2:6)"));
+  assert.equal(e.eventType, "march");
+  assert.equal(e.attackerName, "Napoleon Dynamite");
+  assert.equal(e.attackerKingdom, "4:9");
+  assert.equal(e.defenderName, "Who Knows");
+  assert.equal(e.defenderKingdom, "2:6");
+  assert.equal(e.acres, 501);
+  assert.equal(e.gameDate, "May 1 of YR9");
+});
+
+test("parseKingdomNews — invasion (march) without slot prefix", () => {
+  const e = parseOne(mkLine("March 3 of YR9", "Attacker Province (1:2) captured 300 acres of land from Defender Province (3:4)"));
+  assert.equal(e.eventType, "march");
+  assert.equal(e.attackerKingdom, "1:2");
+  assert.equal(e.defenderKingdom, "3:4");
+  assert.equal(e.acres, 300);
+});
+
+test("parseKingdomNews — 'invaded and captured' variant (INVASION_RE)", () => {
+  const e = parseOne(mkLine("June 10 of YR9", "Storm Rider (5:1) invaded Quiet Hamlet (7:3) and captured 425 acres"));
+  assert.equal(e.eventType, "march");
+  assert.equal(e.attackerKingdom, "5:1");
+  assert.equal(e.defenderKingdom, "7:3");
+  assert.equal(e.acres, 425);
+});
+
+test("parseKingdomNews — unknown province march", () => {
+  const e = parseOne(mkLine("April 5 of YR9", "An unknown province from Dark Kingdom (6:2) captured 200 acres of land from Border Watch (2:8)"));
+  assert.equal(e.eventType, "march");
+  assert.equal(e.attackerName, null);
+  assert.equal(e.attackerKingdom, "6:2");
+  assert.equal(e.defenderName, "Border Watch");
+  assert.equal(e.acres, 200);
+});
+
+test("parseKingdomNews — ambush (ambushed armies from)", () => {
+  const e = parseOne(mkLine("February 8 of YR9", "Swift Strike (3:3) ambushed armies from Slow Guard (4:4) and took 150 acres"));
+  assert.equal(e.eventType, "ambush");
+  assert.equal(e.attackerKingdom, "3:3");
+  assert.equal(e.defenderKingdom, "4:4");
+  assert.equal(e.acres, 150);
+});
+
+test("parseKingdomNews — raze", () => {
+  const e = parseOne(mkLine("January 12 of YR9", "Fire Brigade (8:1) razed 80 acres of Ash Province (9:2)"));
+  assert.equal(e.eventType, "raze");
+  assert.equal(e.attackerKingdom, "8:1");
+  assert.equal(e.defenderKingdom, "9:2");
+  assert.equal(e.acres, 80);
+});
+
+test("parseKingdomNews — loot", () => {
+  const e = parseOne(mkLine("March 15 of YR9", "Book Thief (2:2) invaded and looted 500 books from Scholar's Rest (5:5)"));
+  assert.equal(e.eventType, "loot");
+  assert.equal(e.books, 500);
+  assert.equal(e.acres, null);
+  assert.equal(e.attackerKingdom, "2:2");
+  assert.equal(e.defenderKingdom, "5:5");
+});
+
+test("parseKingdomNews — failed attack (unknown province)", () => {
+  const e = parseOne(mkLine("April 20 of YR9", "An unknown province from Shadow Realm (7:7) attempted to invade Fortress (1:1)"));
+  assert.equal(e.eventType, "failed_attack");
+  assert.equal(e.attackerName, null);
+  assert.equal(e.attackerKingdom, "7:7");
+  assert.equal(e.defenderName, "Fortress");
+  assert.equal(e.acres, null);
+});
+
+test("parseKingdomNews — failed attack (known province)", () => {
+  const e = parseOne(mkLine("May 5 of YR9", "Bold Charger (3:1) attempted to invade Stone Wall (1:3)"));
+  assert.equal(e.eventType, "failed_attack");
+  assert.equal(e.attackerName, "Bold Charger");
+  assert.equal(e.attackerKingdom, "3:1");
+  assert.equal(e.defenderName, "Stone Wall");
+});
+
+test("parseKingdomNews — war declared", () => {
+  const e = parseOne(mkLine("June 1 of YR9", "We have declared WAR on Iron Fist (4:6)!"));
+  assert.equal(e.eventType, "war_declared");
+  assert.equal(e.relationKingdom, "4:6");
+});
+
+test("parseKingdomNews — ceasefire accepted", () => {
+  const e = parseOne(mkLine("July 3 of YR9", "Peaceful Realm (2:1) has accepted our ceasefire proposal!"));
+  assert.equal(e.eventType, "ceasefire_accepted");
+  assert.equal(e.relationKingdom, "2:1");
+});
+
+test("parseKingdomNews — dragon against us", () => {
+  const e = parseOne(mkLine("March 7 of YR9", "A Fire Dragon, Ignis, from Flame Kingdom (6:6) has begun ravaging our lands!"));
+  assert.equal(e.eventType, "dragon_against_us");
+  assert.equal(e.dragonType, "Fire");
+  assert.equal(e.dragonName, "Ignis");
+  assert.equal(e.relationKingdom, "6:6");
+});
+
+test("parseKingdomNews — aid event", () => {
+  const e = parseOne(mkLine("January 1 of YR9", "Generous Soul has sent an aid shipment to Needy Province."));
+  assert.equal(e.eventType, "aid");
+  assert.equal(e.senderName, "Generous Soul");
+  assert.equal(e.receiverName, "Needy Province");
+});
+
+test("parseKingdomNews — unrecognized event falls through to 'other'", () => {
+  const e = parseOne(mkLine("April 1 of YR9", "Something completely unexpected happened in the kingdom."));
+  assert.equal(e.eventType, "other");
+  assert.equal(e.attackerKingdom, null);
+});
+
+test("parseKingdomNews — multi-line input, skips blank lines", () => {
+  const text = [
+    mkLine("May 1 of YR9", "Storm Rider (5:1) invaded Quiet Hamlet (7:3) and captured 425 acres"),
+    "",
+    mkLine("May 2 of YR9", "We have declared WAR on Iron Fist (4:6)!"),
+  ].join("\n");
+  const r = parseKingdomNews(text);
+  assert.ok(r);
+  assert.equal(r.events.length, 2);
+  assert.equal(r.events[0].eventType, "march");
+  assert.equal(r.events[1].eventType, "war_declared");
+});
+
+test("parseKingdomNews — returns null for empty/whitespace-only input", () => {
+  assert.equal(parseKingdomNews(""), null);
+  assert.equal(parseKingdomNews("   \n\n  "), null);
+});
+
+test("parseKingdomNews — lines without tab separator are skipped", () => {
+  const text = "no tab here at all\n" + mkLine("May 1 of YR9", "Storm Rider (5:1) invaded Quiet Hamlet (7:3) and captured 425 acres");
+  const r = parseKingdomNews(text);
+  assert.ok(r);
+  assert.equal(r.events.length, 1);
 });

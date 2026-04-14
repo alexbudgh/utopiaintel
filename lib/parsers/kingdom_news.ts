@@ -170,20 +170,23 @@ function classifyEvent(text: string): Omit<KingdomNewsEvent, "gameDate" | "rawTe
     dragonType: null, dragonName: null,
   };
 
-  m = MARCH_RE.exec(text);
+  // Check unknown-province variant before the general pattern, otherwise MARCH_RE
+  // matches the full "An unknown province from X (k:d) captured..." text with
+  // attackerName set to the literal "An unknown province from X".
+  m = MARCH_UNKNOWN_RE.exec(text);
   if (m) return {
     eventType: "march",
-    attackerName: m[1].trim(), attackerKingdom: m[2],
+    attackerName: null, attackerKingdom: m[2],
     defenderName: m[4].trim(), defenderKingdom: m[5],
     acres: parseNum(m[3]), books: null,
     senderName: null, receiverName: null, relationKingdom: null,
     dragonType: null, dragonName: null,
   };
 
-  m = MARCH_UNKNOWN_RE.exec(text);
+  m = MARCH_RE.exec(text);
   if (m) return {
     eventType: "march",
-    attackerName: null, attackerKingdom: m[2],
+    attackerName: m[1].trim(), attackerKingdom: m[2],
     defenderName: m[4].trim(), defenderKingdom: m[5],
     acres: parseNum(m[3]), books: null,
     senderName: null, receiverName: null, relationKingdom: null,
