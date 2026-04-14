@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  barrierProtectionFactor,
   castlesProtectionFactor,
   estimateBreakability,
   estimateTraditionalMarchAcres,
@@ -141,6 +142,13 @@ test("siegeScienceFactor uses direct SoS battle gains effect", () => {
   assert.equal(siegeScienceFactor(6.4), 1.064);
 });
 
+test("barrierProtectionFactor uses direct ritual protection effect", () => {
+  assert.equal(barrierProtectionFactor(null), 1);
+  assert.equal(barrierProtectionFactor(0), 1);
+  assert.equal(barrierProtectionFactor(12), 0.88);
+  assert.equal(barrierProtectionFactor(150), 0);
+});
+
 test("relation gains factors match the Relations guide", () => {
   assert.equal(outgoingRelationGainsFactor(null), 1);
   assert.equal(outgoingRelationGainsFactor("Unfriendly"), 1.04);
@@ -278,6 +286,24 @@ test("estimateTraditionalMarchAcres applies attacker siege science", () => {
   assert.equal(estimate.siegeFactor, 1.064);
   assert.equal(estimate.rawAcres, 191.52);
   assert.equal(estimate.roundedAcres, 192);
+});
+
+test("estimateTraditionalMarchAcres applies defender barrier protection", () => {
+  const estimate = estimateTraditionalMarchAcres({
+    attackerLand: 1000,
+    attackerNetworth: 300000,
+    defenderLand: 1500,
+    defenderNetworth: 300000,
+    selfKingdomAvgNetworth: 250000,
+    targetKingdomAvgNetworth: 250000,
+    defenderBarrierEffect: 20,
+  });
+
+  assert.ok(estimate);
+  assert.equal(estimate.barrierEffect, 20);
+  assert.equal(estimate.barrierFactor, 0.8);
+  assert.equal(estimate.rawAcres, 144);
+  assert.equal(estimate.roundedAcres, 144);
 });
 
 test("estimateTraditionalMarchAcres caps oversized gains", () => {

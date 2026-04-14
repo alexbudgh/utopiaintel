@@ -1,8 +1,57 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import os from "node:os";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 import Database from "better-sqlite3";
 import { sameTick, parseUtopiaDate, formatUtopiaDate } from "../lib/ui";
 import type { KingdomNewsData } from "../lib/parsers/kingdom_news";
+
+async function withFreshDbModule(
+  run: (mod: any, db: Database.Database, dbPath: string) => Promise<void> | void,
+) {
+  const previousDbPath = process.env.INTEL_DB_PATH;
+  const dbPath = path.join(
+    os.tmpdir(),
+    `utopiaintel-test-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.sqlite`,
+  );
+  process.env.INTEL_DB_PATH = dbPath;
+
+  const moduleUrl = `${pathToFileURL(path.resolve(process.cwd(), "lib/db.ts")).href}?t=${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const mod = await import(moduleUrl);
+  const db = mod.getDb() as Database.Database;
+  db.pragma("foreign_keys = OFF");
+  db.exec(`
+    DELETE FROM sos_sciences;
+    DELETE FROM survey_buildings;
+    DELETE FROM som_armies;
+    DELETE FROM province_effects;
+    DELETE FROM kingdom_provinces;
+    DELETE FROM intel_partitions;
+    DELETE FROM key_kingdom_bindings;
+    DELETE FROM province_overview;
+    DELETE FROM total_military_points;
+    DELETE FROM home_military_points;
+    DELETE FROM province_troops;
+    DELETE FROM province_resources;
+    DELETE FROM province_status;
+    DELETE FROM military_intel;
+    DELETE FROM survey_intel;
+    DELETE FROM sos_intel;
+    DELETE FROM kingdom_news;
+    DELETE FROM kingdom_intel;
+    DELETE FROM provinces;
+    DELETE FROM sqlite_sequence;
+  `);
+  db.pragma("foreign_keys = ON");
+
+  try {
+    await run(mod, db, dbPath);
+  } finally {
+    if (previousDbPath == null) delete process.env.INTEL_DB_PATH;
+    else process.env.INTEL_DB_PATH = previousDbPath;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // sameTick
@@ -1176,4 +1225,161 @@ test("storeTrainArmy: subsequent SoT with null credits does not shadow train_arm
 
   assert.equal(row.free_specialist_credits, 30, "train_army value should survive later SoT null");
   db.close();
+});
+
+// ---------------------------------------------------------------------------
+// Real DB module regressions: kingdom ritual/dragon/news aggregation
+// ---------------------------------------------------------------------------
+
+test("getKingdomRitual: older ritual is cleared by a newer non-ritual effect snapshot", async () => {
+  await withFreshDbModule(({ getKingdomRitual }, db) => {
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();
+    const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name = 'Alpha' AND kingdom = '7:5'").get() as { id: number };
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
+
+    db.prepare(`
+      INSERT INTO province_effects (
+        province_id, effect_name, effect_kind, remaining_ticks, effectiveness_percent, source, saved_by, received_at
+      ) VALUES (?, 'Onslaught', 'ritual', 56, 91.7, 'throne', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId);
+
+    assert.deepEqual(getKingdomRitual("7:5", KEY_A), {
+      name: "Onslaught",
+      remainingTicks: 56,
+      effectivenessPercent: 91.7,
+      receivedAt: "2026-04-04 18:00:00",
+    });
+
+    db.prepare(`
+      INSERT INTO province_effects (
+        province_id, effect_name, effect_kind, remaining_ticks, effectiveness_percent, source, saved_by, received_at
+      ) VALUES (?, 'Builders Boon', 'spell', 1, NULL, 'throne', 'Alpha', '2026-04-04 19:00:00')
+    `).run(provId);
+
+    assert.equal(getKingdomRitual("7:5", KEY_A), null);
+  });
+});
+
+test("getKingdomDragon: later cleared status hides an older dragon", async () => {
+  await withFreshDbModule(({ getKingdomDragon }, db) => {
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();
+    const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name = 'Alpha' AND kingdom = '7:5'").get() as { id: number };
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
+
+    db.prepare(`
+      INSERT INTO province_status (
+        province_id, dragon_type, dragon_name, source, saved_by, received_at
+      ) VALUES (?, 'Ruby', 'Firedrake', 'state', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId);
+
+    assert.deepEqual(getKingdomDragon("7:5", KEY_A), {
+      dragonType: "Ruby",
+      dragonName: "Firedrake",
+      receivedAt: "2026-04-04 18:00:00",
+    });
+
+    db.prepare(`
+      INSERT INTO province_status (
+        province_id, dragon_type, dragon_name, source, saved_by, received_at
+      ) VALUES (?, NULL, NULL, 'state', 'Alpha', '2026-04-04 19:00:00')
+    `).run(provId);
+
+    assert.equal(getKingdomDragon("7:5", KEY_A), null);
+  });
+});
+
+test("getLatestWarDate: returns the most recent war_declared event", async () => {
+  await withFreshDbModule(({ getLatestWarDate }, db) => {
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();
+    const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name = 'Alpha' AND kingdom = '7:5'").get() as { id: number };
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
+
+    const insertNews = db.prepare(`
+      INSERT INTO kingdom_news (
+        kingdom, game_date, game_date_ord, event_type, raw_text, received_at
+      ) VALUES (?, ?, ?, ?, ?, ?)
+    `);
+
+    insertNews.run("7:5", "March 3 of YR9", parseUtopiaDate("March 3 of YR9"), "war_declared", "older war", "2026-04-04 18:00:00");
+    insertNews.run("7:5", "March 5 of YR9", parseUtopiaDate("March 5 of YR9"), "ceasefire_proposed", "not a war", "2026-04-04 18:05:00");
+    insertNews.run("7:5", "March 7 of YR9", parseUtopiaDate("March 7 of YR9"), "war_declared", "newer war", "2026-04-04 18:10:00");
+
+    assert.equal(getLatestWarDate("7:5", KEY_A), "March 7 of YR9");
+  });
+});
+
+test("getKingdomNewsSummary: aggregates combat totals, slots, and unique attackers", async () => {
+  await withFreshDbModule(({ getKingdomNewsSummary }, db) => {
+    for (const name of ["Alpha", "Beta"]) {
+      db.prepare("INSERT INTO provinces (name, kingdom) VALUES (?, '7:5')").run(name);
+      const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name = ? AND kingdom = '7:5'").get(name) as { id: number };
+      db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
+    }
+
+    const insertSnapshot = db.prepare(`
+      INSERT INTO kingdom_intel (name, location, received_at)
+      VALUES (?, ?, ?)
+    `);
+    const ourSnapshot = Number(insertSnapshot.run("Our KD", "7:5", "2026-04-04 18:00:00").lastInsertRowid);
+    const enemySnapshot = Number(insertSnapshot.run("Enemy KD", "8:3", "2026-04-04 18:00:00").lastInsertRowid);
+
+    const insertProvince = db.prepare(`
+      INSERT INTO kingdom_provinces (kingdom_intel_id, slot, name, race, land, networth)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    insertProvince.run(ourSnapshot, 3, "Alpha", "Orc", 1200, 300000);
+    insertProvince.run(ourSnapshot, 9, "Beta", "Elf", 1100, 280000);
+    insertProvince.run(enemySnapshot, 4, "EnemyOne", "Undead", 1300, 310000);
+    insertProvince.run(enemySnapshot, 7, "EnemyTwo", "Human", 1250, 305000);
+
+    const insertNews = db.prepare(`
+      INSERT INTO kingdom_news (
+        kingdom, game_date, game_date_ord, event_type, raw_text,
+        attacker_name, attacker_kingdom, defender_name, defender_kingdom,
+        acres, books, received_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const gameDate = "March 10 of YR9";
+    const gameDateOrd = parseUtopiaDate(gameDate);
+    insertNews.run("7:5", gameDate, gameDateOrd, "march", "Alpha marched EnemyOne", "Alpha", "7:5", "EnemyOne", "8:3", 120, null, "2026-04-04 18:00:00");
+    insertNews.run("7:5", gameDate, gameDateOrd, "loot", "Alpha looted EnemyOne", "Alpha", "7:5", "EnemyOne", "8:3", null, 300, "2026-04-04 18:01:00");
+    insertNews.run("7:5", gameDate, gameDateOrd, "raze", "EnemyOne razed Alpha", "EnemyOne", "8:3", "Alpha", "7:5", 25, null, "2026-04-04 18:02:00");
+    insertNews.run("7:5", gameDate, gameDateOrd, "ambush", "EnemyTwo ambushed Beta", "EnemyTwo", "8:3", "Beta", "7:5", 40, null, "2026-04-04 18:03:00");
+    insertNews.run("7:5", gameDate, gameDateOrd, "failed_attack", "EnemyTwo failed on Beta", "EnemyTwo", "8:3", "Beta", "7:5", null, null, "2026-04-04 18:04:00");
+    insertNews.run("7:5", gameDate, gameDateOrd, "march", "EnemyOne marched Alpha", "EnemyOne", "8:3", "Alpha", "7:5", 70, null, "2026-04-04 18:05:00");
+
+    const summary = getKingdomNewsSummary("7:5", KEY_A);
+
+    assert.equal(summary.ourKingdom, "7:5");
+    assert.equal(summary.totalMarchAcresOut, 120);
+    assert.equal(summary.totalRazeAcresOut, 0);
+    assert.equal(summary.totalMarchAcresIn, 70);
+    assert.equal(summary.totalRazeAcresIn, 25);
+    assert.equal(summary.uniqueAttackers, 2);
+    assert.equal(summary.byKingdom.length, 2);
+
+    const ours = summary.byKingdom[0];
+    assert.equal(ours.kingdom, "7:5");
+    assert.equal(ours.kingdomName, "Our KD");
+    assert.equal(ours.totalHitsMade, 2);
+    assert.equal(ours.totalMarchAcresGained, 120);
+    assert.equal(ours.totalLootMade, 1);
+    assert.equal(ours.provinces[0].provinceName, "Alpha");
+    assert.equal(ours.provinces[0].slot, 3);
+    assert.equal(ours.provinces[0].marchAcresGained, 120);
+    assert.equal(ours.provinces[0].marchAcresLost, 70);
+    assert.equal(ours.provinces[0].razeAcresLost, 25);
+
+    const enemy = summary.byKingdom[1];
+    assert.equal(enemy.kingdom, "8:3");
+    assert.equal(enemy.kingdomName, "Enemy KD");
+    assert.equal(enemy.totalHitsMade, 4);
+    assert.equal(enemy.totalMarchAcresGained, 70);
+    assert.equal(enemy.totalAmbushAcresGained, 40);
+    assert.equal(enemy.totalRazeAcresDealt, 25);
+    assert.equal(enemy.provinces[0].provinceName, "EnemyTwo");
+    assert.equal(enemy.provinces[0].slot, 7);
+    assert.equal(enemy.provinces[1].provinceName, "EnemyOne");
+    assert.equal(enemy.provinces[1].slot, 4);
+  });
 });

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { detectIntelType, getIntelPathname } from "../lib/parsers/detect";
+import { parseIntel } from "../lib/parsers";
 import { parseSoT } from "../lib/parsers/sot";
 import { parseSurvey } from "../lib/parsers/survey";
 import { parseSoS } from "../lib/parsers/sos";
@@ -309,6 +310,41 @@ test("detectIntelType — build page detected as build", () => {
     detectIntelType("https://utopia-game.com/wol/game/build"),
     "build",
   );
+});
+
+test("parseIntel — dispatches SoT URLs to parseSoT", () => {
+  const result = parseIntel("https://utopia-game.com/wol/game/throne", THRONE_TEXT);
+  assert.ok(result);
+  assert.equal(result.type, "sot");
+  assert.equal(result.data.name, "TestProv");
+  assert.equal(result.data.kingdom, "2:6");
+});
+
+test("parseIntel — state intel requires selfProv", () => {
+  const stateText = `Current Networth\t123,456 gold coins
+Current Land\t1,234 acres
+Peasants\t7,890
+`;
+
+  assert.equal(parseIntel("https://utopia-game.com/wol/game/council_state", stateText), null);
+
+  const result = parseIntel("https://utopia-game.com/wol/game/council_state", stateText, "TestProv");
+  assert.ok(result);
+  assert.equal(result.type, "state");
+  assert.equal(result.data.name, "TestProv");
+  assert.equal(result.data.kingdom, "");
+});
+
+test("parseIntel — build intel requires selfProv", () => {
+  const buildText = `Free Building Credits\t56`;
+
+  assert.equal(parseIntel("https://utopia-game.com/wol/game/build", buildText), null);
+
+  const result = parseIntel("https://utopia-game.com/wol/game/build", buildText, "TestProv");
+  assert.ok(result);
+  assert.equal(result.type, "build");
+  assert.equal(result.data.name, "TestProv");
+  assert.equal(result.data.freeBuildingCredits, 56);
 });
 
 test("detectIntelType — train_army and army_training detected as train_army", () => {
