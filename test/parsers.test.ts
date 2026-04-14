@@ -10,6 +10,7 @@ import { parseInfiltrate } from "../lib/parsers/infiltrate";
 import { parseKingdom } from "../lib/parsers/kingdom";
 import { parseTrainArmy } from "../lib/parsers/train_army";
 import { parseKingdomNews } from "../lib/parsers/kingdom_news";
+import { parseState } from "../lib/parsers/state";
 import { parseUtopiaDate, formatUtopiaDate } from "../lib/ui";
 
 // ---------------------------------------------------------------------------
@@ -843,4 +844,152 @@ test("parseKingdomNews — lines without tab separator are skipped", () => {
   const r = parseKingdomNews(text);
   assert.ok(r);
   assert.equal(r.events.length, 1);
+});
+
+test("parseKingdomNews — unknown province invasion ('invaded ... and captured')", () => {
+  const e = parseOne(mkLine("June 2 of YR9", "An unknown province from Shadow Realm (7:7) invaded Border Watch (2:8) and captured 300 acres"));
+  assert.equal(e.eventType, "march");
+  assert.equal(e.attackerName, null);
+  assert.equal(e.attackerKingdom, "7:7");
+  assert.equal(e.defenderName, "Border Watch");
+  assert.equal(e.defenderKingdom, "2:8");
+  assert.equal(e.acres, 300);
+});
+
+test("parseKingdomNews — unknown province ambush", () => {
+  const e = parseOne(mkLine("March 10 of YR9", "An unknown province from Night Riders (8:2) ambushed armies from Daywatch (3:5) and took 120 acres"));
+  assert.equal(e.eventType, "ambush");
+  assert.equal(e.attackerName, null);
+  assert.equal(e.attackerKingdom, "8:2");
+  assert.equal(e.defenderName, "Daywatch");
+  assert.equal(e.acres, 120);
+});
+
+test("parseKingdomNews — ambush 'recaptured' variant", () => {
+  const e = parseOne(mkLine("April 14 of YR9", "Comeback Kid (4:1) recaptured 90 acres of land from Raider (9:3)"));
+  assert.equal(e.eventType, "ambush");
+  assert.equal(e.attackerName, "Comeback Kid");
+  assert.equal(e.attackerKingdom, "4:1");
+  assert.equal(e.defenderName, "Raider");
+  assert.equal(e.defenderKingdom, "9:3");
+  assert.equal(e.acres, 90);
+});
+
+test("parseKingdomNews — raze 'invaded and razed' variant", () => {
+  const e = parseOne(mkLine("May 20 of YR9", "Torch Bearer (2:4) invaded Timber Town (6:1) and razed 60 acres"));
+  assert.equal(e.eventType, "raze");
+  assert.equal(e.attackerKingdom, "2:4");
+  assert.equal(e.defenderKingdom, "6:1");
+  assert.equal(e.acres, 60);
+});
+
+test("parseKingdomNews — pillage", () => {
+  const e = parseOne(mkLine("February 3 of YR9", "Plunderer (5:2) attacked and pillaged the lands of Harvest Field (1:7)"));
+  assert.equal(e.eventType, "pillage");
+  assert.equal(e.attackerKingdom, "5:2");
+  assert.equal(e.defenderKingdom, "1:7");
+  assert.equal(e.acres, null);
+  assert.equal(e.books, null);
+});
+
+test("parseKingdomNews — failed attack with 'attempted an invasion of' variant", () => {
+  const e = parseOne(mkLine("July 5 of YR9", "Bold Charger (3:1) attempted an invasion of Stone Wall (1:3)"));
+  assert.equal(e.eventType, "failed_attack");
+  assert.equal(e.attackerName, "Bold Charger");
+  assert.equal(e.attackerKingdom, "3:1");
+  assert.equal(e.defenderName, "Stone Wall");
+});
+
+test("parseKingdomNews — failed attack with 'In intra-kingdom war' prefix", () => {
+  const e = parseOne(mkLine("June 8 of YR9", "In intra-kingdom war An unknown province from Dark Realm (6:6) attempted to invade Citadel (4:4)"));
+  assert.equal(e.eventType, "failed_attack");
+  assert.equal(e.attackerKingdom, "6:6");
+  assert.equal(e.defenderName, "Citadel");
+});
+
+test("parseKingdomNews — dragon launched by us", () => {
+  const e = parseOne(mkLine("January 5 of YR9", "Dragonmaster has completed our dragon, Ember, and it sets flight to ravage Target Kingdom (5:8)!"));
+  assert.equal(e.eventType, "dragon_by_us");
+  assert.equal(e.dragonName, "Ember");
+  assert.equal(e.relationKingdom, "5:8");
+});
+
+test("parseKingdomNews — dragon project started by us", () => {
+  const e = parseOne(mkLine("February 10 of YR9", "Our kingdom has begun the Ice Dragon project, Frost, targeted at Warm Kingdom (3:7)"));
+  assert.equal(e.eventType, "dragon_by_us");
+  assert.equal(e.dragonType, "Ice");
+  assert.equal(e.dragonName, "Frost");
+  assert.equal(e.relationKingdom, "3:7");
+});
+
+test("parseKingdomNews — dragon slain", () => {
+  const e = parseOne(mkLine("March 12 of YR9", "Heroic Knight has slain the dragon, Ignis, ravaging our lands!"));
+  assert.equal(e.eventType, "dragon_slain");
+  assert.equal(e.dragonName, "Ignis");
+});
+
+test("parseKingdomNews — ritual started", () => {
+  const e = parseOne(mkLine("April 3 of YR9", "We have started developing a ritual! (Barrier of Eternity)!"));
+  assert.equal(e.eventType, "ritual_started");
+  assert.equal(e.dragonName, "Barrier of Eternity");
+});
+
+test("parseKingdomNews — ceasefire proposed", () => {
+  const e = parseOne(mkLine("May 15 of YR9", "We have proposed a ceasefire offer to Rival Kingdom (4:6)."));
+  assert.equal(e.eventType, "ceasefire_proposed");
+  assert.equal(e.relationKingdom, "4:6");
+});
+
+test("parseKingdomNews — ceasefire broken", () => {
+  const e = parseOne(mkLine("June 20 of YR9", "Rival Kingdom (4:6) has broken their ceasefire agreement with us!"));
+  assert.equal(e.eventType, "ceasefire_broken");
+  assert.equal(e.relationKingdom, "4:6");
+});
+
+test("parseKingdomNews — ceasefire withdrawn", () => {
+  const e = parseOne(mkLine("July 10 of YR9", "We have withdrawn our ceasefire proposal to Rival Kingdom (4:6)"));
+  assert.equal(e.eventType, "ceasefire_withdrawn");
+  assert.equal(e.relationKingdom, "4:6");
+});
+
+// ---------------------------------------------------------------------------
+// parseState
+// ---------------------------------------------------------------------------
+
+const STATE_TEXT = `Council of State
+Current Networth\t1,234,567 gold coins
+Current Land\t850 acres
+Peasants\t12,000
+Thieves\t450
+Wizards\t380
+Total\t25,600
+Max Population\t28,000`;
+
+test("parseState — parses land, networth, population fields", () => {
+  const r = parseState(STATE_TEXT, "SelfProv");
+  assert.ok(r, "should parse successfully");
+  assert.equal(r.name, "SelfProv");
+  assert.equal(r.land, 850);
+  assert.equal(r.networth, 1234567);
+  assert.equal(r.peasants, 12000);
+  assert.equal(r.thieves, 450);
+  assert.equal(r.wizards, 380);
+  assert.equal(r.totalPop, 25600);
+  assert.equal(r.maxPop, 28000);
+});
+
+test("parseState — returns null when networth or land absent", () => {
+  assert.equal(parseState("Current Land\t850 acres\nPeasants\t100", "SelfProv"), null, "missing networth → null");
+  assert.equal(parseState("Current Networth\t500,000 gold coins\nPeasants\t100", "SelfProv"), null, "missing land → null");
+});
+
+test("parseState — optional fields default to 0 or null when absent", () => {
+  const minimal = "Current Networth\t500,000 gold coins\nCurrent Land\t400 acres";
+  const r = parseState(minimal, "SelfProv");
+  assert.ok(r);
+  assert.equal(r.peasants, 0);
+  assert.equal(r.thieves, 0);
+  assert.equal(r.wizards, 0);
+  assert.equal(r.totalPop, null);
+  assert.equal(r.maxPop, null);
 });
