@@ -1271,10 +1271,21 @@ export function getProvinceDetail(name: string, kingdom: string, keyHash: string
   };
 }
 
-export function storeKingdomNews(data: KingdomNewsData, keyHash: string) {
+export function storeKingdomNews(data: KingdomNewsData, keyHash: string, isSnatched = false) {
   const db = getDb();
-  const kingdom = getBoundKingdom(keyHash);
-  if (!kingdom) return; // can't associate news without a bound kingdom
+  let kingdom: string | null;
+  if (isSnatched) {
+    // The target kingdom is the one making outgoing attacks in their own news feed.
+    // Find the first attack event where the attacker isn't our own kingdom.
+    const ownKingdom = getBoundKingdom(keyHash);
+    const outgoing = data.events.find(
+      e => e.attackerKingdom && e.attackerKingdom !== ownKingdom
+    );
+    kingdom = outgoing?.attackerKingdom ?? null;
+  } else {
+    kingdom = getBoundKingdom(keyHash);
+  }
+  if (!kingdom) return;
 
   const ins = db.prepare(`
     INSERT OR IGNORE INTO kingdom_news (

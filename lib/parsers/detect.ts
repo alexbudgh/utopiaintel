@@ -41,8 +41,9 @@ export function detectIntelType(url: string): IntelType | null {
   if (thieveryOp === "SPY_ON_DEFENSE") return "sod";
   if (thieveryOp === "SURVEY") return "survey";
   if (thieveryOp === "INFILTRATE") return "infiltrate";
+  if (thieveryOp === "SNATCH_NEWS") return "kingdom_news";
   // TODO: Add parsers/storage for other thievery ops we see in production,
-  // such as SNATCH_NEWS and SPY_ON_EXPLORATION.
+  // such as SPY_ON_EXPLORATION.
 
   if (pathname.endsWith("/spy_on_throne")) return "sot";
   if (pathname.endsWith("/spy_on_military") || pathname.endsWith("/train_army") || pathname.endsWith("/army_training")) return "som";

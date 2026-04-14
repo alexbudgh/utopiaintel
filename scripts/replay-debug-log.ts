@@ -152,7 +152,7 @@ function replayEntry(entry: DebugEntry, keyHash: string, allowed: Set<ReplayType
   }
 
   if (parsed.type === "kingdom_news") {
-    storeKingdomNews(parsed.data, keyHash);
+    storeKingdomNews(parsed.data, keyHash, new URL(entry.url).searchParams.get("o") === "SNATCH_NEWS");
     return "kingdom_news";
   }
 

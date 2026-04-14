@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
       storeState(result.data, savedBy, keyHash);
       break;
     case "kingdom_news":
-      storeKingdomNews(result.data, keyHash);
+      storeKingdomNews(result.data, keyHash, new URL(fields.url).searchParams.get("o") === "SNATCH_NEWS");
       break;
   }
 
