@@ -9,6 +9,7 @@ import { freshnessColor, formatNum, timeAgo, formatTimestamp, sameTick, fullValu
 import { computeWizardCount, NW_PER_WIZARD } from "@/lib/nw";
 import { computeAmbushRawOff } from "@/lib/ambush";
 import { estimatePop } from "@/lib/population";
+import { overpopulationTone } from "@/lib/overpopulation";
 
 const COLUMNS = [
   { key: "race",        label: "Race",        group: "Overview",  desc: "Race"                                        },
@@ -570,9 +571,8 @@ function cellValue(p: ProvinceRow, key: ColKey): React.ReactNode {
     case "pop_pct": {
       const r = computePopPct(p);
       if (!r) return "—";
-      const pct = Math.round(r.pct * 100);
-      const color = pct >= 95 ? "text-red-400" : pct >= 80 ? "text-yellow-400" : "text-green-400";
-      return <span className={color}>{r.estimated ? "~" : ""}{pct}%</span>;
+      const pct = (r.pct * 100).toFixed(1);
+      return <span className={overpopulationTone(r.pct).textClass}>{r.estimated ? "~" : ""}{pct}%</span>;
     }
   }
 }

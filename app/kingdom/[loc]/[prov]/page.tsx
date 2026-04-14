@@ -9,6 +9,7 @@ import { freshnessColor, timeAgo, fullValueTooltip } from "@/lib/ui";
 import { BAD_SPELL_NAMES } from "@/lib/effects";
 import { computeAmbushRawOff } from "@/lib/ambush";
 import { estimatePop } from "@/lib/population";
+import { overpopulationTone } from "@/lib/overpopulation";
 import type { ArmyRow, BuildingRow, ScienceRow } from "@/lib/db";
 import AutoRefresh from "./AutoRefresh";
 
@@ -183,12 +184,9 @@ export default async function ProvincePage({
                 const max = pop.maxPop;
                 const pct = cur != null && max != null && max > 0 ? cur / max : null;
                 const barPct = pct != null ? Math.min(100, pct * 100) : null;
-                const barColor = pct == null ? "bg-gray-600"
-                  : pct > 1  ? "bg-red-500"
-                  : "bg-green-500";
-                const pctColor = pct == null ? "text-gray-400"
-                  : pct > 1  ? "text-red-300"
-                  : "text-green-300";
+                const tone = pct == null ? null : overpopulationTone(pct);
+                const barColor = tone?.barClass ?? "bg-gray-600";
+                const pctColor = tone?.textClass ?? "text-gray-400";
                 const needs = [...new Set([...pop.needsForMax, ...pop.needsForCurrent])];
                 const tooltipLines: TooltipLine[] = [
                   { text: "Max pop = (barren×15 + homes×35 + other×25) × race × (1 + housing%)" },
@@ -214,7 +212,7 @@ export default async function ProvincePage({
                               {" / "}
                               {max != null ? max.toLocaleString() : "—"}
                             </span>
-                            {pct != null && <span className={`text-xs ${pctColor}`}>{Math.round(pct * 100)}%</span>}
+                            {pct != null && <span className={`text-xs ${pctColor}`}>{(pct * 100).toFixed(1)}%</span>}
                             {barPct != null && (
                               <span className="inline-block w-16 h-1.5 bg-gray-700 rounded-full overflow-hidden">
                                 <span className={`block h-full rounded-full ${barColor}`} style={{ width: `${barPct}%` }} />
