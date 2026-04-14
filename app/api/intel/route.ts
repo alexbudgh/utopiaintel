@@ -14,6 +14,7 @@ import {
   storeKingdom,
   storeState,
   storeKingdomNews,
+  storeTrainArmy,
   cleanupExpired,
 } from "@/lib/db";
 
@@ -46,6 +47,7 @@ const TABLES: Record<string, string[]> = {
   kingdom:      ["kingdom_intel", "kingdom_provinces", "province_overview"],
   state:        ["province_overview", "province_resources", "province_troops"],
   kingdom_news: ["kingdom_news"],
+  train_army:   ["province_resources"],
 };
 
 // Run TTL cleanup roughly once per 100 requests
@@ -130,6 +132,9 @@ export async function POST(request: NextRequest) {
       break;
     case "kingdom_news":
       storeKingdomNews(result.data, keyHash, new URL(fields.url).searchParams.get("o") === "SNATCH_NEWS");
+      break;
+    case "train_army":
+      storeTrainArmy(result.data, savedBy, keyHash);
       break;
   }
 

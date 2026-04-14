@@ -1,6 +1,6 @@
 // Shared types for all parsers
 
-export type IntelType = "sot" | "survey" | "som" | "sos" | "sod" | "infiltrate" | "kingdom" | "state" | "kingdom_news";
+export type IntelType = "sot" | "survey" | "som" | "sos" | "sod" | "infiltrate" | "kingdom" | "state" | "kingdom_news" | "train_army";
 
 export interface ProvinceId {
   name: string;
@@ -146,6 +146,10 @@ export interface StateData extends ProvinceId {
   maxPop: number | null;
 }
 
+export interface TrainArmyData extends ProvinceId {
+  freeSpecialistCredits: number;
+}
+
 export type ParseResult =
   | { type: "sot"; data: SoTData }
   | { type: "survey"; data: SurveyData }
@@ -155,4 +159,5 @@ export type ParseResult =
   | { type: "infiltrate"; data: InfiltrateData }
   | { type: "kingdom"; data: KingdomData }
   | { type: "state"; data: StateData }
-  | { type: "kingdom_news"; data: import("./kingdom_news").KingdomNewsData };
+  | { type: "kingdom_news"; data: import("./kingdom_news").KingdomNewsData }
+  | { type: "train_army"; data: TrainArmyData };

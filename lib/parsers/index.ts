@@ -8,6 +8,7 @@ import { parseInfiltrate } from "./infiltrate";
 import { parseKingdom } from "./kingdom";
 import { parseState } from "./state";
 import { parseKingdomNews } from "./kingdom_news";
+import { parseTrainArmy } from "./train_army";
 import type { ParseResult } from "./types";
 
 export type { ParseResult } from "./types";
@@ -53,6 +54,10 @@ export function parseIntel(url: string, dataSimple: string, selfProv?: string): 
     case "kingdom_news": {
       const data = parseKingdomNews(dataSimple);
       return data ? { type: "kingdom_news", data } : null;
+    }
+    case "train_army": {
+      const data = parseTrainArmy(dataSimple, selfProv);
+      return data ? { type: "train_army", data } : null;
     }
   }
 }

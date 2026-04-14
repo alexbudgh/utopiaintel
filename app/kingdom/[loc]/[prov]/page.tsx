@@ -366,6 +366,9 @@ export default async function ProvincePage({
               <KV label="Thieves" value={maybeRoundedValue(formatNum(d.resources.thieves), d.resources.thieves)} />
               <KV label="Stealth" value={d.resources.stealth != null ? d.resources.stealth + "%" : "—"} />
               <KV label="Wizards" value={maybeRoundedValue(formatNum(d.resources.wizards), d.resources.wizards)} />
+              {d.resources.freeSpecialistCredits != null && (
+                <KV label="Spec credits" value={formatNum(d.resources.freeSpecialistCredits)} />
+              )}
             </div>
           ) : <NoData />}
         </Card>

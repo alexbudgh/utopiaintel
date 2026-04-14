@@ -38,6 +38,7 @@ const COLUMNS = [
   { key: "bad_spells",  label: "Bad Spells",  group: "Overview",  desc: "Active bad spells from latest self-throne data" },
   { key: "ome",         label: "OME",         group: "Military",  desc: "Offensive military effectiveness % (SoM)"    },
   { key: "dme",         label: "DME",         group: "Military",  desc: "Defensive military effectiveness % (SoM)"    },
+  { key: "free_specialist_credits", label: "Spec Credits", group: "Military", desc: "Free specialist credits remaining (self train_army page)" },
   { key: "money",         label: "Gold",          group: "Resources", desc: "Gold on hand"                            },
   { key: "food",          label: "Food",          group: "Resources", desc: "Food on hand"                            },
   { key: "runes",         label: "Runes",         group: "Resources", desc: "Runes on hand"                           },
@@ -60,7 +61,7 @@ type SortDir = "asc" | "desc";
 
 const VIEWS: Record<string, ColKey[]> = {
   Overview:  ["race", "personality", "honor_title", "land", "networth", "pop_pct", "armies", "off_points", "def_points", "def_home", "good_spells", "bad_spells", "hit_status", "peasants", "building_efficiency", "age"],
-  Military:  ["land", "armies", "off_points", "def_points", "off_home", "def_home", "ome", "dme", "soldiers_home", "off_specs_home", "def_specs_home", "elites_home", "peasants", "age"],
+  Military:  ["land", "armies", "off_points", "def_points", "off_home", "def_home", "ome", "dme", "free_specialist_credits", "soldiers_home", "off_specs_home", "def_specs_home", "elites_home", "peasants", "age"],
   Resources: ["land", "networth", "pop_pct", "money", "food", "runes", "prisoners", "trade_balance", "war_horses", "peasants", "thieves", "wizards", "age"],
   "T/M":     ["land", "rtpa", "mtpa", "otpa", "dtpa", "rwpa", "mwpa", "age"],
 };
@@ -104,6 +105,7 @@ function sortValueFor(p: ProvinceRow, key: SortKey): number | string | null {
     case "def_home": return p.def_home;
     case "ome": return p.ome;
     case "dme": return p.dme;
+    case "free_specialist_credits": return p.free_specialist_credits;
     case "money": return p.money;
     case "food": return p.food;
     case "runes": return p.runes;
@@ -224,7 +226,7 @@ function ageFor(p: ProvinceRow, key: ColKey): string | null {
   if (["money", "food", "runes", "prisoners", "trade_balance", "building_efficiency", "wizards"].includes(key)) return p.resources_age;
   if (key === "hit_status") return p.status_age;
   if (key === "thieves") return p.thieves_age;
-  if (["ome", "dme"].includes(key)) return p.som_age;
+  if (["ome", "dme", "free_specialist_credits"].includes(key)) return p.free_specialist_credits_age ?? p.som_age;
   if (["off_points", "def_points"].includes(key)) return p.military_age;
   if (["off_home", "def_home"].includes(key)) return p.home_mil_age;
   if (key === "rtpa") return p.thieves_age ?? p.overview_age;
@@ -540,6 +542,7 @@ function cellValue(p: ProvinceRow, key: ColKey): React.ReactNode {
     case "def_home":        return formatNum(p.def_home);
     case "ome":         return p.ome != null ? p.ome.toFixed(1) + "%" : "—";
     case "dme":         return p.dme != null ? p.dme.toFixed(1) + "%" : "—";
+    case "free_specialist_credits": return formatNum(p.free_specialist_credits);
     case "money":         return formatNum(p.money);
     case "food":          return formatNum(p.food);
     case "runes":         return formatNum(p.runes);
