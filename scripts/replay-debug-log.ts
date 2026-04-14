@@ -12,9 +12,10 @@ import {
   storeState,
   storeSoM,
   storeTrainArmy,
+  storeBuild,
 } from "../lib/db";
 
-type ReplayType = "kingdom" | "survey" | "sot" | "kingdom_news" | "state" | "som" | "train_army";
+type ReplayType = "kingdom" | "survey" | "sot" | "kingdom_news" | "state" | "som" | "train_army" | "build";
 
 interface DebugEntry {
   url: string;
@@ -23,7 +24,7 @@ interface DebugEntry {
   received_at?: string;
 }
 
-const allowedTypes = new Set<ReplayType>(["kingdom", "survey", "sot", "kingdom_news", "state", "som", "train_army"]);
+const allowedTypes = new Set<ReplayType>(["kingdom", "survey", "sot", "kingdom_news", "state", "som", "train_army", "build"]);
 
 function normalizeReceivedAt(receivedAt: string): string {
   const date = new Date(receivedAt);
@@ -171,6 +172,11 @@ function replayEntry(entry: DebugEntry, keyHash: string, allowed: Set<ReplayType
   if (parsed.type === "train_army") {
     storeTrainArmy(parsed.data, savedBy, keyHash);
     return "train_army";
+  }
+
+  if (parsed.type === "build") {
+    storeBuild(parsed.data, savedBy, keyHash);
+    return "build";
   }
 
   return null;

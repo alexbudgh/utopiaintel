@@ -369,6 +369,9 @@ export default async function ProvincePage({
               {d.resources.freeSpecialistCredits != null && (
                 <KV label="Spec credits" value={d.resources.freeSpecialistCredits.toLocaleString()} />
               )}
+              {d.resources.freeBuildingCredits != null && (
+                <KV label="Build credits" value={d.resources.freeBuildingCredits.toLocaleString()} />
+              )}
             </div>
           ) : <NoData />}
         </Card>

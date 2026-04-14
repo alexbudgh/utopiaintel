@@ -14,6 +14,7 @@ import type {
   StateData,
   KingdomOpenRelation,
   TrainArmyData,
+  BuildData,
 } from "./parsers/types";
 import type { KingdomNewsData, KingdomNewsEvent } from "./parsers/kingdom_news";
 
@@ -324,6 +325,7 @@ function initSchema(db: Database.Database) {
   if (!hasCol("province_resources", "total_pop")) db.exec("ALTER TABLE province_resources ADD COLUMN total_pop INTEGER");
   if (!hasCol("province_resources", "max_pop"))   db.exec("ALTER TABLE province_resources ADD COLUMN max_pop INTEGER");
   if (!hasCol("province_resources", "free_specialist_credits")) db.exec("ALTER TABLE province_resources ADD COLUMN free_specialist_credits INTEGER");
+  if (!hasCol("province_resources", "free_building_credits")) db.exec("ALTER TABLE province_resources ADD COLUMN free_building_credits INTEGER");
   if (!hasCol("kingdom_news", "game_date_ord")) {
     db.exec("ALTER TABLE kingdom_news ADD COLUMN game_date_ord INTEGER");
     // Backfill ordinal for existing rows
@@ -553,6 +555,18 @@ export function storeTrainArmy(data: TrainArmyData, savedBy: string, keyHash: st
       INSERT INTO province_resources (province_id, free_specialist_credits, source, saved_by, accuracy)
       VALUES (?, ?, 'train_army', ?, 100)
     `).run(provId, data.freeSpecialistCredits, savedBy);
+  })();
+}
+
+export function storeBuild(data: BuildData, savedBy: string, keyHash: string) {
+  const db = getDb();
+  db.transaction(() => {
+    const provId = ensureProvince(db, data.name, data.kingdom);
+    recordSubmission(db, keyHash, provId);
+    db.prepare(`
+      INSERT INTO province_resources (province_id, free_building_credits, source, saved_by, accuracy)
+      VALUES (?, ?, 'build', ?, 100)
+    `).run(provId, data.freeBuildingCredits, savedBy);
   })();
 }
 
@@ -851,6 +865,8 @@ export interface ProvinceRow {
   resources_source: string | null;
   free_specialist_credits: number | null;
   free_specialist_credits_age: string | null;
+  free_building_credits: number | null;
+  free_building_credits_age: string | null;
   hit_status: string | null;
   status_age: string | null;
   effects_age?: string | null;
@@ -992,6 +1008,8 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
            (SELECT p2.received_at FROM province_resources p2 WHERE p2.province_id = p.id AND p2.thieves IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS thieves_age,
            (SELECT p2.free_specialist_credits FROM province_resources p2 WHERE p2.province_id = p.id AND p2.free_specialist_credits IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS free_specialist_credits,
            (SELECT p2.received_at FROM province_resources p2 WHERE p2.province_id = p.id AND p2.free_specialist_credits IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS free_specialist_credits_age,
+           (SELECT p2.free_building_credits FROM province_resources p2 WHERE p2.province_id = p.id AND p2.free_building_credits IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS free_building_credits,
+           (SELECT p2.received_at FROM province_resources p2 WHERE p2.province_id = p.id AND p2.free_building_credits IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS free_building_credits_age,
            ps.hit_status, ps.received_at AS status_age,
            ss.effects_age, ss.good_spell_details, ss.bad_spell_details, ss.good_spell_count, ss.bad_spell_count,
            hmp.mod_off_at_home AS off_home, hmp.mod_def_at_home AS def_home, hmp.received_at AS home_mil_age,
@@ -1096,7 +1114,7 @@ export interface ProvinceDetail {
   totalMilitary: { offPoints: number | null; defPoints: number | null; receivedAt: string } | null;
   homeMilitary: { modOffAtHome: number | null; modDefAtHome: number | null; source: string; receivedAt: string } | null;
   troops: { soldiers: number | null; offSpecs: number | null; defSpecs: number | null; elites: number | null; warHorses: number | null; peasants: number | null; source: string; receivedAt: string } | null;
-  resources: { money: number | null; food: number | null; runes: number | null; prisoners: number | null; tradeBalance: number | null; buildingEfficiency: number | null; thieves: number | null; thievesAge: string | null; stealth: number | null; wizards: number | null; mana: number | null; totalPop: number | null; maxPop: number | null; freeSpecialistCredits: number | null; freeSpecialistCreditsAge: string | null; receivedAt: string } | null;
+  resources: { money: number | null; food: number | null; runes: number | null; prisoners: number | null; tradeBalance: number | null; buildingEfficiency: number | null; thieves: number | null; thievesAge: string | null; stealth: number | null; wizards: number | null; mana: number | null; totalPop: number | null; maxPop: number | null; freeSpecialistCredits: number | null; freeSpecialistCreditsAge: string | null; freeBuildingCredits: number | null; freeBuildingCreditsAge: string | null; receivedAt: string } | null;
   status: { plagued: boolean; overpopulated: boolean; overpopDeserters: number | null; dragonType: string | null; dragonName: string | null; hitStatus: string | null; war: boolean; receivedAt: string } | null;
   effects: { name: string; kind: string; durationText: string | null; remainingTicks: number | null; effectivenessPercent: number | null; receivedAt: string }[];
   militaryIntel: { ome: number | null; dme: number | null; receivedAt: string; armies: ArmyRow[] } | null;
@@ -1197,7 +1215,10 @@ export function getProvinceDetail(name: string, kingdom: string, keyHash: string
   const creditsRaw = db.prepare(
     "SELECT free_specialist_credits, received_at FROM province_resources WHERE province_id = ? AND free_specialist_credits IS NOT NULL ORDER BY received_at DESC LIMIT 1"
   ).get(id) as { free_specialist_credits: number; received_at: string } | undefined;
-  const resources = resRaw ? { money: resRaw.money, food: resRaw.food, runes: resRaw.runes, prisoners: resRaw.prisoners, tradeBalance: resRaw.trade_balance, buildingEfficiency: resRaw.building_efficiency, thieves: thievesRaw?.thieves ?? null, thievesAge: thievesRaw?.received_at ?? null, stealth: resRaw.stealth, wizards: resRaw.wizards, mana: resRaw.mana, totalPop: resRaw.total_pop ?? null, maxPop: resRaw.max_pop ?? null, freeSpecialistCredits: creditsRaw?.free_specialist_credits ?? null, freeSpecialistCreditsAge: creditsRaw?.received_at ?? null, receivedAt: resRaw.received_at } : null;
+  const buildCreditsRaw = db.prepare(
+    "SELECT free_building_credits, received_at FROM province_resources WHERE province_id = ? AND free_building_credits IS NOT NULL ORDER BY received_at DESC LIMIT 1"
+  ).get(id) as { free_building_credits: number; received_at: string } | undefined;
+  const resources = resRaw ? { money: resRaw.money, food: resRaw.food, runes: resRaw.runes, prisoners: resRaw.prisoners, tradeBalance: resRaw.trade_balance, buildingEfficiency: resRaw.building_efficiency, thieves: thievesRaw?.thieves ?? null, thievesAge: thievesRaw?.received_at ?? null, stealth: resRaw.stealth, wizards: resRaw.wizards, mana: resRaw.mana, totalPop: resRaw.total_pop ?? null, maxPop: resRaw.max_pop ?? null, freeSpecialistCredits: creditsRaw?.free_specialist_credits ?? null, freeSpecialistCreditsAge: creditsRaw?.received_at ?? null, freeBuildingCredits: buildCreditsRaw?.free_building_credits ?? null, freeBuildingCreditsAge: buildCreditsRaw?.received_at ?? null, receivedAt: resRaw.received_at } : null;
 
   const statusRaw = db.prepare(
     "SELECT plagued, overpopulated, overpop_deserters, dragon_type, dragon_name, hit_status, war, received_at FROM province_status WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"

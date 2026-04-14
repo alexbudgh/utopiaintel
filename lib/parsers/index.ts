@@ -9,6 +9,7 @@ import { parseKingdom } from "./kingdom";
 import { parseState } from "./state";
 import { parseKingdomNews } from "./kingdom_news";
 import { parseTrainArmy } from "./train_army";
+import { parseBuild } from "./build";
 import type { ParseResult } from "./types";
 
 export type { ParseResult } from "./types";
@@ -58,6 +59,10 @@ export function parseIntel(url: string, dataSimple: string, selfProv?: string): 
     case "train_army": {
       const data = parseTrainArmy(dataSimple, selfProv);
       return data ? { type: "train_army", data } : null;
+    }
+    case "build": {
+      const data = parseBuild(dataSimple, selfProv);
+      return data ? { type: "build", data } : null;
     }
   }
 }

@@ -48,6 +48,7 @@ export function detectIntelType(url: string): IntelType | null {
   if (pathname.endsWith("/spy_on_throne")) return "sot";
   if (pathname.endsWith("/spy_on_military")) return "som";
   if (pathname.endsWith("/train_army") || pathname.endsWith("/army_training")) return "train_army";
+  if (pathname.endsWith("/build")) return "build";
   if (pathname.endsWith("/spy_on_sciences")) return "sos";
   if (pathname.endsWith("/spy_on_defense")) return "sod";
   if (pathname.endsWith("/infiltrate")) return "infiltrate";

@@ -87,6 +87,8 @@ function makeProvince(overrides: Partial<ProvinceRow>): ProvinceRow {
     armies_out_json: null,
     free_specialist_credits: null,
     free_specialist_credits_age: null,
+    free_building_credits: null,
+    free_building_credits_age: null,
     ...overrides,
   };
 }

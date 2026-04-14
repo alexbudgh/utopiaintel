@@ -9,6 +9,7 @@ import { parseSoD } from "../lib/parsers/sod";
 import { parseInfiltrate } from "../lib/parsers/infiltrate";
 import { parseKingdom } from "../lib/parsers/kingdom";
 import { parseTrainArmy } from "../lib/parsers/train_army";
+import { parseBuild } from "../lib/parsers/build";
 import { parseKingdomNews } from "../lib/parsers/kingdom_news";
 import { parseState } from "../lib/parsers/state";
 import { parseUtopiaDate, formatUtopiaDate } from "../lib/ui";
@@ -300,6 +301,13 @@ test("detectIntelType — SNATCH_NEWS detected as kingdom_news", () => {
   assert.equal(
     detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=SNATCH_NEWS&q=387&c=4517"),
     "kingdom_news",
+  );
+});
+
+test("detectIntelType — build page detected as build", () => {
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/build"),
+    "build",
   );
 });
 
@@ -644,6 +652,30 @@ test("parseKingdom — open relations list", () => {
       status: "Unfriendly",
     },
   ]);
+});
+
+// ---------------------------------------------------------------------------
+// parseTrainArmy
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// parseBuild
+// ---------------------------------------------------------------------------
+
+test("parseBuild — parses free building credits", () => {
+  const text = `Build page\nFree Building Credits\t223\nTotal Land\t3,334 acres`;
+  const r = parseBuild(text, "SelfProv");
+  assert.ok(r, "should parse successfully");
+  assert.equal(r.name, "SelfProv");
+  assert.equal(r.freeBuildingCredits, 223);
+});
+
+test("parseBuild — returns null without selfProv", () => {
+  assert.equal(parseBuild("Free Building Credits\t223", undefined), null);
+});
+
+test("parseBuild — returns null when credits line absent", () => {
+  assert.equal(parseBuild("Total Land\t3,334 acres", "SelfProv"), null);
 });
 
 // ---------------------------------------------------------------------------
