@@ -18,6 +18,7 @@ const COLUMNS = [
   { key: "bad_spells",  label: "Bad Spells",  group: "Overview",  desc: "Active bad spells from latest self-throne data" },
   { key: "land",        label: "Land",        group: "Overview",  desc: "Acres of land"                               },
   { key: "networth",    label: "NW",          group: "Overview",  desc: "Networth"                                    },
+  { key: "pop_pct",     label: "Pop%",        group: "Overview",  desc: "Current population / max population\nSelf: direct from council state\nEnemy: estimated from SoT+SoM+Survey+SoS\n~prefix = wizards estimated from NW residual" },
   { key: "hit_status",  label: "MAP",         group: "Overview",  desc: "Multi-Attack Protection warning from SoT\nExamples: a little, moderately, pretty heavily, extremely badly" },
   { key: "building_efficiency", label: "BE",  group: "Overview",  desc: "Building efficiency"                         },
   { key: "armies",      label: "Armies",      group: "Overview",  desc: "Armies currently out (SoM): count · land incoming · soonest return" },
@@ -44,7 +45,6 @@ const COLUMNS = [
   { key: "trade_balance", label: "Trade bal.",    group: "Resources", desc: "Trade balance"                           },
   { key: "thieves",     label: "Thieves",     group: "Resources", desc: "Thieves"                                     },
   { key: "wizards",     label: "Wizards",     group: "Resources", desc: "Wizards"                                     },
-  { key: "pop_pct",     label: "Pop%",        group: "Resources", desc: "Current population / max population\nSelf: direct from council state\nEnemy: estimated from SoT+SoM+Survey+SoS\n~prefix = wizards estimated from NW residual" },
   { key: "age",         label: "Age",         group: "Overview",  desc: "Most recent intel across all sources\nOther columns may have older data — hover them to check"    },
   { key: "rtpa",        label: "rTPA",        group: "T/M",       desc: "Raw TPA = thieves / land\nNeeds: Infiltrate Thieves' Dens + SoT (same tick)"                   },
   { key: "mtpa",        label: "mTPA",        group: "T/M",       desc: "Modified TPA = rTPA × (1 + Crime%)\nNeeds: rTPA sources + SoS (same tick)"                     },
@@ -59,9 +59,9 @@ type SortKey = ColKey | "province";
 type SortDir = "asc" | "desc";
 
 const VIEWS: Record<string, ColKey[]> = {
-  Overview:  ["race", "personality", "honor_title", "good_spells", "bad_spells", "land", "networth", "armies", "off_points", "def_points", "def_home", "hit_status", "peasants", "building_efficiency", "age"],
+  Overview:  ["race", "personality", "honor_title", "good_spells", "bad_spells", "land", "networth", "pop_pct", "armies", "off_points", "def_points", "def_home", "hit_status", "peasants", "building_efficiency", "age"],
   Military:  ["land", "armies", "off_points", "def_points", "off_home", "def_home", "ome", "dme", "soldiers_home", "off_specs_home", "def_specs_home", "elites_home", "peasants", "age"],
-  Resources: ["land", "networth", "money", "food", "runes", "prisoners", "trade_balance", "war_horses", "peasants", "thieves", "wizards", "pop_pct", "age"],
+  Resources: ["land", "networth", "pop_pct", "money", "food", "runes", "prisoners", "trade_balance", "war_horses", "peasants", "thieves", "wizards", "age"],
   "T/M":     ["land", "rtpa", "mtpa", "otpa", "dtpa", "rwpa", "mwpa", "age"],
 };
 const VIEW_NAMES = Object.keys(VIEWS);
