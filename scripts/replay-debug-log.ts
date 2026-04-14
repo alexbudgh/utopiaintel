@@ -9,9 +9,10 @@ import {
   storeKingdom,
   storeSurvey,
   storeKingdomNews,
+  storeState,
 } from "../lib/db";
 
-type ReplayType = "kingdom" | "survey" | "sot" | "kingdom_news";
+type ReplayType = "kingdom" | "survey" | "sot" | "kingdom_news" | "state";
 
 interface DebugEntry {
   url: string;
@@ -20,7 +21,7 @@ interface DebugEntry {
   received_at?: string;
 }
 
-const allowedTypes = new Set<ReplayType>(["kingdom", "survey", "sot", "kingdom_news"]);
+const allowedTypes = new Set<ReplayType>(["kingdom", "survey", "sot", "kingdom_news", "state"]);
 
 function normalizeReceivedAt(receivedAt: string): string {
   const date = new Date(receivedAt);
@@ -153,6 +154,11 @@ function replayEntry(entry: DebugEntry, keyHash: string, allowed: Set<ReplayType
   if (parsed.type === "kingdom_news") {
     storeKingdomNews(parsed.data, keyHash);
     return "kingdom_news";
+  }
+
+  if (parsed.type === "state") {
+    storeState(parsed.data, savedBy, keyHash);
+    return "state";
   }
 
   return null;

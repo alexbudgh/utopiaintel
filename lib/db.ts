@@ -332,6 +332,38 @@ function initSchema(db: Database.Database) {
   }
 }
 
+// SQL fragments for province_overview joins — used in both the list query and detail query.
+// po_land:  most recent row for land/networth/timestamps
+// po_race:  most recent row that has race set (state rows store NULLs for race/personality/honor)
+const OVERVIEW_LAND_JOIN = `
+  LEFT JOIN province_overview po ON po.id = (
+    SELECT id FROM province_overview WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1
+  )`;
+const OVERVIEW_RACE_JOIN = `
+  LEFT JOIN province_overview po_race ON po_race.id = (
+    SELECT id FROM province_overview WHERE province_id = p.id AND race IS NOT NULL ORDER BY received_at DESC LIMIT 1
+  )`;
+
+function queryOverview(db: Database.Database, provId: number) {
+  const land = db.prepare(
+    "SELECT land, networth, source, saved_by, received_at FROM province_overview WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
+  ).get(provId) as any;
+  if (!land) return null;
+  const race = db.prepare(
+    "SELECT race, personality, honor_title FROM province_overview WHERE province_id = ? AND race IS NOT NULL ORDER BY received_at DESC LIMIT 1"
+  ).get(provId) as any;
+  return {
+    race: race?.race ?? null,
+    personality: race?.personality ?? null,
+    honorTitle: race?.honor_title ?? null,
+    land: land.land,
+    networth: land.networth,
+    source: land.source,
+    savedBy: land.saved_by,
+    receivedAt: land.received_at,
+  };
+}
+
 // Get or create province identity, return ID
 function ensureProvince(db: Database.Database, name: string, kingdom: string): number {
   // Self-intel (council_state/som/sos) arrives with kingdom="". Prefer an existing
@@ -932,7 +964,7 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
              ORDER BY ki.received_at DESC
              LIMIT 1
            ) AS slot,
-           po.race, po.personality, po.honor_title, po.land, po.networth, po.received_at AS overview_age, po.source AS overview_source,
+           po_race.race, po_race.personality, po_race.honor_title, po.land, po.networth, po.received_at AS overview_age, po.source AS overview_source,
            tmp.off_points, tmp.def_points, tmp.received_at AS military_age,
            pt.soldiers, pt.off_specs, pt.def_specs, pt.elites, pt.war_horses, pt.peasants, pt.received_at AS troops_age, pt.source AS troops_source,
            pt_home.soldiers AS soldiers_home, pt_home.off_specs AS off_specs_home, pt_home.def_specs AS def_specs_home, pt_home.elites AS elites_home, pt_home.received_at AS troops_home_age,
@@ -964,10 +996,8 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
            (SELECT json_group_array(json_object('type', army_type, 'generals', generals, 'soldiers', soldiers, 'offSpecs', off_specs, 'defSpecs', def_specs, 'elites', elites, 'warHorses', war_horses, 'thieves', thieves, 'land', land_gained, 'eta', return_days)) FROM som_armies WHERE military_intel_id = mi.id AND return_days IS NOT NULL) AS som_armies_json,
            (SELECT json_group_array(json_object('type', army_type, 'land', land_gained, 'eta', return_days)) FROM som_armies WHERE military_intel_id = mi_throne.id AND return_days IS NOT NULL) AS throne_armies_json
     FROM provinces p
-    LEFT JOIN province_overview po ON po.id = (
-      SELECT id FROM province_overview
-      WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1
-    )
+    ${OVERVIEW_LAND_JOIN}
+    ${OVERVIEW_RACE_JOIN}
     LEFT JOIN total_military_points tmp ON tmp.id = (
       SELECT id FROM total_military_points
       WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1
@@ -1121,10 +1151,7 @@ export function getProvinceDetail(name: string, kingdom: string, keyHash: string
 
   const id = prov.id;
 
-  const overviewRaw = db.prepare(
-    "SELECT race, personality, honor_title, land, networth, source, saved_by, received_at FROM province_overview WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
-  ).get(id) as any;
-  const overview = overviewRaw ? { race: overviewRaw.race, personality: overviewRaw.personality, honorTitle: overviewRaw.honor_title, land: overviewRaw.land, networth: overviewRaw.networth, source: overviewRaw.source, savedBy: overviewRaw.saved_by, receivedAt: overviewRaw.received_at } : null;
+  const overview = queryOverview(db, id);
 
   const tmRaw = db.prepare(
     "SELECT off_points, def_points, received_at FROM total_military_points WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
