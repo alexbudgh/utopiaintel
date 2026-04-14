@@ -158,6 +158,82 @@ test("resources: infiltrate after SoT does not shadow SoT money/food/runes", () 
 });
 
 // ---------------------------------------------------------------------------
+// DB query: race/personality/honor non-null sourcing across province_overview
+//
+// Scenario: state row (land/NW only, null race/personality/honor) arrives
+// after a sot row (has race/personality/honor).  Per-field IS NOT NULL
+// subqueries should still surface the sot values.
+// A kingdom row has race but not personality — personality subquery must
+// not pick it up.
+// ---------------------------------------------------------------------------
+
+function makeOverviewDb() {
+  const db = new Database(":memory:");
+  db.exec(`
+    CREATE TABLE provinces (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL, kingdom TEXT NOT NULL,
+      UNIQUE(name, kingdom)
+    );
+    CREATE TABLE province_overview (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      province_id INTEGER NOT NULL REFERENCES provinces(id),
+      race TEXT,
+      personality TEXT,
+      honor_title TEXT,
+      land INTEGER,
+      networth INTEGER,
+      received_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+  return db;
+}
+
+test("overview: race/personality/honor survive later state row with nulls", () => {
+  const db = makeOverviewDb();
+  db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('TestProv', '2:3')").run();
+  const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name='TestProv'").get() as { id: number };
+
+  // SoT row: full data
+  db.prepare("INSERT INTO province_overview (province_id, race, personality, honor_title, land, received_at) VALUES (?, 'Elf', 'Merchant', 'Chancellor', 500, '2026-04-04 10:00:00')").run(provId);
+  // state row: land/NW only, no race/personality/honor
+  db.prepare("INSERT INTO province_overview (province_id, race, personality, honor_title, land, received_at) VALUES (?, NULL, NULL, NULL, 510, '2026-04-04 11:00:00')").run(provId);
+
+  const row = db.prepare(`
+    SELECT
+      (SELECT race        FROM province_overview WHERE province_id = ? AND race        IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS race,
+      (SELECT personality FROM province_overview WHERE province_id = ? AND personality IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS personality,
+      (SELECT honor_title FROM province_overview WHERE province_id = ? AND honor_title IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS honor_title,
+      (SELECT land        FROM province_overview WHERE province_id =                              ? ORDER BY received_at DESC LIMIT 1) AS land
+  `).get(provId, provId, provId, provId) as { race: string | null; personality: string | null; honor_title: string | null; land: number | null };
+
+  assert.equal(row.race, "Elf",        "race should survive state null-shadow");
+  assert.equal(row.personality, "Merchant", "personality should survive state null-shadow");
+  assert.equal(row.honor_title, "Chancellor", "honor_title should survive state null-shadow");
+  assert.equal(row.land, 510, "land should come from most recent row");
+  db.close();
+});
+
+test("overview: kingdom row has race but null personality — personality stays null", () => {
+  const db = makeOverviewDb();
+  db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('TestProv', '2:3')").run();
+  const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name='TestProv'").get() as { id: number };
+
+  // kingdom row: race known, personality null (kingdom page doesn't expose personality)
+  db.prepare("INSERT INTO province_overview (province_id, race, personality, honor_title, received_at) VALUES (?, 'Human', NULL, NULL, '2026-04-04 10:00:00')").run(provId);
+
+  const row = db.prepare(`
+    SELECT
+      (SELECT race        FROM province_overview WHERE province_id = ? AND race        IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS race,
+      (SELECT personality FROM province_overview WHERE province_id = ? AND personality IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS personality
+  `).get(provId, provId) as { race: string | null; personality: string | null };
+
+  assert.equal(row.race, "Human", "race from kingdom row is returned");
+  assert.equal(row.personality, null, "personality remains null when no sot row exists");
+  db.close();
+});
+
+// ---------------------------------------------------------------------------
 // Troop column split: SoT (total) vs SoM (at home) sourced independently
 // ---------------------------------------------------------------------------
 

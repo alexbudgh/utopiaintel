@@ -8,6 +8,8 @@ import { parseSoM } from "../lib/parsers/som";
 import { parseSoD } from "../lib/parsers/sod";
 import { parseInfiltrate } from "../lib/parsers/infiltrate";
 import { parseKingdom } from "../lib/parsers/kingdom";
+import { parseTrainArmy } from "../lib/parsers/train_army";
+import { parseUtopiaDate, formatUtopiaDate } from "../lib/ui";
 
 // ---------------------------------------------------------------------------
 // Fixture texts extracted from ~/intel_debug.jsonl
@@ -292,17 +294,30 @@ test("detectIntelType — thievery query op detection is case-insensitive", () =
   );
 });
 
-test("detectIntelType — unsupported thievery ops are real but NYI", () => {
+test("detectIntelType — SNATCH_NEWS detected as kingdom_news", () => {
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=SNATCH_NEWS&q=387&c=4517"),
+    "kingdom_news",
+  );
+});
+
+test("detectIntelType — train_army and army_training detected as train_army", () => {
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/train_army"),
+    "train_army",
+  );
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/army_training"),
+    "train_army",
+  );
+});
+
+test("detectIntelType — unsupported thievery ops return null", () => {
   assert.equal(
     detectIntelType("https://utopia-game.com/wol/game/thievery?c=3900"),
     null,
   );
-  // These are real thievery op URLs seen in traces, but we do not parse/store
-  // them yet, so they should remain unrecognized until implemented.
-  assert.equal(
-    detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=SNATCH_NEWS&q=387&c=4517"),
-    null,
-  );
+  // Real but not-yet-implemented op
   assert.equal(
     detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=SPY_ON_EXPLORATION&q=387&c=236"),
     null,
@@ -627,4 +642,56 @@ test("parseKingdom — open relations list", () => {
       status: "Unfriendly",
     },
   ]);
+});
+
+// ---------------------------------------------------------------------------
+// parseTrainArmy
+// ---------------------------------------------------------------------------
+
+test("parseTrainArmy — parses free specialist credits", () => {
+  const text = `Army Training
+TestProv
+Free specialist credits left\t42
+Soldiers: 1,000`;
+  const r = parseTrainArmy(text, "TestProv");
+  assert.ok(r, "should parse successfully");
+  assert.equal(r.name, "TestProv");
+  assert.equal(r.freeSpecialistCredits, 42);
+});
+
+test("parseTrainArmy — returns null without selfProv", () => {
+  const text = "Free specialist credits left\t42";
+  assert.equal(parseTrainArmy(text, undefined), null);
+});
+
+test("parseTrainArmy — returns null when credits line absent", () => {
+  const text = "Some other army page content";
+  assert.equal(parseTrainArmy(text, "TestProv"), null);
+});
+
+// ---------------------------------------------------------------------------
+// formatUtopiaDate / parseUtopiaDate round-trip
+// ---------------------------------------------------------------------------
+
+test("formatUtopiaDate — round-trips through parseUtopiaDate", () => {
+  const dates = [
+    "January 1 of YR0",
+    "July 24 of YR0",
+    "January 1 of YR1",
+    "February 24 of YR8",
+    "May 1 of YR9",
+    "July 1 of YR10",
+  ];
+  for (const d of dates) {
+    const ord = parseUtopiaDate(d);
+    assert.ok(ord >= 0, `parseUtopiaDate should parse "${d}"`);
+    assert.equal(formatUtopiaDate(ord), d, `round-trip failed for "${d}"`);
+  }
+});
+
+test("formatUtopiaDate — last day of last month is July 24", () => {
+  // YR1 = ordinals 168..335; last day of YR1 = ord 335
+  const ord = parseUtopiaDate("July 24 of YR1");
+  assert.equal(ord, 2 * 7 * 24 - 1);
+  assert.equal(formatUtopiaDate(ord), "July 24 of YR1");
 });
