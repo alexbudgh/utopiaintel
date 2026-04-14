@@ -1055,8 +1055,10 @@ export function getKingdomDragon(kingdom: string, keyHash: string): KingdomDrago
 }
 
 export function getProvinceDetail(name: string, kingdom: string, keyHash: string): ProvinceDetail {
-  const db = getDb();
+  return createDbApi(getDb()).getProvinceDetail(name, kingdom, keyHash);
+}
 
+function getProvinceDetailForDb(db: Database.Database, name: string, kingdom: string, keyHash: string): ProvinceDetail {
   const prov = db.prepare(
     "SELECT id, name, kingdom FROM provinces WHERE name = ? AND kingdom = ?"
   ).get(name, kingdom) as { id: number; name: string; kingdom: string } | undefined;
@@ -1358,6 +1360,7 @@ export interface DbApi {
   getKingdomProvinces(kingdom: string, keyHash: string): ProvinceRow[];
   getKingdomRitual(kingdom: string, keyHash: string): KingdomRitual | null;
   getKingdomDragon(kingdom: string, keyHash: string): KingdomDragon | null;
+  getProvinceDetail(name: string, kingdom: string, keyHash: string): ProvinceDetail;
   getKingdomNews(kingdom: string, keyHash: string, from?: string, to?: string): { events: KingdomNewsRow[]; effectiveFrom: string | null };
   getLatestWarDate(kingdom: string, keyHash: string): string | null;
   getKingdomNewsSummary(kingdom: string, keyHash: string, from?: string, to?: string): KingdomNewsSummary;
@@ -1505,6 +1508,10 @@ export function createDbApi(db: Database.Database): DbApi {
       `).get(keyHash, kingdom) as { dragon_type: string; dragon_name: string; received_at: string } | undefined;
       if (!row) return null;
       return { dragonType: row.dragon_type, dragonName: row.dragon_name, receivedAt: row.received_at };
+    },
+
+    getProvinceDetail(name, kingdom, keyHash) {
+      return getProvinceDetailForDb(db, name, kingdom, keyHash);
     },
 
     getKingdomNews(kingdom, keyHash, from, to) {

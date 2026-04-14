@@ -1556,3 +1556,107 @@ test("getGainsPageData: returns bound kingdom context, target intel, and target 
     });
   });
 });
+
+test("getProvinceDetail: returns SoT/resources/status detail and enforces key access", async () => {
+  await withRealDb((api, db) => {
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();
+    const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name = 'Alpha' AND kingdom = '7:5'").get() as { id: number };
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
+
+    db.prepare(`
+      INSERT INTO province_overview (province_id, race, personality, honor_title, land, networth, source, saved_by, received_at)
+      VALUES (?, 'Elf', 'Merchant', 'Baron', 1234, 456789, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId);
+    db.prepare(`
+      INSERT INTO total_military_points (province_id, off_points, def_points, source, saved_by, received_at)
+      VALUES (?, 111111, 99999, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId);
+    db.prepare(`
+      INSERT INTO home_military_points (province_id, mod_off_at_home, mod_def_at_home, source, saved_by, received_at)
+      VALUES (?, 101000, 88000, 'som', 'Alpha', '2026-04-04 18:15:00')
+    `).run(provId);
+    db.prepare(`
+      INSERT INTO province_troops (province_id, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, saved_by, received_at)
+      VALUES (?, 500, 600, 700, 800, 50, 9000, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId);
+    db.prepare(`
+      INSERT INTO province_resources (province_id, money, food, runes, prisoners, trade_balance, building_efficiency, thieves, stealth, wizards, mana, total_pop, max_pop, source, saved_by, received_at)
+      VALUES (?, 100000, 20000, 3000, 40, -500, 92, 1234, 77, 456, 88, 11000, 14000, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId);
+    db.prepare(`
+      INSERT INTO province_status (province_id, plagued, overpopulated, overpop_deserters, dragon_type, dragon_name, hit_status, war, source, saved_by, received_at)
+      VALUES (?, 1, 0, NULL, 'Ruby', 'Inferno', 'moderately', 1, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId);
+    db.prepare(`
+      INSERT INTO province_effects (province_id, effect_name, effect_kind, duration_text, remaining_ticks, effectiveness_percent, source, saved_by, received_at)
+      VALUES (?, 'Builders Boon', 'spell', '1 day', 1, NULL, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId);
+
+    const detail = api.getProvinceDetail("Alpha", "7:5", KEY_A);
+    assert.equal(detail.province?.name, "Alpha");
+    assert.equal(detail.overview?.race, "Elf");
+    assert.equal(detail.sot?.peasants, 9000);
+    assert.equal(detail.resources?.money, 100000);
+    assert.equal(detail.resources?.thieves, 1234);
+    assert.equal(detail.status?.dragonType, "Ruby");
+    assert.equal(detail.status?.war, true);
+    assert.equal(detail.effects.length, 1);
+
+    const denied = api.getProvinceDetail("Alpha", "7:5", KEY_B);
+    assert.equal(denied.province, null);
+    assert.equal(denied.sot, null);
+    assert.deepEqual(denied.effects, []);
+  });
+});
+
+test("getKingdomProvinces: summarizes good and bad spells from the latest effect snapshot only", async () => {
+  await withRealDb(({ getKingdomProvinces }, db) => {
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();
+    const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name = 'Alpha' AND kingdom = '7:5'").get() as { id: number };
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
+    db.prepare(`
+      INSERT INTO province_overview (province_id, race, land, networth, source, saved_by, received_at)
+      VALUES (?, 'Elf', 1234, 456789, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId);
+
+    db.prepare(`
+      INSERT INTO province_effects (province_id, effect_name, effect_kind, remaining_ticks, source, saved_by, received_at)
+      VALUES (?, 'Inspire Army', 'spell', NULL, 'sot', 'Alpha', '2026-04-04 17:00:00')
+    `).run(provId);
+    db.prepare(`
+      INSERT INTO province_effects (province_id, effect_name, effect_kind, remaining_ticks, source, saved_by, received_at)
+      VALUES (?, 'Builders Boon', 'spell', 1, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId);
+    db.prepare(`
+      INSERT INTO province_effects (province_id, effect_name, effect_kind, remaining_ticks, source, saved_by, received_at)
+      VALUES (?, 'Greed', 'spell', 4, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId);
+
+    const rows = getKingdomProvinces("7:5", KEY_A);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].good_spell_count, 1);
+    assert.equal(rows[0].bad_spell_count, 1);
+    assert.equal(rows[0].good_spell_details, "Builders Boon (1)");
+    assert.equal(rows[0].bad_spell_details, "Greed (4)");
+  });
+});
+
+test("getKingdomNews: applies from/to filters and returns newest-first rows", async () => {
+  await withRealDb(({ getKingdomNews }, db) => {
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();
+    const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name = 'Alpha' AND kingdom = '7:5'").get() as { id: number };
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
+
+    const insertNews = db.prepare(`
+      INSERT INTO kingdom_news (kingdom, game_date, game_date_ord, event_type, raw_text, received_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    insertNews.run("7:5", "March 1 of YR9", parseUtopiaDate("March 1 of YR9"), "war_declared", "oldest", "2026-04-04 18:00:00");
+    insertNews.run("7:5", "March 5 of YR9", parseUtopiaDate("March 5 of YR9"), "war_declared", "middle", "2026-04-04 18:01:00");
+    insertNews.run("7:5", "March 9 of YR9", parseUtopiaDate("March 9 of YR9"), "war_declared", "newest", "2026-04-04 18:02:00");
+
+    const result = getKingdomNews("7:5", KEY_A, "March 2 of YR9", "March 8 of YR9");
+    assert.equal(result.effectiveFrom, "March 2 of YR9");
+    assert.deepEqual(result.events.map((e) => e.rawText), ["middle"]);
+  });
+});
