@@ -345,9 +345,9 @@ function DateSelector({ value, onChange }: { value: DateParts; onChange: (v: Dat
   );
 }
 
-function NewsDateFilter({ kingdom, from, to, latestWarDate }: { kingdom: string; from?: string; to?: string; latestWarDate?: string }) {
+function NewsDateFilter({ kingdom, from, to, effectiveFrom, latestWarDate }: { kingdom: string; from?: string; to?: string; effectiveFrom?: string; latestWarDate?: string }) {
   const router = useRouter();
-  const [fromParts, setFromParts] = useState<DateParts>(() => parseDateParts(from));
+  const [fromParts, setFromParts] = useState<DateParts>(() => parseDateParts(from ?? effectiveFrom));
   const [toParts,   setToParts]   = useState<DateParts>(() => parseDateParts(to));
   const [toLatest,  setToLatest]  = useState(!to);
 
@@ -414,7 +414,7 @@ function NewsDateFilter({ kingdom, from, to, latestWarDate }: { kingdom: string;
   );
 }
 
-export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWarDate, warTarget }: { events: KingdomNewsRow[]; summary: KingdomNewsSummary; kingdom: string; from?: string; to?: string; latestWarDate?: string; warTarget?: string }) {
+export function KingdomNewsTable({ events, summary, kingdom, from, to, effectiveFrom, latestWarDate, warTarget }: { events: KingdomNewsRow[]; summary: KingdomNewsSummary; kingdom: string; from?: string; to?: string; effectiveFrom?: string; latestWarDate?: string; warTarget?: string }) {
   const [activeGroups, setActiveGroups] = useState<Set<string>>(DEFAULT_GROUPS);
   const [visibleCount, setVisibleCount] = useState(50);
   const [showChart, setShowChart] = useState(false);
@@ -444,7 +444,7 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
     return (
       <>
         {controls}
-        <NewsDateFilter kingdom={kingdom} from={from} to={to} latestWarDate={latestWarDate} />
+        <NewsDateFilter kingdom={kingdom} from={from} to={to} effectiveFrom={effectiveFrom} latestWarDate={latestWarDate} />
         <div className="rounded-lg border border-gray-800 bg-gray-900/50 px-5 py-6 text-sm text-gray-400">
           {(from || to)
             ? "No events in the selected date range."
@@ -505,7 +505,7 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, latestWar
   return (
     <>
       {controls}
-      <NewsDateFilter kingdom={kingdom} from={from} to={to} latestWarDate={latestWarDate} />
+      <NewsDateFilter kingdom={kingdom} from={from} to={to} effectiveFrom={effectiveFrom} latestWarDate={latestWarDate} />
 
       {showChart && <NewsChart events={events} ourKingdom={summary.ourKingdom} />}
 

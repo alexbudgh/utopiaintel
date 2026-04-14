@@ -11,6 +11,15 @@ export function parseUtopiaDate(date: string): number {
   return year * 7 * 24 + monthIdx * 24 + (day - 1);
 }
 
+/** Convert ordinal back to "Month D of YRN". */
+export function formatUtopiaDate(ord: number): string {
+  const year     = Math.floor(ord / (7 * 24));
+  const remainder = ord % (7 * 24);
+  const monthIdx = Math.floor(remainder / 24);
+  const day      = (remainder % 24) + 1;
+  return `${UTOPIA_MONTHS[monthIdx]} ${day} of YR${year}`;
+}
+
 // SQLite datetime('now') produces "YYYY-MM-DD HH:MM:SS" without timezone —
 // treat as UTC by normalising to an ISO 8601 string with Z suffix.
 export function parseUtc(iso: string): number {

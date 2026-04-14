@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
 import { BAD_SPELL_NAMES } from "./effects";
-import { parseUtopiaDate } from "./ui";
+import { parseUtopiaDate, formatUtopiaDate } from "./ui";
 import type {
   SoTData,
   SurveyData,
@@ -1338,7 +1338,7 @@ export interface KingdomNewsRow {
 
 const UTOPIA_MONTH_DAYS = 24; // days per Utopia month
 
-export function getKingdomNews(kingdom: string, keyHash: string, from?: string, to?: string): KingdomNewsRow[] {
+export function getKingdomNews(kingdom: string, keyHash: string, from?: string, to?: string): { events: KingdomNewsRow[]; effectiveFrom: string | null } {
   const db = getDb();
   // Access control: only return news if the key has any intel for that kingdom
   const hasAccess = db.prepare(`
@@ -1347,11 +1347,12 @@ export function getKingdomNews(kingdom: string, keyHash: string, from?: string, 
     WHERE ip.key_hash = ? AND p.kingdom = ?
     LIMIT 1
   `).get(keyHash, kingdom);
-  if (!hasAccess) return [];
+  if (!hasAccess) return { events: [], effectiveFrom: null };
 
   // Determine ordinal bounds — default to last 3 Utopia months
   let fromOrd: number;
   let toOrd: number;
+  let effectiveFrom: string | null = from ?? null;
   if (from || to) {
     fromOrd = from ? parseUtopiaDate(from) : 0;
     toOrd   = to   ? parseUtopiaDate(to)   : 999999;
@@ -1360,6 +1361,7 @@ export function getKingdomNews(kingdom: string, keyHash: string, from?: string, 
     const maxOrd = maxRow?.m ?? 0;
     fromOrd = maxOrd - 3 * UTOPIA_MONTH_DAYS + 1;
     toOrd   = 999999;
+    effectiveFrom = formatUtopiaDate(fromOrd);
   }
 
   const rows = db.prepare(`
@@ -1394,7 +1396,7 @@ export function getKingdomNews(kingdom: string, keyHash: string, from?: string, 
     received_at: string;
   }>;
 
-  return rows.map((r) => ({
+  const events = rows.map((r) => ({
     id: r.id,
     kingdom: r.kingdom,
     gameDate: r.game_date,
@@ -1413,6 +1415,7 @@ export function getKingdomNews(kingdom: string, keyHash: string, from?: string, 
     dragonName: r.dragon_name,
     receivedAt: r.received_at,
   }));
+  return { events, effectiveFrom };
 }
 
 /** Returns the game_date of the most recent war_declared event for this kingdom, or null if none. */

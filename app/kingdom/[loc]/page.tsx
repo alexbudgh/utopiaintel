@@ -39,7 +39,9 @@ export default async function KingdomPage({
     : null;
   const hasAnyIntel = provinces.length > 0 || !!snapshot;
   const gainsInitial = view === "gains" ? getGainsPageData(kingdom, keyHash) : null;
-  const newsEvents = view === "news" ? getKingdomNews(kingdom, keyHash, from, to) : null;
+  const newsResult = view === "news" ? getKingdomNews(kingdom, keyHash, from, to) : null;
+  const newsEvents = newsResult?.events ?? null;
+  const newsEffectiveFrom = newsResult?.effectiveFrom ?? null;
   const newsSummary = view === "news" ? getKingdomNewsSummary(kingdom, keyHash, from, to) : null;
   const latestWarDate = view === "news" ? getLatestWarDate(kingdom, keyHash) : null;
   const ritual = getKingdomRitual(kingdom, keyHash);
@@ -107,7 +109,7 @@ export default async function KingdomPage({
       )}
 
       {view === "news" ? (
-        <KingdomNewsTable events={newsEvents!} summary={newsSummary!} kingdom={kingdom} from={from} to={to} latestWarDate={latestWarDate ?? undefined} warTarget={snapshot?.warTarget ?? undefined} />
+        <KingdomNewsTable events={newsEvents!} summary={newsSummary!} kingdom={kingdom} from={from} to={to} effectiveFrom={newsEffectiveFrom ?? undefined} latestWarDate={latestWarDate ?? undefined} warTarget={snapshot?.warTarget ?? undefined} />
       ) : view === "gains" ? (
         <GainsTable initial={gainsInitial!} embedded />
       ) : hasAnyIntel ? (
