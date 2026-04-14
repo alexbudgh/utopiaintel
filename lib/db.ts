@@ -1115,7 +1115,7 @@ export interface ProvinceDetail {
   overview: { race: string | null; personality: string | null; honorTitle: string | null; land: number | null; networth: number | null; source: string; savedBy: string | null; receivedAt: string } | null;
   totalMilitary: { offPoints: number | null; defPoints: number | null; receivedAt: string } | null;
   homeMilitary: { modOffAtHome: number | null; modDefAtHome: number | null; source: string; receivedAt: string } | null;
-  troops: { soldiers: number | null; offSpecs: number | null; defSpecs: number | null; elites: number | null; warHorses: number | null; peasants: number | null; source: string; receivedAt: string } | null;
+  sot: { soldiers: number | null; offSpecs: number | null; defSpecs: number | null; elites: number | null; warHorses: number | null; peasants: number | null; source: string; receivedAt: string } | null;
   resources: { money: number | null; food: number | null; runes: number | null; prisoners: number | null; tradeBalance: number | null; buildingEfficiency: number | null; thieves: number | null; thievesAge: string | null; stealth: number | null; wizards: number | null; mana: number | null; totalPop: number | null; maxPop: number | null; freeSpecialistCredits: number | null; freeSpecialistCreditsAge: string | null; freeBuildingCredits: number | null; freeBuildingCreditsAge: string | null; receivedAt: string } | null;
   status: { plagued: boolean; overpopulated: boolean; overpopDeserters: number | null; dragonType: string | null; dragonName: string | null; hitStatus: string | null; war: boolean; receivedAt: string } | null;
   effects: { name: string; kind: string; durationText: string | null; remainingTicks: number | null; effectivenessPercent: number | null; receivedAt: string }[];
@@ -1181,13 +1181,13 @@ export function getProvinceDetail(name: string, kingdom: string, keyHash: string
     "SELECT id, name, kingdom FROM provinces WHERE name = ? AND kingdom = ?"
   ).get(name, kingdom) as { id: number; name: string; kingdom: string } | undefined;
 
-  if (!prov) return { province: null, overview: null, totalMilitary: null, homeMilitary: null, troops: null, resources: null, status: null, effects: [], militaryIntel: null, survey: null, sciences: null };
+  if (!prov) return { province: null, overview: null, totalMilitary: null, homeMilitary: null, sot: null, resources: null, status: null, effects: [], militaryIntel: null, survey: null, sciences: null };
 
   // Auth check
   const allowed = db.prepare(
     "SELECT 1 FROM intel_partitions WHERE key_hash = ? AND province_id = ?"
   ).get(keyHash, prov.id);
-  if (!allowed) return { province: null, overview: null, totalMilitary: null, homeMilitary: null, troops: null, resources: null, status: null, effects: [], militaryIntel: null, survey: null, sciences: null };
+  if (!allowed) return { province: null, overview: null, totalMilitary: null, homeMilitary: null, sot: null, resources: null, status: null, effects: [], militaryIntel: null, survey: null, sciences: null };
 
   const id = prov.id;
 
@@ -1206,7 +1206,7 @@ export function getProvinceDetail(name: string, kingdom: string, keyHash: string
   const troopsRaw = db.prepare(
     "SELECT soldiers, off_specs, def_specs, elites, war_horses, peasants, source, received_at FROM province_troops WHERE province_id = ? AND source = 'sot' ORDER BY received_at DESC LIMIT 1"
   ).get(id) as any;
-  const troops = troopsRaw ? { soldiers: troopsRaw.soldiers, offSpecs: troopsRaw.off_specs, defSpecs: troopsRaw.def_specs, elites: troopsRaw.elites, warHorses: troopsRaw.war_horses, peasants: troopsRaw.peasants, source: troopsRaw.source, receivedAt: troopsRaw.received_at } : null;
+  const sot = troopsRaw ? { soldiers: troopsRaw.soldiers, offSpecs: troopsRaw.off_specs, defSpecs: troopsRaw.def_specs, elites: troopsRaw.elites, warHorses: troopsRaw.war_horses, peasants: troopsRaw.peasants, source: troopsRaw.source, receivedAt: troopsRaw.received_at } : null;
 
   const resRaw = db.prepare(
     "SELECT money, food, runes, prisoners, trade_balance, building_efficiency, stealth, wizards, mana, received_at FROM province_resources WHERE province_id = ? AND source = 'sot' ORDER BY received_at DESC LIMIT 1"
@@ -1302,7 +1302,7 @@ export function getProvinceDetail(name: string, kingdom: string, keyHash: string
     overview,
     totalMilitary,
     homeMilitary,
-    troops,
+    sot,
     resources,
     status,
     effects: effects.map((effect) => ({

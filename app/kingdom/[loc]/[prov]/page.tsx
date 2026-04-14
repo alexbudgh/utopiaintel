@@ -123,18 +123,18 @@ export default async function ProvincePage({
     housing_effect: d.sciences?.sciences.find(s => s.science === "Housing")?.effect ?? null,
     science_total_books: d.sciences?.sciences.reduce((s, sc) => s + sc.books, 0) ?? null,
     sciences_age: d.sciences?.receivedAt ?? null,
-    peasants: d.troops?.peasants ?? null,
-    soldiers: d.troops?.soldiers ?? null,
-    off_specs: d.troops?.offSpecs ?? null,
-    def_specs: d.troops?.defSpecs ?? null,
-    elites: d.troops?.elites ?? null,
-    war_horses: d.troops?.warHorses ?? null,
+    peasants: d.sot?.peasants ?? null,
+    soldiers: d.sot?.soldiers ?? null,
+    off_specs: d.sot?.offSpecs ?? null,
+    def_specs: d.sot?.defSpecs ?? null,
+    elites: d.sot?.elites ?? null,
+    war_horses: d.sot?.warHorses ?? null,
     money: d.resources?.money ?? null,
     thieves: d.resources?.thieves ?? null,
     thieves_age: d.resources?.thievesAge ?? null,
     wizards: d.resources?.wizards ?? null,
     prisoners: d.resources?.prisoners ?? null,
-    troops_age: d.troops?.receivedAt ?? null,
+    troops_age: d.sot?.receivedAt ?? null,
     resources_age: d.resources?.receivedAt ?? null,
     training_off_specs: d.militaryIntel?.armies.find(a => a.armyType === "training")?.offSpecs ?? null,
     training_def_specs: d.militaryIntel?.armies.find(a => a.armyType === "training")?.defSpecs ?? null,
@@ -177,6 +177,7 @@ export default async function ProvincePage({
               <KV label="Honor" value={d.overview.honorTitle ?? "—"} />
               <KV label="Land" value={d.overview.land != null ? d.overview.land.toLocaleString() : "—"} />
               <KV label="Networth" value={d.overview.networth != null ? d.overview.networth.toLocaleString() : "—"} />
+              {d.sot && <KV label="Peasants" value={d.sot.peasants != null ? d.sot.peasants.toLocaleString() : "—"} />}
               {pop && (() => {
                 const cur = pop.currentPop;
                 const max = pop.maxPop;
@@ -235,11 +236,24 @@ export default async function ProvincePage({
         </Card>
 
         <Card title="Military">
-          {d.totalMilitary || d.homeMilitary || d.militaryIntel ? (
+          {d.sot || d.totalMilitary || d.homeMilitary || d.militaryIntel ? (
             <>
-              {d.totalMilitary && (
+              {d.sot && (
                 <>
                   <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs text-gray-600">Units (SoT)</span>
+                    <Age iso={d.sot.receivedAt} />
+                  </div>
+                  <KV label="Soldiers" value={d.sot.soldiers != null ? d.sot.soldiers.toLocaleString() : "—"} />
+                  <KV label="Off specs" value={d.sot.offSpecs != null ? d.sot.offSpecs.toLocaleString() : "—"} />
+                  <KV label="Def specs" value={d.sot.defSpecs != null ? d.sot.defSpecs.toLocaleString() : "—"} />
+                  <KV label="Elites" value={d.sot.elites != null ? d.sot.elites.toLocaleString() : "—"} />
+                  <KV label="War horses" value={d.sot.warHorses != null ? d.sot.warHorses.toLocaleString() : "—"} />
+                </>
+              )}
+              {d.totalMilitary && (
+                <>
+                  <div className="flex items-center gap-2 mb-1 mt-2">
                     <span className="text-xs text-gray-600">Total (SoT)</span>
                     <Age iso={d.totalMilitary.receivedAt} />
                   </div>
@@ -268,38 +282,6 @@ export default async function ProvincePage({
                 </>
               )}
             </>
-          ) : <NoData />}
-        </Card>
-      </div>
-
-      {/* Troops */}
-      <div className="mb-4">
-        <Card title="Troops" age={d.troops?.receivedAt}>
-          {d.troops ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-gray-500 text-xs border-b border-gray-700">
-                    <th className="pb-1 text-right pr-4 font-medium">Soldiers</th>
-                    <th className="pb-1 text-right pr-4 font-medium">Off specs</th>
-                    <th className="pb-1 text-right pr-4 font-medium">Def specs</th>
-                    <th className="pb-1 text-right pr-4 font-medium">Elites</th>
-                    <th className="pb-1 text-right pr-4 font-medium">War horses</th>
-                    <th className="pb-1 text-right font-medium">Peasants</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="text-gray-200">
-                    <td className="pt-1 text-right pr-4 tabular-nums">{d.troops.soldiers != null ? d.troops.soldiers.toLocaleString() : "—"}</td>
-                    <td className="pt-1 text-right pr-4 tabular-nums">{d.troops.offSpecs != null ? d.troops.offSpecs.toLocaleString() : "—"}</td>
-                    <td className="pt-1 text-right pr-4 tabular-nums">{d.troops.defSpecs != null ? d.troops.defSpecs.toLocaleString() : "—"}</td>
-                    <td className="pt-1 text-right pr-4 tabular-nums">{d.troops.elites != null ? d.troops.elites.toLocaleString() : "—"}</td>
-                    <td className="pt-1 text-right pr-4 tabular-nums">{d.troops.warHorses != null ? d.troops.warHorses.toLocaleString() : "—"}</td>
-                    <td className="pt-1 text-right tabular-nums">{d.troops.peasants != null ? d.troops.peasants.toLocaleString() : "—"}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
           ) : <NoData />}
         </Card>
       </div>
