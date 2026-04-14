@@ -356,7 +356,7 @@ export default async function ProvincePage({
         <Card title="Resources" age={d.resources?.receivedAt}>
           {d.resources ? (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8">
-              <KV label="Money" value={d.resources.money != null ? d.resources.money.toLocaleString() : "—"} />
+              <KV label="Gold" value={d.resources.money != null ? d.resources.money.toLocaleString() : "—"} />
               <KV label="Food" value={d.resources.food != null ? d.resources.food.toLocaleString() : "—"} />
               <KV label="Runes" value={d.resources.runes != null ? d.resources.runes.toLocaleString() : "—"} />
               <KV label="Mana" value={d.resources.mana != null ? d.resources.mana.toLocaleString() : "—"} />
