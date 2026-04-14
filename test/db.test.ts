@@ -133,6 +133,8 @@ test("thieves: uses most recent non-null when multiple infiltrate ops", () => {
   db.close();
 });
 
+const RESOURCES_JOIN_FILTER = `source = 'sot'`;
+
 test("resources: infiltrate after SoT does not shadow SoT money/food/runes", () => {
   const db = makeDb();
   db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Obsidian', '7:5')").run();
@@ -148,13 +150,187 @@ test("resources: infiltrate after SoT does not shadow SoT money/food/runes", () 
       (SELECT p2.thieves FROM province_resources p2 WHERE p2.province_id = ? AND p2.thieves IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS thieves
     FROM provinces p
     LEFT JOIN province_resources pr ON pr.id = (
-      SELECT id FROM province_resources WHERE province_id = p.id AND source != 'infiltrate' ORDER BY received_at DESC LIMIT 1
+      SELECT id FROM province_resources WHERE province_id = p.id AND ${RESOURCES_JOIN_FILTER} ORDER BY received_at DESC LIMIT 1
     )
     WHERE p.id = ?
   `).get(provId, provId) as { money: number | null; thieves: number | null };
 
   assert.equal(row.money, 1500000, "money should come from SoT, not be shadowed by infiltrate null");
   assert.equal(row.thieves, 4038, "thieves should come from infiltrate op");
+  db.close();
+});
+
+test("resources: train_army after SoT does not shadow SoT money/food/runes", () => {
+  const db = makeDb();
+  db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('TestProv', '7:5')").run();
+  const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name='TestProv'").get() as { id: number };
+
+  // SoT: has full resource data
+  db.prepare("INSERT INTO province_resources (province_id, money, source, received_at) VALUES (?, 2000000, 'sot', '2026-04-04 18:00:00')").run(provId);
+  // train_army page visited later: sparse row, money=null
+  db.prepare("INSERT INTO province_resources (province_id, money, source, received_at) VALUES (?, NULL, 'train_army', '2026-04-04 18:45:00')").run(provId);
+
+  const row = db.prepare(`
+    SELECT pr.money
+    FROM provinces p
+    LEFT JOIN province_resources pr ON pr.id = (
+      SELECT id FROM province_resources WHERE province_id = p.id AND ${RESOURCES_JOIN_FILTER} ORDER BY received_at DESC LIMIT 1
+    )
+    WHERE p.id = ?
+  `).get(provId) as { money: number | null };
+
+  assert.equal(row.money, 2000000, "money should come from SoT, not be shadowed by train_army null");
+  db.close();
+});
+
+test("resources: build page after SoT does not shadow SoT money/food/runes", () => {
+  const db = makeDb();
+  db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('TestProv2', '7:5')").run();
+  const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name='TestProv2'").get() as { id: number };
+
+  // SoT: has full resource data
+  db.prepare("INSERT INTO province_resources (province_id, money, source, received_at) VALUES (?, 3000000, 'sot', '2026-04-04 18:00:00')").run(provId);
+  // build page visited later: sparse row, money=null
+  db.prepare("INSERT INTO province_resources (province_id, money, source, received_at) VALUES (?, NULL, 'build', '2026-04-04 19:10:00')").run(provId);
+
+  const row = db.prepare(`
+    SELECT pr.money
+    FROM provinces p
+    LEFT JOIN province_resources pr ON pr.id = (
+      SELECT id FROM province_resources WHERE province_id = p.id AND ${RESOURCES_JOIN_FILTER} ORDER BY received_at DESC LIMIT 1
+    )
+    WHERE p.id = ?
+  `).get(provId) as { money: number | null };
+
+  assert.equal(row.money, 3000000, "money should come from SoT, not be shadowed by build null");
+  db.close();
+});
+
+test("resources: state row after SoT does not shadow SoT money/food/runes", () => {
+  // state writes thieves/wizards/totalPop/maxPop but not money — newer state row must not shadow SoT money
+  const db = makeDb();
+  db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('SelfProv', '7:5')").run();
+  const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name='SelfProv'").get() as { id: number };
+
+  db.prepare("INSERT INTO province_resources (province_id, money, source, received_at) VALUES (?, 5000000, 'sot', '2026-04-04 18:00:00')").run(provId);
+  // state page visited later: stores thieves/wizards only, money=null
+  db.prepare("INSERT INTO province_resources (province_id, money, source, received_at) VALUES (?, NULL, 'state', '2026-04-04 18:50:00')").run(provId);
+
+  const row = db.prepare(`
+    SELECT pr.money
+    FROM provinces p
+    LEFT JOIN province_resources pr ON pr.id = (
+      SELECT id FROM province_resources WHERE province_id = p.id AND ${RESOURCES_JOIN_FILTER} ORDER BY received_at DESC LIMIT 1
+    )
+    WHERE p.id = ?
+  `).get(provId) as { money: number | null };
+
+  assert.equal(row.money, 5000000, "money should come from SoT, not be shadowed by state null");
+  db.close();
+});
+
+test("resources: state total_pop/max_pop accessible via per-field subquery despite filtering main join to sot", () => {
+  const db = makeDb();
+  // extend schema to match real table
+  db.exec("ALTER TABLE province_resources ADD COLUMN total_pop INTEGER");
+  db.exec("ALTER TABLE province_resources ADD COLUMN max_pop INTEGER");
+  db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('SelfProv2', '7:5')").run();
+  const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name='SelfProv2'").get() as { id: number };
+
+  db.prepare("INSERT INTO province_resources (province_id, money, source, received_at) VALUES (?, 4000000, 'sot', '2026-04-04 18:00:00')").run(provId);
+  db.prepare("INSERT INTO province_resources (province_id, total_pop, max_pop, source, received_at) VALUES (?, 12450, 15200, 'state', '2026-04-04 18:50:00')").run(provId);
+
+  const row = db.prepare(`
+    SELECT pr.money,
+      (SELECT p2.total_pop FROM province_resources p2 WHERE p2.province_id = ? AND p2.total_pop IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS total_pop,
+      (SELECT p2.max_pop  FROM province_resources p2 WHERE p2.province_id = ? AND p2.max_pop  IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS max_pop
+    FROM provinces p
+    LEFT JOIN province_resources pr ON pr.id = (
+      SELECT id FROM province_resources WHERE province_id = p.id AND ${RESOURCES_JOIN_FILTER} ORDER BY received_at DESC LIMIT 1
+    )
+    WHERE p.id = ?
+  `).get(provId, provId, provId) as { money: number | null; total_pop: number | null; max_pop: number | null };
+
+  assert.equal(row.money, 4000000, "money from SoT");
+  assert.equal(row.total_pop, 12450, "total_pop accessible via per-field subquery from state row");
+  assert.equal(row.max_pop, 15200, "max_pop accessible via per-field subquery from state row");
+  db.close();
+});
+
+// ---------------------------------------------------------------------------
+// DB query: province_troops state/som shadowing
+//
+// state writes peasants-only; som writes home troops without peasants.
+// A more recent state or som row must not shadow a full SoT row.
+// ---------------------------------------------------------------------------
+
+function makeShadowTroopsDb() {
+  const db = new Database(":memory:");
+  db.exec(`
+    CREATE TABLE provinces (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL, kingdom TEXT NOT NULL,
+      UNIQUE(name, kingdom)
+    );
+    CREATE TABLE province_troops (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      province_id INTEGER NOT NULL REFERENCES provinces(id),
+      soldiers INTEGER, off_specs INTEGER, def_specs INTEGER,
+      elites INTEGER, war_horses INTEGER, peasants INTEGER,
+      source TEXT NOT NULL,
+      received_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+  return db;
+}
+
+const TROOPS_JOIN_FILTER = `source = 'sot'`;
+
+test("troops: state row after SoT does not shadow SoT soldiers/specs/elites", () => {
+  const db = makeShadowTroopsDb();
+  db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('SelfProv', '7:5')").run();
+  const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name='SelfProv'").get() as { id: number };
+
+  // SoT (throne): full troop data
+  db.prepare("INSERT INTO province_troops (province_id, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, received_at) VALUES (?, 5000, 2000, 3000, 1500, 400, 12000, 'sot', '2026-04-04 18:00:00')").run(provId);
+  // state page visited later: only peasants known
+  db.prepare("INSERT INTO province_troops (province_id, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, received_at) VALUES (?, NULL, NULL, NULL, NULL, NULL, 12500, 'state', '2026-04-04 18:50:00')").run(provId);
+
+  const row = db.prepare(`
+    SELECT pt.soldiers, pt.peasants
+    FROM provinces p
+    LEFT JOIN province_troops pt ON pt.id = (
+      SELECT id FROM province_troops WHERE province_id = p.id AND ${TROOPS_JOIN_FILTER} ORDER BY received_at DESC LIMIT 1
+    )
+    WHERE p.id = ?
+  `).get(provId) as { soldiers: number | null; peasants: number | null };
+
+  assert.equal(row.soldiers, 5000, "soldiers should come from SoT, not be shadowed by state null");
+  assert.equal(row.peasants, 12000, "peasants should come from SoT when SoT row is selected");
+  db.close();
+});
+
+test("troops: som row after SoT does not shadow SoT when filtered to sot only", () => {
+  const db = makeShadowTroopsDb();
+  db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('EnemyProv', '8:3')").run();
+  const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name='EnemyProv'").get() as { id: number };
+
+  // SoT: full troop data
+  db.prepare("INSERT INTO province_troops (province_id, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, received_at) VALUES (?, 4000, 1500, 2500, 1200, 300, 10000, 'sot', '2026-04-04 17:00:00')").run(provId);
+  // SoM home army: no peasants
+  db.prepare("INSERT INTO province_troops (province_id, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, received_at) VALUES (?, 3800, 1400, 2400, 1100, 280, NULL, 'som', '2026-04-04 18:00:00')").run(provId);
+
+  const row = db.prepare(`
+    SELECT pt.soldiers, pt.peasants
+    FROM provinces p
+    LEFT JOIN province_troops pt ON pt.id = (
+      SELECT id FROM province_troops WHERE province_id = p.id AND ${TROOPS_JOIN_FILTER} ORDER BY received_at DESC LIMIT 1
+    )
+    WHERE p.id = ?
+  `).get(provId) as { soldiers: number | null; peasants: number | null };
+
+  assert.equal(row.soldiers, 4000, "soldiers should come from SoT, not be shadowed by som home troops");
+  assert.equal(row.peasants, 10000, "peasants from SoT preserved");
   db.close();
 });
 

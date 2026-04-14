@@ -1003,7 +1003,9 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
            tmp.off_points, tmp.def_points, tmp.received_at AS military_age,
            pt.soldiers, pt.off_specs, pt.def_specs, pt.elites, pt.war_horses, pt.peasants, pt.received_at AS troops_age, pt.source AS troops_source,
            pt_home.soldiers AS soldiers_home, pt_home.off_specs AS off_specs_home, pt_home.def_specs AS def_specs_home, pt_home.elites AS elites_home, pt_home.received_at AS troops_home_age,
-           pr.money, pr.food, pr.runes, pr.prisoners, pr.trade_balance, pr.building_efficiency, pr.wizards, pr.total_pop, pr.max_pop, pr.received_at AS resources_age, pr.source AS resources_source,
+           pr.money, pr.food, pr.runes, pr.prisoners, pr.trade_balance, pr.building_efficiency, pr.wizards, pr.received_at AS resources_age, pr.source AS resources_source,
+           (SELECT p2.total_pop FROM province_resources p2 WHERE p2.province_id = p.id AND p2.total_pop IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS total_pop,
+           (SELECT p2.max_pop FROM province_resources p2 WHERE p2.province_id = p.id AND p2.max_pop IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS max_pop,
            (SELECT p2.thieves FROM province_resources p2 WHERE p2.province_id = p.id AND p2.thieves IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS thieves,
            (SELECT p2.received_at FROM province_resources p2 WHERE p2.province_id = p.id AND p2.thieves IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS thieves_age,
            (SELECT p2.free_specialist_credits FROM province_resources p2 WHERE p2.province_id = p.id AND p2.free_specialist_credits IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS free_specialist_credits,
@@ -1042,7 +1044,7 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
     )
     LEFT JOIN province_troops pt ON pt.id = (
       SELECT id FROM province_troops
-      WHERE province_id = p.id AND source IN ('sot', 'state') ORDER BY received_at DESC LIMIT 1
+      WHERE province_id = p.id AND source = 'sot' ORDER BY received_at DESC LIMIT 1
     )
     LEFT JOIN province_troops pt_home ON pt_home.id = (
       SELECT id FROM province_troops
@@ -1050,7 +1052,7 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
     )
     LEFT JOIN province_resources pr ON pr.id = (
       SELECT id FROM province_resources
-      WHERE province_id = p.id AND source != 'infiltrate' ORDER BY received_at DESC LIMIT 1
+      WHERE province_id = p.id AND source = 'sot' ORDER BY received_at DESC LIMIT 1
     )
     LEFT JOIN province_status ps ON ps.id = (
       SELECT id FROM province_status
@@ -1202,13 +1204,16 @@ export function getProvinceDetail(name: string, kingdom: string, keyHash: string
   const homeMilitary = hmRaw ? { modOffAtHome: hmRaw.mod_off_at_home, modDefAtHome: hmRaw.mod_def_at_home, source: hmRaw.source, receivedAt: hmRaw.received_at } : null;
 
   const troopsRaw = db.prepare(
-    "SELECT soldiers, off_specs, def_specs, elites, war_horses, peasants, source, received_at FROM province_troops WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
+    "SELECT soldiers, off_specs, def_specs, elites, war_horses, peasants, source, received_at FROM province_troops WHERE province_id = ? AND source = 'sot' ORDER BY received_at DESC LIMIT 1"
   ).get(id) as any;
   const troops = troopsRaw ? { soldiers: troopsRaw.soldiers, offSpecs: troopsRaw.off_specs, defSpecs: troopsRaw.def_specs, elites: troopsRaw.elites, warHorses: troopsRaw.war_horses, peasants: troopsRaw.peasants, source: troopsRaw.source, receivedAt: troopsRaw.received_at } : null;
 
   const resRaw = db.prepare(
-    "SELECT money, food, runes, prisoners, trade_balance, building_efficiency, stealth, wizards, mana, total_pop, max_pop, received_at FROM province_resources WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
+    "SELECT money, food, runes, prisoners, trade_balance, building_efficiency, stealth, wizards, mana, received_at FROM province_resources WHERE province_id = ? AND source = 'sot' ORDER BY received_at DESC LIMIT 1"
   ).get(id) as any;
+  const totalPopRaw = db.prepare(
+    "SELECT total_pop, max_pop FROM province_resources WHERE province_id = ? AND total_pop IS NOT NULL ORDER BY received_at DESC LIMIT 1"
+  ).get(id) as { total_pop: number; max_pop: number | null } | undefined;
   const thievesRaw = db.prepare(
     "SELECT thieves, received_at FROM province_resources WHERE province_id = ? AND thieves IS NOT NULL ORDER BY received_at DESC LIMIT 1"
   ).get(id) as { thieves: number; received_at: string } | undefined;
@@ -1218,7 +1223,7 @@ export function getProvinceDetail(name: string, kingdom: string, keyHash: string
   const buildCreditsRaw = db.prepare(
     "SELECT free_building_credits, received_at FROM province_resources WHERE province_id = ? AND free_building_credits IS NOT NULL ORDER BY received_at DESC LIMIT 1"
   ).get(id) as { free_building_credits: number; received_at: string } | undefined;
-  const resources = resRaw ? { money: resRaw.money, food: resRaw.food, runes: resRaw.runes, prisoners: resRaw.prisoners, tradeBalance: resRaw.trade_balance, buildingEfficiency: resRaw.building_efficiency, thieves: thievesRaw?.thieves ?? null, thievesAge: thievesRaw?.received_at ?? null, stealth: resRaw.stealth, wizards: resRaw.wizards, mana: resRaw.mana, totalPop: resRaw.total_pop ?? null, maxPop: resRaw.max_pop ?? null, freeSpecialistCredits: creditsRaw?.free_specialist_credits ?? null, freeSpecialistCreditsAge: creditsRaw?.received_at ?? null, freeBuildingCredits: buildCreditsRaw?.free_building_credits ?? null, freeBuildingCreditsAge: buildCreditsRaw?.received_at ?? null, receivedAt: resRaw.received_at } : null;
+  const resources = resRaw ? { money: resRaw.money, food: resRaw.food, runes: resRaw.runes, prisoners: resRaw.prisoners, tradeBalance: resRaw.trade_balance, buildingEfficiency: resRaw.building_efficiency, thieves: thievesRaw?.thieves ?? null, thievesAge: thievesRaw?.received_at ?? null, stealth: resRaw.stealth, wizards: resRaw.wizards, mana: resRaw.mana, totalPop: totalPopRaw?.total_pop ?? null, maxPop: totalPopRaw?.max_pop ?? null, freeSpecialistCredits: creditsRaw?.free_specialist_credits ?? null, freeSpecialistCreditsAge: creditsRaw?.received_at ?? null, freeBuildingCredits: buildCreditsRaw?.free_building_credits ?? null, freeBuildingCreditsAge: buildCreditsRaw?.received_at ?? null, receivedAt: resRaw.received_at } : null;
 
   const statusRaw = db.prepare(
     "SELECT plagued, overpopulated, overpop_deserters, dragon_type, dragon_name, hit_status, war, received_at FROM province_status WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
