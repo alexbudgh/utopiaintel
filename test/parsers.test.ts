@@ -470,6 +470,42 @@ test("parseSurvey — self (council_internal) — uses selfProv, kingdom empty, 
   assert.equal(banks.inProgress, 563);
 });
 
+test("parseSurvey — self survey emits 0-built entries so razed buildings overwrite stale DB data", () => {
+  const r = parseSurvey(SELF_SURVEY_TEXT, "TestProv");
+  assert.ok(r);
+  // Barren Land and Thieves' Dens appear at 0 in the fixture — must be present for self surveys
+  const barren = r.buildings.find((b) => b.building === "Barren Land");
+  assert.ok(barren, "Barren Land should be present even at 0");
+  assert.equal(barren.built, 0);
+  const dens = r.buildings.find((b) => b.building === "Thieves' Dens");
+  assert.ok(dens, "Thieves' Dens should be present even at 0");
+  assert.equal(dens.built, 0);
+});
+
+test("parseSurvey — enemy survey does not emit 0-built entries", () => {
+  const r = parseSurvey(SURVEY_TEXT);
+  assert.ok(r);
+  // Universities is 0 in SURVEY_TEXT — should be absent for enemy surveys
+  const unis = r.buildings.find((b) => b.building === "Universities");
+  assert.equal(unis, undefined, "0-built Universities should not appear in enemy survey");
+});
+
+test("parseSurvey — Universities recognized when in progress", () => {
+  const textWithUnis = SELF_SURVEY_TEXT.replace(
+    "Exploration/Construction Schedules",
+    "Universities\t0\t0.0%\t0.0% higher generation of science books (0.99%)\nExploration/Construction Schedules"
+  ).replace(
+    "Guilds\t\t\t610",
+    "Universities\t\t\t922\nGuilds\t\t\t610"
+  );
+  const r = parseSurvey(textWithUnis, "TestProv");
+  assert.ok(r);
+  const unis = r.buildings.find((b) => b.building === "Universities");
+  assert.ok(unis, "Universities should be recognised");
+  assert.equal(unis.built, 0);
+  assert.equal(unis.inProgress, 922);
+});
+
 test("parseSurvey — TPA effects — 0% when no Thieves' Dens or Watch Towers", () => {
   const r = parseSurvey(SURVEY_TEXT);
   assert.ok(r, "should parse successfully");
