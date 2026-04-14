@@ -94,6 +94,7 @@ Do not store real province names, kingdom names, or player names in source code,
 ## Build & deploy
 
 ```bash
+npm test
 npm run build
 rsync -avz --exclude=intel.db .next/standalone/ utopiaintel:~/utopiaintel/
 rsync -avz .next/static/ utopiaintel:~/utopiaintel/.next/static/
