@@ -112,6 +112,7 @@ export default async function ProvincePage({
   const pop = d.province ? (directPop ?? estimatePop({
     race: d.overview?.race ?? null,
     honor_title: d.overview?.honorTitle ?? null,
+    personality: d.overview?.personality ?? null,
     networth: d.overview?.networth ?? null,
     land: d.overview?.land ?? null,
     barren_land: d.survey?.buildings.find(b => b.building === "Barren Land")?.built ?? null,

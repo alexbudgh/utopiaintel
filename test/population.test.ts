@@ -7,6 +7,7 @@ function makeInputs(overrides: Partial<PopInputs>): PopInputs {
   return {
     race: null,
     honor_title: null,
+    personality: null,
     barren_land: null,
     homes_built: null,
     buildings_built: null,

@@ -5,21 +5,33 @@ const RACE_POP_FACTOR: Record<string, number> = {
   Halfling: 1.1,
 };
 
-// Honor title → population multiplier (from the Titles of Nobility table)
-const HONOR_POP_FACTOR: Record<string, number> = {
-  Knight: 1.01, Lady: 1.01,
-  Lord: 1.02, "Noble Lady": 1.02,
-  Baron: 1.03, Baroness: 1.03,
-  Viscount: 1.04, Viscountess: 1.04,
-  Count: 1.06, Countess: 1.06,
-  Marquis: 1.08, Marchioness: 1.08,
-  Duke: 1.10, Duchess: 1.10,
-  Prince: 1.12, Princess: 1.12,
+// Honor title → base population bonus (from the Titles of Nobility table)
+// Applied as: honorMult = 1 + honorBonus × honorEffectMod
+const HONOR_POP_BONUS: Record<string, number> = {
+  Knight: 0.01, Lady: 0.01,
+  Lord: 0.02, "Noble Lady": 0.02,
+  Baron: 0.03, Baroness: 0.03,
+  Viscount: 0.04, Viscountess: 0.04,
+  Count: 0.06, Countess: 0.06,
+  Marquis: 0.08, Marchioness: 0.08,
+  Duke: 0.10, Duchess: 0.10,
+  Prince: 0.12, Princess: 0.12,
+};
+
+// Personality modifiers to honor effects (only War Hero has one)
+const PERSONALITY_HONOR_EFFECT_MOD: Record<string, number> = {
+  "War Hero": 1.5,
+};
+
+// Personality direct population bonuses (Paladin = "the Chivalrous" only)
+const PERSONALITY_POP_BONUS: Record<string, number> = {
+  "Paladin": 0.05,
 };
 
 export interface PopInputs {
   race: string | null;
   honor_title: string | null;
+  personality: string | null;
   // for maxPop — from survey
   barren_land: number | null;
   homes_built: number | null;
@@ -94,7 +106,10 @@ export function estimatePop(p: PopInputs): PopEstimate {
                  + homes * 10;
     const raceFactor = (p.race && RACE_POP_FACTOR[p.race]) ? RACE_POP_FACTOR[p.race] : 1.0;
     const housingMult = 1 + (p.housing_effect ?? 0) / 100;
-    const honorMult = (p.honor_title && HONOR_POP_FACTOR[p.honor_title]) ? HONOR_POP_FACTOR[p.honor_title] : 1.0;
+    const honorBonus = (p.honor_title && HONOR_POP_BONUS[p.honor_title]) ? HONOR_POP_BONUS[p.honor_title] : 0;
+    const honorEffectMod = (p.personality && PERSONALITY_HONOR_EFFECT_MOD[p.personality]) ? PERSONALITY_HONOR_EFFECT_MOD[p.personality] : 1.0;
+    const personalityPopBonus = (p.personality && PERSONALITY_POP_BONUS[p.personality]) ? PERSONALITY_POP_BONUS[p.personality] : 0;
+    const honorMult = 1 + honorBonus * honorEffectMod + personalityPopBonus;
     maxPop = Math.round(rawCap * raceFactor * housingMult * honorMult);
   }
 
