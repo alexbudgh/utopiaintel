@@ -3,11 +3,12 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { createHash } from "crypto";
-import { Tooltip } from "@/app/components/Tooltip";
+import { Tooltip, type TooltipLine } from "@/app/components/Tooltip";
 import { getProvinceDetail } from "@/lib/db";
 import { freshnessColor, formatNum, timeAgo, fullValueTooltip } from "@/lib/ui";
 import { BAD_SPELL_NAMES } from "@/lib/effects";
 import { computeAmbushRawOff } from "@/lib/ambush";
+import { estimatePop } from "@/lib/population";
 import type { ArmyRow, BuildingRow, ScienceRow } from "@/lib/db";
 import AutoRefresh from "./AutoRefresh";
 
@@ -104,6 +105,41 @@ export default async function ProvincePage({
   const key = (await cookies()).get("auth")?.value ?? "";
   const keyHash = createHash("sha256").update(key).digest("hex");
   const d = getProvinceDetail(name, kingdom, keyHash);
+  // Use direct council_state values when available (self-intel); otherwise estimate from unit counts + survey
+  const directPop = d.resources?.totalPop != null || d.resources?.maxPop != null
+    ? { currentPop: d.resources.totalPop, maxPop: d.resources.maxPop, wizardsEstimated: false, needsForMax: [], needsForCurrent: [] }
+    : null;
+  const pop = d.province ? (directPop ?? estimatePop({
+    race: d.overview?.race ?? null,
+    networth: d.overview?.networth ?? null,
+    land: d.overview?.land ?? null,
+    barren_land: d.survey?.buildings.find(b => b.building === "Barren Land")?.built ?? null,
+    homes_built: d.survey?.buildings.find(b => b.building === "Homes")?.built ?? null,
+    buildings_built: d.survey ? d.survey.buildings.filter(b => b.building !== "Barren Land").reduce((s, b) => s + b.built, 0) : null,
+    buildings_in_progress: d.survey?.buildings.reduce((s, b) => s + (b.inProgress ?? 0), 0) ?? null,
+    survey_age: d.survey?.receivedAt ?? null,
+    housing_effect: d.sciences?.sciences.find(s => s.science === "Housing")?.effect ?? null,
+    science_total_books: d.sciences?.sciences.reduce((s, sc) => s + sc.books, 0) ?? null,
+    sciences_age: d.sciences?.receivedAt ?? null,
+    peasants: d.troops?.peasants ?? null,
+    soldiers: d.troops?.soldiers ?? null,
+    off_specs: d.troops?.offSpecs ?? null,
+    def_specs: d.troops?.defSpecs ?? null,
+    elites: d.troops?.elites ?? null,
+    war_horses: d.troops?.warHorses ?? null,
+    money: d.resources?.money ?? null,
+    thieves: d.resources?.thieves ?? null,
+    thieves_age: d.resources?.thievesAge ?? null,
+    wizards: d.resources?.wizards ?? null,
+    prisoners: d.resources?.prisoners ?? null,
+    troops_age: d.troops?.receivedAt ?? null,
+    resources_age: d.resources?.receivedAt ?? null,
+    training_off_specs: d.militaryIntel?.armies.find(a => a.armyType === "training")?.offSpecs ?? null,
+    training_def_specs: d.militaryIntel?.armies.find(a => a.armyType === "training")?.defSpecs ?? null,
+    training_elites: d.militaryIntel?.armies.find(a => a.armyType === "training")?.elites ?? null,
+    training_thieves: d.militaryIntel?.armies.find(a => a.armyType === "training")?.thieves ?? null,
+    som_age: d.militaryIntel?.receivedAt ?? null,
+  })) : null;
   const goodEffects = d.effects.filter((effect) => effectBucket(effect) === "good");
   const badEffects = d.effects.filter((effect) => effectBucket(effect) === "bad");
   const thiefEffects = d.effects.filter((effect) => effectBucket(effect) === "thievery");
@@ -139,6 +175,62 @@ export default async function ProvincePage({
               <KV label="Honor" value={d.overview.honorTitle ?? "—"} />
               <KV label="Land" value={d.overview.land != null ? d.overview.land.toLocaleString() : "—"} />
               <KV label="Networth" value={maybeRoundedValue(formatNum(d.overview.networth), d.overview.networth)} />
+              {pop && (() => {
+                const cur = pop.currentPop;
+                const max = pop.maxPop;
+                const pct = cur != null && max != null && max > 0 ? cur / max : null;
+                const barPct = pct != null ? Math.min(100, pct * 100) : null;
+                const barColor = pct == null ? "bg-gray-600"
+                  : pct >= 1    ? "bg-red-500"
+                  : pct >= 0.95 ? "bg-red-400"
+                  : pct >= 0.80 ? "bg-yellow-400"
+                  : "bg-green-500";
+                const pctColor = pct == null ? "text-gray-400"
+                  : pct >= 0.95 ? "text-red-300"
+                  : pct >= 0.80 ? "text-yellow-300"
+                  : "text-green-300";
+                const needs = [...new Set([...pop.needsForMax, ...pop.needsForCurrent])];
+                const tooltipLines: TooltipLine[] = [
+                  { text: "Max pop = (barren×15 + homes×35 + other×25) × race × (1 + housing%)" },
+                  { text: "  Requires same-tick Survey + SoS.", tone: "muted" },
+                  { text: "Current pop = peasants + troops (SoT) + training (SoM) + thieves (Infiltrate)" },
+                  { text: "  + wizards (direct if self, else NW residual — shown as ~)", tone: "muted" },
+                  ...(needs.length > 0 ? [
+                    { text: "" },
+                    { text: "Missing:", tone: "bad" as const },
+                    ...needs.map(n => ({ text: `• ${n}`, tone: "bad" as const })),
+                  ] : []),
+                ];
+                const approx = pop.wizardsEstimated;
+                return (
+                  <div className="flex justify-between gap-4 py-0.5">
+                    <span className="text-gray-500 text-sm">Population</span>
+                    <span className="text-sm tabular-nums">
+                      {cur != null || max != null ? (
+                        <Tooltip content={tooltipLines}>
+                          <span className="flex items-center gap-2">
+                            <span className="text-gray-300">
+                              {approx && cur != null ? "~" : ""}{cur != null ? cur.toLocaleString() : "—"}
+                              {" / "}
+                              {max != null ? max.toLocaleString() : "—"}
+                            </span>
+                            {pct != null && <span className={`text-xs ${pctColor}`}>{Math.round(pct * 100)}%</span>}
+                            {barPct != null && (
+                              <span className="inline-block w-16 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                                <span className={`block h-full rounded-full ${barColor}`} style={{ width: `${barPct}%` }} />
+                              </span>
+                            )}
+                          </span>
+                        </Tooltip>
+                      ) : (
+                        <Tooltip content={tooltipLines}>
+                          <span className="text-red-500 text-xs">needs: {needs[0] ?? "data"}</span>
+                        </Tooltip>
+                      )}
+                    </span>
+                  </div>
+                );
+              })()}
             </>
           ) : <NoData />}
         </Card>

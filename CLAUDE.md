@@ -13,7 +13,7 @@ Next.js API endpoint that receives game data from utopia-game.com.
   - `/kingdom/[loc]/[prov]` shows detailed intel for one province
 - Partitions access by shared kingdom key. Users log in with the key, the app hashes it, and read queries only return provinces associated with that hash.
 - Computes derived T/M metrics such as `rTPA`, `mTPA`, `oTPA`, `dTPA`, `rWPA`, and `mWPA` from stored intel, with same-tick requirements for validity.
-- Uses direct wizard counts for self-intel WPA when available; enemy WPA may be inferred from networth residuals.
+- Uses direct wizard counts for self-intel WPA when available; enemy WPA is inferred from networth residuals (wizards are never directly visible on enemy provinces).
 - Deletes old intel after 7 days.
 
 ## Setup
@@ -78,6 +78,8 @@ Do not store real province names, kingdom names, or player names in source code,
 - A self `/wol/game/throne` submission is the authoritative source for binding `key_hash -> kingdom`.
 - The bound-kingdom redirect should happen from login only. Keep `/` browsable so users can still navigate to other kingdoms.
 - Current spy/thievery intel commonly arrives as `/wol/game/thievery?...&o=SPY_ON_*`; detection must inspect the `o` query param, not only the pathname.
+- Intel op naming: SoT = Spy on Throne (`o=SPY_ON_THRONE`); SoD = Spy on Defense (`o=SPY_ON_DEFENSE`); SoM = Spy on Military (`o=SPY_ON_MILITARY`); SoS = Science Spy (Survey op, `o=SURVEY`); Infiltrate = Infiltrate Thieves' Guilds (`o=INFILTRATE`).
+- What each op reveals about an enemy province: SoT gives troops (soldiers, specs, elites, peasants, war horses), money, food, runes, prisoners, trade balance, building efficiency, off/def points — but **not** thieves, stealth, or wizards (shown as "Unknown"). The "Number of thieves / Stealth X%" shown at the bottom of every thievery op page is your *own* thievery stats, not the target's. Infiltrate gives only the enemy thieves count (no stealth). Stealth is never revealed for enemy provinces; only available from self-state (throne page). Wizards are never directly measurable on enemy provinces; they must be inferred from NW residuals. SoS gives science books and effect percentages only (no troop or resource data).
 - Utopia kingdom pages can arrive as `/wol/game/kingdom_details/<x>/<y>`, not just bare `/wol/game/kingdom_details`.
 - This repo is on Next.js 16. Root request interception now uses `proxy.ts`, not `middleware.ts`.
 - The app supports `INTEL_DB_PATH`. In production, point it at a path outside `~/utopiaintel` so the live SQLite file is not part of the deployed app tree.

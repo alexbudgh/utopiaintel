@@ -6,6 +6,8 @@ const LAND_RE = new RegExp(`Current Land\\s*(${INT}) acres`);
 const PEASANTS_RE = new RegExp(`\\bPeasants\\s+(${INT})`);
 const THIEVES_RE = new RegExp(`\\bThieves\\s+(${INT})`);
 const WIZARDS_RE = new RegExp(`\\bWizards\\s+(${INT})`);
+const TOTAL_POP_RE = new RegExp(`\\bTotal\\s+(${INT})`);
+const MAX_POP_RE = new RegExp(`Max Population\\s+(${INT})`);
 
 export function parseState(text: string, selfProv: string): StateData | null {
   const nwMatch = NETWORTH_RE.exec(text);
@@ -15,6 +17,8 @@ export function parseState(text: string, selfProv: string): StateData | null {
   const peasantsMatch = PEASANTS_RE.exec(text);
   const thievesMatch = THIEVES_RE.exec(text);
   const wizardsMatch = WIZARDS_RE.exec(text);
+  const totalPopMatch = TOTAL_POP_RE.exec(text);
+  const maxPopMatch = MAX_POP_RE.exec(text);
 
   return {
     name: selfProv,
@@ -24,5 +28,7 @@ export function parseState(text: string, selfProv: string): StateData | null {
     peasants: peasantsMatch ? parseNum(peasantsMatch[1]) : 0,
     thieves: thievesMatch ? parseNum(thievesMatch[1]) : 0,
     wizards: wizardsMatch ? parseNum(wizardsMatch[1]) : 0,
+    totalPop: totalPopMatch ? parseNum(totalPopMatch[1]) : null,
+    maxPop: maxPopMatch ? parseNum(maxPopMatch[1]) : null,
   };
 }

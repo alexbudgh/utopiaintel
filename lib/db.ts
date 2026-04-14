@@ -320,6 +320,8 @@ function initSchema(db: Database.Database) {
   if (!hasCol("province_status", "dragon_type")) db.exec("ALTER TABLE province_status ADD COLUMN dragon_type TEXT");
   if (!hasCol("province_status", "dragon_name")) db.exec("ALTER TABLE province_status ADD COLUMN dragon_name TEXT");
   if (!hasCol("military_intel", "source")) db.exec("ALTER TABLE military_intel ADD COLUMN source TEXT NOT NULL DEFAULT 'som'");
+  if (!hasCol("province_resources", "total_pop")) db.exec("ALTER TABLE province_resources ADD COLUMN total_pop INTEGER");
+  if (!hasCol("province_resources", "max_pop"))   db.exec("ALTER TABLE province_resources ADD COLUMN max_pop INTEGER");
   if (!hasCol("kingdom_news", "game_date_ord")) {
     db.exec("ALTER TABLE kingdom_news ADD COLUMN game_date_ord INTEGER");
     // Backfill ordinal for existing rows
@@ -603,11 +605,11 @@ export function storeState(data: StateData, savedBy: string, keyHash: string) {
       VALUES (?, ?, ?, 'state', ?, 100)
     `).run(provId, data.land, data.networth, savedBy);
 
-    // Resources: thieves and wizards (self-intel is always 100% accurate)
+    // Resources: thieves, wizards, and direct population counts (self-intel is always 100% accurate)
     db.prepare(`
-      INSERT INTO province_resources (province_id, thieves, wizards, source, saved_by, accuracy)
-      VALUES (?, ?, ?, 'state', ?, 100)
-    `).run(provId, data.thieves, data.wizards, savedBy);
+      INSERT INTO province_resources (province_id, thieves, wizards, total_pop, max_pop, source, saved_by, accuracy)
+      VALUES (?, ?, ?, ?, ?, 'state', ?, 100)
+    `).run(provId, data.thieves, data.wizards, data.totalPop ?? null, data.maxPop ?? null, savedBy);
 
     // Peasants live in province_troops
     db.prepare(`
@@ -794,6 +796,8 @@ export interface ProvinceRow {
   thieves: number | null;
   thieves_age: string | null;
   wizards: number | null;
+  total_pop: number | null;
+  max_pop: number | null;
   resources_age: string | null;
   resources_source: string | null;
   hit_status: string | null;
@@ -816,6 +820,9 @@ export interface ProvinceRow {
   watch_towers_effect: number | null;
   thieves_dens_effect: number | null;
   castles_effect: number | null;
+  housing_effect: number | null;
+  barren_land: number | null;
+  homes_built: number | null;
   buildings_built: number | null;
   buildings_in_progress: number | null;
   armies_out_count: number | null;
@@ -929,7 +936,7 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
            tmp.off_points, tmp.def_points, tmp.received_at AS military_age,
            pt.soldiers, pt.off_specs, pt.def_specs, pt.elites, pt.war_horses, pt.peasants, pt.received_at AS troops_age, pt.source AS troops_source,
            pt_home.soldiers AS soldiers_home, pt_home.off_specs AS off_specs_home, pt_home.def_specs AS def_specs_home, pt_home.elites AS elites_home, pt_home.received_at AS troops_home_age,
-           pr.money, pr.food, pr.runes, pr.prisoners, pr.trade_balance, pr.building_efficiency, pr.wizards, pr.received_at AS resources_age, pr.source AS resources_source,
+           pr.money, pr.food, pr.runes, pr.prisoners, pr.trade_balance, pr.building_efficiency, pr.wizards, pr.total_pop, pr.max_pop, pr.received_at AS resources_age, pr.source AS resources_source,
            (SELECT p2.thieves FROM province_resources p2 WHERE p2.province_id = p.id AND p2.thieves IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS thieves,
            (SELECT p2.received_at FROM province_resources p2 WHERE p2.province_id = p.id AND p2.thieves IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS thieves_age,
            ps.hit_status, ps.received_at AS status_age,
@@ -945,6 +952,9 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
            (SELECT si.castles_effect FROM survey_intel si WHERE si.province_id = p.id ORDER BY si.received_at DESC LIMIT 1) AS castles_effect,
            (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND ss.science = 'Channeling' ORDER BY si.received_at DESC LIMIT 1) AS channeling_effect,
            (SELECT SUM(ss.books) FROM sos_sciences ss WHERE ss.sos_intel_id = (SELECT id FROM sos_intel WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1)) AS science_total_books,
+           (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND ss.science = 'Housing' ORDER BY si.received_at DESC LIMIT 1) AS housing_effect,
+           (SELECT sb.built FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1) AND sb.building = 'Barren Land') AS barren_land,
+           (SELECT sb.built FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1) AND sb.building = 'Homes') AS homes_built,
            (SELECT SUM(sb.built) FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1) AND sb.building != 'Barren Land') AS buildings_built,
            (SELECT SUM(sb.in_progress) FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1)) AS buildings_in_progress,
            mi_throne.received_at AS throne_age,
@@ -1036,7 +1046,7 @@ export interface ProvinceDetail {
   totalMilitary: { offPoints: number | null; defPoints: number | null; receivedAt: string } | null;
   homeMilitary: { modOffAtHome: number | null; modDefAtHome: number | null; source: string; receivedAt: string } | null;
   troops: { soldiers: number | null; offSpecs: number | null; defSpecs: number | null; elites: number | null; warHorses: number | null; peasants: number | null; source: string; receivedAt: string } | null;
-  resources: { money: number | null; food: number | null; runes: number | null; prisoners: number | null; tradeBalance: number | null; buildingEfficiency: number | null; thieves: number | null; stealth: number | null; wizards: number | null; mana: number | null; receivedAt: string } | null;
+  resources: { money: number | null; food: number | null; runes: number | null; prisoners: number | null; tradeBalance: number | null; buildingEfficiency: number | null; thieves: number | null; thievesAge: string | null; stealth: number | null; wizards: number | null; mana: number | null; totalPop: number | null; maxPop: number | null; receivedAt: string } | null;
   status: { plagued: boolean; overpopulated: boolean; overpopDeserters: number | null; dragonType: string | null; dragonName: string | null; hitStatus: string | null; war: boolean; receivedAt: string } | null;
   effects: { name: string; kind: string; durationText: string | null; remainingTicks: number | null; effectivenessPercent: number | null; receivedAt: string }[];
   militaryIntel: { ome: number | null; dme: number | null; receivedAt: string; armies: ArmyRow[] } | null;
@@ -1132,9 +1142,12 @@ export function getProvinceDetail(name: string, kingdom: string, keyHash: string
   const troops = troopsRaw ? { soldiers: troopsRaw.soldiers, offSpecs: troopsRaw.off_specs, defSpecs: troopsRaw.def_specs, elites: troopsRaw.elites, warHorses: troopsRaw.war_horses, peasants: troopsRaw.peasants, source: troopsRaw.source, receivedAt: troopsRaw.received_at } : null;
 
   const resRaw = db.prepare(
-    "SELECT money, food, runes, prisoners, trade_balance, building_efficiency, thieves, stealth, wizards, mana, received_at FROM province_resources WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
+    "SELECT money, food, runes, prisoners, trade_balance, building_efficiency, stealth, wizards, mana, total_pop, max_pop, received_at FROM province_resources WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
   ).get(id) as any;
-  const resources = resRaw ? { money: resRaw.money, food: resRaw.food, runes: resRaw.runes, prisoners: resRaw.prisoners, tradeBalance: resRaw.trade_balance, buildingEfficiency: resRaw.building_efficiency, thieves: resRaw.thieves, stealth: resRaw.stealth, wizards: resRaw.wizards, mana: resRaw.mana, receivedAt: resRaw.received_at } : null;
+  const thievesRaw = db.prepare(
+    "SELECT thieves, received_at FROM province_resources WHERE province_id = ? AND thieves IS NOT NULL ORDER BY received_at DESC LIMIT 1"
+  ).get(id) as { thieves: number; received_at: string } | undefined;
+  const resources = resRaw ? { money: resRaw.money, food: resRaw.food, runes: resRaw.runes, prisoners: resRaw.prisoners, tradeBalance: resRaw.trade_balance, buildingEfficiency: resRaw.building_efficiency, thieves: thievesRaw?.thieves ?? null, thievesAge: thievesRaw?.received_at ?? null, stealth: resRaw.stealth, wizards: resRaw.wizards, mana: resRaw.mana, totalPop: resRaw.total_pop ?? null, maxPop: resRaw.max_pop ?? null, receivedAt: resRaw.received_at } : null;
 
   const statusRaw = db.prepare(
     "SELECT plagued, overpopulated, overpop_deserters, dragon_type, dragon_name, hit_status, war, received_at FROM province_status WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"

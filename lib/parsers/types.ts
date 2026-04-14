@@ -142,6 +142,8 @@ export interface StateData extends ProvinceId {
   peasants: number;
   thieves: number;
   wizards: number;
+  totalPop: number | null;
+  maxPop: number | null;
 }
 
 export type ParseResult =
