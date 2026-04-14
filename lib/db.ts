@@ -35,7 +35,7 @@ export function getDb(): Database.Database {
   return _db;
 }
 
-function initSchema(db: Database.Database) {
+export function initSchema(db: Database.Database) {
   db.exec(`
     -- Identity only
     CREATE TABLE IF NOT EXISTS provinces (
@@ -715,108 +715,15 @@ export interface KingdomSnapshot {
 }
 
 export function getBoundKingdom(keyHash: string): string | null {
-  const db = getDb();
-  const row = db.prepare(
-    "SELECT kingdom FROM key_kingdom_bindings WHERE key_hash = ?"
-  ).get(keyHash) as { kingdom: string } | undefined;
-  return row?.kingdom ?? null;
+  return createDbApi(getDb()).getBoundKingdom(keyHash);
 }
 
 export function getKingdoms(keyHash: string): KingdomRow[] {
-  const db = getDb();
-  return db.prepare(`
-    SELECT p.kingdom AS location,
-           COUNT(DISTINCT p.id) AS province_count,
-           MAX(po.received_at) AS last_seen
-    FROM provinces p
-    LEFT JOIN province_overview po ON po.province_id = p.id
-    WHERE p.kingdom != ''
-      AND EXISTS (
-        SELECT 1 FROM intel_partitions
-        WHERE key_hash = ? AND province_id = p.id
-      )
-    GROUP BY p.kingdom
-    ORDER BY last_seen DESC
-  `).all(keyHash) as KingdomRow[];
+  return createDbApi(getDb()).getKingdoms(keyHash);
 }
 
 export function getLatestKingdomSnapshot(location: string, keyHash: string): KingdomSnapshot | null {
-  const db = getDb();
-  const snapshot = db.prepare(`
-    SELECT ki.id, ki.name, ki.location, ki.war_target,
-           ki.their_attitude_to_us, ki.their_attitude_points,
-           ki.our_attitude_to_them, ki.our_attitude_points,
-           ki.hostility_meter_visible_until, ki.open_relations_json,
-           ki.received_at
-    FROM kingdom_intel ki
-    WHERE ki.location = ?
-      AND NOT EXISTS (
-        SELECT 1
-        FROM kingdom_provinces kp
-        WHERE kp.kingdom_intel_id = ki.id
-          AND NOT EXISTS (
-            SELECT 1
-            FROM provinces p
-            JOIN intel_partitions ip
-              ON ip.province_id = p.id
-             AND ip.key_hash = ?
-            WHERE p.name = kp.name
-              AND p.kingdom = ki.location
-          )
-      )
-    ORDER BY ki.received_at DESC
-    LIMIT 1
-  `).get(location, keyHash) as {
-    id: number;
-    name: string;
-    location: string;
-    war_target: string | null;
-    their_attitude_to_us: string | null;
-    their_attitude_points: number | null;
-    our_attitude_to_them: string | null;
-    our_attitude_points: number | null;
-    hostility_meter_visible_until: string | null;
-    open_relations_json: string | null;
-    received_at: string;
-  } | undefined;
-
-  if (!snapshot) return null;
-
-  const provinces = db.prepare(`
-    SELECT slot, name, race, land, networth, honor_title
-    FROM kingdom_provinces
-    WHERE kingdom_intel_id = ?
-    ORDER BY networth DESC, name ASC
-  `).all(snapshot.id) as {
-    slot: number | null;
-    name: string;
-    race: string;
-    land: number;
-    networth: number;
-    honor_title: string | null;
-  }[];
-
-  return {
-    id: snapshot.id,
-    name: snapshot.name,
-    location: snapshot.location,
-    warTarget: snapshot.war_target,
-    theirAttitudeToUs: snapshot.their_attitude_to_us,
-    theirAttitudePoints: snapshot.their_attitude_points,
-    ourAttitudeToThem: snapshot.our_attitude_to_them,
-    ourAttitudePoints: snapshot.our_attitude_points,
-    hostilityMeterVisibleUntil: snapshot.hostility_meter_visible_until,
-    openRelations: snapshot.open_relations_json ? JSON.parse(snapshot.open_relations_json) as KingdomOpenRelation[] : [],
-    receivedAt: snapshot.received_at,
-    provinces: provinces.map((p) => ({
-      slot: p.slot,
-      name: p.name,
-      race: p.race,
-      land: p.land,
-      networth: p.networth,
-      honorTitle: p.honor_title,
-    })),
-  };
+  return createDbApi(getDb()).getLatestKingdomSnapshot(location, keyHash);
 }
 
 export interface ProvinceRow {
@@ -950,7 +857,62 @@ function mergeArmiesJson(
 }
 
 export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceRow[] {
-  const db = getDb();
+  return createDbApi(getDb()).getKingdomProvinces(kingdom, keyHash);
+}
+
+export interface ArmyRow {
+  armyType: string;
+  generals: number | null;
+  soldiers: number | null;
+  offSpecs: number | null;
+  defSpecs: number | null;
+  elites: number | null;
+  warHorses: number | null;
+  thieves: number | null;
+  landGained: number | null;
+  returnDays: number | null;
+}
+
+export interface BuildingRow {
+  building: string;
+  built: number;
+  inProgress: number;
+}
+
+export interface ScienceRow {
+  science: string;
+  books: number;
+  effect: number;
+}
+
+export interface ProvinceDetail {
+  province: { id: number; name: string; kingdom: string } | null;
+  overview: { race: string | null; personality: string | null; honorTitle: string | null; land: number | null; networth: number | null; source: string; savedBy: string | null; receivedAt: string } | null;
+  totalMilitary: { offPoints: number | null; defPoints: number | null; receivedAt: string } | null;
+  homeMilitary: { modOffAtHome: number | null; modDefAtHome: number | null; source: string; receivedAt: string } | null;
+  sot: { soldiers: number | null; offSpecs: number | null; defSpecs: number | null; elites: number | null; warHorses: number | null; peasants: number | null; source: string; receivedAt: string } | null;
+  resources: { money: number | null; food: number | null; runes: number | null; prisoners: number | null; tradeBalance: number | null; buildingEfficiency: number | null; thieves: number | null; thievesAge: string | null; stealth: number | null; wizards: number | null; mana: number | null; totalPop: number | null; maxPop: number | null; freeSpecialistCredits: number | null; freeSpecialistCreditsAge: string | null; freeBuildingCredits: number | null; freeBuildingCreditsAge: string | null; receivedAt: string } | null;
+  status: { plagued: boolean; overpopulated: boolean; overpopDeserters: number | null; dragonType: string | null; dragonName: string | null; hitStatus: string | null; war: boolean; receivedAt: string } | null;
+  effects: { name: string; kind: string; durationText: string | null; remainingTicks: number | null; effectivenessPercent: number | null; receivedAt: string }[];
+  militaryIntel: { ome: number | null; dme: number | null; receivedAt: string; armies: ArmyRow[] } | null;
+  survey: { receivedAt: string; buildings: BuildingRow[] } | null;
+  sciences: { receivedAt: string; sciences: ScienceRow[] } | null;
+}
+
+export interface KingdomRitual {
+  name: string;
+  remainingTicks: number | null;
+  effectivenessPercent: number | null;
+  receivedAt: string;
+}
+
+export interface KingdomDragon {
+  dragonType: string;
+  dragonName: string;
+  receivedAt: string;
+}
+
+function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHash: string): ProvinceRow[] {
   const rows = db.prepare(`
     WITH latest_effects AS (
       SELECT pe.province_id, pe.effect_name, pe.effect_kind, pe.remaining_ticks, pe.received_at,
@@ -1084,94 +1046,12 @@ export function getKingdomProvinces(kingdom: string, keyHash: string): ProvinceR
   }
   return rows;
 }
-
-export interface ArmyRow {
-  armyType: string;
-  generals: number | null;
-  soldiers: number | null;
-  offSpecs: number | null;
-  defSpecs: number | null;
-  elites: number | null;
-  warHorses: number | null;
-  thieves: number | null;
-  landGained: number | null;
-  returnDays: number | null;
-}
-
-export interface BuildingRow {
-  building: string;
-  built: number;
-  inProgress: number;
-}
-
-export interface ScienceRow {
-  science: string;
-  books: number;
-  effect: number;
-}
-
-export interface ProvinceDetail {
-  province: { id: number; name: string; kingdom: string } | null;
-  overview: { race: string | null; personality: string | null; honorTitle: string | null; land: number | null; networth: number | null; source: string; savedBy: string | null; receivedAt: string } | null;
-  totalMilitary: { offPoints: number | null; defPoints: number | null; receivedAt: string } | null;
-  homeMilitary: { modOffAtHome: number | null; modDefAtHome: number | null; source: string; receivedAt: string } | null;
-  sot: { soldiers: number | null; offSpecs: number | null; defSpecs: number | null; elites: number | null; warHorses: number | null; peasants: number | null; source: string; receivedAt: string } | null;
-  resources: { money: number | null; food: number | null; runes: number | null; prisoners: number | null; tradeBalance: number | null; buildingEfficiency: number | null; thieves: number | null; thievesAge: string | null; stealth: number | null; wizards: number | null; mana: number | null; totalPop: number | null; maxPop: number | null; freeSpecialistCredits: number | null; freeSpecialistCreditsAge: string | null; freeBuildingCredits: number | null; freeBuildingCreditsAge: string | null; receivedAt: string } | null;
-  status: { plagued: boolean; overpopulated: boolean; overpopDeserters: number | null; dragonType: string | null; dragonName: string | null; hitStatus: string | null; war: boolean; receivedAt: string } | null;
-  effects: { name: string; kind: string; durationText: string | null; remainingTicks: number | null; effectivenessPercent: number | null; receivedAt: string }[];
-  militaryIntel: { ome: number | null; dme: number | null; receivedAt: string; armies: ArmyRow[] } | null;
-  survey: { receivedAt: string; buildings: BuildingRow[] } | null;
-  sciences: { receivedAt: string; sciences: ScienceRow[] } | null;
-}
-
-export interface KingdomRitual {
-  name: string;
-  remainingTicks: number | null;
-  effectivenessPercent: number | null;
-  receivedAt: string;
-}
-
 export function getKingdomRitual(kingdom: string, keyHash: string): KingdomRitual | null {
-  const db = getDb();
-  const row = db.prepare(`
-    SELECT pe.effect_name, pe.remaining_ticks, pe.effectiveness_percent, pe.received_at
-    FROM province_effects pe
-    JOIN provinces p ON p.id = pe.province_id
-    JOIN intel_partitions ip ON ip.province_id = p.id AND ip.key_hash = ?
-    WHERE p.kingdom = ? AND pe.effect_kind = 'ritual'
-      AND pe.received_at = (
-        SELECT MAX(pe2.received_at) FROM province_effects pe2 WHERE pe2.province_id = pe.province_id
-      )
-    ORDER BY pe.received_at DESC, pe.id DESC
-    LIMIT 1
-  `).get(keyHash, kingdom) as { effect_name: string; remaining_ticks: number | null; effectiveness_percent: number | null; received_at: string } | undefined;
-  if (!row) return null;
-  return { name: row.effect_name, remainingTicks: row.remaining_ticks, effectivenessPercent: row.effectiveness_percent, receivedAt: row.received_at };
-}
-
-export interface KingdomDragon {
-  dragonType: string;
-  dragonName: string;
-  receivedAt: string;
+  return createDbApi(getDb()).getKingdomRitual(kingdom, keyHash);
 }
 
 export function getKingdomDragon(kingdom: string, keyHash: string): KingdomDragon | null {
-  const db = getDb();
-  const row = db.prepare(`
-    SELECT ps.dragon_type, ps.dragon_name, ps.received_at
-    FROM province_status ps
-    JOIN provinces p ON p.id = ps.province_id
-    JOIN intel_partitions ip ON ip.province_id = p.id AND ip.key_hash = ?
-    WHERE p.kingdom = ? AND ps.dragon_type IS NOT NULL
-      AND NOT EXISTS (
-        SELECT 1 FROM province_status ps2
-        WHERE ps2.province_id = ps.province_id AND ps2.id > ps.id AND ps2.dragon_type IS NULL
-      )
-    ORDER BY ps.received_at DESC, ps.id DESC
-    LIMIT 1
-  `).get(keyHash, kingdom) as { dragon_type: string; dragon_name: string; received_at: string } | undefined;
-  if (!row) return null;
-  return { dragonType: row.dragon_type, dragonName: row.dragon_name, receivedAt: row.received_at };
+  return createDbApi(getDb()).getKingdomDragon(kingdom, keyHash);
 }
 
 export function getProvinceDetail(name: string, kingdom: string, keyHash: string): ProvinceDetail {
@@ -1387,102 +1267,12 @@ export interface KingdomNewsRow {
 const UTOPIA_MONTH_DAYS = 24; // days per Utopia month
 
 export function getKingdomNews(kingdom: string, keyHash: string, from?: string, to?: string): { events: KingdomNewsRow[]; effectiveFrom: string | null } {
-  const db = getDb();
-  // Access control: only return news if the key has any intel for that kingdom
-  const hasAccess = db.prepare(`
-    SELECT 1 FROM intel_partitions ip
-    JOIN provinces p ON p.id = ip.province_id
-    WHERE ip.key_hash = ? AND p.kingdom = ?
-    LIMIT 1
-  `).get(keyHash, kingdom);
-  if (!hasAccess) return { events: [], effectiveFrom: null };
-
-  // Determine ordinal bounds — default to last 3 Utopia months
-  let fromOrd: number;
-  let toOrd: number;
-  let effectiveFrom: string | null = from ?? null;
-  if (from || to) {
-    fromOrd = from ? parseUtopiaDate(from) : 0;
-    toOrd   = to   ? parseUtopiaDate(to)   : 999999;
-  } else {
-    const maxRow = db.prepare(`SELECT MAX(game_date_ord) as m FROM kingdom_news WHERE kingdom = ?`).get(kingdom) as { m: number | null };
-    const maxOrd = maxRow?.m ?? 0;
-    fromOrd = maxOrd - 3 * UTOPIA_MONTH_DAYS + 1;
-    toOrd   = 999999;
-    effectiveFrom = formatUtopiaDate(fromOrd);
-  }
-
-  const rows = db.prepare(`
-    SELECT id, kingdom, game_date, event_type, raw_text,
-           attacker_name, attacker_kingdom,
-           defender_name, defender_kingdom,
-           acres, books,
-           sender_name, receiver_name,
-           relation_kingdom,
-           dragon_type, dragon_name,
-           received_at
-    FROM kingdom_news
-    WHERE kingdom = ? AND game_date_ord >= ? AND game_date_ord <= ?
-    ORDER BY game_date_ord DESC, id DESC
-  `).all(kingdom, fromOrd, toOrd) as Array<{
-    id: number;
-    kingdom: string;
-    game_date: string;
-    event_type: string;
-    raw_text: string;
-    attacker_name: string | null;
-    attacker_kingdom: string | null;
-    defender_name: string | null;
-    defender_kingdom: string | null;
-    acres: number | null;
-    books: number | null;
-    sender_name: string | null;
-    receiver_name: string | null;
-    relation_kingdom: string | null;
-    dragon_type: string | null;
-    dragon_name: string | null;
-    received_at: string;
-  }>;
-
-  const events = rows.map((r) => ({
-    id: r.id,
-    kingdom: r.kingdom,
-    gameDate: r.game_date,
-    eventType: r.event_type,
-    rawText: r.raw_text,
-    attackerName: r.attacker_name,
-    attackerKingdom: r.attacker_kingdom,
-    defenderName: r.defender_name,
-    defenderKingdom: r.defender_kingdom,
-    acres: r.acres,
-    books: r.books,
-    senderName: r.sender_name,
-    receiverName: r.receiver_name,
-    relationKingdom: r.relation_kingdom,
-    dragonType: r.dragon_type,
-    dragonName: r.dragon_name,
-    receivedAt: r.received_at,
-  }));
-  return { events, effectiveFrom };
+  return createDbApi(getDb()).getKingdomNews(kingdom, keyHash, from, to);
 }
 
 /** Returns the game_date of the most recent war_declared event for this kingdom, or null if none. */
 export function getLatestWarDate(kingdom: string, keyHash: string): string | null {
-  const db = getDb();
-  const hasAccess = db.prepare(`
-    SELECT 1 FROM intel_partitions ip
-    JOIN provinces p ON p.id = ip.province_id
-    WHERE ip.key_hash = ? AND p.kingdom = ?
-    LIMIT 1
-  `).get(keyHash, kingdom);
-  if (!hasAccess) return null;
-  const row = db.prepare(`
-    SELECT game_date FROM kingdom_news
-    WHERE kingdom = ? AND event_type = 'war_declared'
-    ORDER BY game_date_ord DESC, id DESC
-    LIMIT 1
-  `).get(kingdom) as { game_date: string } | undefined;
-  return row?.game_date ?? null;
+  return createDbApi(getDb()).getLatestWarDate(kingdom, keyHash);
 }
 
 const COMBAT_TYPES = `'march','ambush','raze','pillage','loot','failed_attack'`;
@@ -1554,229 +1344,479 @@ export interface KingdomNewsSummary {
 }
 
 export function getKingdomNewsSummary(kingdom: string, keyHash: string, from?: string, to?: string): KingdomNewsSummary {
-  const db = getDb();
-  const hasAccess = db.prepare(`
-    SELECT 1 FROM intel_partitions ip
-    JOIN provinces p ON p.id = ip.province_id
-    WHERE ip.key_hash = ? AND p.kingdom = ?
-    LIMIT 1
-  `).get(keyHash, kingdom);
-  const empty: KingdomNewsSummary = { ourKingdom: kingdom, totalMarchAcresIn: 0, totalRazeAcresIn: 0, totalMarchAcresOut: 0, totalRazeAcresOut: 0, uniqueAttackers: 0, byKingdom: [] };
-  if (!hasAccess) return empty;
-
-  // Determine ordinal bounds — default to last 3 Utopia months (same as getKingdomNews)
-  let fromOrd: number;
-  let toOrd: number;
-  if (from || to) {
-    fromOrd = from ? parseUtopiaDate(from) : 0;
-    toOrd   = to   ? parseUtopiaDate(to)   : 999999;
-  } else {
-    const maxRow = db.prepare(`SELECT MAX(game_date_ord) as m FROM kingdom_news WHERE kingdom = ?`).get(kingdom) as { m: number | null };
-    const maxOrd = maxRow?.m ?? 0;
-    fromOrd = maxOrd - 3 * UTOPIA_MONTH_DAYS + 1;
-    toOrd   = 999999;
-  }
-
-  // Fetch raw combat rows filtered by date ordinal in SQL
-  const combatRows = db.prepare(`
-    SELECT attacker_name, attacker_kingdom, defender_name, defender_kingdom,
-           event_type, acres, books
-    FROM kingdom_news
-    WHERE kingdom = ? AND event_type IN (${COMBAT_TYPES})
-      AND attacker_kingdom IS NOT NULL AND defender_kingdom IS NOT NULL
-      AND game_date_ord >= ? AND game_date_ord <= ?
-  `).all(kingdom, fromOrd, toOrd) as {
-    attacker_name: string | null; attacker_kingdom: string;
-    defender_name: string | null; defender_kingdom: string;
-    event_type: string; acres: number | null; books: number | null;
-  }[];
-
-  type AttackerEntry = {
-    attacker_name: string | null; attacker_kingdom: string;
-    hits: number; marchHits: number; ambushHits: number; razeHits: number; pillageHits: number; lootHits: number; failedHits: number;
-    marchAcres: number; ambushAcres: number; razeAcres: number; books: number;
-  };
-  type DefenderEntry = {
-    defender_name: string | null; defender_kingdom: string;
-    hits: number; marchHits: number; ambushHits: number; razeHits: number; pillageHits: number; lootHits: number; failedHits: number;
-    marchAcres: number; ambushAcres: number; razeAcres: number;
-  };
-
-  const newAttacker = (name: string | null, kd: string): AttackerEntry =>
-    ({ attacker_name: name, attacker_kingdom: kd, hits: 0, marchHits: 0, ambushHits: 0, razeHits: 0, pillageHits: 0, lootHits: 0, failedHits: 0, marchAcres: 0, ambushAcres: 0, razeAcres: 0, books: 0 });
-  const newDefender = (name: string | null, kd: string): DefenderEntry =>
-    ({ defender_name: name, defender_kingdom: kd, hits: 0, marchHits: 0, ambushHits: 0, razeHits: 0, pillageHits: 0, lootHits: 0, failedHits: 0, marchAcres: 0, ambushAcres: 0, razeAcres: 0 });
-
-  const attackerMap = new Map<string, AttackerEntry>();
-  const defenderMap = new Map<string, DefenderEntry>();
-
-  for (const r of combatRows) {
-    const ak = `${r.attacker_name ?? ""}\0${r.attacker_kingdom}`;
-    const a = attackerMap.get(ak) ?? newAttacker(r.attacker_name, r.attacker_kingdom);
-    a.hits++;
-    if      (r.event_type === "march")         { a.marchHits++;   a.marchAcres  += r.acres ?? 0; }
-    else if (r.event_type === "ambush")        { a.ambushHits++;  a.ambushAcres += r.acres ?? 0; }
-    else if (r.event_type === "raze")          { a.razeHits++;    a.razeAcres   += r.acres ?? 0; }
-    else if (r.event_type === "pillage")       { a.pillageHits++; }
-    else if (r.event_type === "loot")          { a.lootHits++;    a.books       += r.books ?? 0; }
-    else if (r.event_type === "failed_attack") { a.failedHits++; }
-    attackerMap.set(ak, a);
-
-    const dk = `${r.defender_name ?? ""}\0${r.defender_kingdom}`;
-    const d = defenderMap.get(dk) ?? newDefender(r.defender_name, r.defender_kingdom);
-    d.hits++;
-    if      (r.event_type === "march")         { d.marchHits++;   d.marchAcres  += r.acres ?? 0; }
-    else if (r.event_type === "ambush")        { d.ambushHits++;  d.ambushAcres += r.acres ?? 0; }
-    else if (r.event_type === "raze")          { d.razeHits++;    d.razeAcres   += r.acres ?? 0; }
-    else if (r.event_type === "pillage")       { d.pillageHits++; }
-    else if (r.event_type === "loot")          { d.lootHits++; }
-    else if (r.event_type === "failed_attack") { d.failedHits++; }
-    defenderMap.set(dk, d);
-  }
-
-  const asAttacker = [...attackerMap.values()];
-  const asDefender = [...defenderMap.values()];
-
-  // Build per-province map keyed by (name, kd)
-  type ProvKey = string;
-  type ProvEntry = {
-    kd: string; name: string | null;
-    hitsMade: number; marchMade: number; ambushMade: number; razeMade: number; pillageMade: number; lootMade: number; failedMade: number;
-    marchAcresGained: number; ambushAcresGained: number; razeAcresDealt: number; booksLooted: number;
-    hitsTaken: number; marchTaken: number; ambushTaken: number; razeTaken: number; pillageTaken: number; lootTaken: number; failedTaken: number;
-    marchAcresLost: number; ambushAcresLost: number; razeAcresLost: number;
-  };
-
-  const provMap = new Map<ProvKey, ProvEntry>();
-  const provKey = (name: string | null, kd: string) => `${name ?? ""}\0${kd}`;
-  const emptyProv = (name: string | null, kd: string): ProvEntry => ({
-    kd, name,
-    hitsMade: 0, marchMade: 0, ambushMade: 0, razeMade: 0, pillageMade: 0, lootMade: 0, failedMade: 0,
-    marchAcresGained: 0, ambushAcresGained: 0, razeAcresDealt: 0, booksLooted: 0,
-    hitsTaken: 0, marchTaken: 0, ambushTaken: 0, razeTaken: 0, pillageTaken: 0, lootTaken: 0, failedTaken: 0,
-    marchAcresLost: 0, ambushAcresLost: 0, razeAcresLost: 0,
-  });
-
-  for (const r of asAttacker) {
-    const k = provKey(r.attacker_name, r.attacker_kingdom);
-    const p = provMap.get(k) ?? emptyProv(r.attacker_name, r.attacker_kingdom);
-    p.hitsMade += r.hits; p.marchMade += r.marchHits; p.ambushMade += r.ambushHits; p.razeMade += r.razeHits;
-    p.pillageMade += r.pillageHits; p.lootMade += r.lootHits; p.failedMade += r.failedHits;
-    p.marchAcresGained += r.marchAcres; p.ambushAcresGained += r.ambushAcres; p.razeAcresDealt += r.razeAcres; p.booksLooted += r.books;
-    provMap.set(k, p);
-  }
-  for (const r of asDefender) {
-    const k = provKey(r.defender_name, r.defender_kingdom);
-    const p = provMap.get(k) ?? emptyProv(r.defender_name, r.defender_kingdom);
-    p.hitsTaken += r.hits; p.marchTaken += r.marchHits; p.ambushTaken += r.ambushHits; p.razeTaken += r.razeHits;
-    p.pillageTaken += r.pillageHits; p.lootTaken += r.lootHits; p.failedTaken += r.failedHits;
-    p.marchAcresLost += r.marchAcres; p.ambushAcresLost += r.ambushAcres; p.razeAcresLost += r.razeAcres;
-    provMap.set(k, p);
-  }
-
-  // Look up slots for all involved provinces
-  const kingdoms = [...new Set([...provMap.values()].map((p) => p.kd))];
-  const slotMap = new Map<string, number | null>();
-  if (kingdoms.length > 0) {
-    const placeholders = kingdoms.map(() => "?").join(",");
-    const slotRows = db.prepare(`
-      SELECT kp.name, ki.location as kingdom, kp.slot
-      FROM kingdom_provinces kp
-      JOIN kingdom_intel ki ON ki.id = kp.kingdom_intel_id
-      WHERE ki.location IN (${placeholders}) AND kp.name IS NOT NULL
-    `).all(...kingdoms) as { name: string; kingdom: string; slot: number | null }[];
-    for (const r of slotRows) slotMap.set(`${r.name}\0${r.kingdom}`, r.slot);
-  }
-
-  // Group provinces by kingdom
-  const kdMap = new Map<string, NewsProvinceSummary[]>();
-  for (const p of provMap.values()) {
-    const slot = p.name ? (slotMap.get(`${p.name}\0${p.kd}`) ?? null) : null;
-    const list = kdMap.get(p.kd) ?? [];
-    list.push({
-      provinceName: p.name, slot,
-      hitsMade: p.hitsMade, marchMade: p.marchMade, ambushMade: p.ambushMade, razeMade: p.razeMade,
-      plunderMade: p.pillageMade, lootMade: p.lootMade, failedMade: p.failedMade,
-      marchAcresGained: p.marchAcresGained, ambushAcresGained: p.ambushAcresGained, razeAcresDealt: p.razeAcresDealt, booksLooted: p.booksLooted,
-      hitsTaken: p.hitsTaken, marchTaken: p.marchTaken, ambushTaken: p.ambushTaken, razeTaken: p.razeTaken,
-      plunderTaken: p.pillageTaken, lootTaken: p.lootTaken, failedTaken: p.failedTaken,
-      marchAcresLost: p.marchAcresLost, ambushAcresLost: p.ambushAcresLost, razeAcresLost: p.razeAcresLost,
-    });
-    kdMap.set(p.kd, list);
-  }
-
-  // Fetch latest name for each kingdom location
-  const kdNames = new Map<string, string>();
-  for (const loc of kdMap.keys()) {
-    const row = db.prepare(`SELECT name FROM kingdom_intel WHERE location = ? ORDER BY received_at DESC LIMIT 1`).get(loc) as { name: string } | undefined;
-    if (row) kdNames.set(loc, row.name);
-  }
-
-  // Build kingdom summaries, sort provinces within each by net acres desc
-  const byKingdom: NewsKingdomSummary[] = [...kdMap.entries()].map(([kd, provs]) => {
-    provs.sort((a, b) => {
-      const netB = b.marchAcresGained - b.marchAcresLost - b.razeAcresLost;
-      const netA = a.marchAcresGained - a.marchAcresLost - a.razeAcresLost;
-      return netB - netA;
-    });
-    const sum = <K extends keyof NewsProvinceSummary>(f: K) => provs.reduce((s, p) => s + (p[f] as number), 0);
-    return {
-      kingdom: kd, kingdomName: kdNames.get(kd) ?? null, provinces: provs,
-      totalHitsMade:          sum("hitsMade"),
-      totalMarchMade:         sum("marchMade"),
-      totalAmbushMade:        sum("ambushMade"),
-      totalRazeMade:          sum("razeMade"),
-      totalPlunderMade:       sum("plunderMade"),
-      totalLootMade:          sum("lootMade"),
-      totalFailedMade:        sum("failedMade"),
-      totalMarchAcresGained:  sum("marchAcresGained"),
-      totalAmbushAcresGained: sum("ambushAcresGained"),
-      totalRazeAcresDealt:    sum("razeAcresDealt"),
-      totalHitsTaken:         sum("hitsTaken"),
-      totalMarchTaken:        sum("marchTaken"),
-      totalAmbushTaken:       sum("ambushTaken"),
-      totalRazeTaken:         sum("razeTaken"),
-      totalPlunderTaken:      sum("plunderTaken"),
-      totalLootTaken:         sum("lootTaken"),
-      totalFailedTaken:       sum("failedTaken"),
-      totalMarchAcresLost:    sum("marchAcresLost"),
-      totalAmbushAcresLost:   sum("ambushAcresLost"),
-      totalRazeAcresLost:     sum("razeAcresLost"),
-    };
-  });
-
-  // Our kingdom first, enemy kingdoms sorted by hitsMade (attacks against us) desc
-  byKingdom.sort((a, b) => {
-    if (a.kingdom === kingdom) return -1;
-    if (b.kingdom === kingdom) return 1;
-    return (b.totalHitsMade - a.totalHitsMade) || (a.totalMarchAcresGained - b.totalMarchAcresGained);
-  });
-
-  const ours = byKingdom.find(k => k.kingdom === kingdom);
-  const enemies = byKingdom.filter(k => k.kingdom !== kingdom);
-  const totalMarchAcresIn  = enemies.reduce((s, k) => s + k.totalMarchAcresGained, 0);
-  const totalRazeAcresIn   = enemies.reduce((s, k) => s + k.totalRazeAcresDealt, 0);
-  const totalMarchAcresOut = ours?.totalMarchAcresGained ?? 0;
-  const totalRazeAcresOut  = ours?.totalRazeAcresDealt ?? 0;
-  const uniqueAttackers = asAttacker.filter(r => r.attacker_kingdom !== kingdom).length;
-
-  return { ourKingdom: kingdom, totalMarchAcresIn, totalRazeAcresIn, totalMarchAcresOut, totalRazeAcresOut, uniqueAttackers, byKingdom };
+  return createDbApi(getDb()).getKingdomNewsSummary(kingdom, keyHash, from, to);
 }
 
 export function cleanupExpired() {
-  const db = getDb();
-  const cutoff = `datetime('now', '-${TTL_DAYS} days')`;
-  db.exec(`
-    DELETE FROM province_overview WHERE received_at < ${cutoff};
-    DELETE FROM total_military_points WHERE received_at < ${cutoff};
-    DELETE FROM home_military_points WHERE received_at < ${cutoff};
-    DELETE FROM province_troops WHERE received_at < ${cutoff};
-    DELETE FROM province_resources WHERE received_at < ${cutoff};
-    DELETE FROM province_status WHERE received_at < ${cutoff};
-    DELETE FROM military_intel WHERE received_at < ${cutoff};
-    DELETE FROM survey_intel WHERE received_at < ${cutoff};
-    DELETE FROM sos_intel WHERE received_at < ${cutoff};
-    DELETE FROM kingdom_intel WHERE received_at < ${cutoff};
-    DELETE FROM kingdom_news WHERE received_at < ${cutoff};
-  `);
+  return createDbApi(getDb()).cleanupExpired();
+}
+
+export interface DbApi {
+  getBoundKingdom(keyHash: string): string | null;
+  getKingdoms(keyHash: string): KingdomRow[];
+  getLatestKingdomSnapshot(location: string, keyHash: string): KingdomSnapshot | null;
+  getKingdomProvinces(kingdom: string, keyHash: string): ProvinceRow[];
+  getKingdomRitual(kingdom: string, keyHash: string): KingdomRitual | null;
+  getKingdomDragon(kingdom: string, keyHash: string): KingdomDragon | null;
+  getKingdomNews(kingdom: string, keyHash: string, from?: string, to?: string): { events: KingdomNewsRow[]; effectiveFrom: string | null };
+  getLatestWarDate(kingdom: string, keyHash: string): string | null;
+  getKingdomNewsSummary(kingdom: string, keyHash: string, from?: string, to?: string): KingdomNewsSummary;
+  cleanupExpired(): void;
+}
+
+export function createDbApi(db: Database.Database): DbApi {
+  return {
+    getBoundKingdom(keyHash) {
+      const row = db.prepare(
+        "SELECT kingdom FROM key_kingdom_bindings WHERE key_hash = ?"
+      ).get(keyHash) as { kingdom: string } | undefined;
+      return row?.kingdom ?? null;
+    },
+
+    getKingdoms(keyHash) {
+      return db.prepare(`
+        SELECT p.kingdom AS location,
+               COUNT(DISTINCT p.id) AS province_count,
+               MAX(po.received_at) AS last_seen
+        FROM provinces p
+        LEFT JOIN province_overview po ON po.province_id = p.id
+        WHERE p.kingdom != ''
+          AND EXISTS (
+            SELECT 1 FROM intel_partitions
+            WHERE key_hash = ? AND province_id = p.id
+          )
+        GROUP BY p.kingdom
+        ORDER BY last_seen DESC
+      `).all(keyHash) as KingdomRow[];
+    },
+
+    getLatestKingdomSnapshot(location, keyHash) {
+      const snapshot = db.prepare(`
+        SELECT ki.id, ki.name, ki.location, ki.war_target,
+               ki.their_attitude_to_us, ki.their_attitude_points,
+               ki.our_attitude_to_them, ki.our_attitude_points,
+               ki.hostility_meter_visible_until, ki.open_relations_json,
+               ki.received_at
+        FROM kingdom_intel ki
+        WHERE ki.location = ?
+          AND NOT EXISTS (
+            SELECT 1
+            FROM kingdom_provinces kp
+            WHERE kp.kingdom_intel_id = ki.id
+              AND NOT EXISTS (
+                SELECT 1
+                FROM provinces p
+                JOIN intel_partitions ip
+                  ON ip.province_id = p.id
+                 AND ip.key_hash = ?
+                WHERE p.name = kp.name
+                  AND p.kingdom = ki.location
+              )
+          )
+        ORDER BY ki.received_at DESC
+        LIMIT 1
+      `).get(location, keyHash) as {
+        id: number;
+        name: string;
+        location: string;
+        war_target: string | null;
+        their_attitude_to_us: string | null;
+        their_attitude_points: number | null;
+        our_attitude_to_them: string | null;
+        our_attitude_points: number | null;
+        hostility_meter_visible_until: string | null;
+        open_relations_json: string | null;
+        received_at: string;
+      } | undefined;
+
+      if (!snapshot) return null;
+
+      const provinces = db.prepare(`
+        SELECT slot, name, race, land, networth, honor_title
+        FROM kingdom_provinces
+        WHERE kingdom_intel_id = ?
+        ORDER BY networth DESC, name ASC
+      `).all(snapshot.id) as {
+        slot: number | null;
+        name: string;
+        race: string;
+        land: number;
+        networth: number;
+        honor_title: string | null;
+      }[];
+
+      return {
+        id: snapshot.id,
+        name: snapshot.name,
+        location: snapshot.location,
+        warTarget: snapshot.war_target,
+        theirAttitudeToUs: snapshot.their_attitude_to_us,
+        theirAttitudePoints: snapshot.their_attitude_points,
+        ourAttitudeToThem: snapshot.our_attitude_to_them,
+        ourAttitudePoints: snapshot.our_attitude_points,
+        hostilityMeterVisibleUntil: snapshot.hostility_meter_visible_until,
+        openRelations: snapshot.open_relations_json ? JSON.parse(snapshot.open_relations_json) as KingdomOpenRelation[] : [],
+        receivedAt: snapshot.received_at,
+        provinces: provinces.map((p) => ({
+          slot: p.slot,
+          name: p.name,
+          race: p.race,
+          land: p.land,
+          networth: p.networth,
+          honorTitle: p.honor_title,
+        })),
+      };
+    },
+
+    getKingdomProvinces(kingdom, keyHash) {
+      return getKingdomProvincesForDb(db, kingdom, keyHash);
+    },
+
+    getKingdomRitual(kingdom, keyHash) {
+      const row = db.prepare(`
+        SELECT pe.effect_name, pe.remaining_ticks, pe.effectiveness_percent, pe.received_at
+        FROM province_effects pe
+        JOIN provinces p ON p.id = pe.province_id
+        JOIN intel_partitions ip ON ip.province_id = p.id AND ip.key_hash = ?
+        WHERE p.kingdom = ? AND pe.effect_kind = 'ritual'
+          AND pe.received_at = (
+            SELECT MAX(pe2.received_at) FROM province_effects pe2 WHERE pe2.province_id = pe.province_id
+          )
+        ORDER BY pe.received_at DESC, pe.id DESC
+        LIMIT 1
+      `).get(keyHash, kingdom) as { effect_name: string; remaining_ticks: number | null; effectiveness_percent: number | null; received_at: string } | undefined;
+      if (!row) return null;
+      return { name: row.effect_name, remainingTicks: row.remaining_ticks, effectivenessPercent: row.effectiveness_percent, receivedAt: row.received_at };
+    },
+
+    getKingdomDragon(kingdom, keyHash) {
+      const row = db.prepare(`
+        SELECT ps.dragon_type, ps.dragon_name, ps.received_at
+        FROM province_status ps
+        JOIN provinces p ON p.id = ps.province_id
+        JOIN intel_partitions ip ON ip.province_id = p.id AND ip.key_hash = ?
+        WHERE p.kingdom = ? AND ps.dragon_type IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM province_status ps2
+            WHERE ps2.province_id = ps.province_id AND ps2.id > ps.id AND ps2.dragon_type IS NULL
+          )
+        ORDER BY ps.received_at DESC, ps.id DESC
+        LIMIT 1
+      `).get(keyHash, kingdom) as { dragon_type: string; dragon_name: string; received_at: string } | undefined;
+      if (!row) return null;
+      return { dragonType: row.dragon_type, dragonName: row.dragon_name, receivedAt: row.received_at };
+    },
+
+    getKingdomNews(kingdom, keyHash, from, to) {
+      const hasAccess = db.prepare(`
+        SELECT 1 FROM intel_partitions ip
+        JOIN provinces p ON p.id = ip.province_id
+        WHERE ip.key_hash = ? AND p.kingdom = ?
+        LIMIT 1
+      `).get(keyHash, kingdom);
+      if (!hasAccess) return { events: [], effectiveFrom: null };
+
+      let fromOrd: number;
+      let toOrd: number;
+      let effectiveFrom: string | null = from ?? null;
+      if (from || to) {
+        fromOrd = from ? parseUtopiaDate(from) : 0;
+        toOrd   = to   ? parseUtopiaDate(to)   : 999999;
+      } else {
+        const maxRow = db.prepare(`SELECT MAX(game_date_ord) as m FROM kingdom_news WHERE kingdom = ?`).get(kingdom) as { m: number | null };
+        const maxOrd = maxRow?.m ?? 0;
+        fromOrd = maxOrd - 3 * UTOPIA_MONTH_DAYS + 1;
+        toOrd   = 999999;
+        effectiveFrom = formatUtopiaDate(fromOrd);
+      }
+
+      const rows = db.prepare(`
+        SELECT id, kingdom, game_date, event_type, raw_text,
+               attacker_name, attacker_kingdom,
+               defender_name, defender_kingdom,
+               acres, books,
+               sender_name, receiver_name,
+               relation_kingdom,
+               dragon_type, dragon_name,
+               received_at
+        FROM kingdom_news
+        WHERE kingdom = ? AND game_date_ord >= ? AND game_date_ord <= ?
+        ORDER BY game_date_ord DESC, id DESC
+      `).all(kingdom, fromOrd, toOrd) as Array<{
+        id: number;
+        kingdom: string;
+        game_date: string;
+        event_type: string;
+        raw_text: string;
+        attacker_name: string | null;
+        attacker_kingdom: string | null;
+        defender_name: string | null;
+        defender_kingdom: string | null;
+        acres: number | null;
+        books: number | null;
+        sender_name: string | null;
+        receiver_name: string | null;
+        relation_kingdom: string | null;
+        dragon_type: string | null;
+        dragon_name: string | null;
+        received_at: string;
+      }>;
+
+      const events = rows.map((r) => ({
+        id: r.id,
+        kingdom: r.kingdom,
+        gameDate: r.game_date,
+        eventType: r.event_type,
+        rawText: r.raw_text,
+        attackerName: r.attacker_name,
+        attackerKingdom: r.attacker_kingdom,
+        defenderName: r.defender_name,
+        defenderKingdom: r.defender_kingdom,
+        acres: r.acres,
+        books: r.books,
+        senderName: r.sender_name,
+        receiverName: r.receiver_name,
+        relationKingdom: r.relation_kingdom,
+        dragonType: r.dragon_type,
+        dragonName: r.dragon_name,
+        receivedAt: r.received_at,
+      }));
+      return { events, effectiveFrom };
+    },
+
+    getLatestWarDate(kingdom, keyHash) {
+      const hasAccess = db.prepare(`
+        SELECT 1 FROM intel_partitions ip
+        JOIN provinces p ON p.id = ip.province_id
+        WHERE ip.key_hash = ? AND p.kingdom = ?
+        LIMIT 1
+      `).get(keyHash, kingdom);
+      if (!hasAccess) return null;
+      const row = db.prepare(`
+        SELECT game_date FROM kingdom_news
+        WHERE kingdom = ? AND event_type = 'war_declared'
+        ORDER BY game_date_ord DESC, id DESC
+        LIMIT 1
+      `).get(kingdom) as { game_date: string } | undefined;
+      return row?.game_date ?? null;
+    },
+
+    getKingdomNewsSummary(kingdom, keyHash, from, to) {
+      const hasAccess = db.prepare(`
+        SELECT 1 FROM intel_partitions ip
+        JOIN provinces p ON p.id = ip.province_id
+        WHERE ip.key_hash = ? AND p.kingdom = ?
+        LIMIT 1
+      `).get(keyHash, kingdom);
+      const empty: KingdomNewsSummary = { ourKingdom: kingdom, totalMarchAcresIn: 0, totalRazeAcresIn: 0, totalMarchAcresOut: 0, totalRazeAcresOut: 0, uniqueAttackers: 0, byKingdom: [] };
+      if (!hasAccess) return empty;
+
+      let fromOrd: number;
+      let toOrd: number;
+      if (from || to) {
+        fromOrd = from ? parseUtopiaDate(from) : 0;
+        toOrd   = to   ? parseUtopiaDate(to)   : 999999;
+      } else {
+        const maxRow = db.prepare(`SELECT MAX(game_date_ord) as m FROM kingdom_news WHERE kingdom = ?`).get(kingdom) as { m: number | null };
+        const maxOrd = maxRow?.m ?? 0;
+        fromOrd = maxOrd - 3 * UTOPIA_MONTH_DAYS + 1;
+        toOrd   = 999999;
+      }
+
+      const combatRows = db.prepare(`
+        SELECT attacker_name, attacker_kingdom, defender_name, defender_kingdom,
+               event_type, acres, books
+        FROM kingdom_news
+        WHERE kingdom = ? AND event_type IN (${COMBAT_TYPES})
+          AND attacker_kingdom IS NOT NULL AND defender_kingdom IS NOT NULL
+          AND game_date_ord >= ? AND game_date_ord <= ?
+      `).all(kingdom, fromOrd, toOrd) as {
+        attacker_name: string | null; attacker_kingdom: string;
+        defender_name: string | null; defender_kingdom: string;
+        event_type: string; acres: number | null; books: number | null;
+      }[];
+
+      type AttackerEntry = {
+        attacker_name: string | null; attacker_kingdom: string;
+        hits: number; marchHits: number; ambushHits: number; razeHits: number; pillageHits: number; lootHits: number; failedHits: number;
+        marchAcres: number; ambushAcres: number; razeAcres: number; books: number;
+      };
+      type DefenderEntry = {
+        defender_name: string | null; defender_kingdom: string;
+        hits: number; marchHits: number; ambushHits: number; razeHits: number; pillageHits: number; lootHits: number; failedHits: number;
+        marchAcres: number; ambushAcres: number; razeAcres: number;
+      };
+
+      const newAttacker = (name: string | null, kd: string): AttackerEntry =>
+        ({ attacker_name: name, attacker_kingdom: kd, hits: 0, marchHits: 0, ambushHits: 0, razeHits: 0, pillageHits: 0, lootHits: 0, failedHits: 0, marchAcres: 0, ambushAcres: 0, razeAcres: 0, books: 0 });
+      const newDefender = (name: string | null, kd: string): DefenderEntry =>
+        ({ defender_name: name, defender_kingdom: kd, hits: 0, marchHits: 0, ambushHits: 0, razeHits: 0, pillageHits: 0, lootHits: 0, failedHits: 0, marchAcres: 0, ambushAcres: 0, razeAcres: 0 });
+
+      const attackerMap = new Map<string, AttackerEntry>();
+      const defenderMap = new Map<string, DefenderEntry>();
+
+      for (const r of combatRows) {
+        const ak = `${r.attacker_name ?? ""}\0${r.attacker_kingdom}`;
+        const a = attackerMap.get(ak) ?? newAttacker(r.attacker_name, r.attacker_kingdom);
+        a.hits++;
+        if      (r.event_type === "march")         { a.marchHits++;   a.marchAcres  += r.acres ?? 0; }
+        else if (r.event_type === "ambush")        { a.ambushHits++;  a.ambushAcres += r.acres ?? 0; }
+        else if (r.event_type === "raze")          { a.razeHits++;    a.razeAcres   += r.acres ?? 0; }
+        else if (r.event_type === "pillage")       { a.pillageHits++; }
+        else if (r.event_type === "loot")          { a.lootHits++;    a.books       += r.books ?? 0; }
+        else if (r.event_type === "failed_attack") { a.failedHits++; }
+        attackerMap.set(ak, a);
+
+        const dk = `${r.defender_name ?? ""}\0${r.defender_kingdom}`;
+        const d = defenderMap.get(dk) ?? newDefender(r.defender_name, r.defender_kingdom);
+        d.hits++;
+        if      (r.event_type === "march")         { d.marchHits++;   d.marchAcres  += r.acres ?? 0; }
+        else if (r.event_type === "ambush")        { d.ambushHits++;  d.ambushAcres += r.acres ?? 0; }
+        else if (r.event_type === "raze")          { d.razeHits++;    d.razeAcres   += r.acres ?? 0; }
+        else if (r.event_type === "pillage")       { d.pillageHits++; }
+        else if (r.event_type === "loot")          { d.lootHits++; }
+        else if (r.event_type === "failed_attack") { d.failedHits++; }
+        defenderMap.set(dk, d);
+      }
+
+      const asAttacker = [...attackerMap.values()];
+      const asDefender = [...defenderMap.values()];
+
+      type ProvKey = string;
+      type ProvEntry = {
+        kd: string; name: string | null;
+        hitsMade: number; marchMade: number; ambushMade: number; razeMade: number; pillageMade: number; lootMade: number; failedMade: number;
+        marchAcresGained: number; ambushAcresGained: number; razeAcresDealt: number; booksLooted: number;
+        hitsTaken: number; marchTaken: number; ambushTaken: number; razeTaken: number; pillageTaken: number; lootTaken: number; failedTaken: number;
+        marchAcresLost: number; ambushAcresLost: number; razeAcresLost: number;
+      };
+
+      const provMap = new Map<ProvKey, ProvEntry>();
+      const provKey = (name: string | null, kd: string) => `${name ?? ""}\0${kd}`;
+      const emptyProv = (name: string | null, kd: string): ProvEntry => ({
+        kd, name,
+        hitsMade: 0, marchMade: 0, ambushMade: 0, razeMade: 0, pillageMade: 0, lootMade: 0, failedMade: 0,
+        marchAcresGained: 0, ambushAcresGained: 0, razeAcresDealt: 0, booksLooted: 0,
+        hitsTaken: 0, marchTaken: 0, ambushTaken: 0, razeTaken: 0, pillageTaken: 0, lootTaken: 0, failedTaken: 0,
+        marchAcresLost: 0, ambushAcresLost: 0, razeAcresLost: 0,
+      });
+
+      for (const r of asAttacker) {
+        const k = provKey(r.attacker_name, r.attacker_kingdom);
+        const p = provMap.get(k) ?? emptyProv(r.attacker_name, r.attacker_kingdom);
+        p.hitsMade += r.hits; p.marchMade += r.marchHits; p.ambushMade += r.ambushHits; p.razeMade += r.razeHits;
+        p.pillageMade += r.pillageHits; p.lootMade += r.lootHits; p.failedMade += r.failedHits;
+        p.marchAcresGained += r.marchAcres; p.ambushAcresGained += r.ambushAcres; p.razeAcresDealt += r.razeAcres; p.booksLooted += r.books;
+        provMap.set(k, p);
+      }
+      for (const r of asDefender) {
+        const k = provKey(r.defender_name, r.defender_kingdom);
+        const p = provMap.get(k) ?? emptyProv(r.defender_name, r.defender_kingdom);
+        p.hitsTaken += r.hits; p.marchTaken += r.marchHits; p.ambushTaken += r.ambushHits; p.razeTaken += r.razeHits;
+        p.pillageTaken += r.pillageHits; p.lootTaken += r.lootHits; p.failedTaken += r.failedHits;
+        p.marchAcresLost += r.marchAcres; p.ambushAcresLost += r.ambushAcres; p.razeAcresLost += r.razeAcres;
+        provMap.set(k, p);
+      }
+
+      const kingdoms = [...new Set([...provMap.values()].map((p) => p.kd))];
+      const slotMap = new Map<string, number | null>();
+      if (kingdoms.length > 0) {
+        const placeholders = kingdoms.map(() => "?").join(",");
+        const slotRows = db.prepare(`
+          SELECT kp.name, ki.location as kingdom, kp.slot
+          FROM kingdom_provinces kp
+          JOIN kingdom_intel ki ON ki.id = kp.kingdom_intel_id
+          WHERE ki.location IN (${placeholders}) AND kp.name IS NOT NULL
+        `).all(...kingdoms) as { name: string; kingdom: string; slot: number | null }[];
+        for (const r of slotRows) slotMap.set(`${r.name}\0${r.kingdom}`, r.slot);
+      }
+
+      const kdMap = new Map<string, NewsProvinceSummary[]>();
+      for (const p of provMap.values()) {
+        const slot = p.name ? (slotMap.get(`${p.name}\0${p.kd}`) ?? null) : null;
+        const list = kdMap.get(p.kd) ?? [];
+        list.push({
+          provinceName: p.name, slot,
+          hitsMade: p.hitsMade, marchMade: p.marchMade, ambushMade: p.ambushMade, razeMade: p.razeMade,
+          plunderMade: p.pillageMade, lootMade: p.lootMade, failedMade: p.failedMade,
+          marchAcresGained: p.marchAcresGained, ambushAcresGained: p.ambushAcresGained, razeAcresDealt: p.razeAcresDealt, booksLooted: p.booksLooted,
+          hitsTaken: p.hitsTaken, marchTaken: p.marchTaken, ambushTaken: p.ambushTaken, razeTaken: p.razeTaken,
+          plunderTaken: p.pillageTaken, lootTaken: p.lootTaken, failedTaken: p.failedTaken,
+          marchAcresLost: p.marchAcresLost, ambushAcresLost: p.ambushAcresLost, razeAcresLost: p.razeAcresLost,
+        });
+        kdMap.set(p.kd, list);
+      }
+
+      const kdNames = new Map<string, string>();
+      for (const loc of kdMap.keys()) {
+        const row = db.prepare(`SELECT name FROM kingdom_intel WHERE location = ? ORDER BY received_at DESC LIMIT 1`).get(loc) as { name: string } | undefined;
+        if (row) kdNames.set(loc, row.name);
+      }
+
+      const byKingdom: NewsKingdomSummary[] = [...kdMap.entries()].map(([kd, provs]) => {
+        provs.sort((a, b) => {
+          const netB = b.marchAcresGained - b.marchAcresLost - b.razeAcresLost;
+          const netA = a.marchAcresGained - a.marchAcresLost - a.razeAcresLost;
+          return netB - netA;
+        });
+        const sum = <K extends keyof NewsProvinceSummary>(f: K) => provs.reduce((s, p) => s + (p[f] as number), 0);
+        return {
+          kingdom: kd, kingdomName: kdNames.get(kd) ?? null, provinces: provs,
+          totalHitsMade:          sum("hitsMade"),
+          totalMarchMade:         sum("marchMade"),
+          totalAmbushMade:        sum("ambushMade"),
+          totalRazeMade:          sum("razeMade"),
+          totalPlunderMade:       sum("plunderMade"),
+          totalLootMade:          sum("lootMade"),
+          totalFailedMade:        sum("failedMade"),
+          totalMarchAcresGained:  sum("marchAcresGained"),
+          totalAmbushAcresGained: sum("ambushAcresGained"),
+          totalRazeAcresDealt:    sum("razeAcresDealt"),
+          totalHitsTaken:         sum("hitsTaken"),
+          totalMarchTaken:        sum("marchTaken"),
+          totalAmbushTaken:       sum("ambushTaken"),
+          totalRazeTaken:         sum("razeTaken"),
+          totalPlunderTaken:      sum("plunderTaken"),
+          totalLootTaken:         sum("lootTaken"),
+          totalFailedTaken:       sum("failedTaken"),
+          totalMarchAcresLost:    sum("marchAcresLost"),
+          totalAmbushAcresLost:   sum("ambushAcresLost"),
+          totalRazeAcresLost:     sum("razeAcresLost"),
+        };
+      });
+
+      byKingdom.sort((a, b) => {
+        if (a.kingdom === kingdom) return -1;
+        if (b.kingdom === kingdom) return 1;
+        return (b.totalHitsMade - a.totalHitsMade) || (a.totalMarchAcresGained - b.totalMarchAcresGained);
+      });
+
+      const ours = byKingdom.find(k => k.kingdom === kingdom);
+      const enemies = byKingdom.filter(k => k.kingdom !== kingdom);
+      const totalMarchAcresIn  = enemies.reduce((s, k) => s + k.totalMarchAcresGained, 0);
+      const totalRazeAcresIn   = enemies.reduce((s, k) => s + k.totalRazeAcresDealt, 0);
+      const totalMarchAcresOut = ours?.totalMarchAcresGained ?? 0;
+      const totalRazeAcresOut  = ours?.totalRazeAcresDealt ?? 0;
+      const uniqueAttackers = asAttacker.filter(r => r.attacker_kingdom !== kingdom).length;
+
+      return { ourKingdom: kingdom, totalMarchAcresIn, totalRazeAcresIn, totalMarchAcresOut, totalRazeAcresOut, uniqueAttackers, byKingdom };
+    },
+
+    cleanupExpired() {
+      const cutoff = `datetime('now', '-${TTL_DAYS} days')`;
+      db.exec(`
+        DELETE FROM province_overview WHERE received_at < ${cutoff};
+        DELETE FROM total_military_points WHERE received_at < ${cutoff};
+        DELETE FROM home_military_points WHERE received_at < ${cutoff};
+        DELETE FROM province_troops WHERE received_at < ${cutoff};
+        DELETE FROM province_resources WHERE received_at < ${cutoff};
+        DELETE FROM province_status WHERE received_at < ${cutoff};
+        DELETE FROM military_intel WHERE received_at < ${cutoff};
+        DELETE FROM survey_intel WHERE received_at < ${cutoff};
+        DELETE FROM sos_intel WHERE received_at < ${cutoff};
+        DELETE FROM kingdom_intel WHERE received_at < ${cutoff};
+        DELETE FROM kingdom_news WHERE received_at < ${cutoff};
+      `);
+    },
+  };
 }

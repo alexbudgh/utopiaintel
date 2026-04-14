@@ -1,4 +1,5 @@
 import {
+  type DbApi,
   getBoundKingdom,
   getKingdomProvinces,
   getKingdomRitual,
@@ -18,8 +19,17 @@ export interface GainsPageData {
   targetRitual: KingdomRitual | null;
 }
 
-export function getGainsPageData(targetKingdom: string, keyHash: string): GainsPageData {
-  const selfKingdom = getBoundKingdom(keyHash);
+type GainsPageDeps = Pick<DbApi, "getBoundKingdom" | "getKingdomProvinces" | "getLatestKingdomSnapshot" | "getKingdomRitual">;
+
+const defaultDeps: GainsPageDeps = {
+  getBoundKingdom,
+  getKingdomProvinces,
+  getLatestKingdomSnapshot,
+  getKingdomRitual,
+};
+
+export function getGainsPageData(targetKingdom: string, keyHash: string, deps: GainsPageDeps = defaultDeps): GainsPageData {
+  const selfKingdom = deps.getBoundKingdom(keyHash);
 
   if (!selfKingdom) {
     return {
@@ -36,10 +46,10 @@ export function getGainsPageData(targetKingdom: string, keyHash: string): GainsP
   return {
     targetKingdom,
     selfKingdom,
-    selfProvinces: getKingdomProvinces(selfKingdom, keyHash),
-    targetLatest: getKingdomProvinces(targetKingdom, keyHash),
-    selfSnapshot: getLatestKingdomSnapshot(selfKingdom, keyHash),
-    targetSnapshot: getLatestKingdomSnapshot(targetKingdom, keyHash),
-    targetRitual: getKingdomRitual(targetKingdom, keyHash),
+    selfProvinces: deps.getKingdomProvinces(selfKingdom, keyHash),
+    targetLatest: deps.getKingdomProvinces(targetKingdom, keyHash),
+    selfSnapshot: deps.getLatestKingdomSnapshot(selfKingdom, keyHash),
+    targetSnapshot: deps.getLatestKingdomSnapshot(targetKingdom, keyHash),
+    targetRitual: deps.getKingdomRitual(targetKingdom, keyHash),
   };
 }
