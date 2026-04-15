@@ -203,6 +203,27 @@ INTEL_DB_PATH=/home/ec2-user/utopiaintel-data/intel.db \
 npm run replay-debug-log -- /home/ec2-user/utopiaintel/intel_debug.jsonl --types=kingdom
 ```
 
+Production backfill setup:
+
+```bash
+ssh utopiaintel
+cd ~/utopiaintel-src
+npm ci
+```
+
+That source checkout is the right place to run replay and other one-off maintenance scripts.
+Prefer installing dependencies there once instead of borrowing `~/utopiaintel/node_modules`
+through `NODE_PATH`.
+
+Example production replay:
+
+```bash
+ssh utopiaintel
+cd ~/utopiaintel-src
+export INTEL_DB_PATH=/home/ec2-user/utopiaintel-data/intel.db
+npm run replay-debug-log -- ~/utopiaintel/intel_debug.jsonl --types=kingdom
+```
+
 ## Deploy
 
 Build and deploy in this order:
