@@ -5,59 +5,11 @@ import { useEffect, useRef, useState } from "react";
 import { Tooltip } from "@/app/components/Tooltip";
 import type { ProvinceRow } from "@/lib/db";
 import type { GainsPageData } from "@/lib/gains-page";
+import { OPS, computeCell, type Op, type CellResult } from "@/lib/thievery";
 import { formatNum } from "@/lib/ui";
 
 const ATTACKER_COL_WIDTH = "w-52 min-w-52";
 const TARGET_COL_WIDTH = "w-36 min-w-36";
-
-type Op = "vaults" | "granaries" | "towers";
-
-interface OpConfig {
-  label: string;
-  resource: (p: ProvinceRow) => number | null;
-  capOow: number;
-  capWar: number;
-  unit: string;
-}
-
-const OPS: Record<Op, OpConfig> = {
-  vaults:    { label: "Vaults",    resource: (p) => p.money, capOow: 0.052, capWar: 0.14,  unit: "gc" },
-  granaries: { label: "Granaries", resource: (p) => p.food,  capOow: 0.315, capWar: 0.46,  unit: "bu" },
-  towers:    { label: "Towers",    resource: (p) => p.runes, capOow: 0.245, capWar: 0.35,  unit: "ru" },
-};
-
-interface CellResult {
-  value: number | null;
-  rawCap: number | null;
-  nwRatio: number | null;
-  shieldingFactor: number;
-  watchtowersFactor: number;
-}
-
-function computeCell(attacker: ProvinceRow, defender: ProvinceRow, op: Op, isWar: boolean): CellResult {
-  const config = OPS[op];
-  const resource = config.resource(defender);
-  if (resource == null) {
-    return { value: null, rawCap: null, nwRatio: null, shieldingFactor: 1, watchtowersFactor: 1 };
-  }
-
-  const capRate = isWar ? config.capWar : config.capOow;
-  const rawCap = resource * capRate;
-
-  const nwRatio =
-    attacker.networth && defender.networth
-      ? Math.min(attacker.networth / defender.networth, defender.networth / attacker.networth)
-      : null;
-
-  const shieldingFactor =
-    defender.shielding_effect != null ? 1 - defender.shielding_effect / 100 : 1;
-  const watchtowersFactor =
-    defender.watch_towers_effect != null ? 1 - defender.watch_towers_effect / 100 : 1;
-
-  const value = rawCap * (nwRatio ?? 1) * shieldingFactor * watchtowersFactor;
-
-  return { value, rawCap, nwRatio, shieldingFactor, watchtowersFactor };
-}
 
 function cellTone(value: number | null, maxValue: number): { cell: string; text: string } {
   if (value == null) return { cell: "bg-gray-950/40", text: "text-gray-600" };
