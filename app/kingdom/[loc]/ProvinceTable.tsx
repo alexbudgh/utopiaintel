@@ -78,6 +78,7 @@ const COLUMN_GROUPS = COLUMNS.reduce((acc, col) => {
 
 const STORAGE_VIEW_KEY = "province-view";
 const STORAGE_COLS_KEY = "province-columns";
+const STORAGE_SAVED_VIEWS_KEY = "province-saved-views";
 
 function sortValueFor(p: ProvinceRow, key: SortKey): number | string | null {
   switch (key) {
@@ -592,20 +593,32 @@ export function ProvinceTable({
   const [selectedRowId, setSelectedRowId] = useState<number | null>(null);
   const [activeView, setActiveView] = useState<string | null>("Overview");
   const [customCols, setCustomCols] = useState<Set<ColKey>>(new Set(VIEWS.Overview));
+  const [savedViews, setSavedViews] = useState<Record<string, ColKey[]>>({});
+  const [saveInputOpen, setSaveInputOpen] = useState(false);
+  const [saveInputValue, setSaveInputValue] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir } | null>(DEFAULT_SORT);
   const colsBtnRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const saveInputRef = useRef<HTMLInputElement>(null);
+
+  // Unified view map: built-in + saved
+  const allViews: Record<string, ColKey[]> = { ...VIEWS, ...savedViews };
 
   // Derived: visible cols from active view or custom set
-  const visible: Set<ColKey> = activeView ? new Set(VIEWS[activeView]) : customCols;
+  const visible: Set<ColKey> = activeView ? new Set(allViews[activeView] ?? []) : customCols;
 
   // Load prefs from localStorage after mount (SSR-safe)
   useEffect(() => {
     try {
+      const rawSaved = localStorage.getItem(STORAGE_SAVED_VIEWS_KEY);
+      const userSavedViews: Record<string, ColKey[]> = rawSaved ? JSON.parse(rawSaved) : {};
+      if (Object.keys(userSavedViews).length) setSavedViews(userSavedViews);
+
       const savedView = localStorage.getItem(STORAGE_VIEW_KEY);
       const savedCols = localStorage.getItem(STORAGE_COLS_KEY);
-      if (savedView && VIEWS[savedView]) {
+      const allKnown = { ...VIEWS, ...userSavedViews };
+      if (savedView && allKnown[savedView]) {
         setActiveView(savedView);
       } else if (savedCols) {
         setCustomCols(new Set(JSON.parse(savedCols) as ColKey[]));
@@ -621,6 +634,11 @@ export function ProvinceTable({
       localStorage.setItem(STORAGE_COLS_KEY, JSON.stringify([...customCols]));
     }
   }, [activeView, customCols]);
+
+  // Persist saved views
+  useEffect(() => {
+    localStorage.setItem(STORAGE_SAVED_VIEWS_KEY, JSON.stringify(savedViews));
+  }, [savedViews]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -651,11 +669,27 @@ export function ProvinceTable({
   };
 
   const toggleCustomCol = (key: ColKey) => {
-    const base = activeView ? new Set(VIEWS[activeView]) : customCols;
+    const base = activeView ? new Set(allViews[activeView] ?? []) : customCols;
     const next = new Set(base);
     next.has(key) ? next.delete(key) : next.add(key);
     setActiveView(null);
     setCustomCols(next);
+  };
+
+  const saveCurrentView = (name: string) => {
+    setSavedViews((prev) => ({ ...prev, [name]: [...visible] }));
+    setActiveView(name);
+    setSaveInputOpen(false);
+    setSaveInputValue("");
+  };
+
+  const deleteSavedView = (name: string) => {
+    setSavedViews((prev) => {
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
+    if (activeView === name) setActiveView("Overview");
   };
 
   const visibleCols = COLUMNS.filter((c) => visible.has(c.key));
@@ -707,6 +741,23 @@ export function ProvinceTable({
             {name}
           </button>
         ))}
+        {Object.keys(savedViews).map((name) => (
+          <div key={name} className="relative group">
+            <button
+              onClick={() => selectView(name)}
+              className={`${btnBase} ${activeView === name ? btnActive : btnInactive} pr-6`}
+            >
+              {name}
+            </button>
+            <button
+              onClick={() => deleteSavedView(name)}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-xs leading-none"
+              title="Delete view"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
         <div className="w-px h-4 bg-gray-700 mx-1" />
         <button
           ref={colsBtnRef}
@@ -715,6 +766,32 @@ export function ProvinceTable({
         >
           Columns ▾
         </button>
+        {saveInputOpen ? (
+          <form
+            onSubmit={(e) => { e.preventDefault(); const n = saveInputValue.trim(); if (n) saveCurrentView(n); }}
+            className="flex items-center gap-1"
+          >
+            <input
+              ref={saveInputRef}
+              autoFocus
+              value={saveInputValue}
+              onChange={(e) => setSaveInputValue(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Escape") { setSaveInputOpen(false); setSaveInputValue(""); } }}
+              placeholder="View name"
+              className="px-2 py-0.5 rounded border border-gray-600 bg-gray-800 text-xs text-gray-200 w-28 focus:outline-none focus:border-blue-500"
+            />
+            <button
+              type="submit"
+              disabled={!saveInputValue.trim() || !!allViews[saveInputValue.trim()]}
+              className={`${btnBase} ${saveInputValue.trim() && !allViews[saveInputValue.trim()] ? btnInactive : "border-gray-800 text-gray-600 cursor-not-allowed"}`}
+            >
+              Save
+            </button>
+            <button type="button" onClick={() => { setSaveInputOpen(false); setSaveInputValue(""); }} className={`${btnBase} ${btnInactive}`}>✕</button>
+          </form>
+        ) : (
+          <button onClick={() => setSaveInputOpen(true)} className={`${btnBase} ${btnInactive}`}>Save…</button>
+        )}
         <Link
           href={`/kingdom/${encodeURIComponent(kingdom)}?view=gains`}
           className={`${btnBase} ${btnInactive}`}
