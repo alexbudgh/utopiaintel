@@ -651,12 +651,11 @@ export function ProvinceTable({
   };
 
   const toggleCustomCol = (key: ColKey) => {
+    const base = activeView ? new Set(VIEWS[activeView]) : customCols;
+    const next = new Set(base);
+    next.has(key) ? next.delete(key) : next.add(key);
     setActiveView(null);
-    setCustomCols((prev) => {
-      const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
-      return next;
-    });
+    setCustomCols(next);
   };
 
   const visibleCols = COLUMNS.filter((c) => visible.has(c.key));
