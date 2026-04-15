@@ -58,7 +58,7 @@ function cellTooltip(
     watchtowersLine,
     `Adjusted max: ${formatNum(result.value)}`,
     "",
-    "Attacker race/personality/guile/cunning not factored in.",
+    "No race/personality modifiers affect thievery gains as of age 114.",
   ].join("\n");
 }
 
@@ -150,8 +150,7 @@ export function ThieveryTable({
           { text: "NW ratio: min(attackerNW/defenderNW, defenderNW/attackerNW). Defaults to 1.0 if NW unknown." },
           { text: "Shielding from latest SoS. Watchtowers from latest Survey. Both default to 1.0 if unavailable." },
           { text: "War rates apply when either kingdom has declared war on the other." },
-          { text: "Attacker race/personality, guile, cunning not factored in.", tone: "muted" },
-          { text: "Target race/personality modifiers not documented in the guide — not included.", tone: "muted" },
+          { text: "No race/personality modifiers affect thievery gains as of age 114.", tone: "muted" },
         ]}
       >
         <span className={`${btnBase} ${btnInactive}`}>Assumptions</span>
