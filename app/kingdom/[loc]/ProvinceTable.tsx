@@ -728,6 +728,12 @@ export function ProvinceTable({
         >
           News
         </Link>
+        <Link
+          href={`/kingdom/${encodeURIComponent(kingdom)}?view=history`}
+          className={`${btnBase} ${btnInactive}`}
+        >
+          History
+        </Link>
       </div>
 
       {dropdownOpen && colsBtnRef.current && createPortal(

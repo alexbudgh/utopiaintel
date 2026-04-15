@@ -9,7 +9,7 @@ import { KingdomRelations } from "@/app/components/KingdomRelations";
 import { IntelSetupCard } from "@/app/components/IntelSetupCard";
 import { IntelSetupButton } from "@/app/components/IntelSetupButton";
 import { Tooltip, type TooltipLine } from "@/app/components/Tooltip";
-import { KingdomSnapshotChart } from "./KingdomSnapshotChart";
+import { KingdomHistoryView } from "./KingdomSnapshotChart";
 import { ProvinceTable } from "./ProvinceTable";
 import { GainsTable } from "./gains/GainsTable";
 import { KingdomNewsTable } from "./KingdomNewsTable";
@@ -26,11 +26,12 @@ export default async function KingdomPage({
   searchParams,
 }: {
   params: Promise<{ loc: string }>;
-  searchParams: Promise<{ view?: string; from?: string; to?: string }>;
+  searchParams: Promise<{ view?: string; from?: string; to?: string; compare?: string }>;
 }) {
   const { loc } = await params;
-  const { view, from, to } = await searchParams;
+  const { view, from, to, compare } = await searchParams;
   const kingdom = decodeURIComponent(loc);
+  const compareKingdom = compare?.trim() ? compare.trim() : null;
   const hdrs = await headers();
   const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host") ?? "";
   const proto = hdrs.get("x-forwarded-proto") ?? "https";
@@ -41,6 +42,9 @@ export default async function KingdomPage({
   const provinces = getKingdomProvinces(kingdom, keyHash);
   const snapshot = getLatestKingdomSnapshot(kingdom, keyHash);
   const snapshotHistory = getKingdomSnapshotHistory(kingdom, keyHash);
+  const compareHistory = view === "history" && compareKingdom && compareKingdom !== kingdom
+    ? getKingdomSnapshotHistory(compareKingdom, keyHash)
+    : [];
   const primaryOpenRelation = snapshot?.openRelations[0] ?? null;
   const relatedSnapshot = boundKingdom && kingdom === boundKingdom && primaryOpenRelation
     ? getLatestKingdomSnapshot(primaryOpenRelation.location, keyHash)
@@ -153,11 +157,15 @@ export default async function KingdomPage({
         <KingdomNewsTable events={newsEvents!} summary={newsSummary!} kingdom={kingdom} from={from} to={to} effectiveFrom={newsEffectiveFrom ?? undefined} latestWarDate={latestWarDate ?? undefined} warTarget={snapshot?.warTarget ?? undefined} />
       ) : view === "gains" ? (
         <GainsTable initial={gainsInitial!} embedded />
+      ) : view === "history" ? (
+        <KingdomHistoryView
+          primaryKingdom={kingdom}
+          primaryHistory={snapshotHistory}
+          compareKingdom={compareKingdom}
+          compareHistory={compareHistory}
+        />
       ) : hasAnyIntel ? (
-        <>
-          <KingdomSnapshotChart history={snapshotHistory} />
-          <ProvinceTable kingdom={kingdom} initial={provinces} />
-        </>
+        <ProvinceTable kingdom={kingdom} initial={provinces} />
       ) : (
         <div className="rounded-lg border border-gray-800 bg-gray-900/50 px-5 py-6 text-sm text-gray-300">
           <div className="font-medium text-gray-100">No intel available for {kingdom}</div>

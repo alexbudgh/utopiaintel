@@ -433,6 +433,9 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, effective
         Gains
       </Link>
       <span className={`${btnBase} ${btnActive}`}>News</span>
+      <Link href={`${kingdomHref}?view=history`} className={`${btnBase} ${btnInactive}`}>
+        History
+      </Link>
       <button type="button" onClick={() => setShowChart((v) => !v)}
         className={`${btnBase} ${showChart ? btnActive : btnInactive} ml-2`}>
         Chart

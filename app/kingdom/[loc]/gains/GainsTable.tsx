@@ -690,6 +690,9 @@ export function GainsTable({
       <Link href={`${kingdomHref}?view=news`} className={`${btnBase} ${btnInactive}`}>
         News
       </Link>
+      <Link href={`${kingdomHref}?view=history`} className={`${btnBase} ${btnInactive}`}>
+        History
+      </Link>
       <Tooltip
         content={[
           { text: "Traditional March land gains only.", tone: "strong" },
