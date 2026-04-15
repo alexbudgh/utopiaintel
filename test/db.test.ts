@@ -568,6 +568,12 @@ function makePartitionedDb() {
       name TEXT NOT NULL,
       location TEXT NOT NULL,
       kingdom_title TEXT,
+      total_networth INTEGER,
+      total_land INTEGER,
+      total_honor INTEGER,
+      wars_won INTEGER,
+      networth_rank INTEGER,
+      land_rank INTEGER,
       war_target TEXT,
       their_attitude_to_us TEXT,
       their_attitude_points REAL,
@@ -655,6 +661,12 @@ function addKingdomSnapshot(
   provinces: { slot?: number; name: string; race: string; land: number; networth: number }[],
   relation: {
     kingdomTitle?: string | null;
+    totalNetworth?: number | null;
+    totalLand?: number | null;
+    totalHonor?: number | null;
+    warsWon?: number | null;
+    networthRank?: number | null;
+    landRank?: number | null;
     theirAttitudeToUs?: string | null;
     theirAttitudePoints?: number | null;
     ourAttitudeToThem?: string | null;
@@ -665,14 +677,20 @@ function addKingdomSnapshot(
 ) {
   const result = db.prepare(
     `INSERT INTO kingdom_intel (
-      name, location, kingdom_title, their_attitude_to_us, their_attitude_points,
+      name, location, kingdom_title, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, their_attitude_to_us, their_attitude_points,
       our_attitude_to_them, our_attitude_points,
       hostility_meter_visible_until, open_relations_json, received_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     `KD ${location}`,
     location,
     relation.kingdomTitle ?? null,
+    relation.totalNetworth ?? null,
+    relation.totalLand ?? null,
+    relation.totalHonor ?? null,
+    relation.warsWon ?? null,
+    relation.networthRank ?? null,
+    relation.landRank ?? null,
     relation.theirAttitudeToUs ?? null,
     relation.theirAttitudePoints ?? null,
     relation.ourAttitudeToThem ?? null,
@@ -698,6 +716,12 @@ function queryLatestKingdomSnapshot(
 ): {
   provinces: { slot: number | null; name: string }[];
   kingdomTitle: string | null;
+  totalNetworth: number | null;
+  totalLand: number | null;
+  totalHonor: number | null;
+  warsWon: number | null;
+  networthRank: number | null;
+  landRank: number | null;
   theirAttitudeToUs: string | null;
   theirAttitudePoints: number | null;
   ourAttitudeToThem: string | null;
@@ -708,6 +732,12 @@ function queryLatestKingdomSnapshot(
   const snapshot = db.prepare(`
     SELECT ki.id,
            ki.kingdom_title,
+           ki.total_networth,
+           ki.total_land,
+           ki.total_honor,
+           ki.wars_won,
+           ki.networth_rank,
+           ki.land_rank,
            ki.their_attitude_to_us,
            ki.their_attitude_points,
            ki.our_attitude_to_them,
@@ -730,11 +760,17 @@ function queryLatestKingdomSnapshot(
               AND p.kingdom = ki.location
           )
       )
-    ORDER BY ki.received_at DESC
+    ORDER BY ki.received_at DESC, ki.id DESC
     LIMIT 1
   `).get(location, keyHash) as {
     id: number;
     kingdom_title: string | null;
+    total_networth: number | null;
+    total_land: number | null;
+    total_honor: number | null;
+    wars_won: number | null;
+    networth_rank: number | null;
+    land_rank: number | null;
     their_attitude_to_us: string | null;
     their_attitude_points: number | null;
     our_attitude_to_them: string | null;
@@ -755,6 +791,12 @@ function queryLatestKingdomSnapshot(
   return {
     provinces,
     kingdomTitle: snapshot.kingdom_title,
+    totalNetworth: snapshot.total_networth,
+    totalLand: snapshot.total_land,
+    totalHonor: snapshot.total_honor,
+    warsWon: snapshot.wars_won,
+    networthRank: snapshot.networth_rank,
+    landRank: snapshot.land_rank,
     theirAttitudeToUs: snapshot.their_attitude_to_us,
     theirAttitudePoints: snapshot.their_attitude_points,
     ourAttitudeToThem: snapshot.our_attitude_to_them,
@@ -969,6 +1011,69 @@ test("kingdom snapshot: kingdom title is returned with the snapshot", () => {
   const snapshot = queryLatestKingdomSnapshot(db, "7:5", KEY_A);
   assert.ok(snapshot);
   assert.equal(snapshot.kingdomTitle, "Glorious");
+  db.close();
+});
+
+test("kingdom snapshot: top-level kingdom stats are returned with the snapshot", () => {
+  const db = makePartitionedDb();
+  addProvince(db, "Alpha", "7:5", KEY_A);
+
+  addKingdomSnapshot(
+    db,
+    "7:5",
+    "2026-04-05 18:00:00",
+    [{ name: "Alpha", race: "Orc", land: 1250, networth: 320000 }],
+    {
+      totalNetworth: 25600865,
+      totalLand: 95368,
+      totalHonor: 24810,
+      warsWon: 2,
+      networthRank: 3,
+      landRank: 5,
+    },
+  );
+
+  const snapshot = queryLatestKingdomSnapshot(db, "7:5", KEY_A);
+  assert.ok(snapshot);
+  assert.equal(snapshot.totalNetworth, 25600865);
+  assert.equal(snapshot.totalLand, 95368);
+  assert.equal(snapshot.totalHonor, 24810);
+  assert.equal(snapshot.warsWon, 2);
+  assert.equal(snapshot.networthRank, 3);
+  assert.equal(snapshot.landRank, 5);
+  db.close();
+});
+
+test("kingdom snapshot: ties on received_at prefer the newer row by id", () => {
+  const db = makePartitionedDb();
+  addProvince(db, "Alpha", "7:5", KEY_A);
+
+  addKingdomSnapshot(
+    db,
+    "7:5",
+    "2026-04-05 18:00:00",
+    [{ name: "Alpha", race: "Orc", land: 1250, networth: 320000 }],
+    {
+      kingdomTitle: "Glorious",
+    },
+  );
+
+  addKingdomSnapshot(
+    db,
+    "7:5",
+    "2026-04-05 18:00:00",
+    [{ name: "Alpha", race: "Orc", land: 1250, networth: 320000 }],
+    {
+      kingdomTitle: "Glorious",
+      totalNetworth: 25600865,
+      totalLand: 95368,
+    },
+  );
+
+  const snapshot = queryLatestKingdomSnapshot(db, "7:5", KEY_A);
+  assert.ok(snapshot);
+  assert.equal(snapshot.totalNetworth, 25600865);
+  assert.equal(snapshot.totalLand, 95368);
   db.close();
 });
 

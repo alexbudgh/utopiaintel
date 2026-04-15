@@ -632,6 +632,12 @@ test("parseKingdom — Space (5:9)", () => {
   assert.ok(r, "should parse successfully");
   assert.equal(r.location, "5:9");
   assert.equal(r.kingdomTitle, "Glorious");
+  assert.equal(r.totalNetworth, 25600865);
+  assert.equal(r.networthRank, 3);
+  assert.equal(r.totalLand, 95368);
+  assert.equal(r.landRank, 5);
+  assert.equal(r.totalHonor, null);
+  assert.equal(r.warsWon, null);
   assert.ok(r.provinces.length >= 3, "should find provinces");
 
   const orion = r.provinces.find((p) => p.name === "Orion");
@@ -672,6 +678,12 @@ test("parseKingdom — directional relations and hostility timer", () => {
   assert.ok(r, "should parse successfully");
   assert.equal(r.location, "1:6");
   assert.equal(r.kingdomTitle, "Venerated");
+  assert.equal(r.totalNetworth, 13198771);
+  assert.equal(r.networthRank, 33);
+  assert.equal(r.totalLand, 58961);
+  assert.equal(r.landRank, 37);
+  assert.equal(r.totalHonor, 24810);
+  assert.equal(r.warsWon, 2);
   assert.equal(r.theirAttitudeToUs, "Non Aggression Pact");
   assert.equal(r.theirAttitudePoints, 0);
   assert.equal(r.ourAttitudeToThem, "Non Aggression Pact");

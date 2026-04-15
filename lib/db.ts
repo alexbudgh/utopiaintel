@@ -255,6 +255,12 @@ export function initSchema(db: Database.Database) {
       name TEXT NOT NULL,
       location TEXT NOT NULL,
       kingdom_title TEXT,
+      total_networth INTEGER,
+      total_land INTEGER,
+      total_honor INTEGER,
+      wars_won INTEGER,
+      networth_rank INTEGER,
+      land_rank INTEGER,
       war_target TEXT,
       their_attitude_to_us TEXT,
       their_attitude_points REAL,
@@ -314,6 +320,12 @@ export function initSchema(db: Database.Database) {
   if (!hasCol("province_effects", "effectiveness_percent")) db.exec("ALTER TABLE province_effects ADD COLUMN effectiveness_percent REAL");
   if (!hasCol("kingdom_intel", "their_attitude_to_us")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN their_attitude_to_us TEXT");
   if (!hasCol("kingdom_intel", "kingdom_title")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN kingdom_title TEXT");
+  if (!hasCol("kingdom_intel", "total_networth")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN total_networth INTEGER");
+  if (!hasCol("kingdom_intel", "total_land")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN total_land INTEGER");
+  if (!hasCol("kingdom_intel", "total_honor")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN total_honor INTEGER");
+  if (!hasCol("kingdom_intel", "wars_won")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN wars_won INTEGER");
+  if (!hasCol("kingdom_intel", "networth_rank")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN networth_rank INTEGER");
+  if (!hasCol("kingdom_intel", "land_rank")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN land_rank INTEGER");
   if (!hasCol("kingdom_intel", "their_attitude_points")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN their_attitude_points REAL");
   if (!hasCol("kingdom_intel", "our_attitude_to_them")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN our_attitude_to_them TEXT");
   if (!hasCol("kingdom_intel", "our_attitude_points")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN our_attitude_points REAL");
@@ -622,16 +634,22 @@ export function storeKingdom(data: KingdomData, savedBy: string, keyHash: string
   db.transaction(() => {
     const result = db.prepare(`
       INSERT INTO kingdom_intel (
-        name, location, kingdom_title, war_target,
+        name, location, kingdom_title, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, war_target,
         their_attitude_to_us, their_attitude_points,
         our_attitude_to_them, our_attitude_points,
         hostility_meter_visible_until, open_relations_json, saved_by
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       data.name,
       data.location,
       data.kingdomTitle,
+      data.totalNetworth,
+      data.totalLand,
+      data.totalHonor,
+      data.warsWon,
+      data.networthRank,
+      data.landRank,
       data.warTarget,
       data.theirAttitudeToUs,
       data.theirAttitudePoints,
@@ -707,6 +725,12 @@ export interface KingdomSnapshot {
   name: string;
   location: string;
   kingdomTitle: string | null;
+  totalNetworth: number | null;
+  totalLand: number | null;
+  totalHonor: number | null;
+  warsWon: number | null;
+  networthRank: number | null;
+  landRank: number | null;
   warTarget: string | null;
   theirAttitudeToUs: string | null;
   theirAttitudePoints: number | null;
@@ -1399,7 +1423,9 @@ export function createDbApi(db: Database.Database): DbApi {
 
     getLatestKingdomSnapshot(location, keyHash) {
       const snapshot = db.prepare(`
-        SELECT ki.id, ki.name, ki.location, ki.kingdom_title, ki.war_target,
+        SELECT ki.id, ki.name, ki.location, ki.kingdom_title,
+               ki.total_networth, ki.total_land, ki.total_honor, ki.wars_won, ki.networth_rank, ki.land_rank,
+               ki.war_target,
                ki.their_attitude_to_us, ki.their_attitude_points,
                ki.our_attitude_to_them, ki.our_attitude_points,
                ki.hostility_meter_visible_until, ki.open_relations_json,
@@ -1420,13 +1446,19 @@ export function createDbApi(db: Database.Database): DbApi {
                   AND p.kingdom = ki.location
               )
           )
-        ORDER BY ki.received_at DESC
+        ORDER BY ki.received_at DESC, ki.id DESC
         LIMIT 1
       `).get(location, keyHash) as {
         id: number;
         name: string;
         location: string;
         kingdom_title: string | null;
+        total_networth: number | null;
+        total_land: number | null;
+        total_honor: number | null;
+        wars_won: number | null;
+        networth_rank: number | null;
+        land_rank: number | null;
         war_target: string | null;
         their_attitude_to_us: string | null;
         their_attitude_points: number | null;
@@ -1458,6 +1490,12 @@ export function createDbApi(db: Database.Database): DbApi {
         name: snapshot.name,
         location: snapshot.location,
         kingdomTitle: snapshot.kingdom_title,
+        totalNetworth: snapshot.total_networth,
+        totalLand: snapshot.total_land,
+        totalHonor: snapshot.total_honor,
+        warsWon: snapshot.wars_won,
+        networthRank: snapshot.networth_rank,
+        landRank: snapshot.land_rank,
         warTarget: snapshot.war_target,
         theirAttitudeToUs: snapshot.their_attitude_to_us,
         theirAttitudePoints: snapshot.their_attitude_points,

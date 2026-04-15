@@ -116,6 +116,12 @@ export interface KingdomData {
   name: string;
   location: string; // e.g. "4:5"
   kingdomTitle: string | null;
+  totalNetworth: number | null;
+  totalLand: number | null;
+  totalHonor: number | null;
+  warsWon: number | null;
+  networthRank: number | null;
+  landRank: number | null;
   warTarget: string | null;
   theirAttitudeToUs: string | null;
   theirAttitudePoints: number | null;

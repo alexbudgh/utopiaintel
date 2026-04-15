@@ -5,6 +5,10 @@ import { INT, KDLOC, parseNum } from "./util";
 const TITLE_NAME_LOC_RE = new RegExp(`The(?: ([^(]+?))? kingdom of ([^(]+)${KDLOC}`, "i");
 const CURRENT_NAME_LOC_RE = new RegExp(`Current kingdom is ([^(]+)${KDLOC}`, "i");
 const TOTAL_PROVS_RE = new RegExp(`Total Provinces\\s*(${INT})`);
+const TOTAL_NETWORTH_RE = new RegExp(`Total Networth\\s*(${INT})gc\\s*\\(avg:[^)]+\\)\\s*Net Worth Rank\\s*(${INT}) of ${INT}`, "i");
+const TOTAL_LAND_RE = new RegExp(`Total Land\\s*(${INT}) acres\\s*\\(avg:[^)]+\\)\\s*Land Rank\\s*(${INT}) of ${INT}`, "i");
+const TOTAL_HONOR_RE = new RegExp(`Total Honor\\s*(${INT})\\s*Honor Rank\\s*${INT} of ${INT}`, "i");
+const WARS_WON_RE = new RegExp(`Wars Won / War Score\\s*(${INT})\\s*/\\s*[-\\d.]+`, "i");
 const WAR_RE = new RegExp(`at war with ([^(]+)${KDLOC}`, "i");
 const ATTITUDES_RE = /Their Attitude To Us\t([^\t]+?) \(([-\d.]+) points\)\tOur Attitude To Them\t([^\t]+?) \(([-\d.]+) points\)/i;
 const HOSTILITY_VISIBLE_RE = /Hostility meter visible until ([^\n]+)/i;
@@ -43,6 +47,10 @@ export function parseKingdom(text: string): KingdomData | null {
   const kingdomTitle = titledMatch?.[1]?.trim() ?? null;
   const kdName = titledMatch ? titledMatch[2].trim() : currentMatch![1].trim();
   const location = titledMatch ? titledMatch[3] : currentMatch![2];
+  const totalNetworthMatch = TOTAL_NETWORTH_RE.exec(text);
+  const totalLandMatch = TOTAL_LAND_RE.exec(text);
+  const totalHonorMatch = TOTAL_HONOR_RE.exec(text);
+  const warsWonMatch = WARS_WON_RE.exec(text);
 
   const warMatch = WAR_RE.exec(text);
   const warTarget = warMatch ? warMatch[2] : null;
@@ -106,6 +114,12 @@ export function parseKingdom(text: string): KingdomData | null {
     name: kdName,
     location,
     kingdomTitle,
+    totalNetworth: totalNetworthMatch ? parseNum(totalNetworthMatch[1]) : null,
+    totalLand: totalLandMatch ? parseNum(totalLandMatch[1]) : null,
+    totalHonor: totalHonorMatch ? parseNum(totalHonorMatch[1]) : null,
+    warsWon: warsWonMatch ? parseNum(warsWonMatch[1]) : null,
+    networthRank: totalNetworthMatch ? parseNum(totalNetworthMatch[2]) : null,
+    landRank: totalLandMatch ? parseNum(totalLandMatch[2]) : null,
     warTarget,
     theirAttitudeToUs: attitudesMatch ? attitudesMatch[1].trim() : null,
     theirAttitudePoints: attitudesMatch ? parseFloat(attitudesMatch[2]) : null,
