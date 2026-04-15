@@ -2,8 +2,8 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { cookies, headers } from "next/headers";
-import { createHash } from "crypto";
 import { getBoundKingdom, getKingdoms, getLatestKingdomSnapshot, getKingdomRitual, getKingdomDragon, type KingdomSnapshot } from "@/lib/db";
+import { hashKey } from "@/lib/keys";
 import { IntelSetupCard } from "@/app/components/IntelSetupCard";
 import { IntelSetupButton } from "@/app/components/IntelSetupButton";
 import { freshnessColor, timeAgo } from "@/lib/ui";
@@ -87,7 +87,7 @@ export default async function Home() {
   const proto = hdrs.get("x-forwarded-proto") ?? "https";
   const baseUrl = `${proto}://${host}`;
   const key = (await cookies()).get("auth")?.value ?? "";
-  const keyHash = createHash("sha256").update(key).digest("hex");
+  const keyHash = hashKey(key);
   const boundKingdom = getBoundKingdom(keyHash);
   const kingdoms = getKingdoms(keyHash);
   const kingdomRows = kingdoms.map((kd) => {

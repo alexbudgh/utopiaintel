@@ -2,8 +2,8 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { cookies, headers } from "next/headers";
-import { createHash } from "crypto";
 import { getBoundKingdom, getKingdomProvinces, getLatestKingdomSnapshot, getKingdomSnapshotHistory, getKingdomRitual, getKingdomDragon, getKingdomNews, getKingdomNewsSummary, getLatestWarDate } from "@/lib/db";
+import { hashKey } from "@/lib/keys";
 import { timeAgo } from "@/lib/ui";
 import { KingdomRelations } from "@/app/components/KingdomRelations";
 import { IntelSetupCard } from "@/app/components/IntelSetupCard";
@@ -37,7 +37,7 @@ export default async function KingdomPage({
   const proto = hdrs.get("x-forwarded-proto") ?? "https";
   const baseUrl = `${proto}://${host}`;
   const key = (await cookies()).get("auth")?.value ?? "";
-  const keyHash = createHash("sha256").update(key).digest("hex");
+  const keyHash = hashKey(key);
   const boundKingdom = getBoundKingdom(keyHash);
   const provinces = getKingdomProvinces(kingdom, keyHash);
   const snapshot = getLatestKingdomSnapshot(kingdom, keyHash);

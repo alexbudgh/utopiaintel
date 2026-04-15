@@ -1,7 +1,7 @@
 import { appendFile } from "fs/promises";
-import { createHash } from "crypto";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
+import { hashKey } from "@/lib/keys";
 import { parseIntel } from "@/lib/parsers";
 import { getIntelPathname } from "@/lib/parsers/detect";
 import {
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     prov: formData.get("prov") as string,
     key: formData.get("key") as string,
   };
-  const keyHash = createHash("sha256").update(fields.key).digest("hex");
+  const keyHash = hashKey(fields.key);
 
   if (DEBUG_LOG) {
     const entry = {

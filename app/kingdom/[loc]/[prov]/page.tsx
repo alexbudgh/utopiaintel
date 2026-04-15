@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { createHash } from "crypto";
+import { hashKey } from "@/lib/keys";
 import { Tooltip, type TooltipLine } from "@/app/components/Tooltip";
 import { getProvinceDetail } from "@/lib/db";
 import { freshnessColor, timeAgo, fullValueTooltip } from "@/lib/ui";
@@ -104,7 +104,7 @@ export default async function ProvincePage({
   const kingdom = decodeURIComponent(loc);
   const name = decodeURIComponent(prov);
   const key = (await cookies()).get("auth")?.value ?? "";
-  const keyHash = createHash("sha256").update(key).digest("hex");
+  const keyHash = hashKey(key);
   const d = getProvinceDetail(name, kingdom, keyHash);
   // Use direct council_state values when available (self-intel); otherwise estimate from unit counts + survey
   const directPop = d.resources?.totalPop != null || d.resources?.maxPop != null

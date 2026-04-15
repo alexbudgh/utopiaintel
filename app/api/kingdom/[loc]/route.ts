@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
-import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getKingdomProvinces } from "@/lib/db";
+import { hashKey } from "@/lib/keys";
 
 export async function GET(
   _req: NextRequest,
@@ -10,6 +10,6 @@ export async function GET(
   const { loc } = await params;
   const kingdom = decodeURIComponent(loc);
   const key = (await cookies()).get("auth")?.value ?? "";
-  const keyHash = createHash("sha256").update(key).digest("hex");
+  const keyHash = hashKey(key);
   return NextResponse.json(getKingdomProvinces(kingdom, keyHash));
 }

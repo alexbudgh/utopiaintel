@@ -1,6 +1,6 @@
 import { createReadStream } from "node:fs";
-import { createHash } from "node:crypto";
 import { resolve } from "node:path";
+import { hashKey } from "./keys";
 import readline from "node:readline";
 import { parseIntel } from "./parsers";
 import { getIntelPathname } from "./parsers/detect";
@@ -60,7 +60,7 @@ export function getReplayTypes(arg: string | undefined): Set<ReplayType> {
 }
 
 export function hashReplayKey(rawKey: string): string {
-  return createHash("sha256").update(rawKey).digest("hex");
+  return hashKey(rawKey);
 }
 
 export function getSingleKeyHash() {
