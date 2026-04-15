@@ -742,6 +742,20 @@ export interface KingdomSnapshot {
   provinces: KingdomSnapshotProvince[];
 }
 
+export interface KingdomSnapshotHistoryPoint {
+  id: number;
+  name: string;
+  location: string;
+  kingdomTitle: string | null;
+  totalNetworth: number | null;
+  totalLand: number | null;
+  totalHonor: number | null;
+  warsWon: number | null;
+  networthRank: number | null;
+  landRank: number | null;
+  receivedAt: string;
+}
+
 export function getBoundKingdom(keyHash: string): string | null {
   return createDbApi(getDb()).getBoundKingdom(keyHash);
 }
@@ -752,6 +766,10 @@ export function getKingdoms(keyHash: string): KingdomRow[] {
 
 export function getLatestKingdomSnapshot(location: string, keyHash: string): KingdomSnapshot | null {
   return createDbApi(getDb()).getLatestKingdomSnapshot(location, keyHash);
+}
+
+export function getKingdomSnapshotHistory(location: string, keyHash: string): KingdomSnapshotHistoryPoint[] {
+  return createDbApi(getDb()).getKingdomSnapshotHistory(location, keyHash);
 }
 
 export interface ProvinceRow {
@@ -1385,6 +1403,7 @@ export interface DbApi {
   getBoundKingdom(keyHash: string): string | null;
   getKingdoms(keyHash: string): KingdomRow[];
   getLatestKingdomSnapshot(location: string, keyHash: string): KingdomSnapshot | null;
+  getKingdomSnapshotHistory(location: string, keyHash: string): KingdomSnapshotHistoryPoint[];
   getKingdomProvinces(kingdom: string, keyHash: string): ProvinceRow[];
   getKingdomRitual(kingdom: string, keyHash: string): KingdomRitual | null;
   getKingdomDragon(kingdom: string, keyHash: string): KingdomDragon | null;
@@ -1513,6 +1532,58 @@ export function createDbApi(db: Database.Database): DbApi {
           honorTitle: p.honor_title,
         })),
       };
+    },
+
+    getKingdomSnapshotHistory(location, keyHash) {
+      const rows = db.prepare(`
+        SELECT ki.id, ki.name, ki.location, ki.kingdom_title,
+               ki.total_networth, ki.total_land, ki.total_honor, ki.wars_won, ki.networth_rank, ki.land_rank,
+               ki.received_at
+        FROM kingdom_intel ki
+        WHERE ki.location = ?
+          AND (ki.total_networth IS NOT NULL OR ki.total_land IS NOT NULL OR ki.total_honor IS NOT NULL)
+          AND NOT EXISTS (
+            SELECT 1
+            FROM kingdom_provinces kp
+            WHERE kp.kingdom_intel_id = ki.id
+              AND NOT EXISTS (
+                SELECT 1
+                FROM provinces p
+                JOIN intel_partitions ip
+                  ON ip.province_id = p.id
+                 AND ip.key_hash = ?
+                WHERE p.name = kp.name
+                  AND p.kingdom = ki.location
+              )
+          )
+        ORDER BY ki.received_at ASC, ki.id ASC
+      `).all(location, keyHash) as {
+        id: number;
+        name: string;
+        location: string;
+        kingdom_title: string | null;
+        total_networth: number | null;
+        total_land: number | null;
+        total_honor: number | null;
+        wars_won: number | null;
+        networth_rank: number | null;
+        land_rank: number | null;
+        received_at: string;
+      }[];
+
+      return rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        location: row.location,
+        kingdomTitle: row.kingdom_title,
+        totalNetworth: row.total_networth,
+        totalLand: row.total_land,
+        totalHonor: row.total_honor,
+        warsWon: row.wars_won,
+        networthRank: row.networth_rank,
+        landRank: row.land_rank,
+        receivedAt: row.received_at,
+      }));
     },
 
     getKingdomProvinces(kingdom, keyHash) {

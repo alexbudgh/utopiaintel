@@ -1077,6 +1077,75 @@ test("kingdom snapshot: ties on received_at prefer the newer row by id", () => {
   db.close();
 });
 
+test("getKingdomSnapshotHistory: returns accessible stat snapshots in ascending time order", async () => {
+  await withRealDb(({ getKingdomSnapshotHistory }, db) => {
+    for (const name of ["Alpha", "Beta"] as const) {
+      db.prepare("INSERT INTO provinces (name, kingdom) VALUES (?, '7:5')").run(name);
+      const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name = ? AND kingdom = '7:5'").get(name) as { id: number };
+      db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
+    }
+
+    const accessible1 = Number(db.prepare(`
+      INSERT INTO kingdom_intel (
+        name, location, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, received_at
+      ) VALUES ('KD 7:5', '7:5', 12000000, 45000, 15000, 2, 40, 30, '2026-04-04 16:00:00')
+    `).run().lastInsertRowid);
+    const accessible2 = Number(db.prepare(`
+      INSERT INTO kingdom_intel (
+        name, location, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, received_at
+      ) VALUES ('KD 7:5', '7:5', 12500000, 45250, 15500, 2, 38, 29, '2026-04-04 18:00:00')
+    `).run().lastInsertRowid);
+    const inaccessible = Number(db.prepare(`
+      INSERT INTO kingdom_intel (
+        name, location, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, received_at
+      ) VALUES ('KD 7:5', '7:5', 13000000, 46000, 16000, 3, 35, 28, '2026-04-04 19:00:00')
+    `).run().lastInsertRowid);
+    const noStats = Number(db.prepare(`
+      INSERT INTO kingdom_intel (name, location, received_at)
+      VALUES ('KD 7:5', '7:5', '2026-04-04 20:00:00')
+    `).run().lastInsertRowid);
+
+    for (const snapshotId of [accessible1, accessible2, noStats]) {
+      db.prepare(`
+        INSERT INTO kingdom_provinces (kingdom_intel_id, slot, name, race, land, networth)
+        VALUES (?, 3, 'Alpha', 'Orc', 1200, 300000),
+               (?, 9, 'Beta', 'Elf', 1100, 280000)
+      `).run(snapshotId, snapshotId);
+    }
+
+    db.prepare(`
+      INSERT INTO kingdom_provinces (kingdom_intel_id, slot, name, race, land, networth)
+      VALUES (?, 3, 'Alpha', 'Orc', 1200, 300000),
+             (?, 9, 'Gamma', 'Human', 900, 210000)
+    `).run(inaccessible, inaccessible);
+
+    const history = getKingdomSnapshotHistory("7:5", KEY_A);
+
+    assert.deepEqual(
+      history.map((point) => ({
+        receivedAt: point.receivedAt,
+        totalNetworth: point.totalNetworth,
+        totalLand: point.totalLand,
+        totalHonor: point.totalHonor,
+      })),
+      [
+        {
+          receivedAt: "2026-04-04 16:00:00",
+          totalNetworth: 12000000,
+          totalLand: 45000,
+          totalHonor: 15000,
+        },
+        {
+          receivedAt: "2026-04-04 18:00:00",
+          totalNetworth: 12500000,
+          totalLand: 45250,
+          totalHonor: 15500,
+        },
+      ],
+    );
+  });
+});
+
 // ---------------------------------------------------------------------------
 // kingdom_news: storeKingdomNews SNATCH_NEWS kingdom inference
 // ---------------------------------------------------------------------------

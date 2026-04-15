@@ -3,12 +3,13 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { cookies, headers } from "next/headers";
 import { createHash } from "crypto";
-import { getBoundKingdom, getKingdomProvinces, getLatestKingdomSnapshot, getKingdomRitual, getKingdomDragon, getKingdomNews, getKingdomNewsSummary, getLatestWarDate } from "@/lib/db";
+import { getBoundKingdom, getKingdomProvinces, getLatestKingdomSnapshot, getKingdomSnapshotHistory, getKingdomRitual, getKingdomDragon, getKingdomNews, getKingdomNewsSummary, getLatestWarDate } from "@/lib/db";
 import { timeAgo } from "@/lib/ui";
 import { KingdomRelations } from "@/app/components/KingdomRelations";
 import { IntelSetupCard } from "@/app/components/IntelSetupCard";
 import { IntelSetupButton } from "@/app/components/IntelSetupButton";
 import { Tooltip, type TooltipLine } from "@/app/components/Tooltip";
+import { KingdomSnapshotChart } from "./KingdomSnapshotChart";
 import { ProvinceTable } from "./ProvinceTable";
 import { GainsTable } from "./gains/GainsTable";
 import { KingdomNewsTable } from "./KingdomNewsTable";
@@ -39,6 +40,7 @@ export default async function KingdomPage({
   const boundKingdom = getBoundKingdom(keyHash);
   const provinces = getKingdomProvinces(kingdom, keyHash);
   const snapshot = getLatestKingdomSnapshot(kingdom, keyHash);
+  const snapshotHistory = getKingdomSnapshotHistory(kingdom, keyHash);
   const primaryOpenRelation = snapshot?.openRelations[0] ?? null;
   const relatedSnapshot = boundKingdom && kingdom === boundKingdom && primaryOpenRelation
     ? getLatestKingdomSnapshot(primaryOpenRelation.location, keyHash)
@@ -152,7 +154,10 @@ export default async function KingdomPage({
       ) : view === "gains" ? (
         <GainsTable initial={gainsInitial!} embedded />
       ) : hasAnyIntel ? (
-        <ProvinceTable kingdom={kingdom} initial={provinces} />
+        <>
+          <KingdomSnapshotChart history={snapshotHistory} />
+          <ProvinceTable kingdom={kingdom} initial={provinces} />
+        </>
       ) : (
         <div className="rounded-lg border border-gray-800 bg-gray-900/50 px-5 py-6 text-sm text-gray-300">
           <div className="font-medium text-gray-100">No intel available for {kingdom}</div>
