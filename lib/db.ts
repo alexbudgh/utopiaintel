@@ -254,6 +254,7 @@ export function initSchema(db: Database.Database) {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       location TEXT NOT NULL,
+      kingdom_title TEXT,
       war_target TEXT,
       their_attitude_to_us TEXT,
       their_attitude_points REAL,
@@ -312,6 +313,7 @@ export function initSchema(db: Database.Database) {
   if (!hasCol("province_effects", "remaining_ticks")) db.exec("ALTER TABLE province_effects ADD COLUMN remaining_ticks INTEGER");
   if (!hasCol("province_effects", "effectiveness_percent")) db.exec("ALTER TABLE province_effects ADD COLUMN effectiveness_percent REAL");
   if (!hasCol("kingdom_intel", "their_attitude_to_us")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN their_attitude_to_us TEXT");
+  if (!hasCol("kingdom_intel", "kingdom_title")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN kingdom_title TEXT");
   if (!hasCol("kingdom_intel", "their_attitude_points")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN their_attitude_points REAL");
   if (!hasCol("kingdom_intel", "our_attitude_to_them")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN our_attitude_to_them TEXT");
   if (!hasCol("kingdom_intel", "our_attitude_points")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN our_attitude_points REAL");
@@ -620,15 +622,16 @@ export function storeKingdom(data: KingdomData, savedBy: string, keyHash: string
   db.transaction(() => {
     const result = db.prepare(`
       INSERT INTO kingdom_intel (
-        name, location, war_target,
+        name, location, kingdom_title, war_target,
         their_attitude_to_us, their_attitude_points,
         our_attitude_to_them, our_attitude_points,
         hostility_meter_visible_until, open_relations_json, saved_by
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       data.name,
       data.location,
+      data.kingdomTitle,
       data.warTarget,
       data.theirAttitudeToUs,
       data.theirAttitudePoints,
@@ -703,6 +706,7 @@ export interface KingdomSnapshot {
   id: number;
   name: string;
   location: string;
+  kingdomTitle: string | null;
   warTarget: string | null;
   theirAttitudeToUs: string | null;
   theirAttitudePoints: number | null;
@@ -1395,7 +1399,7 @@ export function createDbApi(db: Database.Database): DbApi {
 
     getLatestKingdomSnapshot(location, keyHash) {
       const snapshot = db.prepare(`
-        SELECT ki.id, ki.name, ki.location, ki.war_target,
+        SELECT ki.id, ki.name, ki.location, ki.kingdom_title, ki.war_target,
                ki.their_attitude_to_us, ki.their_attitude_points,
                ki.our_attitude_to_them, ki.our_attitude_points,
                ki.hostility_meter_visible_until, ki.open_relations_json,
@@ -1422,6 +1426,7 @@ export function createDbApi(db: Database.Database): DbApi {
         id: number;
         name: string;
         location: string;
+        kingdom_title: string | null;
         war_target: string | null;
         their_attitude_to_us: string | null;
         their_attitude_points: number | null;
@@ -1452,6 +1457,7 @@ export function createDbApi(db: Database.Database): DbApi {
         id: snapshot.id,
         name: snapshot.name,
         location: snapshot.location,
+        kingdomTitle: snapshot.kingdom_title,
         warTarget: snapshot.war_target,
         theirAttitudeToUs: snapshot.their_attitude_to_us,
         theirAttitudePoints: snapshot.their_attitude_points,

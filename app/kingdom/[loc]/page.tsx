@@ -8,11 +8,13 @@ import { timeAgo } from "@/lib/ui";
 import { KingdomRelations } from "@/app/components/KingdomRelations";
 import { IntelSetupCard } from "@/app/components/IntelSetupCard";
 import { IntelSetupButton } from "@/app/components/IntelSetupButton";
+import { Tooltip, type TooltipLine } from "@/app/components/Tooltip";
 import { ProvinceTable } from "./ProvinceTable";
 import { GainsTable } from "./gains/GainsTable";
 import { KingdomNewsTable } from "./KingdomNewsTable";
 import { KingdomJump } from "./KingdomJump";
 import { getGainsPageData } from "@/lib/gains-page";
+import { getKingdomTitleDetails } from "@/lib/kingdom-recognition";
 
 export default async function KingdomPage({
   params,
@@ -46,6 +48,17 @@ export default async function KingdomPage({
   const latestWarDate = view === "news" ? getLatestWarDate(kingdom, keyHash) : null;
   const ritual = getKingdomRitual(kingdom, keyHash);
   const dragon = getKingdomDragon(kingdom, keyHash);
+  const kingdomTitle = getKingdomTitleDetails(snapshot?.kingdomTitle ?? null);
+  const kingdomTitleTooltip: TooltipLine[] | null = kingdomTitle ? [
+    { text: `${kingdomTitle.title} kingdom title` },
+    ...(kingdomTitle.unlockedAtAcres != null ? [{ text: `Unlocked at ${kingdomTitle.unlockedAtAcres.toLocaleString()} acres`, tone: "muted" as const }] : []),
+    ...(kingdomTitle.bonuses.length > 0
+      ? [
+          { text: "Cumulative land-title bonuses:", tone: "muted" as const },
+          ...kingdomTitle.bonuses.map((bonus) => ({ text: `• ${bonus}`, tone: "good" as const })),
+        ]
+      : [{ text: "No land-growth bonus mapped for this title.", tone: "muted" as const }]),
+  ] : null;
 
   return (
     <main className="p-6">
@@ -67,9 +80,23 @@ export default async function KingdomPage({
           )}
         </div>
         <div>
-          <h1 className="text-xl font-bold text-gray-100">
-            {snapshot?.name ? `${snapshot.name} (${kingdom})` : <span className="font-mono">{kingdom}</span>}
-          </h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl font-bold text-gray-100">
+              {snapshot?.name ? `${snapshot.name} (${kingdom})` : <span className="font-mono">{kingdom}</span>}
+            </h1>
+            {kingdomTitle && kingdomTitleTooltip && (
+              <Tooltip content={kingdomTitleTooltip}>
+                <a
+                  href="https://utopiaguide.chaos-intel.com/misc/Kingdom_Recognition/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex cursor-help items-center rounded border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-200 transition-colors hover:border-amber-400/60 hover:text-amber-100"
+                >
+                  {kingdomTitle.title}
+                </a>
+              </Tooltip>
+            )}
+          </div>
           <KingdomRelations
             kingdom={kingdom}
             boundKingdom={boundKingdom}

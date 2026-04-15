@@ -567,6 +567,7 @@ function makePartitionedDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       location TEXT NOT NULL,
+      kingdom_title TEXT,
       war_target TEXT,
       their_attitude_to_us TEXT,
       their_attitude_points REAL,
@@ -653,6 +654,7 @@ function addKingdomSnapshot(
   receivedAt: string,
   provinces: { slot?: number; name: string; race: string; land: number; networth: number }[],
   relation: {
+    kingdomTitle?: string | null;
     theirAttitudeToUs?: string | null;
     theirAttitudePoints?: number | null;
     ourAttitudeToThem?: string | null;
@@ -663,13 +665,14 @@ function addKingdomSnapshot(
 ) {
   const result = db.prepare(
     `INSERT INTO kingdom_intel (
-      name, location, their_attitude_to_us, their_attitude_points,
+      name, location, kingdom_title, their_attitude_to_us, their_attitude_points,
       our_attitude_to_them, our_attitude_points,
       hostility_meter_visible_until, open_relations_json, received_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     `KD ${location}`,
     location,
+    relation.kingdomTitle ?? null,
     relation.theirAttitudeToUs ?? null,
     relation.theirAttitudePoints ?? null,
     relation.ourAttitudeToThem ?? null,
@@ -694,6 +697,7 @@ function queryLatestKingdomSnapshot(
   keyHash: string,
 ): {
   provinces: { slot: number | null; name: string }[];
+  kingdomTitle: string | null;
   theirAttitudeToUs: string | null;
   theirAttitudePoints: number | null;
   ourAttitudeToThem: string | null;
@@ -703,6 +707,7 @@ function queryLatestKingdomSnapshot(
 } | null {
   const snapshot = db.prepare(`
     SELECT ki.id,
+           ki.kingdom_title,
            ki.their_attitude_to_us,
            ki.their_attitude_points,
            ki.our_attitude_to_them,
@@ -729,6 +734,7 @@ function queryLatestKingdomSnapshot(
     LIMIT 1
   `).get(location, keyHash) as {
     id: number;
+    kingdom_title: string | null;
     their_attitude_to_us: string | null;
     their_attitude_points: number | null;
     our_attitude_to_them: string | null;
@@ -748,6 +754,7 @@ function queryLatestKingdomSnapshot(
 
   return {
     provinces,
+    kingdomTitle: snapshot.kingdom_title,
     theirAttitudeToUs: snapshot.their_attitude_to_us,
     theirAttitudePoints: snapshot.their_attitude_points,
     ourAttitudeToThem: snapshot.our_attitude_to_them,
@@ -942,6 +949,26 @@ test("kingdom snapshot: open relations json is returned with the snapshot", () =
   const snapshot = queryLatestKingdomSnapshot(db, "7:5", KEY_A);
   assert.ok(snapshot);
   assert.equal(snapshot.openRelationsJson, JSON.stringify([{ name: "Absolute Cinema", location: "5:7", status: "Hostile" }]));
+  db.close();
+});
+
+test("kingdom snapshot: kingdom title is returned with the snapshot", () => {
+  const db = makePartitionedDb();
+  addProvince(db, "Alpha", "7:5", KEY_A);
+
+  addKingdomSnapshot(
+    db,
+    "7:5",
+    "2026-04-05 18:00:00",
+    [{ name: "Alpha", race: "Orc", land: 1250, networth: 320000 }],
+    {
+      kingdomTitle: "Glorious",
+    },
+  );
+
+  const snapshot = queryLatestKingdomSnapshot(db, "7:5", KEY_A);
+  assert.ok(snapshot);
+  assert.equal(snapshot.kingdomTitle, "Glorious");
   db.close();
 });
 

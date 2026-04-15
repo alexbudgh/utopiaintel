@@ -631,6 +631,7 @@ test("parseKingdom — Space (5:9)", () => {
   const r = parseKingdom(KINGDOM_TEXT);
   assert.ok(r, "should parse successfully");
   assert.equal(r.location, "5:9");
+  assert.equal(r.kingdomTitle, "Glorious");
   assert.ok(r.provinces.length >= 3, "should find provinces");
 
   const orion = r.provinces.find((p) => p.name === "Orion");
@@ -670,6 +671,7 @@ test("parseKingdom — directional relations and hostility timer", () => {
   const r = parseKingdom(KINGDOM_RELATION_TEXT);
   assert.ok(r, "should parse successfully");
   assert.equal(r.location, "1:6");
+  assert.equal(r.kingdomTitle, "Venerated");
   assert.equal(r.theirAttitudeToUs, "Non Aggression Pact");
   assert.equal(r.theirAttitudePoints, 0);
   assert.equal(r.ourAttitudeToThem, "Non Aggression Pact");

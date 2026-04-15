@@ -115,6 +115,7 @@ export interface KingdomOpenRelation {
 export interface KingdomData {
   name: string;
   location: string; // e.g. "4:5"
+  kingdomTitle: string | null;
   warTarget: string | null;
   theirAttitudeToUs: string | null;
   theirAttitudePoints: number | null;

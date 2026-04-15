@@ -2,10 +2,8 @@ import { RACE_GROUP, HONOR_TITLE_GROUP } from "../game";
 import type { KingdomData, KingdomOpenRelation, KingdomProvince } from "./types";
 import { INT, KDLOC, parseNum } from "./util";
 
-const NAME_LOC_RE = new RegExp(
-  `(?:kingdom of|Current kingdom is) ([^(]+)${KDLOC}`,
-  "i",
-);
+const TITLE_NAME_LOC_RE = new RegExp(`The(?: ([^(]+?))? kingdom of ([^(]+)${KDLOC}`, "i");
+const CURRENT_NAME_LOC_RE = new RegExp(`Current kingdom is ([^(]+)${KDLOC}`, "i");
 const TOTAL_PROVS_RE = new RegExp(`Total Provinces\\s*(${INT})`);
 const WAR_RE = new RegExp(`at war with ([^(]+)${KDLOC}`, "i");
 const ATTITUDES_RE = /Their Attitude To Us\t([^\t]+?) \(([-\d.]+) points\)\tOur Attitude To Them\t([^\t]+?) \(([-\d.]+) points\)/i;
@@ -38,11 +36,13 @@ const OLD_PROVINCE_RE = new RegExp(
 );
 
 export function parseKingdom(text: string): KingdomData | null {
-  const nameMatch = NAME_LOC_RE.exec(text);
-  if (!nameMatch) return null;
+  const titledMatch = TITLE_NAME_LOC_RE.exec(text);
+  const currentMatch = titledMatch ? null : CURRENT_NAME_LOC_RE.exec(text);
+  if (!titledMatch && !currentMatch) return null;
 
-  const kdName = nameMatch[1].trim();
-  const location = nameMatch[2];
+  const kingdomTitle = titledMatch?.[1]?.trim() ?? null;
+  const kdName = titledMatch ? titledMatch[2].trim() : currentMatch![1].trim();
+  const location = titledMatch ? titledMatch[3] : currentMatch![2];
 
   const warMatch = WAR_RE.exec(text);
   const warTarget = warMatch ? warMatch[2] : null;
@@ -105,6 +105,7 @@ export function parseKingdom(text: string): KingdomData | null {
   return {
     name: kdName,
     location,
+    kingdomTitle,
     warTarget,
     theirAttitudeToUs: attitudesMatch ? attitudesMatch[1].trim() : null,
     theirAttitudePoints: attitudesMatch ? parseFloat(attitudesMatch[2]) : null,
