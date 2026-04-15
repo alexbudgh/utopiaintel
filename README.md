@@ -1,3 +1,5 @@
+![CI](https://github.com/alexbudgh/utopiaintel/actions/workflows/ci.yml/badge.svg)
+
 # utopiaintel
 
 `utopiaintel` is a Next.js app for collecting, storing, and browsing Utopia intel.
