@@ -835,6 +835,7 @@ export interface ProvinceRow {
   crime_effect: number | null;
   channeling_effect: number | null;
   siege_effect: number | null;
+  shielding_effect: number | null;
   science_total_books: number | null;
   survey_age: string | null;
   watch_towers_effect: number | null;
@@ -1032,6 +1033,7 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
            (SELECT si.thievery_effectiveness FROM survey_intel si WHERE si.province_id = p.id ORDER BY si.received_at DESC LIMIT 1) AS thieves_dens_effect,
            (SELECT si.castles_effect FROM survey_intel si WHERE si.province_id = p.id ORDER BY si.received_at DESC LIMIT 1) AS castles_effect,
            (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND ss.science = 'Channeling' ORDER BY si.received_at DESC LIMIT 1) AS channeling_effect,
+           (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND ss.science = 'Shielding' ORDER BY si.received_at DESC LIMIT 1) AS shielding_effect,
            (SELECT SUM(ss.books) FROM sos_sciences ss WHERE ss.sos_intel_id = (SELECT id FROM sos_intel WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1)) AS science_total_books,
            (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND ss.science = 'Housing' ORDER BY si.received_at DESC LIMIT 1) AS housing_effect,
            (SELECT sb.built FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1) AND sb.building = 'Barren Land') AS barren_land,

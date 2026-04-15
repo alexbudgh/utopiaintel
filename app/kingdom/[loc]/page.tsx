@@ -12,6 +12,7 @@ import { Tooltip, type TooltipLine } from "@/app/components/Tooltip";
 import { KingdomHistoryView } from "./KingdomSnapshotChart";
 import { ProvinceTable } from "./ProvinceTable";
 import { GainsTable } from "./gains/GainsTable";
+import { ThieveryTable } from "./thievery/ThieveryTable";
 import { KingdomNewsTable } from "./KingdomNewsTable";
 import { KingdomJump } from "./KingdomJump";
 import { getGainsPageData } from "@/lib/gains-page";
@@ -51,6 +52,7 @@ export default async function KingdomPage({
     : null;
   const hasAnyIntel = provinces.length > 0 || !!snapshot;
   const gainsInitial = view === "gains" ? getGainsPageData(kingdom, keyHash) : null;
+  const thieveryInitial = view === "thievery" ? getGainsPageData(kingdom, keyHash) : null;
   const newsResult = view === "news" ? getKingdomNews(kingdom, keyHash, from, to) : null;
   const newsEvents = newsResult?.events ?? null;
   const newsEffectiveFrom = newsResult?.effectiveFrom ?? null;
@@ -157,6 +159,8 @@ export default async function KingdomPage({
         <KingdomNewsTable events={newsEvents!} summary={newsSummary!} kingdom={kingdom} from={from} to={to} effectiveFrom={newsEffectiveFrom ?? undefined} latestWarDate={latestWarDate ?? undefined} warTarget={snapshot?.warTarget ?? undefined} />
       ) : view === "gains" ? (
         <GainsTable initial={gainsInitial!} embedded />
+      ) : view === "thievery" ? (
+        <ThieveryTable initial={thieveryInitial!} embedded />
       ) : view === "history" ? (
         <KingdomHistoryView
           primaryKingdom={kingdom}
