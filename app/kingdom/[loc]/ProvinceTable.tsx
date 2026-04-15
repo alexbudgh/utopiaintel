@@ -58,8 +58,9 @@ const COLUMNS = [
 ] as const;
 
 type ColKey = (typeof COLUMNS)[number]["key"];
-type SortKey = ColKey | "province";
+type SortKey = ColKey | "province" | "slot";
 type SortDir = "asc" | "desc";
+const DEFAULT_SORT: { key: SortKey; dir: SortDir } = { key: "slot", dir: "asc" };
 
 const VIEWS: Record<string, ColKey[]> = {
   Overview:  ["race", "personality", "honor_title", "land", "networth", "pop_pct", "armies", "off_points", "def_points", "def_home", "good_spells", "bad_spells", "hit_status", "peasants", "building_efficiency", "age"],
@@ -81,6 +82,7 @@ const STORAGE_COLS_KEY = "province-columns";
 function sortValueFor(p: ProvinceRow, key: SortKey): number | string | null {
   switch (key) {
     case "province": return p.name;
+    case "slot": return p.slot;
     case "race": return p.race;
     case "personality": return p.personality;
     case "honor_title": return p.honor_title;
@@ -591,7 +593,7 @@ export function ProvinceTable({
   const [activeView, setActiveView] = useState<string | null>("Overview");
   const [customCols, setCustomCols] = useState<Set<ColKey>>(new Set(VIEWS.Overview));
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir } | null>(null);
+  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir } | null>(DEFAULT_SORT);
   const colsBtnRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -680,7 +682,7 @@ export function ProvinceTable({
     setSort((prev) => {
       if (!prev || prev.key !== key) return { key, dir: "desc" };
       if (prev.dir === "desc") return { key, dir: "asc" };
-      return null;
+      return DEFAULT_SORT;
     });
   };
 
