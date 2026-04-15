@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "tsx --test test/parsers.test.ts test/db.test.ts test/gains.test.ts test/population.test.ts test/lib.test.ts"
+    "test": "tsx --test test/parsers.test.ts test/db.test.ts test/gains.test.ts test/population.test.ts test/lib.test.ts",
+    "replay-debug-log": "tsx scripts/replay-debug-log.ts"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.2.2",

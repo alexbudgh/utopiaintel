@@ -4,6 +4,7 @@ import { computeWizardCount, NW_PER_WIZARD, RACE_NW } from "../lib/nw";
 import { computeAmbushRawOff } from "../lib/ambush";
 import { formatNum, fullValueTooltip, parseUtopiaDate } from "../lib/ui";
 import { getRaceByName, normalizeScienceName } from "../lib/game";
+import { getReplayTypes, hashReplayKey, normalizeReceivedAt, resolveReplayKeyHash, shouldReplayEntry } from "../lib/replay-debug-log";
 
 // ---------------------------------------------------------------------------
 // computeWizardCount
@@ -238,6 +239,46 @@ test("fullValueTooltip — returns null when value rounds to same as displayed w
 test("parseUtopiaDate — returns -1 for invalid month", () => {
   assert.equal(parseUtopiaDate("August 1 of YR9"), -1);
   assert.equal(parseUtopiaDate("December 1 of YR9"), -1);
+});
+
+// ---------------------------------------------------------------------------
+// replay-debug-log helpers
+// ---------------------------------------------------------------------------
+
+test("normalizeReceivedAt normalizes ISO timestamps to sqlite UTC format", () => {
+  assert.equal(normalizeReceivedAt("2026-04-15T12:34:56.000Z"), "2026-04-15 12:34:56");
+});
+
+test("getReplayTypes falls back to all allowed types when input is empty or invalid", () => {
+  assert.equal(getReplayTypes(undefined).size, 8);
+  assert.equal(getReplayTypes("nope").size, 8);
+});
+
+test("getReplayTypes filters to valid replay types", () => {
+  assert.deepEqual([...getReplayTypes("kingdom,build,nope").values()].sort(), ["build", "kingdom"]);
+});
+
+test("hashReplayKey returns a stable sha256 hex digest", () => {
+  assert.equal(hashReplayKey("secret-key").length, 64);
+  assert.equal(hashReplayKey("secret-key"), hashReplayKey("secret-key"));
+});
+
+test("shouldReplayEntry filters keyed entries only when a filter key is provided", () => {
+  assert.equal(shouldReplayEntry({ url: "", prov: "", data_simple: "", key_hash: "match" }, undefined), true);
+  assert.equal(shouldReplayEntry({ url: "", prov: "", data_simple: "", key_hash: "match" }, "match"), true);
+  assert.equal(shouldReplayEntry({ url: "", prov: "", data_simple: "", key_hash: "other" }, "match"), false);
+  assert.equal(shouldReplayEntry({ url: "", prov: "", data_simple: "" }, "match"), false);
+});
+
+test("resolveReplayKeyHash prefers entry key_hash, then assumed key", () => {
+  assert.equal(
+    resolveReplayKeyHash({ url: "", prov: "", data_simple: "", key_hash: "from-entry" }, "from-assume"),
+    "from-entry",
+  );
+  assert.equal(
+    resolveReplayKeyHash({ url: "", prov: "", data_simple: "" }, "from-assume"),
+    "from-assume",
+  );
 });
 
 test("parseUtopiaDate — returns -1 for malformed strings", () => {

@@ -180,7 +180,28 @@ pm2 reload ecosystem.config.js --update-env
 Operational notes:
 - the production source of truth is the live server DB, not a copied local `intel.db`
 - keep `--exclude=intel.db` on deploy syncs
-- `scripts/replay-debug-log.ts` can replay `intel_debug.jsonl` into a local DB for one-off backfills/debugging
+- `npm run replay-debug-log -- <jsonl...>` replays `intel_debug.jsonl` into the DB pointed to by `INTEL_DB_PATH`
+- new debug log entries include `key_hash`, so future prod backfills can preserve intel partitioning safely
+- older mixed-key prod logs without `key_hash` are ambiguous; for those, replay is only safe when the target DB has one key or you explicitly pass `--key-hash=...`
+
+Replay examples:
+
+```bash
+# Local one-off replay
+npm run replay-debug-log -- ./intel_debug.jsonl --types=kingdom
+
+# Filter to only entries already tagged with this key_hash
+INTEL_DB_PATH=/home/ec2-user/utopiaintel-data/intel.db \
+npm run replay-debug-log -- /home/ec2-user/utopiaintel/intel_debug.jsonl --types=kingdom --key-hash=<sha256>
+
+# Older log without key_hash: explicitly assume a key for unkeyed entries
+INTEL_DB_PATH=/home/ec2-user/utopiaintel-data/intel.db \
+npm run replay-debug-log -- /home/ec2-user/utopiaintel/intel_debug.jsonl --types=kingdom --assume-key-hash=<sha256>
+
+# Future prod-safe replay once intel_debug.jsonl contains key_hash
+INTEL_DB_PATH=/home/ec2-user/utopiaintel-data/intel.db \
+npm run replay-debug-log -- /home/ec2-user/utopiaintel/intel_debug.jsonl --types=kingdom
+```
 
 ## Deploy
 

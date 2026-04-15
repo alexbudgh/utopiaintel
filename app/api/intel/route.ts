@@ -77,12 +77,14 @@ export async function POST(request: NextRequest) {
     prov: formData.get("prov") as string,
     key: formData.get("key") as string,
   };
+  const keyHash = createHash("sha256").update(fields.key).digest("hex");
 
   if (DEBUG_LOG) {
     const entry = {
       url: fields.url,
       prov: fields.prov,
       data_simple: fields.data_simple,
+      key_hash: keyHash,
       received_at: new Date().toISOString(),
     };
     appendFile(LOG_FILE, JSON.stringify(entry) + "\n").catch(() => {});
@@ -99,7 +101,6 @@ export async function POST(request: NextRequest) {
   }
 
   const savedBy = fields.prov;
-  const keyHash = createHash("sha256").update(fields.key).digest("hex");
   const pathname = getIntelPathname(fields.url);
   const isSelfThrone = pathname === "/wol/game/throne";
 
