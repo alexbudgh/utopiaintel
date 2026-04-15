@@ -12,8 +12,8 @@ export interface OpConfig {
 
 export const OPS: Record<Op, OpConfig> = {
   vaults:    { label: "Vaults",    resource: (p) => p.money, capOow: 0.052, capWar: 0.14,  unit: "gc" },
-  granaries: { label: "Granaries", resource: (p) => p.food,  capOow: 0.315, capWar: 0.46,  unit: "bu" },
-  towers:    { label: "Towers",    resource: (p) => p.runes, capOow: 0.245, capWar: 0.35,  unit: "ru" },
+  granaries: { label: "Granaries", resource: (p) => p.food,  capOow: 0.315, capWar: 0.46,  unit: "bushels" },
+  towers:    { label: "Towers",    resource: (p) => p.runes, capOow: 0.245, capWar: 0.35,  unit: "runes" },
 };
 
 export interface CellResult {
