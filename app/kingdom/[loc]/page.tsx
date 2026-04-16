@@ -131,7 +131,7 @@ export default async function KingdomPage({
         </div>
       </div>
 
-      {(dragon || ritual) && (
+      {(dragon || ritual || (snapshot && snapshot.warDoctrines.length > 0)) && (
         <div className="mb-4 flex flex-wrap gap-2">
           {dragon && (
             <a href="https://utopiaguide.chaos-intel.com/main/Dragons/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded border border-rose-500/40 bg-rose-500/10 px-3 py-1.5 text-sm text-rose-300 hover:border-rose-400/60 transition-colors">
@@ -152,38 +152,37 @@ export default async function KingdomPage({
               <span className="text-purple-600 text-xs">{timeAgo(ritual.receivedAt)}</span>
             </a>
           )}
+          {snapshot && snapshot.warDoctrines.length > 0 && (
+            <Tooltip content={
+              <table className="border-separate border-spacing-0 text-xs">
+                <thead>
+                  <tr className="text-gray-500">
+                    <th className="pb-1 pr-4 text-left font-normal">Race</th>
+                    <th className="pb-1 pr-4 text-center font-normal">Provs</th>
+                    <th className="pb-1 pr-4 text-left font-normal">Effect</th>
+                    <th className="pb-1 text-right font-normal">Bonus</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {snapshot.warDoctrines.map((d) => (
+                    <tr key={d.race}>
+                      <td className="py-0.5 pr-4 text-gray-200">{d.race}</td>
+                      <td className="py-0.5 pr-4 text-center tabular-nums text-gray-400">{d.provinces}</td>
+                      <td className="py-0.5 pr-4 text-gray-400">{d.effect}</td>
+                      <td className="py-0.5 text-right tabular-nums text-gray-200">
+                        {d.bonusPercent > 0 ? "+" : ""}{d.bonusPercent.toFixed(1)}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            }>
+              <span className="inline-flex cursor-default items-center gap-1.5 rounded border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 text-sm text-blue-300">
+                War Doctrines
+              </span>
+            </Tooltip>
+          )}
         </div>
-      )}
-
-      {snapshot && snapshot.warDoctrines.length > 0 && (
-        <details className="mb-4 rounded-lg border border-gray-800 bg-gray-900/50 px-4 py-3 group">
-          <summary className="cursor-pointer list-none text-xs font-medium text-gray-400 hover:text-gray-200 transition-colors">
-            <span className="mr-1 inline-block group-open:rotate-90 transition-transform">▶</span>
-            War Doctrines
-          </summary>
-          <table className="mt-2 w-full border-separate border-spacing-0 text-xs">
-            <thead>
-              <tr className="text-gray-500">
-                <th className="pb-1 text-left font-normal">Race</th>
-                <th className="pb-1 text-center font-normal">Provinces</th>
-                <th className="pb-1 text-left font-normal pl-4">Effect</th>
-                <th className="pb-1 text-right font-normal">Bonus</th>
-              </tr>
-            </thead>
-            <tbody>
-              {snapshot.warDoctrines.map((d) => (
-                <tr key={d.race} className="border-t border-gray-800/50">
-                  <td className="py-0.5 text-gray-200">{d.race}</td>
-                  <td className="py-0.5 text-center tabular-nums text-gray-400">{d.provinces}</td>
-                  <td className="py-0.5 pl-4 text-gray-400">{d.effect}</td>
-                  <td className="py-0.5 text-right tabular-nums font-medium text-gray-200">
-                    {d.bonusPercent > 0 ? "+" : ""}{d.bonusPercent.toFixed(1)}%
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </details>
       )}
 
       {view === "news" ? (
