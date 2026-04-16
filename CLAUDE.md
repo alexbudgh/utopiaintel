@@ -59,7 +59,8 @@ INTEL_DEBUG=1 npm run dev     # dev
 INTEL_DEBUG=1 npm start       # prod
 ```
 
-Writes to `intel_debug.jsonl`.
+Writes JSONL to `intel_debug.jsonl` by default and rotates it in-app. Use
+`INTEL_DEBUG_PATH` in production so the log lives outside the deployed app tree.
 
 ## Privacy
 
@@ -84,7 +85,7 @@ Do not store real province names, kingdom names, or player names in source code,
 - This repo is on Next.js 16. Root request interception now uses `proxy.ts`, not `middleware.ts`.
 - The app supports `INTEL_DB_PATH`. In production, point it at a path outside `~/utopiaintel` so the live SQLite file is not part of the deployed app tree.
 - The real Utopia `Slot` value from `kingdom_details` is stored on `kingdom_provinces` and should be treated as data, not inferred from current table order.
-- `scripts/replay-debug-log.ts` can replay local or production `intel_debug.jsonl` files into the local `intel.db` for one-off backfills such as kingdom slots or direct survey effects.
+- `scripts/replay-debug-log.ts` can replay local or production `intel_debug.jsonl` files, including rotated `.1`, `.2`, etc., into the local `intel.db` for one-off backfills such as kingdom slots or direct survey effects.
 - Gains are a same-page kingdom view, switched with `/kingdom/[loc]?view=gains`, rather than a separate standalone page.
 - Gains calculations use the latest accessible `kingdom_details` snapshots for both self and target kingdom average NW.
 - Gains currently model directional relation modifiers plus war-vs-out-of-war MAP behavior. The remaining assumptions are exposed in the top `Assumptions` pill in gains view.

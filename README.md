@@ -173,7 +173,8 @@ This is used by the client-side province table refresh loop.
 The app supports `INTEL_DB_PATH`.
 In production, point it to a path outside the deployed app directory so redeploys cannot overwrite the live DB.
 
-`INTEL_DEBUG=1` enables raw payload logging to `intel_debug.jsonl`:
+`INTEL_DEBUG=1` enables raw payload logging to JSONL. The app rotates the active
+file itself.
 
 ```bash
 pm2 reload ecosystem.config.js --update-env
@@ -182,7 +183,10 @@ pm2 reload ecosystem.config.js --update-env
 Operational notes:
 - the production source of truth is the live server DB, not a copied local `intel.db`
 - keep `--exclude=intel.db` on deploy syncs
-- `npm run replay-debug-log -- <jsonl...>` replays `intel_debug.jsonl` into the DB pointed to by `INTEL_DB_PATH`
+- set `INTEL_DEBUG_PATH` outside the deployed app directory in production, e.g. `/home/ec2-user/utopiaintel-data/intel_debug.jsonl`
+- optional rotation env vars:
+  `INTEL_DEBUG_MAX_BYTES` and `INTEL_DEBUG_MAX_FILES`
+- `npm run replay-debug-log -- <jsonl...>` replays one or more debug log files into the DB pointed to by `INTEL_DB_PATH`
 - new debug log entries include `key_hash`, so future prod backfills can preserve intel partitioning safely
 - older mixed-key prod logs without `key_hash` are ambiguous; for those, replay is only safe when the target DB has one key or you explicitly pass `--key-hash=...`
 
@@ -203,6 +207,14 @@ npm run replay-debug-log -- /home/ec2-user/utopiaintel/intel_debug.jsonl --types
 # Future prod-safe replay once intel_debug.jsonl contains key_hash
 INTEL_DB_PATH=/home/ec2-user/utopiaintel-data/intel.db \
 npm run replay-debug-log -- /home/ec2-user/utopiaintel/intel_debug.jsonl --types=kingdom
+
+# Replay active plus rotated files
+INTEL_DB_PATH=/home/ec2-user/utopiaintel-data/intel.db \
+npm run replay-debug-log -- \
+  /home/ec2-user/utopiaintel-data/intel_debug.jsonl \
+  /home/ec2-user/utopiaintel-data/intel_debug.jsonl.1 \
+  /home/ec2-user/utopiaintel-data/intel_debug.jsonl.2 \
+  --types=kingdom
 ```
 
 Production backfill setup:
@@ -255,6 +267,9 @@ Current PM2 env in `ecosystem.config.js` includes:
 - `HOSTNAME=127.0.0.1`
 - `INTEL_DB_PATH=/home/ec2-user/utopiaintel-data/intel.db`
 - `INTEL_DEBUG=0`
+- `INTEL_DEBUG_PATH=/home/ec2-user/utopiaintel-data/intel_debug.jsonl`
+- `INTEL_DEBUG_MAX_BYTES=10485760`
+- `INTEL_DEBUG_MAX_FILES=5`
 
 ## Repo Notes
 

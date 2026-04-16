@@ -1,6 +1,5 @@
-import { appendFile } from "fs/promises";
-import path from "path";
 import { NextRequest, NextResponse } from "next/server";
+import { appendDebugLog } from "@/lib/debug-log";
 import { hashKey } from "@/lib/keys";
 import { parseIntel } from "@/lib/parsers";
 import { getIntelPathname } from "@/lib/parsers/detect";
@@ -34,9 +33,6 @@ const REQUIRED_FIELDS: (keyof IntelFields)[] = [
   "prov",
   "key",
 ];
-
-const DEBUG_LOG = process.env.INTEL_DEBUG === "1";
-const LOG_FILE = path.join(process.cwd(), "intel_debug.jsonl");
 
 const TABLES: Record<string, string[]> = {
   sot:          ["province_overview", "total_military_points", "province_troops", "province_resources", "province_status"],
@@ -79,16 +75,13 @@ export async function POST(request: NextRequest) {
   };
   const keyHash = hashKey(fields.key);
 
-  if (DEBUG_LOG) {
-    const entry = {
-      url: fields.url,
-      prov: fields.prov,
-      data_simple: fields.data_simple,
-      key_hash: keyHash,
-      received_at: new Date().toISOString(),
-    };
-    appendFile(LOG_FILE, JSON.stringify(entry) + "\n").catch(() => {});
-  }
+  void appendDebugLog({
+    url: fields.url,
+    prov: fields.prov,
+    data_simple: fields.data_simple,
+    key_hash: keyHash,
+    received_at: new Date().toISOString(),
+  }).catch(() => {});
 
   const result = parseIntel(fields.url, fields.data_simple, fields.prov);
   if (!result) {
