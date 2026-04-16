@@ -13,6 +13,7 @@ import type {
   KingdomData,
   StateData,
   KingdomOpenRelation,
+  WarDoctrine,
   TrainArmyData,
   BuildData,
 } from "./parsers/types";
@@ -268,6 +269,7 @@ export function initSchema(db: Database.Database) {
       our_attitude_points REAL,
       hostility_meter_visible_until TEXT,
       open_relations_json TEXT,
+      war_doctrines_json TEXT,
       source TEXT NOT NULL DEFAULT 'kingdom',
       saved_by TEXT,
       received_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -331,6 +333,7 @@ export function initSchema(db: Database.Database) {
   if (!hasCol("kingdom_intel", "our_attitude_points")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN our_attitude_points REAL");
   if (!hasCol("kingdom_intel", "hostility_meter_visible_until")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN hostility_meter_visible_until TEXT");
   if (!hasCol("kingdom_intel", "open_relations_json")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN open_relations_json TEXT");
+  if (!hasCol("kingdom_intel", "war_doctrines_json")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN war_doctrines_json TEXT");
   if (!hasCol("kingdom_provinces", "slot")) db.exec("ALTER TABLE kingdom_provinces ADD COLUMN slot INTEGER");
   if (!hasCol("province_status", "overpop_deserters")) db.exec("ALTER TABLE province_status ADD COLUMN overpop_deserters INTEGER");
   if (!hasCol("province_status", "dragon_type")) db.exec("ALTER TABLE province_status ADD COLUMN dragon_type TEXT");
@@ -637,9 +640,9 @@ export function storeKingdom(data: KingdomData, savedBy: string, keyHash: string
         name, location, kingdom_title, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, war_target,
         their_attitude_to_us, their_attitude_points,
         our_attitude_to_them, our_attitude_points,
-        hostility_meter_visible_until, open_relations_json, saved_by
+        hostility_meter_visible_until, open_relations_json, war_doctrines_json, saved_by
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       data.name,
       data.location,
@@ -657,6 +660,7 @@ export function storeKingdom(data: KingdomData, savedBy: string, keyHash: string
       data.ourAttitudePoints,
       data.hostilityMeterVisibleUntil,
       JSON.stringify(data.openRelations),
+      data.warDoctrines.length > 0 ? JSON.stringify(data.warDoctrines) : null,
       savedBy,
     );
 
@@ -738,6 +742,7 @@ export interface KingdomSnapshot {
   ourAttitudePoints: number | null;
   hostilityMeterVisibleUntil: string | null;
   openRelations: KingdomOpenRelation[];
+  warDoctrines: WarDoctrine[];
   receivedAt: string;
   provinces: KingdomSnapshotProvince[];
 }
@@ -1449,7 +1454,7 @@ export function createDbApi(db: Database.Database): DbApi {
                ki.war_target,
                ki.their_attitude_to_us, ki.their_attitude_points,
                ki.our_attitude_to_them, ki.our_attitude_points,
-               ki.hostility_meter_visible_until, ki.open_relations_json,
+               ki.hostility_meter_visible_until, ki.open_relations_json, ki.war_doctrines_json,
                ki.received_at
         FROM kingdom_intel ki
         WHERE ki.location = ?
@@ -1487,6 +1492,7 @@ export function createDbApi(db: Database.Database): DbApi {
         our_attitude_points: number | null;
         hostility_meter_visible_until: string | null;
         open_relations_json: string | null;
+        war_doctrines_json: string | null;
         received_at: string;
       } | undefined;
 
@@ -1524,6 +1530,7 @@ export function createDbApi(db: Database.Database): DbApi {
         ourAttitudePoints: snapshot.our_attitude_points,
         hostilityMeterVisibleUntil: snapshot.hostility_meter_visible_until,
         openRelations: snapshot.open_relations_json ? JSON.parse(snapshot.open_relations_json) as KingdomOpenRelation[] : [],
+        warDoctrines: snapshot.war_doctrines_json ? JSON.parse(snapshot.war_doctrines_json) as WarDoctrine[] : [],
         receivedAt: snapshot.received_at,
         provinces: provinces.map((p) => ({
           slot: p.slot,

@@ -112,6 +112,13 @@ export interface KingdomOpenRelation {
   status: string;
 }
 
+export interface WarDoctrine {
+  race: string;
+  provinces: number;
+  effect: string;
+  bonusPercent: number;
+}
+
 export interface KingdomData {
   name: string;
   location: string; // e.g. "4:5"
@@ -129,6 +136,7 @@ export interface KingdomData {
   ourAttitudePoints: number | null;
   hostilityMeterVisibleUntil: string | null;
   openRelations: KingdomOpenRelation[];
+  warDoctrines: WarDoctrine[];
   provinces: KingdomProvince[];
 }
 

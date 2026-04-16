@@ -155,6 +155,37 @@ export default async function KingdomPage({
         </div>
       )}
 
+      {snapshot && snapshot.warDoctrines.length > 0 && (
+        <details className="mb-4 rounded-lg border border-gray-800 bg-gray-900/50 px-4 py-3 group">
+          <summary className="cursor-pointer list-none text-xs font-medium text-gray-400 hover:text-gray-200 transition-colors">
+            <span className="mr-1 inline-block group-open:rotate-90 transition-transform">▶</span>
+            War Doctrines
+          </summary>
+          <table className="mt-2 w-full border-separate border-spacing-0 text-xs">
+            <thead>
+              <tr className="text-gray-500">
+                <th className="pb-1 text-left font-normal">Race</th>
+                <th className="pb-1 text-center font-normal">Provinces</th>
+                <th className="pb-1 text-left font-normal pl-4">Effect</th>
+                <th className="pb-1 text-right font-normal">Bonus</th>
+              </tr>
+            </thead>
+            <tbody>
+              {snapshot.warDoctrines.map((d) => (
+                <tr key={d.race} className="border-t border-gray-800/50">
+                  <td className="py-0.5 text-gray-200">{d.race}</td>
+                  <td className="py-0.5 text-center tabular-nums text-gray-400">{d.provinces}</td>
+                  <td className="py-0.5 pl-4 text-gray-400">{d.effect}</td>
+                  <td className="py-0.5 text-right tabular-nums font-medium text-gray-200">
+                    {d.bonusPercent > 0 ? "+" : ""}{d.bonusPercent.toFixed(1)}%
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </details>
+      )}
+
       {view === "news" ? (
         <KingdomNewsTable events={newsEvents!} summary={newsSummary!} kingdom={kingdom} from={from} to={to} effectiveFrom={newsEffectiveFrom ?? undefined} latestWarDate={latestWarDate ?? undefined} warTarget={snapshot?.warTarget ?? undefined} />
       ) : view === "gains" ? (

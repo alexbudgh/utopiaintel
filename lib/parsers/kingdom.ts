@@ -1,5 +1,5 @@
 import { RACE_GROUP, HONOR_TITLE_GROUP } from "../game";
-import type { KingdomData, KingdomOpenRelation, KingdomProvince } from "./types";
+import type { KingdomData, KingdomOpenRelation, KingdomProvince, WarDoctrine } from "./types";
 import { INT, KDLOC, parseNum } from "./util";
 
 const TITLE_NAME_LOC_RE = new RegExp(`The(?: ([^(]+?))? kingdom of ([^(]+)${KDLOC}`, "i");
@@ -14,6 +14,9 @@ const ATTITUDES_RE = /Their Attitude To Us\t([^\t]+?) \(([-\d.]+) points\)\tOur 
 const HOSTILITY_VISIBLE_RE = /Hostility meter visible until ([^\n]+)/i;
 const OPEN_RELATIONS_SECTION_RE = /Open Relations\t?\n([\s\S]*?)\n(?:ThemNormalUnfriendlyHostileWarUs|Provinces)/i;
 const OPEN_RELATION_LINE_RE = new RegExp(`^(.+?) ${KDLOC} - ([^\\n]+)$`, "gm");
+
+const DOCTRINE_SECTION_RE = /Race\tProvinces\tDoctrine Effect\tCurrent Bonus\n([\s\S]*?)(?:\n\n|$)/;
+const DOCTRINE_LINE_RE = /^(.+?)\t(\d+)\t(.+?)\t\s*([-\d.]+)%/gm;
 
 // Province list pattern: name, optional marker (*+^~), race, land(a), nw(gc), nwpa(gc), honor, optional gains
 const PROVINCE_RE = new RegExp(
@@ -110,6 +113,18 @@ export function parseKingdom(text: string): KingdomData | null {
     }
   }
 
+  const warDoctrines: WarDoctrine[] = [];
+  const doctrineSection = DOCTRINE_SECTION_RE.exec(text)?.[1] ?? "";
+  let doctrineMatch: RegExpExecArray | null;
+  while ((doctrineMatch = DOCTRINE_LINE_RE.exec(doctrineSection)) !== null) {
+    warDoctrines.push({
+      race: doctrineMatch[1].trim(),
+      provinces: parseInt(doctrineMatch[2], 10),
+      effect: doctrineMatch[3].trim(),
+      bonusPercent: parseFloat(doctrineMatch[4]),
+    });
+  }
+
   return {
     name: kdName,
     location,
@@ -127,6 +142,7 @@ export function parseKingdom(text: string): KingdomData | null {
     ourAttitudePoints: attitudesMatch ? parseFloat(attitudesMatch[4]) : null,
     hostilityMeterVisibleUntil: hostilityVisibleMatch ? hostilityVisibleMatch[1].trim() : null,
     openRelations,
+    warDoctrines,
     provinces,
   };
 }

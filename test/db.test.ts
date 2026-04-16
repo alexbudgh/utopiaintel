@@ -581,6 +581,7 @@ function makePartitionedDb() {
       our_attitude_points REAL,
       hostility_meter_visible_until TEXT,
       open_relations_json TEXT,
+      war_doctrines_json TEXT,
       source TEXT NOT NULL DEFAULT 'kingdom',
       saved_by TEXT,
       received_at TEXT NOT NULL DEFAULT (datetime('now'))

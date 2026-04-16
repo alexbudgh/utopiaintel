@@ -704,6 +704,52 @@ test("parseKingdom — open relations list", () => {
   ]);
 });
 
+const KINGDOM_DOCTRINE_TEXT = `
+The Venerated kingdom of TestKingdom (2:6)
+
+Total Provinces\t23\tStance\tNormal
+Total Networth\t10,056,813gc (avg: 437,252gc)\tNet Worth Rank\t41 of 86
+Total Land\t52,948 acres (avg: 2,302 acres)\tLand Rank\t33 of 86
+Provinces
+Slot\tProvince\tRace\tLand\tNet Worth\tNet Worth/Acre\tNobility
+1\tAlphaville\tHalfling\t2,442 acres\t460,110gc\t188gc\tPeasant
+2\tBetaburg\tHuman\t3,022 acres\t625,175gc\t206gc\tKnight
+3\tGammatown\tDwarf\t1,861 acres\t399,222gc\t214gc\tKnight
+War Doctrines
+War Doctrines provide kingdom-wide bonuses based on the racial composition of your kingdom during wartime. Each race contributes its unique doctrine bonus.
+
+Race\tProvinces\tDoctrine Effect\tCurrent Bonus
+Dwarf\t3\tSpecialist Credits\t 4.5%
+Halfling\t1\tSabotage Damage\t 1.5%
+Human\t4\tBook Generation\t 4.5%
+Undead\t4\tEnemy Battle Gains\t-4.5%
+`;
+
+test("parseKingdom — war doctrines parsed correctly", () => {
+  const r = parseKingdom(KINGDOM_DOCTRINE_TEXT);
+  assert.ok(r, "should parse successfully");
+  assert.equal(r.warDoctrines.length, 4);
+  assert.deepEqual(r.warDoctrines[0], { race: "Dwarf", provinces: 3, effect: "Specialist Credits", bonusPercent: 4.5 });
+  assert.deepEqual(r.warDoctrines[3], { race: "Undead", provinces: 4, effect: "Enemy Battle Gains", bonusPercent: -4.5 });
+});
+
+test("parseKingdom — war doctrines: positive and negative bonuses", () => {
+  const r = parseKingdom(KINGDOM_DOCTRINE_TEXT);
+  assert.ok(r);
+  const halfling = r.warDoctrines.find((d) => d.race === "Halfling");
+  assert.ok(halfling);
+  assert.equal(halfling.bonusPercent, 1.5);
+  const undead = r.warDoctrines.find((d) => d.race === "Undead");
+  assert.ok(undead);
+  assert.equal(undead.bonusPercent, -4.5);
+});
+
+test("parseKingdom — warDoctrines is empty when section absent", () => {
+  const r = parseKingdom(KINGDOM_TEXT);
+  assert.ok(r);
+  assert.deepEqual(r.warDoctrines, []);
+});
+
 // ---------------------------------------------------------------------------
 // parseTrainArmy
 // ---------------------------------------------------------------------------
