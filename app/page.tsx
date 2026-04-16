@@ -270,7 +270,7 @@ function LoggedOutHome({ endpointUrl }: { endpointUrl: string }) {
         </section>
 
         <section className="mt-16">
-          <div className="rounded-[2rem] border border-stone-800 bg-[linear-gradient(180deg,rgba(29,24,23,0.92),rgba(12,14,18,0.92))] p-8">
+          <div className="rounded-[2rem] border border-stone-800 bg-[linear-gradient(180deg,rgba(29,24,23,0.92),rgba(12,14,18,0.92))] p-5 sm:p-8">
             <div className="mb-6 max-w-2xl">
               <div className="text-sm font-semibold uppercase tracking-[0.28em] text-amber-300/85">
                 Highlights
@@ -278,7 +278,7 @@ function LoggedOutHome({ endpointUrl }: { endpointUrl: string }) {
             </div>
             <dl className="divide-y divide-stone-800/80 rounded-2xl border border-stone-800 bg-black/20">
               {FEATURE_LIST.map((feature) => (
-                <div key={feature.label} className="grid gap-2 px-5 py-4 sm:grid-cols-[13rem_minmax(0,1fr)] sm:gap-6">
+                <div key={feature.label} className="grid gap-1.5 px-3.5 py-3 sm:grid-cols-[11rem_minmax(0,1fr)] sm:gap-4 sm:px-5 sm:py-4">
                   <dt className="text-[15px] font-semibold leading-6 text-stone-100">
                     {feature.label}
                   </dt>
