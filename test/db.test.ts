@@ -574,6 +574,7 @@ function makePartitionedDb() {
       wars_won INTEGER,
       networth_rank INTEGER,
       land_rank INTEGER,
+      honor_rank INTEGER,
       war_target TEXT,
       their_attitude_to_us TEXT,
       their_attitude_points REAL,
@@ -668,6 +669,7 @@ function addKingdomSnapshot(
     warsWon?: number | null;
     networthRank?: number | null;
     landRank?: number | null;
+    honorRank?: number | null;
     theirAttitudeToUs?: string | null;
     theirAttitudePoints?: number | null;
     ourAttitudeToThem?: string | null;
@@ -678,10 +680,10 @@ function addKingdomSnapshot(
 ) {
   const result = db.prepare(
     `INSERT INTO kingdom_intel (
-      name, location, kingdom_title, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, their_attitude_to_us, their_attitude_points,
+      name, location, kingdom_title, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, honor_rank, their_attitude_to_us, their_attitude_points,
       our_attitude_to_them, our_attitude_points,
       hostility_meter_visible_until, open_relations_json, received_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     `KD ${location}`,
     location,
@@ -692,6 +694,7 @@ function addKingdomSnapshot(
     relation.warsWon ?? null,
     relation.networthRank ?? null,
     relation.landRank ?? null,
+    relation.honorRank ?? null,
     relation.theirAttitudeToUs ?? null,
     relation.theirAttitudePoints ?? null,
     relation.ourAttitudeToThem ?? null,
@@ -723,6 +726,7 @@ function queryLatestKingdomSnapshot(
   warsWon: number | null;
   networthRank: number | null;
   landRank: number | null;
+  honorRank: number | null;
   theirAttitudeToUs: string | null;
   theirAttitudePoints: number | null;
   ourAttitudeToThem: string | null;
@@ -739,6 +743,7 @@ function queryLatestKingdomSnapshot(
            ki.wars_won,
            ki.networth_rank,
            ki.land_rank,
+           ki.honor_rank,
            ki.their_attitude_to_us,
            ki.their_attitude_points,
            ki.our_attitude_to_them,
@@ -772,6 +777,7 @@ function queryLatestKingdomSnapshot(
     wars_won: number | null;
     networth_rank: number | null;
     land_rank: number | null;
+    honor_rank: number | null;
     their_attitude_to_us: string | null;
     their_attitude_points: number | null;
     our_attitude_to_them: string | null;
@@ -798,6 +804,7 @@ function queryLatestKingdomSnapshot(
     warsWon: snapshot.wars_won,
     networthRank: snapshot.networth_rank,
     landRank: snapshot.land_rank,
+    honorRank: snapshot.honor_rank,
     theirAttitudeToUs: snapshot.their_attitude_to_us,
     theirAttitudePoints: snapshot.their_attitude_points,
     ourAttitudeToThem: snapshot.our_attitude_to_them,
@@ -1031,6 +1038,7 @@ test("kingdom snapshot: top-level kingdom stats are returned with the snapshot",
       warsWon: 2,
       networthRank: 3,
       landRank: 5,
+      honorRank: 7,
     },
   );
 
@@ -1042,6 +1050,7 @@ test("kingdom snapshot: top-level kingdom stats are returned with the snapshot",
   assert.equal(snapshot.warsWon, 2);
   assert.equal(snapshot.networthRank, 3);
   assert.equal(snapshot.landRank, 5);
+  assert.equal(snapshot.honorRank, 7);
   db.close();
 });
 
@@ -1088,18 +1097,18 @@ test("getKingdomSnapshotHistory: returns accessible stat snapshots in ascending 
 
     const accessible1 = Number(db.prepare(`
       INSERT INTO kingdom_intel (
-        name, location, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, received_at
-      ) VALUES ('KD 7:5', '7:5', 12000000, 45000, 15000, 2, 40, 30, '2026-04-04 16:00:00')
+        name, location, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, honor_rank, received_at
+      ) VALUES ('KD 7:5', '7:5', 12000000, 45000, 15000, 2, 40, 30, 22, '2026-04-04 16:00:00')
     `).run().lastInsertRowid);
     const accessible2 = Number(db.prepare(`
       INSERT INTO kingdom_intel (
-        name, location, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, received_at
-      ) VALUES ('KD 7:5', '7:5', 12500000, 45250, 15500, 2, 38, 29, '2026-04-04 18:00:00')
+        name, location, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, honor_rank, received_at
+      ) VALUES ('KD 7:5', '7:5', 12500000, 45250, 15500, 2, 38, 29, 19, '2026-04-04 18:00:00')
     `).run().lastInsertRowid);
     const inaccessible = Number(db.prepare(`
       INSERT INTO kingdom_intel (
-        name, location, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, received_at
-      ) VALUES ('KD 7:5', '7:5', 13000000, 46000, 16000, 3, 35, 28, '2026-04-04 19:00:00')
+        name, location, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, honor_rank, received_at
+      ) VALUES ('KD 7:5', '7:5', 13000000, 46000, 16000, 3, 35, 28, 17, '2026-04-04 19:00:00')
     `).run().lastInsertRowid);
     const noStats = Number(db.prepare(`
       INSERT INTO kingdom_intel (name, location, received_at)
@@ -1128,6 +1137,7 @@ test("getKingdomSnapshotHistory: returns accessible stat snapshots in ascending 
         totalNetworth: point.totalNetworth,
         totalLand: point.totalLand,
         totalHonor: point.totalHonor,
+        honorRank: point.honorRank,
       })),
       [
         {
@@ -1135,12 +1145,14 @@ test("getKingdomSnapshotHistory: returns accessible stat snapshots in ascending 
           totalNetworth: 12000000,
           totalLand: 45000,
           totalHonor: 15000,
+          honorRank: 22,
         },
         {
           receivedAt: "2026-04-04 18:00:00",
           totalNetworth: 12500000,
           totalLand: 45250,
           totalHonor: 15500,
+          honorRank: 19,
         },
       ],
     );

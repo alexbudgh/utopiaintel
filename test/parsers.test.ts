@@ -637,6 +637,7 @@ test("parseKingdom — Space (5:9)", () => {
   assert.equal(r.totalLand, 95368);
   assert.equal(r.landRank, 5);
   assert.equal(r.totalHonor, null);
+  assert.equal(r.honorRank, null);
   assert.equal(r.warsWon, null);
   assert.ok(r.provinces.length >= 3, "should find provinces");
 
@@ -683,6 +684,7 @@ test("parseKingdom — directional relations and hostility timer", () => {
   assert.equal(r.totalLand, 58961);
   assert.equal(r.landRank, 37);
   assert.equal(r.totalHonor, 24810);
+  assert.equal(r.honorRank, 51);
   assert.equal(r.warsWon, 2);
   assert.equal(r.theirAttitudeToUs, "Non Aggression Pact");
   assert.equal(r.theirAttitudePoints, 0);

@@ -113,7 +113,7 @@ export default async function KingdomPage({
             <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400">
               <span>NW <span className="text-gray-200 tabular-nums">{statValue(snapshot.totalNetworth)}</span>{snapshot.networthRank != null && <span className="text-gray-500"> · rank #{snapshot.networthRank}</span>}</span>
               <span>Land <span className="text-gray-200 tabular-nums">{statValue(snapshot.totalLand, "a")}</span>{snapshot.landRank != null && <span className="text-gray-500"> · rank #{snapshot.landRank}</span>}</span>
-              <span>Honor <span className="text-gray-200 tabular-nums">{statValue(snapshot.totalHonor)}</span></span>
+              <span>Honor <span className="text-gray-200 tabular-nums">{statValue(snapshot.totalHonor)}</span>{snapshot.honorRank != null && <span className="text-gray-500"> · rank #{snapshot.honorRank}</span>}</span>
               <span>War Wins <span className="text-gray-200 tabular-nums">{statValue(snapshot.warsWon)}</span></span>
             </div>
           )}

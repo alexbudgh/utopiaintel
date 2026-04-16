@@ -7,7 +7,7 @@ const CURRENT_NAME_LOC_RE = new RegExp(`Current kingdom is ([^(]+)${KDLOC}`, "i"
 const TOTAL_PROVS_RE = new RegExp(`Total Provinces\\s*(${INT})`);
 const TOTAL_NETWORTH_RE = new RegExp(`Total Networth\\s*(${INT})gc\\s*\\(avg:[^)]+\\)\\s*Net Worth Rank\\s*(${INT}) of ${INT}`, "i");
 const TOTAL_LAND_RE = new RegExp(`Total Land\\s*(${INT}) acres\\s*\\(avg:[^)]+\\)\\s*Land Rank\\s*(${INT}) of ${INT}`, "i");
-const TOTAL_HONOR_RE = new RegExp(`Total Honor\\s*(${INT})\\s*Honor Rank\\s*${INT} of ${INT}`, "i");
+const TOTAL_HONOR_RE = new RegExp(`Total Honor\\s*(${INT})\\s*Honor Rank\\s*(${INT}) of ${INT}`, "i");
 const WARS_WON_RE = new RegExp(`Wars Won / War Score\\s*(${INT})\\s*/\\s*[-\\d.]+`, "i");
 const WAR_RE = new RegExp(`at war with ([^(]+)${KDLOC}`, "i");
 const ATTITUDES_RE = /Their Attitude To Us\t([^\t]+?) \(([-\d.]+) points\)\tOur Attitude To Them\t([^\t]+?) \(([-\d.]+) points\)/i;
@@ -135,6 +135,7 @@ export function parseKingdom(text: string): KingdomData | null {
     warsWon: warsWonMatch ? parseNum(warsWonMatch[1]) : null,
     networthRank: totalNetworthMatch ? parseNum(totalNetworthMatch[2]) : null,
     landRank: totalLandMatch ? parseNum(totalLandMatch[2]) : null,
+    honorRank: totalHonorMatch ? parseNum(totalHonorMatch[2]) : null,
     warTarget,
     theirAttitudeToUs: attitudesMatch ? attitudesMatch[1].trim() : null,
     theirAttitudePoints: attitudesMatch ? parseFloat(attitudesMatch[2]) : null,
