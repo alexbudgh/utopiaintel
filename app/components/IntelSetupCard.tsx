@@ -1,6 +1,6 @@
 export function IntelSetupCard({
   endpointUrl,
-  title = "Utopia Intel Setup",
+  title = "Chaos Intel Setup",
   compact = false,
 }: {
   endpointUrl: string;

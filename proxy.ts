@@ -13,7 +13,8 @@ export function proxy(request: NextRequest) {
   }
 
   // Auth for UI routes
-  if (!pathname.startsWith("/login")) {
+  const isPublicRoute = pathname === "/" || pathname.startsWith("/login");
+  if (!isPublicRoute) {
     const cookie = request.cookies.get("auth")?.value;
     if (!cookie) {
       const proto = request.headers.get("x-forwarded-proto") ?? "https";
