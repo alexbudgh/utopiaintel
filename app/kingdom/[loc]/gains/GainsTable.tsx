@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { KingdomTabs } from "../KingdomTabs";
 import { Tooltip, type TooltipLine } from "@/app/components/Tooltip";
 import type { KingdomSnapshotProvince, ProvinceRow } from "@/lib/db";
 import { estimateBreakability, estimateTraditionalMarchAcres } from "@/lib/gains";
@@ -699,21 +700,10 @@ export function GainsTable({
   const kingdomHref = `/kingdom/${encodeURIComponent(targetKingdom)}`;
   const gainsHref = `${kingdomHref}?view=gains`;
   const btnBase = "px-2.5 py-1 rounded text-xs border transition-colors";
-  const btnActive = "border-blue-500 text-blue-300 bg-blue-950/40";
   const btnInactive = "border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300";
 
   const controls = (
-    <div className="mb-4 flex items-center gap-1.5 flex-wrap">
-      <Link href={kingdomHref} className={`${btnBase} ${btnInactive}`}>
-        Province Table
-      </Link>
-      <span className={`${btnBase} ${btnActive}`}>Gains</span>
-      <Link href={`${kingdomHref}?view=news`} className={`${btnBase} ${btnInactive}`}>
-        News
-      </Link>
-      <Link href={`${kingdomHref}?view=history`} className={`${btnBase} ${btnInactive}`}>
-        History
-      </Link>
+    <KingdomTabs kingdomHref={kingdomHref} active="gains">
       <Tooltip
         content={[
           { text: "Traditional March land gains only.", tone: "strong" },
@@ -735,7 +725,7 @@ export function GainsTable({
         {" · "}
         Target snapshot: <span className="text-gray-300">{formatTimestamp(targetSnapshot?.receivedAt ?? null)}</span>
       </div>
-    </div>
+    </KingdomTabs>
   );
 
   const wrap = (content: React.ReactNode) =>

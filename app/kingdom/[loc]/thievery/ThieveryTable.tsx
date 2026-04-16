@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { KingdomTabs, btnBase, btnActive, btnInactive } from "../KingdomTabs";
 import { Tooltip } from "@/app/components/Tooltip";
 import type { ProvinceRow } from "@/lib/db";
 import type { GainsPageData } from "@/lib/gains-page";
@@ -106,10 +107,6 @@ export function ThieveryTable({
   );
   const kingdomHref = `/kingdom/${encodeURIComponent(targetKingdom)}`;
 
-  const btnBase = "px-2.5 py-1 rounded text-xs border transition-colors";
-  const btnActive = "border-blue-500 text-blue-300 bg-blue-950/40";
-  const btnInactive = "border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300";
-
   const selfSorted = sortBySlot(selfProvinces);
   const targetSorted = sortBySlot(targetLatest);
 
@@ -119,20 +116,7 @@ export function ThieveryTable({
   const maxValue = allValues.length > 0 ? Math.max(...allValues) : 0;
 
   const controls = (
-    <div className="mb-4 flex items-center gap-1.5 flex-wrap">
-      <Link href={kingdomHref} className={`${btnBase} ${btnInactive}`}>
-        Province Table
-      </Link>
-      <Link href={`${kingdomHref}?view=gains`} className={`${btnBase} ${btnInactive}`}>
-        Gains
-      </Link>
-      <Link href={`${kingdomHref}?view=news`} className={`${btnBase} ${btnInactive}`}>
-        News
-      </Link>
-      <Link href={`${kingdomHref}?view=history`} className={`${btnBase} ${btnInactive}`}>
-        History
-      </Link>
-      <span className={`${btnBase} ${btnActive}`}>Thievery</span>
+    <KingdomTabs kingdomHref={kingdomHref} active="thievery">
       <div className="w-px h-4 bg-gray-700 mx-1" />
       {(Object.keys(OPS) as Op[]).map((o) => (
         <button
@@ -160,7 +144,7 @@ export function ThieveryTable({
           ? <span className="text-amber-400">War rates active</span>
           : <span className="text-gray-500">Non-war rates</span>}
       </div>
-    </div>
+    </KingdomTabs>
   );
 
   const wrap = (content: React.ReactNode) =>

@@ -799,6 +799,12 @@ export function ProvinceTable({
           Gains
         </Link>
         <Link
+          href={`/kingdom/${encodeURIComponent(kingdom)}?view=thievery`}
+          className={`${btnBase} ${btnInactive}`}
+        >
+          Thievery
+        </Link>
+        <Link
           href={`/kingdom/${encodeURIComponent(kingdom)}?view=news`}
           className={`${btnBase} ${btnInactive}`}
         >
@@ -809,12 +815,6 @@ export function ProvinceTable({
           className={`${btnBase} ${btnInactive}`}
         >
           History
-        </Link>
-        <Link
-          href={`/kingdom/${encodeURIComponent(kingdom)}?view=thievery`}
-          className={`${btnBase} ${btnInactive}`}
-        >
-          Thievery
         </Link>
       </div>
 

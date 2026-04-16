@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { KingdomTabs, btnBase, btnActive, btnInactive } from "./KingdomTabs";
 import { useState, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine, ResponsiveContainer, Legend } from "recharts";
 import type { KingdomNewsRow, KingdomNewsSummary } from "@/lib/db";
@@ -420,27 +421,14 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, effective
   const [showChart, setShowChart] = useState(false);
   const [provFilter, setProvFilter] = useState("");
   const [provSort, setProvSort] = useState<{ col: string; dir: 1 | -1 }>({ col: "net", dir: -1 });
-  const btnBase = "px-2.5 py-1 rounded text-xs border transition-colors";
-  const btnActive = "border-blue-500 text-blue-300 bg-blue-950/40";
-  const btnInactive = "border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300";
   const kingdomHref = `/kingdom/${encodeURIComponent(kingdom)}`;
   const controls = (
-    <div className="mb-4 flex items-center gap-1.5 flex-wrap">
-      <Link href={kingdomHref} className={`${btnBase} ${btnInactive}`}>
-        Province Table
-      </Link>
-      <Link href={`${kingdomHref}?view=gains`} className={`${btnBase} ${btnInactive}`}>
-        Gains
-      </Link>
-      <span className={`${btnBase} ${btnActive}`}>News</span>
-      <Link href={`${kingdomHref}?view=history`} className={`${btnBase} ${btnInactive}`}>
-        History
-      </Link>
+    <KingdomTabs kingdomHref={kingdomHref} active="news">
       <button type="button" onClick={() => setShowChart((v) => !v)}
         className={`${btnBase} ${showChart ? btnActive : btnInactive} ml-2`}>
         Chart
       </button>
-    </div>
+    </KingdomTabs>
   );
 
   if (events.length === 0) {

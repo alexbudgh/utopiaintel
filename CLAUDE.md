@@ -90,6 +90,8 @@ Do not store real province names, kingdom names, or player names in source code,
 - Gains currently model directional relation modifiers plus war-vs-out-of-war MAP behavior. The remaining assumptions are exposed in the top `Assumptions` pill in gains view.
 - The gains matrix header uses a dedicated sticky header layer above the scrollable body; horizontal alignment is maintained by mirroring `scrollLeft` from the body container to the header container.
 - When debugging live ingest or missing intel, the production source of truth is the live server DB and PM2 logs on `utopiaintel`, not the local workspace DB copy.
+- Kingdom view tab strips (Province Table / Gains / Thievery / News / History) are shared via `KingdomTabs` in `app/kingdom/[loc]/KingdomTabs.tsx`. Add new tabs there; do not duplicate the strip across individual view components.
+- When the same UI structure appears in more than two components, extract it into a shared component rather than duplicating. Duplicated UI diverges silently — a change or addition in one copy is missed in others.
 
 ## Build & deploy
 

@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { KingdomTabs } from "./KingdomTabs";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -272,9 +272,6 @@ export function KingdomHistoryView({
   const router = useRouter();
   const [compareInput, setCompareInput] = useState(compareKingdom ?? "");
   const kingdomHref = `/kingdom/${encodeURIComponent(primaryKingdom)}`;
-  const btnBase = "px-2.5 py-1 rounded text-xs border transition-colors";
-  const btnActive = "border-blue-500 text-blue-300 bg-blue-950/40";
-  const btnInactive = "border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300";
 
   function applyCompare(event: React.FormEvent) {
     event.preventDefault();
@@ -288,18 +285,7 @@ export function KingdomHistoryView({
 
   return (
     <div>
-      <div className="mb-4 flex items-center gap-1.5 flex-wrap">
-        <Link href={kingdomHref} className={`${btnBase} ${btnInactive}`}>
-          Province Table
-        </Link>
-        <Link href={`${kingdomHref}?view=gains`} className={`${btnBase} ${btnInactive}`}>
-          Gains
-        </Link>
-        <Link href={`${kingdomHref}?view=news`} className={`${btnBase} ${btnInactive}`}>
-          News
-        </Link>
-        <span className={`${btnBase} ${btnActive}`}>History</span>
-      </div>
+      <KingdomTabs kingdomHref={kingdomHref} active="history" />
 
       <section className="mb-4 rounded-lg border border-gray-800 bg-gray-900/50 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
