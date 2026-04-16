@@ -276,20 +276,18 @@ function LoggedOutHome({ endpointUrl }: { endpointUrl: string }) {
                 Highlights
               </div>
             </div>
-            <ul className="space-y-2.5">
+            <dl className="divide-y divide-stone-800/80 rounded-2xl border border-stone-800 bg-black/20">
               {FEATURE_LIST.map((feature) => (
-                <li
-                  key={feature.label}
-                  className="flex gap-4 rounded-2xl border border-stone-800 bg-black/25 px-5 py-4.5 shadow-[0_8px_24px_rgba(0,0,0,0.12)]"
-                >
-                  <span className="mt-2.5 inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-amber-400/80 shadow-[0_0_0_4px_rgba(251,191,36,0.08)]" />
-                  <div className="text-[15px] leading-7 text-stone-300">
-                    <span className="font-semibold text-stone-100">{feature.label}:</span>{" "}
+                <div key={feature.label} className="grid gap-2 px-5 py-4 sm:grid-cols-[13rem_minmax(0,1fr)] sm:gap-6">
+                  <dt className="text-[15px] font-semibold leading-6 text-stone-100">
+                    {feature.label}
+                  </dt>
+                  <dd className="text-[15px] leading-7 text-stone-300">
                     {feature.body}
-                  </div>
-                </li>
+                  </dd>
+                </div>
               ))}
-            </ul>
+            </dl>
           </div>
         </section>
 
