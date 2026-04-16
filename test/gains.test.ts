@@ -307,6 +307,31 @@ test("estimateTraditionalMarchAcres applies defender barrier protection", () => 
   assert.equal(estimate.roundedAcres, 144);
 });
 
+test("estimateTraditionalMarchAcres applies defender Enemy Battle Gains doctrine", () => {
+  const base = estimateTraditionalMarchAcres({
+    attackerLand: 1000,
+    attackerNetworth: 300000,
+    defenderLand: 1500,
+    defenderNetworth: 300000,
+    selfKingdomAvgNetworth: 250000,
+    targetKingdomAvgNetworth: 250000,
+  });
+  const withDoctrine = estimateTraditionalMarchAcres({
+    attackerLand: 1000,
+    attackerNetworth: 300000,
+    defenderLand: 1500,
+    defenderNetworth: 300000,
+    selfKingdomAvgNetworth: 250000,
+    targetKingdomAvgNetworth: 250000,
+    defenderEnemyBattleGainsEffect: -4.5,
+  });
+
+  assert.ok(base && withDoctrine);
+  assert.equal(withDoctrine.enemyBattleGainsEffect, -4.5);
+  assert.ok(Math.abs(withDoctrine.enemyBattleGainsFactor - 0.955) < 1e-9);
+  assert.ok(Math.abs(withDoctrine.rawAcres - base.rawAcres * 0.955) < 0.01);
+});
+
 test("estimateTraditionalMarchAcres caps oversized gains", () => {
   const estimate = estimateTraditionalMarchAcres({
     attackerLand: 600,

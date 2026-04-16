@@ -267,6 +267,7 @@ function estimateTitle(
   ourAttitudeToThem: string | null,
   theirAttitudeToUs: string | null,
   defenderBarrierEffect: number | null,
+  defenderEnemyBattleGainsEffect: number | null,
 ): ReactNode {
   const estimate = estimateTraditionalMarchAcres({
     attackerLand: attacker.land,
@@ -279,6 +280,7 @@ function estimateTitle(
     defenderCastlesEffect: defenderLatest?.castles_effect ?? null,
     defenderBarrierEffect,
     attackerSiegeEffect: attacker.siege_effect ?? null,
+    defenderEnemyBattleGainsEffect,
     relationState,
     ourAttitudeToThem,
     theirAttitudeToUs,
@@ -304,7 +306,8 @@ function estimateTitle(
     estimate.castlesFactor *
     estimate.barrierFactor *
     estimate.siegeFactor *
-    estimate.combinedRelationFactor;
+    estimate.combinedRelationFactor *
+    estimate.enemyBattleGainsFactor;
   const rpnwInfo = rpnwBreakdown(estimate.rpnw);
   const rknwInfo = rknwBreakdown(estimate.rknw);
   const mapInfo = mapBreakdown(defenderLatest?.hit_status ?? null, relationState, estimate.mapFactor);
@@ -376,6 +379,9 @@ function estimateTitle(
   }
   if (estimate.siegeFactor > 1) {
     highlights.push({ label: "Siege", value: estimate.siegeFactor.toFixed(3), className: factorClass(estimate.siegeFactor), impact: Math.abs(1 - estimate.siegeFactor) });
+  }
+  if (estimate.enemyBattleGainsFactor !== 1) {
+    highlights.push({ label: "Doctrine", value: estimate.enemyBattleGainsFactor.toFixed(3), className: factorClass(estimate.enemyBattleGainsFactor), impact: Math.abs(1 - estimate.enemyBattleGainsFactor) });
   }
   const summaryHighlights = [...highlights].sort((a, b) => b.impact - a.impact);
 
@@ -507,6 +513,16 @@ function estimateTitle(
             <div className={siegeInfo.tone === "bad" ? "text-red-300" : siegeInfo.tone === "warn" ? "text-amber-300" : siegeInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
               {siegeInfo.calc}
             </div>
+            <Row
+              label="Enemy Battle Gains doctrine"
+              value={estimate.enemyBattleGainsEffect != null ? `${estimate.enemyBattleGainsEffect > 0 ? "+" : ""}${estimate.enemyBattleGainsEffect.toFixed(1)}%` : "none"}
+              tone={estimate.enemyBattleGainsEffect != null ? "text-gray-100" : "text-gray-500"}
+            />
+            <div className={factorClass(estimate.enemyBattleGainsFactor)}>
+              {estimate.enemyBattleGainsEffect != null
+                ? `factor = 1 + ${estimate.enemyBattleGainsEffect.toFixed(1)}% = ${estimate.enemyBattleGainsFactor.toFixed(3)}`
+                : "factor = 1.000 (no doctrine data)"}
+            </div>
           </Section>
         </div>
 
@@ -531,6 +547,10 @@ function estimateTitle(
           <span className={factorClass(estimate.siegeFactor)}>{estimate.siegeFactor.toFixed(3)}</span>
           <span className="text-gray-500"> * </span>
           <span className={factorClass(estimate.combinedRelationFactor)}>{estimate.combinedRelationFactor.toFixed(3)}</span>
+          {estimate.enemyBattleGainsFactor !== 1 && (<>
+            <span className="text-gray-500"> * </span>
+            <span className={factorClass(estimate.enemyBattleGainsFactor)}>{estimate.enemyBattleGainsFactor.toFixed(3)}</span>
+          </>)}
           <span className="text-gray-500"> = </span>
           <span className="text-gray-100">{fmt(baseAcres)}</span>
         </div>
@@ -675,6 +695,7 @@ export function GainsTable({
   const defenderBarrierEffect = targetRitual?.name === "Barrier ritual" && targetRitual.effectivenessPercent != null
     ? (targetRitual.effectivenessPercent / 100) * 10
     : null;
+  const enemyBattleGainsEffect = targetSnapshot?.warDoctrines.find((d) => d.effect === "Enemy Battle Gains")?.bonusPercent ?? null;
   const kingdomHref = `/kingdom/${encodeURIComponent(targetKingdom)}`;
   const gainsHref = `${kingdomHref}?view=gains`;
   const btnBase = "px-2.5 py-1 rounded text-xs border transition-colors";
@@ -852,6 +873,7 @@ export function GainsTable({
                     defenderCastlesEffect: defenderLatest?.castles_effect ?? null,
                     defenderBarrierEffect,
                     attackerSiegeEffect: attacker.siege_effect ?? null,
+                    defenderEnemyBattleGainsEffect: enemyBattleGainsEffect,
                     relationState,
                     ourAttitudeToThem: targetSnapshot.ourAttitudeToThem,
                     theirAttitudeToUs: targetSnapshot.theirAttitudeToUs,
@@ -867,7 +889,7 @@ export function GainsTable({
                         selectedRowId === attacker.id ? "shadow-[inset_0_1px_0_rgba(59,130,246,0.45),inset_0_-1px_0_rgba(59,130,246,0.45)]" : ""
                       } ${tone.cell}`}
                     >
-                      <Tooltip content={estimateTitle(attacker, defender, selfAvgNetworth, targetAvgNetworth, defenderLatest, relationState, targetSnapshot.ourAttitudeToThem, targetSnapshot.theirAttitudeToUs, defenderBarrierEffect)}>
+                      <Tooltip content={estimateTitle(attacker, defender, selfAvgNetworth, targetAvgNetworth, defenderLatest, relationState, targetSnapshot.ourAttitudeToThem, targetSnapshot.theirAttitudeToUs, defenderBarrierEffect, enemyBattleGainsEffect)}>
                         <div className={tone.value}>
                           {estimate ? `${estimate.roundedAcres.toLocaleString()}a` : "—"}
                         </div>

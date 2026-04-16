@@ -25,6 +25,8 @@ export interface TraditionalMarchEstimate {
   ourRelationFactor: number;
   theirRelationFactor: number;
   combinedRelationFactor: number;
+  enemyBattleGainsEffect: number | null;
+  enemyBattleGainsFactor: number;
 }
 
 export interface BreakabilityEstimate {
@@ -116,6 +118,7 @@ export function estimateTraditionalMarchAcres(input: {
   defenderCastlesEffect?: number | null;
   defenderBarrierEffect?: number | null;
   attackerSiegeEffect?: number | null;
+  defenderEnemyBattleGainsEffect?: number | null;
   relationState?: "war" | "oow";
   ourAttitudeToThem?: string | null;
   theirAttitudeToUs?: string | null;
@@ -131,6 +134,7 @@ export function estimateTraditionalMarchAcres(input: {
     defenderCastlesEffect = null,
     defenderBarrierEffect = null,
     attackerSiegeEffect = null,
+    defenderEnemyBattleGainsEffect = null,
     relationState = "oow",
     ourAttitudeToThem = null,
     theirAttitudeToUs = null,
@@ -155,8 +159,11 @@ export function estimateTraditionalMarchAcres(input: {
   const ourRelationFactor = outgoingRelationGainsFactor(ourAttitudeToThem);
   const theirRelationFactor = incomingRelationGainsFactor(theirAttitudeToUs);
   const combinedRelationFactor = ourRelationFactor * theirRelationFactor;
+  const enemyBattleGainsFactor = defenderEnemyBattleGainsEffect != null
+    ? 1 + defenderEnemyBattleGainsEffect / 100
+    : 1;
   const baseAcres =
-    defenderLand * 0.12 * rpnwFactor * rknwFactor * mapFactor * castlesFactor * barrierFactor * siegeFactor * combinedRelationFactor;
+    defenderLand * 0.12 * rpnwFactor * rknwFactor * mapFactor * castlesFactor * barrierFactor * siegeFactor * combinedRelationFactor * enemyBattleGainsFactor;
   const warFloor = warMinimumGainsFloor(defenderLand, relationState);
   const flooredAcres = Math.max(baseAcres, warFloor);
   const cap = Math.min(attackerLand, defenderLand) * 0.2;
@@ -187,6 +194,8 @@ export function estimateTraditionalMarchAcres(input: {
     ourRelationFactor,
     theirRelationFactor,
     combinedRelationFactor,
+    enemyBattleGainsEffect: defenderEnemyBattleGainsEffect,
+    enemyBattleGainsFactor,
   };
 }
 
