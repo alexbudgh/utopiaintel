@@ -85,7 +85,9 @@ Do not store real province names, kingdom names, or player names in source code,
 - This repo is on Next.js 16. Root request interception now uses `proxy.ts`, not `middleware.ts`.
 - The app supports `INTEL_DB_PATH`. In production, point it at a path outside `~/utopiaintel` so the live SQLite file is not part of the deployed app tree.
 - The real Utopia `Slot` value from `kingdom_details` is stored on `kingdom_provinces` and should be treated as data, not inferred from current table order.
-- `scripts/replay-debug-log.ts` can replay local or production `intel_debug.jsonl` files, including rotated `.1`, `.2`, etc., into the local `intel.db` for one-off backfills such as kingdom slots or direct survey effects.
+- `scripts/replay-debug-log.ts` can replay local or production `intel_debug.jsonl` files, including rotated `.1`, `.2`, etc., into the local `intel.db` for one-off backfills such as kingdom slots, war losses, or direct survey effects.
+- For modern logs that already carry `key_hash`, use `--key-hash=<sha256>` to replay only entries explicitly tagged for that shard.
+- `--assume-key-hash=<sha256>` is the fallback for older unkeyed logs. It applies untagged entries to the assumed shard, so looping it across every key is a broad all-to-all backfill, not strict per-key replay.
 - Gains are a same-page kingdom view, switched with `/kingdom/[loc]?view=gains`, rather than a separate standalone page.
 - Gains calculations use the latest accessible `kingdom_details` snapshots for both self and target kingdom average NW.
 - Gains currently model directional relation modifiers plus war-vs-out-of-war MAP behavior. The remaining assumptions are exposed in the top `Assumptions` pill in gains view.
