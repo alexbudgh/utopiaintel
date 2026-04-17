@@ -4,6 +4,7 @@ import { cookies, headers } from "next/headers";
 import { getBoundKingdom, getKingdomProvinces, getLatestKingdomSnapshot, getKingdomSnapshotHistory, getKingdomRitual, getKingdomDragon, getKingdomNews, getKingdomNewsSummary, getLatestWarDate } from "@/lib/db";
 import { hashKey } from "@/lib/keys";
 import { IntelSetupCard } from "@/app/components/IntelSetupCard";
+import { toRelationContext } from "@/lib/relation-context";
 import { KingdomHistoryView } from "./KingdomSnapshotChart";
 import { KingdomProvinceView } from "./KingdomProvinceView";
 import { GainsTable } from "./gains/GainsTable";
@@ -35,10 +36,11 @@ export default async function KingdomPage({
   const compareHistory = view === "history" && compareKingdom && compareKingdom !== kingdom
     ? getKingdomSnapshotHistory(compareKingdom, keyHash)
     : [];
-  const primaryOpenRelation = snapshot?.openRelations[0] ?? null;
-  const initialRelationSnapshot = boundKingdom && kingdom === boundKingdom && primaryOpenRelation
-    ? getLatestKingdomSnapshot(primaryOpenRelation.location, keyHash)
-    : null;
+  const initialRelationContexts = boundKingdom && kingdom === boundKingdom
+    ? (snapshot?.openRelations ?? [])
+        .map((relation) => toRelationContext(getLatestKingdomSnapshot(relation.location, keyHash)))
+        .filter((context) => context !== null)
+    : [];
   const hasAnyIntel = provinces.length > 0 || !!snapshot;
   const gainsInitial = view === "gains" ? getGainsPageData(kingdom, keyHash) : null;
   const thieveryInitial = view === "thievery" ? getGainsPageData(kingdom, keyHash) : null;
@@ -59,7 +61,7 @@ export default async function KingdomPage({
           endpointUrl={`${baseUrl}/api/intel`}
           initialProvinces={provinces}
           initialKdSnapshot={snapshot}
-          initialRelationSnapshot={initialRelationSnapshot}
+          initialRelationContexts={initialRelationContexts}
           initialDragon={dragon}
           initialRitual={ritual}
         />

@@ -6,6 +6,7 @@ import { IntelSetupButton } from "@/app/components/IntelSetupButton";
 import { KingdomRelations } from "@/app/components/KingdomRelations";
 import { Tooltip, type TooltipLine } from "@/app/components/Tooltip";
 import type { KingdomDragon, KingdomRitual, KingdomSnapshot, ProvinceRow } from "@/lib/db";
+import type { RelationContext } from "@/lib/relation-context";
 import { ProvinceTable } from "./ProvinceTable";
 import { getKingdomTitleDetails } from "@/lib/kingdom-recognition";
 import { KingdomJump } from "./KingdomJump";
@@ -21,7 +22,7 @@ export function KingdomProvinceView({
   endpointUrl,
   initialProvinces,
   initialKdSnapshot,
-  initialRelationSnapshot,
+  initialRelationContexts,
   initialDragon,
   initialRitual,
 }: {
@@ -30,13 +31,13 @@ export function KingdomProvinceView({
   endpointUrl: string;
   initialProvinces: ProvinceRow[];
   initialKdSnapshot: KingdomSnapshot | null;
-  initialRelationSnapshot: KingdomSnapshot | null;
+  initialRelationContexts: RelationContext[];
   initialDragon: KingdomDragon | null;
   initialRitual: KingdomRitual | null;
 }) {
   const [provinces, setProvinces] = useState(initialProvinces);
   const [kdSnapshot, setKdSnapshot] = useState(initialKdSnapshot);
-  const [relationSnapshot, setRelationSnapshot] = useState(initialRelationSnapshot);
+  const [relationContexts, setRelationContexts] = useState(initialRelationContexts);
   const [dragon, setDragon] = useState(initialDragon);
   const [ritual, setRitual] = useState(initialRitual);
 
@@ -49,8 +50,8 @@ export function KingdomProvinceView({
   }, [initialKdSnapshot]);
 
   useEffect(() => {
-    setRelationSnapshot(initialRelationSnapshot);
-  }, [initialRelationSnapshot]);
+    setRelationContexts(initialRelationContexts);
+  }, [initialRelationContexts]);
 
   useEffect(() => {
     setDragon(initialDragon);
@@ -67,13 +68,13 @@ export function KingdomProvinceView({
       const payload = await res.json() as {
         provinces: ProvinceRow[];
         kdSnapshot: KingdomSnapshot | null;
-        relationSnapshot: KingdomSnapshot | null;
+        relationContexts: RelationContext[];
         dragon: KingdomDragon | null;
         ritual: KingdomRitual | null;
       };
       setProvinces(payload.provinces);
       setKdSnapshot(payload.kdSnapshot);
-      setRelationSnapshot(payload.relationSnapshot);
+      setRelationContexts(payload.relationContexts);
       setDragon(payload.dragon);
       setRitual(payload.ritual);
     }, 30_000);
@@ -141,7 +142,7 @@ export function KingdomProvinceView({
             kingdom={kingdom}
             boundKingdom={boundKingdom}
             snapshot={kdSnapshot}
-            relationSnapshot={relationSnapshot ?? kdSnapshot}
+            relationContexts={relationContexts}
           />
         </div>
         <span className="text-sm text-gray-500">{provinces.length} provinces</span>
