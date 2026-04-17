@@ -9,6 +9,8 @@ import { IntelSetupButton } from "@/app/components/IntelSetupButton";
 import { freshnessColor, timeAgo } from "@/lib/ui";
 import { login } from "@/app/login/action";
 import { logout } from "@/app/logout/action";
+import { KingdomRelations } from "@/app/components/KingdomRelations";
+import { toRelationContext } from "@/lib/relation-context";
 
 const FEATURE_SECTIONS = [
   {
@@ -77,78 +79,6 @@ const FEATURE_LIST = [
     body: "TPA, WPA, breakability, population, and other same-tick calculations.",
   },
 ];
-
-function relationBadgeClass(status: string | null): string {
-  const value = (status ?? "").toLowerCase();
-  if (value.includes("hostile") || value.includes("war")) return "border-red-500/40 bg-red-950/40 text-red-200";
-  if (value.includes("unfriendly")) return "border-amber-500/40 bg-amber-950/40 text-amber-200";
-  if (value.includes("non aggression") || value.includes("ceasefire")) return "border-sky-500/40 bg-sky-950/40 text-sky-200";
-  if (value.includes("normal")) return "border-gray-700 bg-gray-800/60 text-gray-200";
-  return "border-violet-500/40 bg-violet-950/40 text-violet-200";
-}
-
-function isCeasefireLike(status: string | null): boolean {
-  const value = (status ?? "").toLowerCase();
-  return value.includes("non aggression") || value.includes("ceasefire");
-}
-
-function formatRelationPoints(points: number | null): string {
-  return points == null ? "?" : points.toFixed(2);
-}
-
-function relationSummary(
-  kingdom: string,
-  boundKingdom: string | null,
-  snapshot: KingdomSnapshot | null,
-  relationSnapshot: KingdomSnapshot | null,
-) {
-  const openRelation = snapshot?.openRelations[0] ?? null;
-  const warTarget = relationSnapshot?.warTarget ?? snapshot?.warTarget ?? null;
-  const mutualCeasefire =
-    isCeasefireLike(relationSnapshot?.theirAttitudeToUs ?? null) &&
-    isCeasefireLike(relationSnapshot?.ourAttitudeToThem ?? null);
-
-  if (!relationSnapshot && !openRelation && !warTarget) return null;
-
-  const openLoc = openRelation?.location ?? null;
-
-  return (
-    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
-      {warTarget && (
-        <Link href={`/kingdom/${encodeURIComponent(warTarget)}`} className="rounded border border-orange-500/40 bg-orange-950/30 px-2 py-0.5 font-medium text-orange-200 hover:border-orange-400/60 transition-colors">
-          War · {warTarget}
-        </Link>
-      )}
-      {openRelation?.location && (
-        <Link href={`/kingdom/${encodeURIComponent(openRelation.location)}`} className={`rounded border px-2 py-0.5 font-medium hover:opacity-80 transition-opacity ${relationBadgeClass(openRelation.status)}`}>
-          {openRelation.status} · {openRelation.location}
-        </Link>
-      )}
-      {mutualCeasefire && openLoc ? (
-        <Link href={`/kingdom/${encodeURIComponent(openLoc)}`} className={`rounded border px-2 py-0.5 font-medium hover:opacity-80 transition-opacity ${relationBadgeClass(relationSnapshot?.ourAttitudeToThem ?? relationSnapshot?.theirAttitudeToUs ?? null)}`}>
-          Non-Aggression Pact
-        </Link>
-      ) : !mutualCeasefire && relationSnapshot?.theirAttitudeToUs && openLoc && (
-        <>
-          <span className="text-gray-500">They → us</span>
-          <Link href={`/kingdom/${encodeURIComponent(openLoc)}`} className={`rounded border px-2 py-0.5 font-medium hover:opacity-80 transition-opacity ${relationBadgeClass(relationSnapshot.theirAttitudeToUs)}`}>
-            {relationSnapshot.theirAttitudeToUs}
-          </Link>
-          <span className="text-gray-500">({formatRelationPoints(relationSnapshot.theirAttitudePoints)})</span>
-        </>
-      )}
-      {!mutualCeasefire && relationSnapshot?.ourAttitudeToThem && openLoc && (
-        <>
-          <span className="text-gray-500">Us → them</span>
-          <Link href={`/kingdom/${encodeURIComponent(openLoc)}`} className={`rounded border px-2 py-0.5 font-medium hover:opacity-80 transition-opacity ${relationBadgeClass(relationSnapshot.ourAttitudeToThem)}`}>
-            {relationSnapshot.ourAttitudeToThem}
-          </Link>
-          <span className="text-gray-500">({formatRelationPoints(relationSnapshot.ourAttitudePoints)})</span>
-        </>
-      )}
-    </div>
-  );
-}
 
 function LoggedOutHome({ endpointUrl }: { endpointUrl: string }) {
   return (
@@ -324,14 +254,15 @@ export default async function Home() {
   const kingdoms = getKingdoms(keyHash);
   const kingdomRows = kingdoms.map((kd) => {
     const snapshot = getLatestKingdomSnapshot(kd.location, keyHash);
-    const openRelation = snapshot?.openRelations[0] ?? null;
-    const relationSnapshot =
-      boundKingdom && kd.location === boundKingdom && openRelation
-        ? getLatestKingdomSnapshot(openRelation.location, keyHash) ?? snapshot
-        : snapshot;
+    const relationContexts =
+      boundKingdom && kd.location === boundKingdom
+        ? (snapshot?.openRelations ?? [])
+            .map((relation) => toRelationContext(getLatestKingdomSnapshot(relation.location, keyHash)))
+            .filter((context) => context != null)
+        : [];
     const ritual = getKingdomRitual(kd.location, keyHash);
     const dragon = getKingdomDragon(kd.location, keyHash);
-    return { kd, snapshot, relationSnapshot, ritual, dragon };
+    return { kd, snapshot, relationContexts, ritual, dragon };
   });
 
   const selfWarTarget = boundKingdom
@@ -375,7 +306,7 @@ export default async function Home() {
       ) : (
         <div className="space-y-4">
           <ul className="space-y-2">
-            {kingdomRows.map(({ kd, snapshot, relationSnapshot, ritual, dragon }) => (
+            {kingdomRows.map(({ kd, snapshot, relationContexts, ritual, dragon }) => (
               <li key={kd.location}>
                 <div className="rounded-lg bg-gray-800 px-4 py-3">
                   <Link
@@ -419,7 +350,14 @@ export default async function Home() {
                       )}
                     </div>
                   )}
-                  {relationSummary(kd.location, boundKingdom, snapshot, relationSnapshot)}
+                  <div className="mt-2">
+                    <KingdomRelations
+                      kingdom={kd.location}
+                      boundKingdom={boundKingdom}
+                      snapshot={snapshot}
+                      relationContexts={relationContexts}
+                    />
+                  </div>
                 </div>
               </li>
             ))}
