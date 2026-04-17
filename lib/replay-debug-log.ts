@@ -86,7 +86,7 @@ export function resolveReplayKeyHash(entry: DebugEntry, assumeKeyHash?: string):
   return getSingleKeyHash();
 }
 
-function setLatestKingdomTimestamp(location: string, savedBy: string, receivedAt: string) {
+function setLatestKingdomTimestamp(location: string, savedBy: string, keyHash: string, receivedAt: string) {
   const db = getDb();
   db.prepare(`
     UPDATE kingdom_intel
@@ -94,14 +94,14 @@ function setLatestKingdomTimestamp(location: string, savedBy: string, receivedAt
     WHERE id = (
       SELECT id
       FROM kingdom_intel
-      WHERE location = ? AND saved_by = ?
+      WHERE location = ? AND key_hash = ? AND saved_by = ?
       ORDER BY id DESC
       LIMIT 1
     )
-  `).run(receivedAt, location, savedBy);
+  `).run(receivedAt, location, keyHash, savedBy);
 }
 
-function setLatestSurveyTimestamp(provinceName: string, kingdom: string, savedBy: string, receivedAt: string) {
+function setLatestSurveyTimestamp(provinceName: string, kingdom: string, savedBy: string, keyHash: string, receivedAt: string) {
   const db = getDb();
   db.prepare(`
     UPDATE survey_intel
@@ -110,14 +110,14 @@ function setLatestSurveyTimestamp(provinceName: string, kingdom: string, savedBy
       SELECT si.id
       FROM survey_intel si
       JOIN provinces p ON p.id = si.province_id
-      WHERE p.name = ? AND p.kingdom = ? AND si.saved_by = ?
+      WHERE p.name = ? AND p.kingdom = ? AND si.key_hash = ? AND si.saved_by = ?
       ORDER BY si.id DESC
       LIMIT 1
     )
-  `).run(receivedAt, provinceName, kingdom, savedBy);
+  `).run(receivedAt, provinceName, kingdom, keyHash, savedBy);
 }
 
-function setLatestSoTTimestamps(provinceName: string, kingdom: string, savedBy: string, receivedAt: string) {
+function setLatestSoTTimestamps(provinceName: string, kingdom: string, savedBy: string, keyHash: string, receivedAt: string) {
   const db = getDb();
   const provinceIdRow = db.prepare(
     "SELECT id FROM provinces WHERE name = ? AND kingdom = ?"
@@ -132,11 +132,11 @@ function setLatestSoTTimestamps(provinceName: string, kingdom: string, savedBy: 
       WHERE id = (
         SELECT id
         FROM ${table}
-        WHERE province_id = ? AND saved_by = ?
+        WHERE province_id = ? AND key_hash = ? AND saved_by = ?
         ORDER BY id DESC
         LIMIT 1
       )
-    `).run(receivedAt, provinceId, savedBy);
+    `).run(receivedAt, provinceId, keyHash, savedBy);
   };
 
   stamp("province_overview");
@@ -148,8 +148,8 @@ function setLatestSoTTimestamps(provinceName: string, kingdom: string, savedBy: 
   db.prepare(`
     UPDATE province_effects
     SET received_at = ?
-    WHERE province_id = ? AND saved_by = ?
-  `).run(receivedAt, provinceId, savedBy);
+    WHERE province_id = ? AND key_hash = ? AND saved_by = ?
+  `).run(receivedAt, provinceId, keyHash, savedBy);
 }
 
 export function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options: { keyHash?: string; assumeKeyHash?: string; dryRun?: boolean } = {}) {
@@ -166,7 +166,7 @@ export function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options
   if (parsed.type === "kingdom") {
     storeKingdom(parsed.data, savedBy, keyHash);
     if (normalizedReceivedAt) {
-      setLatestKingdomTimestamp(parsed.data.location, savedBy, normalizedReceivedAt);
+      setLatestKingdomTimestamp(parsed.data.location, savedBy, keyHash, normalizedReceivedAt);
     }
     return "kingdom";
   }
@@ -174,7 +174,7 @@ export function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options
   if (parsed.type === "survey") {
     storeSurvey(parsed.data, savedBy, keyHash);
     if (normalizedReceivedAt) {
-      setLatestSurveyTimestamp(parsed.data.name, parsed.data.kingdom, savedBy, normalizedReceivedAt);
+      setLatestSurveyTimestamp(parsed.data.name, parsed.data.kingdom, savedBy, keyHash, normalizedReceivedAt);
     }
     return "survey";
   }
@@ -184,7 +184,7 @@ export function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options
     const isSelfThrone = pathname === "/wol/game/throne";
     storeSoT(parsed.data, savedBy, keyHash, isSelfThrone);
     if (normalizedReceivedAt) {
-      setLatestSoTTimestamps(parsed.data.name, parsed.data.kingdom, savedBy, normalizedReceivedAt);
+      setLatestSoTTimestamps(parsed.data.name, parsed.data.kingdom, savedBy, keyHash, normalizedReceivedAt);
     }
     return "sot";
   }

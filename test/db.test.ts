@@ -547,6 +547,7 @@ function makePartitionedDb() {
     CREATE TABLE province_overview (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       province_id INTEGER NOT NULL REFERENCES provinces(id),
+      key_hash TEXT,
       networth INTEGER,
       source TEXT NOT NULL DEFAULT 'sot',
       received_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -565,6 +566,7 @@ function makePartitionedDb() {
     );
     CREATE TABLE kingdom_intel (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      key_hash TEXT,
       name TEXT NOT NULL,
       location TEXT NOT NULL,
       kingdom_title TEXT,
@@ -680,11 +682,12 @@ function addKingdomSnapshot(
 ) {
   const result = db.prepare(
     `INSERT INTO kingdom_intel (
-      name, location, kingdom_title, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, honor_rank, their_attitude_to_us, their_attitude_points,
+      key_hash, name, location, kingdom_title, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, honor_rank, their_attitude_to_us, their_attitude_points,
       our_attitude_to_them, our_attitude_points,
       hostility_meter_visible_until, open_relations_json, received_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
+    KEY_A,
     `KD ${location}`,
     location,
     relation.kingdomTitle ?? null,
@@ -752,20 +755,7 @@ function queryLatestKingdomSnapshot(
            ki.open_relations_json
     FROM kingdom_intel ki
     WHERE ki.location = ?
-      AND NOT EXISTS (
-        SELECT 1
-        FROM kingdom_provinces kp
-        WHERE kp.kingdom_intel_id = ki.id
-          AND NOT EXISTS (
-            SELECT 1
-            FROM provinces p
-            JOIN intel_partitions ip
-              ON ip.province_id = p.id
-             AND ip.key_hash = ?
-            WHERE p.name = kp.name
-              AND p.kingdom = ki.location
-          )
-      )
+      AND ki.key_hash = ?
     ORDER BY ki.received_at DESC, ki.id DESC
     LIMIT 1
   `).get(location, keyHash) as {
@@ -938,7 +928,7 @@ test("kingdom snapshot: latest accessible snapshot is returned", () => {
   db.close();
 });
 
-test("kingdom snapshot: inaccessible snapshot is filtered out", () => {
+test("kingdom snapshot: shard key, not province coverage, controls visibility", () => {
   const db = makePartitionedDb();
   addProvince(db, "Alpha", "7:5", KEY_A);
   addProvince(db, "Beta", "7:5", KEY_A);
@@ -949,7 +939,11 @@ test("kingdom snapshot: inaccessible snapshot is filtered out", () => {
     { name: "Gamma", race: "Human", land: 900, networth: 210000 },
   ]);
 
-  assert.equal(queryLatestKingdomSnapshot(db, "7:5", KEY_A), null);
+  assert.deepEqual(queryLatestKingdomSnapshot(db, "7:5", KEY_A)?.provinces, [
+    { slot: null, name: "Alpha" },
+    { slot: null, name: "Beta" },
+    { slot: null, name: "Gamma" },
+  ]);
   db.close();
 });
 
@@ -1097,23 +1091,23 @@ test("getKingdomSnapshotHistory: returns accessible stat snapshots in ascending 
 
     const accessible1 = Number(db.prepare(`
       INSERT INTO kingdom_intel (
-        name, location, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, honor_rank, received_at
-      ) VALUES ('KD 7:5', '7:5', 12000000, 45000, 15000, 2, 40, 30, 22, '2026-04-04 16:00:00')
-    `).run().lastInsertRowid);
+        key_hash, name, location, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, honor_rank, received_at
+      ) VALUES (?, 'KD 7:5', '7:5', 12000000, 45000, 15000, 2, 40, 30, 22, '2026-04-04 16:00:00')
+    `).run(KEY_A).lastInsertRowid);
     const accessible2 = Number(db.prepare(`
       INSERT INTO kingdom_intel (
-        name, location, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, honor_rank, received_at
-      ) VALUES ('KD 7:5', '7:5', 12500000, 45250, 15500, 2, 38, 29, 19, '2026-04-04 18:00:00')
-    `).run().lastInsertRowid);
+        key_hash, name, location, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, honor_rank, received_at
+      ) VALUES (?, 'KD 7:5', '7:5', 12500000, 45250, 15500, 2, 38, 29, 19, '2026-04-04 18:00:00')
+    `).run(KEY_A).lastInsertRowid);
     const inaccessible = Number(db.prepare(`
       INSERT INTO kingdom_intel (
-        name, location, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, honor_rank, received_at
-      ) VALUES ('KD 7:5', '7:5', 13000000, 46000, 16000, 3, 35, 28, 17, '2026-04-04 19:00:00')
-    `).run().lastInsertRowid);
+        key_hash, name, location, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, honor_rank, received_at
+      ) VALUES (?, 'KD 7:5', '7:5', 13000000, 46000, 16000, 3, 35, 28, 17, '2026-04-04 19:00:00')
+    `).run(KEY_B).lastInsertRowid);
     const noStats = Number(db.prepare(`
-      INSERT INTO kingdom_intel (name, location, received_at)
-      VALUES ('KD 7:5', '7:5', '2026-04-04 20:00:00')
-    `).run().lastInsertRowid);
+      INSERT INTO kingdom_intel (key_hash, name, location, received_at)
+      VALUES (?, 'KD 7:5', '7:5', '2026-04-04 20:00:00')
+    `).run(KEY_A).lastInsertRowid);
 
     for (const snapshotId of [accessible1, accessible2, noStats]) {
       db.prepare(`
@@ -1182,6 +1176,23 @@ function makeNewsDb() {
       received_at TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(kingdom, game_date, raw_text)
     );
+    CREATE TABLE kingdom_news_sharded (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      key_hash TEXT NOT NULL,
+      kingdom TEXT NOT NULL,
+      game_date TEXT NOT NULL,
+      game_date_ord INTEGER,
+      event_type TEXT NOT NULL,
+      raw_text TEXT NOT NULL,
+      attacker_name TEXT, attacker_kingdom TEXT,
+      defender_name TEXT, defender_kingdom TEXT,
+      acres INTEGER, books INTEGER,
+      sender_name TEXT, receiver_name TEXT,
+      relation_kingdom TEXT,
+      dragon_type TEXT, dragon_name TEXT,
+      received_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(key_hash, kingdom, game_date, raw_text)
+    );
     CREATE TABLE key_kingdom_bindings (
       key_hash TEXT PRIMARY KEY,
       kingdom TEXT NOT NULL,
@@ -1204,21 +1215,22 @@ function makeNewsDb() {
 
 function insertNews(
   db: ReturnType<typeof makeNewsDb>,
+  keyHash: string,
   kingdom: string,
   events: Array<{ gameDate: string; rawText: string; eventType?: string; attackerKingdom?: string | null; defenderKingdom?: string | null; acres?: number | null }>,
 ) {
   const ins = db.prepare(`
-    INSERT OR IGNORE INTO kingdom_news
-      (kingdom, game_date, game_date_ord, event_type, raw_text, attacker_kingdom, defender_kingdom, acres)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT OR IGNORE INTO kingdom_news_sharded
+      (key_hash, kingdom, game_date, game_date_ord, event_type, raw_text, attacker_kingdom, defender_kingdom, acres)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   for (const e of events) {
-    ins.run(kingdom, e.gameDate, parseUtopiaDate(e.gameDate), e.eventType ?? "march", e.rawText, e.attackerKingdom ?? null, e.defenderKingdom ?? null, e.acres ?? null);
+    ins.run(keyHash, kingdom, e.gameDate, parseUtopiaDate(e.gameDate), e.eventType ?? "march", e.rawText, e.attackerKingdom ?? null, e.defenderKingdom ?? null, e.acres ?? null);
   }
 }
 
 function queryNewsKingdoms(db: ReturnType<typeof makeNewsDb>): string[] {
-  return (db.prepare("SELECT DISTINCT kingdom FROM kingdom_news ORDER BY kingdom").all() as { kingdom: string }[]).map(r => r.kingdom);
+  return (db.prepare("SELECT DISTINCT kingdom FROM kingdom_news_sharded ORDER BY kingdom").all() as { kingdom: string }[]).map(r => r.kingdom);
 }
 
 // Mirror of storeKingdomNews SNATCH_NEWS inference logic using the in-memory DB
@@ -1231,12 +1243,12 @@ function snatchStore(db: ReturnType<typeof makeNewsDb>, data: KingdomNewsData, k
   if (!kingdom) return;
 
   const ins = db.prepare(`
-    INSERT OR IGNORE INTO kingdom_news
-      (kingdom, game_date, game_date_ord, event_type, raw_text, attacker_name, attacker_kingdom, defender_name, defender_kingdom, acres)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT OR IGNORE INTO kingdom_news_sharded
+      (key_hash, kingdom, game_date, game_date_ord, event_type, raw_text, attacker_name, attacker_kingdom, defender_name, defender_kingdom, acres)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   for (const e of data.events) {
-    ins.run(kingdom, e.gameDate, parseUtopiaDate(e.gameDate), e.eventType, e.rawText, e.attackerName, e.attackerKingdom, e.defenderName, e.defenderKingdom, e.acres);
+    ins.run(keyHash, kingdom, e.gameDate, parseUtopiaDate(e.gameDate), e.eventType, e.rawText, e.attackerName, e.attackerKingdom, e.defenderName, e.defenderKingdom, e.acres);
   }
 }
 
@@ -1303,7 +1315,7 @@ function queryEffectiveFrom(db: ReturnType<typeof makeNewsReadDb>, kingdom: stri
   `).get(keyHash, kingdom);
   if (!hasAccess) return null;
 
-  const maxRow = db.prepare("SELECT MAX(game_date_ord) as m FROM kingdom_news WHERE kingdom = ?").get(kingdom) as { m: number | null };
+  const maxRow = db.prepare("SELECT MAX(game_date_ord) as m FROM kingdom_news_sharded WHERE key_hash = ? AND kingdom = ?").get(keyHash, kingdom) as { m: number | null };
   const maxOrd = maxRow?.m ?? 0;
   if (maxOrd === 0) return formatUtopiaDate(1); // no news: fromOrd = 1
   const fromOrd = maxOrd - 3 * 24 + 1;
@@ -1315,7 +1327,7 @@ test("getKingdomNews effectiveFrom: 3-month lookback from latest news date", () 
   // Latest news is May 24 of YR9; 3 months back = February 25 of YR9
   const maxDate = "May 24 of YR9";
   const maxOrd = parseUtopiaDate(maxDate);
-  insertNews(db, "4:9", [
+  insertNews(db, KEY_A, "4:9", [
     { gameDate: maxDate, rawText: "Some event (4:9) captured 100 acres of land from Other (1:1)", eventType: "march", attackerKingdom: "4:9" },
     { gameDate: "January 1 of YR9", rawText: "Old event (4:9) captured 50 acres of land from Older (2:2)", eventType: "march", attackerKingdom: "4:9" },
   ]);
@@ -1420,9 +1432,9 @@ test("getKingdomRitual: older ritual is cleared by a newer non-ritual effect sna
 
     db.prepare(`
       INSERT INTO province_effects (
-        province_id, effect_name, effect_kind, remaining_ticks, effectiveness_percent, source, saved_by, received_at
-      ) VALUES (?, 'Onslaught', 'ritual', 56, 91.7, 'throne', 'Alpha', '2026-04-04 18:00:00')
-    `).run(provId);
+        province_id, key_hash, effect_name, effect_kind, remaining_ticks, effectiveness_percent, source, saved_by, received_at
+      ) VALUES (?, ?, 'Onslaught', 'ritual', 56, 91.7, 'throne', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId, KEY_A);
 
     assert.deepEqual(getKingdomRitual("7:5", KEY_A), {
       name: "Onslaught",
@@ -1433,9 +1445,9 @@ test("getKingdomRitual: older ritual is cleared by a newer non-ritual effect sna
 
     db.prepare(`
       INSERT INTO province_effects (
-        province_id, effect_name, effect_kind, remaining_ticks, effectiveness_percent, source, saved_by, received_at
-      ) VALUES (?, 'Builders Boon', 'spell', 1, NULL, 'throne', 'Alpha', '2026-04-04 19:00:00')
-    `).run(provId);
+        province_id, key_hash, effect_name, effect_kind, remaining_ticks, effectiveness_percent, source, saved_by, received_at
+      ) VALUES (?, ?, 'Builders Boon', 'spell', 1, NULL, 'throne', 'Alpha', '2026-04-04 19:00:00')
+    `).run(provId, KEY_A);
 
     assert.equal(getKingdomRitual("7:5", KEY_A), null);
   });
@@ -1449,9 +1461,9 @@ test("getKingdomDragon: later cleared status hides an older dragon", async () =>
 
     db.prepare(`
       INSERT INTO province_status (
-        province_id, dragon_type, dragon_name, source, saved_by, received_at
-      ) VALUES (?, 'Ruby', 'Firedrake', 'state', 'Alpha', '2026-04-04 18:00:00')
-    `).run(provId);
+        province_id, key_hash, dragon_type, dragon_name, source, saved_by, received_at
+      ) VALUES (?, ?, 'Ruby', 'Firedrake', 'state', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId, KEY_A);
 
     assert.deepEqual(getKingdomDragon("7:5", KEY_A), {
       dragonType: "Ruby",
@@ -1461,9 +1473,9 @@ test("getKingdomDragon: later cleared status hides an older dragon", async () =>
 
     db.prepare(`
       INSERT INTO province_status (
-        province_id, dragon_type, dragon_name, source, saved_by, received_at
-      ) VALUES (?, NULL, NULL, 'state', 'Alpha', '2026-04-04 19:00:00')
-    `).run(provId);
+        province_id, key_hash, dragon_type, dragon_name, source, saved_by, received_at
+      ) VALUES (?, ?, NULL, NULL, 'state', 'Alpha', '2026-04-04 19:00:00')
+    `).run(provId, KEY_A);
 
     assert.equal(getKingdomDragon("7:5", KEY_A), null);
   });
@@ -1476,14 +1488,14 @@ test("getLatestWarDate: returns the most recent war_declared event", async () =>
     db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
 
     const insertNews = db.prepare(`
-      INSERT INTO kingdom_news (
-        kingdom, game_date, game_date_ord, event_type, raw_text, received_at
-      ) VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO kingdom_news_sharded (
+        key_hash, kingdom, game_date, game_date_ord, event_type, raw_text, received_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
 
-    insertNews.run("7:5", "March 3 of YR9", parseUtopiaDate("March 3 of YR9"), "war_declared", "older war", "2026-04-04 18:00:00");
-    insertNews.run("7:5", "March 5 of YR9", parseUtopiaDate("March 5 of YR9"), "ceasefire_proposed", "not a war", "2026-04-04 18:05:00");
-    insertNews.run("7:5", "March 7 of YR9", parseUtopiaDate("March 7 of YR9"), "war_declared", "newer war", "2026-04-04 18:10:00");
+    insertNews.run(KEY_A, "7:5", "March 3 of YR9", parseUtopiaDate("March 3 of YR9"), "war_declared", "older war", "2026-04-04 18:00:00");
+    insertNews.run(KEY_A, "7:5", "March 5 of YR9", parseUtopiaDate("March 5 of YR9"), "ceasefire_proposed", "not a war", "2026-04-04 18:05:00");
+    insertNews.run(KEY_A, "7:5", "March 7 of YR9", parseUtopiaDate("March 7 of YR9"), "war_declared", "newer war", "2026-04-04 18:10:00");
 
     assert.equal(getLatestWarDate("7:5", KEY_A), "March 7 of YR9");
   });
@@ -1498,11 +1510,11 @@ test("getKingdomNewsSummary: aggregates combat totals, slots, and unique attacke
     }
 
     const insertSnapshot = db.prepare(`
-      INSERT INTO kingdom_intel (name, location, received_at)
-      VALUES (?, ?, ?)
+      INSERT INTO kingdom_intel (key_hash, name, location, received_at)
+      VALUES (?, ?, ?, ?)
     `);
-    const ourSnapshot = Number(insertSnapshot.run("Our KD", "7:5", "2026-04-04 18:00:00").lastInsertRowid);
-    const enemySnapshot = Number(insertSnapshot.run("Enemy KD", "8:3", "2026-04-04 18:00:00").lastInsertRowid);
+    const ourSnapshot = Number(insertSnapshot.run(KEY_A, "Our KD", "7:5", "2026-04-04 18:00:00").lastInsertRowid);
+    const enemySnapshot = Number(insertSnapshot.run(KEY_A, "Enemy KD", "8:3", "2026-04-04 18:00:00").lastInsertRowid);
 
     const insertProvince = db.prepare(`
       INSERT INTO kingdom_provinces (kingdom_intel_id, slot, name, race, land, networth)
@@ -1514,20 +1526,20 @@ test("getKingdomNewsSummary: aggregates combat totals, slots, and unique attacke
     insertProvince.run(enemySnapshot, 7, "EnemyTwo", "Human", 1250, 305000);
 
     const insertNews = db.prepare(`
-      INSERT INTO kingdom_news (
-        kingdom, game_date, game_date_ord, event_type, raw_text,
+      INSERT INTO kingdom_news_sharded (
+        key_hash, kingdom, game_date, game_date_ord, event_type, raw_text,
         attacker_name, attacker_kingdom, defender_name, defender_kingdom,
         acres, books, received_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const gameDate = "March 10 of YR9";
     const gameDateOrd = parseUtopiaDate(gameDate);
-    insertNews.run("7:5", gameDate, gameDateOrd, "march", "Alpha marched EnemyOne", "Alpha", "7:5", "EnemyOne", "8:3", 120, null, "2026-04-04 18:00:00");
-    insertNews.run("7:5", gameDate, gameDateOrd, "loot", "Alpha looted EnemyOne", "Alpha", "7:5", "EnemyOne", "8:3", null, 300, "2026-04-04 18:01:00");
-    insertNews.run("7:5", gameDate, gameDateOrd, "raze", "EnemyOne razed Alpha", "EnemyOne", "8:3", "Alpha", "7:5", 25, null, "2026-04-04 18:02:00");
-    insertNews.run("7:5", gameDate, gameDateOrd, "ambush", "EnemyTwo ambushed Beta", "EnemyTwo", "8:3", "Beta", "7:5", 40, null, "2026-04-04 18:03:00");
-    insertNews.run("7:5", gameDate, gameDateOrd, "failed_attack", "EnemyTwo failed on Beta", "EnemyTwo", "8:3", "Beta", "7:5", null, null, "2026-04-04 18:04:00");
-    insertNews.run("7:5", gameDate, gameDateOrd, "march", "EnemyOne marched Alpha", "EnemyOne", "8:3", "Alpha", "7:5", 70, null, "2026-04-04 18:05:00");
+    insertNews.run(KEY_A, "7:5", gameDate, gameDateOrd, "march", "Alpha marched EnemyOne", "Alpha", "7:5", "EnemyOne", "8:3", 120, null, "2026-04-04 18:00:00");
+    insertNews.run(KEY_A, "7:5", gameDate, gameDateOrd, "loot", "Alpha looted EnemyOne", "Alpha", "7:5", "EnemyOne", "8:3", null, 300, "2026-04-04 18:01:00");
+    insertNews.run(KEY_A, "7:5", gameDate, gameDateOrd, "raze", "EnemyOne razed Alpha", "EnemyOne", "8:3", "Alpha", "7:5", 25, null, "2026-04-04 18:02:00");
+    insertNews.run(KEY_A, "7:5", gameDate, gameDateOrd, "ambush", "EnemyTwo ambushed Beta", "EnemyTwo", "8:3", "Beta", "7:5", 40, null, "2026-04-04 18:03:00");
+    insertNews.run(KEY_A, "7:5", gameDate, gameDateOrd, "failed_attack", "EnemyTwo failed on Beta", "EnemyTwo", "8:3", "Beta", "7:5", null, null, "2026-04-04 18:04:00");
+    insertNews.run(KEY_A, "7:5", gameDate, gameDateOrd, "march", "EnemyOne marched Alpha", "EnemyOne", "8:3", "Alpha", "7:5", 70, null, "2026-04-04 18:05:00");
 
     const summary = getKingdomNewsSummary("7:5", KEY_A);
 
@@ -1571,18 +1583,18 @@ test("getKingdomProvinces: armies_out_json keeps SoM counts when SoM is newer", 
     const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name = 'Alpha' AND kingdom = '7:5'").get() as { id: number };
     db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
     db.prepare(`
-      INSERT INTO province_overview (province_id, race, land, networth, source, saved_by, received_at)
-      VALUES (?, 'Orc', 1200, 300000, 'sot', 'Alpha', '2026-04-04 18:00:00')
-    `).run(provId);
+      INSERT INTO province_overview (province_id, key_hash, race, land, networth, source, saved_by, received_at)
+      VALUES (?, ?, 'Orc', 1200, 300000, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId, KEY_A);
 
     const somId = Number(db.prepare(`
-      INSERT INTO military_intel (province_id, ome, dme, source, saved_by, received_at)
-      VALUES (?, 110.5, 103.2, 'som', 'Alpha', '2026-04-04 19:00:00')
-    `).run(provId).lastInsertRowid);
+      INSERT INTO military_intel (province_id, key_hash, ome, dme, source, saved_by, received_at)
+      VALUES (?, ?, 110.5, 103.2, 'som', 'Alpha', '2026-04-04 19:00:00')
+    `).run(provId, KEY_A).lastInsertRowid);
     const throneId = Number(db.prepare(`
-      INSERT INTO military_intel (province_id, ome, dme, source, saved_by, received_at)
-      VALUES (?, 110.5, 103.2, 'throne', 'Alpha', '2026-04-04 18:00:00')
-    `).run(provId).lastInsertRowid);
+      INSERT INTO military_intel (province_id, key_hash, ome, dme, source, saved_by, received_at)
+      VALUES (?, ?, 110.5, 103.2, 'throne', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId, KEY_A).lastInsertRowid);
 
     db.prepare(`
       INSERT INTO som_armies (military_intel_id, army_type, generals, soldiers, off_specs, def_specs, elites, war_horses, thieves, land_gained, return_days)
@@ -1608,18 +1620,18 @@ test("getKingdomProvinces: armies_out_json uses throne ETA/land with SoM troop c
     const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name = 'Alpha' AND kingdom = '7:5'").get() as { id: number };
     db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
     db.prepare(`
-      INSERT INTO province_overview (province_id, race, land, networth, source, saved_by, received_at)
-      VALUES (?, 'Orc', 1200, 300000, 'sot', 'Alpha', '2026-04-04 18:00:00')
-    `).run(provId);
+      INSERT INTO province_overview (province_id, key_hash, race, land, networth, source, saved_by, received_at)
+      VALUES (?, ?, 'Orc', 1200, 300000, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId, KEY_A);
 
     const somId = Number(db.prepare(`
-      INSERT INTO military_intel (province_id, ome, dme, source, saved_by, received_at)
-      VALUES (?, 110.5, 103.2, 'som', 'Alpha', '2026-04-04 18:00:00')
-    `).run(provId).lastInsertRowid);
+      INSERT INTO military_intel (province_id, key_hash, ome, dme, source, saved_by, received_at)
+      VALUES (?, ?, 110.5, 103.2, 'som', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId, KEY_A).lastInsertRowid);
     const throneId = Number(db.prepare(`
-      INSERT INTO military_intel (province_id, ome, dme, source, saved_by, received_at)
-      VALUES (?, 110.5, 103.2, 'throne', 'Alpha', '2026-04-04 19:00:00')
-    `).run(provId).lastInsertRowid);
+      INSERT INTO military_intel (province_id, key_hash, ome, dme, source, saved_by, received_at)
+      VALUES (?, ?, 110.5, 103.2, 'throne', 'Alpha', '2026-04-04 19:00:00')
+    `).run(provId, KEY_A).lastInsertRowid);
 
     db.prepare(`
       INSERT INTO som_armies (military_intel_id, army_type, generals, soldiers, off_specs, def_specs, elites, war_horses, thieves, land_gained, return_days)
@@ -1723,19 +1735,19 @@ test("getGainsPageData: returns bound kingdom context, target intel, and target 
       const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name = ? AND kingdom = ?").get(name, kingdom) as { id: number };
       db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
       db.prepare(`
-        INSERT INTO province_overview (province_id, race, land, networth, source, saved_by, received_at)
-        VALUES (?, 'Orc', 1200, 300000, 'sot', ?, '2026-04-04 18:00:00')
-      `).run(provId, name);
+        INSERT INTO province_overview (province_id, key_hash, race, land, networth, source, saved_by, received_at)
+        VALUES (?, ?, 'Orc', 1200, 300000, 'sot', ?, '2026-04-04 18:00:00')
+      `).run(provId, KEY_A, name);
     }
 
     const selfSnapshotId = Number(db.prepare(`
-      INSERT INTO kingdom_intel (name, location, received_at)
-      VALUES ('Our KD', '7:5', '2026-04-04 18:00:00')
-    `).run().lastInsertRowid);
+      INSERT INTO kingdom_intel (key_hash, name, location, received_at)
+      VALUES (?, 'Our KD', '7:5', '2026-04-04 18:00:00')
+    `).run(KEY_A).lastInsertRowid);
     const targetSnapshotId = Number(db.prepare(`
-      INSERT INTO kingdom_intel (name, location, received_at)
-      VALUES ('Enemy KD', '8:3', '2026-04-04 18:00:00')
-    `).run().lastInsertRowid);
+      INSERT INTO kingdom_intel (key_hash, name, location, received_at)
+      VALUES (?, 'Enemy KD', '8:3', '2026-04-04 18:00:00')
+    `).run(KEY_A).lastInsertRowid);
 
     db.prepare(`
       INSERT INTO kingdom_provinces (kingdom_intel_id, slot, name, race, land, networth)
@@ -1749,9 +1761,9 @@ test("getGainsPageData: returns bound kingdom context, target intel, and target 
     const { id: enemyProvId } = db.prepare("SELECT id FROM provinces WHERE name = 'EnemyOne' AND kingdom = '8:3'").get() as { id: number };
     db.prepare(`
       INSERT INTO province_effects (
-        province_id, effect_name, effect_kind, remaining_ticks, effectiveness_percent, source, saved_by, received_at
-      ) VALUES (?, 'Onslaught', 'ritual', 42, 88.5, 'throne', 'EnemyOne', '2026-04-04 18:00:00')
-    `).run(enemyProvId);
+        province_id, key_hash, effect_name, effect_kind, remaining_ticks, effectiveness_percent, source, saved_by, received_at
+      ) VALUES (?, ?, 'Onslaught', 'ritual', 42, 88.5, 'throne', 'EnemyOne', '2026-04-04 18:00:00')
+    `).run(enemyProvId, KEY_A);
 
     const result = getGainsPageData("8:3", KEY_A, api);
 
@@ -1778,33 +1790,33 @@ test("getProvinceDetail: returns SoT/resources/status detail and enforces key ac
     db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
 
     db.prepare(`
-      INSERT INTO province_overview (province_id, race, personality, honor_title, land, networth, source, saved_by, received_at)
-      VALUES (?, 'Elf', 'Merchant', 'Baron', 1234, 456789, 'sot', 'Alpha', '2026-04-04 18:00:00')
-    `).run(provId);
+      INSERT INTO province_overview (province_id, key_hash, race, personality, honor_title, land, networth, source, saved_by, received_at)
+      VALUES (?, ?, 'Elf', 'Merchant', 'Baron', 1234, 456789, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId, KEY_A);
     db.prepare(`
-      INSERT INTO total_military_points (province_id, off_points, def_points, source, saved_by, received_at)
-      VALUES (?, 111111, 99999, 'sot', 'Alpha', '2026-04-04 18:00:00')
-    `).run(provId);
+      INSERT INTO total_military_points (province_id, key_hash, off_points, def_points, source, saved_by, received_at)
+      VALUES (?, ?, 111111, 99999, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId, KEY_A);
     db.prepare(`
-      INSERT INTO home_military_points (province_id, mod_off_at_home, mod_def_at_home, source, saved_by, received_at)
-      VALUES (?, 101000, 88000, 'som', 'Alpha', '2026-04-04 18:15:00')
-    `).run(provId);
+      INSERT INTO home_military_points (province_id, key_hash, mod_off_at_home, mod_def_at_home, source, saved_by, received_at)
+      VALUES (?, ?, 101000, 88000, 'som', 'Alpha', '2026-04-04 18:15:00')
+    `).run(provId, KEY_A);
     db.prepare(`
-      INSERT INTO province_troops (province_id, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, saved_by, received_at)
-      VALUES (?, 500, 600, 700, 800, 50, 9000, 'sot', 'Alpha', '2026-04-04 18:00:00')
-    `).run(provId);
+      INSERT INTO province_troops (province_id, key_hash, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, saved_by, received_at)
+      VALUES (?, ?, 500, 600, 700, 800, 50, 9000, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId, KEY_A);
     db.prepare(`
-      INSERT INTO province_resources (province_id, money, food, runes, prisoners, trade_balance, building_efficiency, thieves, stealth, wizards, mana, total_pop, max_pop, source, saved_by, received_at)
-      VALUES (?, 100000, 20000, 3000, 40, -500, 92, 1234, 77, 456, 88, 11000, 14000, 'sot', 'Alpha', '2026-04-04 18:00:00')
-    `).run(provId);
+      INSERT INTO province_resources (province_id, key_hash, money, food, runes, prisoners, trade_balance, building_efficiency, thieves, stealth, wizards, mana, total_pop, max_pop, source, saved_by, received_at)
+      VALUES (?, ?, 100000, 20000, 3000, 40, -500, 92, 1234, 77, 456, 88, 11000, 14000, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId, KEY_A);
     db.prepare(`
-      INSERT INTO province_status (province_id, plagued, overpopulated, overpop_deserters, dragon_type, dragon_name, hit_status, war, source, saved_by, received_at)
-      VALUES (?, 1, 0, NULL, 'Ruby', 'Inferno', 'moderately', 1, 'sot', 'Alpha', '2026-04-04 18:00:00')
-    `).run(provId);
+      INSERT INTO province_status (province_id, key_hash, plagued, overpopulated, overpop_deserters, dragon_type, dragon_name, hit_status, war, source, saved_by, received_at)
+      VALUES (?, ?, 1, 0, NULL, 'Ruby', 'Inferno', 'moderately', 1, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId, KEY_A);
     db.prepare(`
-      INSERT INTO province_effects (province_id, effect_name, effect_kind, duration_text, remaining_ticks, effectiveness_percent, source, saved_by, received_at)
-      VALUES (?, 'Builders Boon', 'spell', '1 day', 1, NULL, 'sot', 'Alpha', '2026-04-04 18:00:00')
-    `).run(provId);
+      INSERT INTO province_effects (province_id, key_hash, effect_name, effect_kind, duration_text, remaining_ticks, effectiveness_percent, source, saved_by, received_at)
+      VALUES (?, ?, 'Builders Boon', 'spell', '1 day', 1, NULL, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId, KEY_A);
 
     const detail = api.getProvinceDetail("Alpha", "7:5", KEY_A);
     assert.equal(detail.province?.name, "Alpha");
@@ -1829,22 +1841,22 @@ test("getKingdomProvinces: summarizes good and bad spells from the latest effect
     const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name = 'Alpha' AND kingdom = '7:5'").get() as { id: number };
     db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
     db.prepare(`
-      INSERT INTO province_overview (province_id, race, land, networth, source, saved_by, received_at)
-      VALUES (?, 'Elf', 1234, 456789, 'sot', 'Alpha', '2026-04-04 18:00:00')
-    `).run(provId);
+      INSERT INTO province_overview (province_id, key_hash, race, land, networth, source, saved_by, received_at)
+      VALUES (?, ?, 'Elf', 1234, 456789, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId, KEY_A);
 
     db.prepare(`
-      INSERT INTO province_effects (province_id, effect_name, effect_kind, remaining_ticks, source, saved_by, received_at)
-      VALUES (?, 'Inspire Army', 'spell', NULL, 'sot', 'Alpha', '2026-04-04 17:00:00')
-    `).run(provId);
+      INSERT INTO province_effects (province_id, key_hash, effect_name, effect_kind, remaining_ticks, source, saved_by, received_at)
+      VALUES (?, ?, 'Inspire Army', 'spell', NULL, 'sot', 'Alpha', '2026-04-04 17:00:00')
+    `).run(provId, KEY_A);
     db.prepare(`
-      INSERT INTO province_effects (province_id, effect_name, effect_kind, remaining_ticks, source, saved_by, received_at)
-      VALUES (?, 'Builders Boon', 'spell', 1, 'sot', 'Alpha', '2026-04-04 18:00:00')
-    `).run(provId);
+      INSERT INTO province_effects (province_id, key_hash, effect_name, effect_kind, remaining_ticks, source, saved_by, received_at)
+      VALUES (?, ?, 'Builders Boon', 'spell', 1, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId, KEY_A);
     db.prepare(`
-      INSERT INTO province_effects (province_id, effect_name, effect_kind, remaining_ticks, source, saved_by, received_at)
-      VALUES (?, 'Greed', 'spell', 4, 'sot', 'Alpha', '2026-04-04 18:00:00')
-    `).run(provId);
+      INSERT INTO province_effects (province_id, key_hash, effect_name, effect_kind, remaining_ticks, source, saved_by, received_at)
+      VALUES (?, ?, 'Greed', 'spell', 4, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId, KEY_A);
 
     const rows = getKingdomProvinces("7:5", KEY_A);
     assert.equal(rows.length, 1);
@@ -1862,12 +1874,12 @@ test("getKingdomNews: applies from/to filters and returns newest-first rows", as
     db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
 
     const insertNews = db.prepare(`
-      INSERT INTO kingdom_news (kingdom, game_date, game_date_ord, event_type, raw_text, received_at)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO kingdom_news_sharded (key_hash, kingdom, game_date, game_date_ord, event_type, raw_text, received_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
-    insertNews.run("7:5", "March 1 of YR9", parseUtopiaDate("March 1 of YR9"), "war_declared", "oldest", "2026-04-04 18:00:00");
-    insertNews.run("7:5", "March 5 of YR9", parseUtopiaDate("March 5 of YR9"), "war_declared", "middle", "2026-04-04 18:01:00");
-    insertNews.run("7:5", "March 9 of YR9", parseUtopiaDate("March 9 of YR9"), "war_declared", "newest", "2026-04-04 18:02:00");
+    insertNews.run(KEY_A, "7:5", "March 1 of YR9", parseUtopiaDate("March 1 of YR9"), "war_declared", "oldest", "2026-04-04 18:00:00");
+    insertNews.run(KEY_A, "7:5", "March 5 of YR9", parseUtopiaDate("March 5 of YR9"), "war_declared", "middle", "2026-04-04 18:01:00");
+    insertNews.run(KEY_A, "7:5", "March 9 of YR9", parseUtopiaDate("March 9 of YR9"), "war_declared", "newest", "2026-04-04 18:02:00");
 
     const result = getKingdomNews("7:5", KEY_A, "March 2 of YR9", "March 8 of YR9");
     assert.equal(result.effectiveFrom, "March 2 of YR9");

@@ -52,6 +52,7 @@ export function initSchema(db: Database.Database) {
     CREATE TABLE IF NOT EXISTS province_overview (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       province_id INTEGER NOT NULL REFERENCES provinces(id),
+      key_hash TEXT,
       race TEXT,
       personality TEXT,
       honor_title TEXT,
@@ -70,6 +71,7 @@ export function initSchema(db: Database.Database) {
     CREATE TABLE IF NOT EXISTS total_military_points (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       province_id INTEGER NOT NULL REFERENCES provinces(id),
+      key_hash TEXT,
       off_points INTEGER,
       def_points INTEGER,
       source TEXT NOT NULL DEFAULT 'sot',
@@ -85,6 +87,7 @@ export function initSchema(db: Database.Database) {
     CREATE TABLE IF NOT EXISTS home_military_points (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       province_id INTEGER NOT NULL REFERENCES provinces(id),
+      key_hash TEXT,
       mod_off_at_home INTEGER,
       mod_def_at_home INTEGER,
       source TEXT NOT NULL,
@@ -100,6 +103,7 @@ export function initSchema(db: Database.Database) {
     CREATE TABLE IF NOT EXISTS province_troops (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       province_id INTEGER NOT NULL REFERENCES provinces(id),
+      key_hash TEXT,
       soldiers INTEGER,
       off_specs INTEGER,
       def_specs INTEGER,
@@ -118,6 +122,7 @@ export function initSchema(db: Database.Database) {
     CREATE TABLE IF NOT EXISTS province_resources (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       province_id INTEGER NOT NULL REFERENCES provinces(id),
+      key_hash TEXT,
       money INTEGER,
       food INTEGER,
       runes INTEGER,
@@ -140,6 +145,7 @@ export function initSchema(db: Database.Database) {
     CREATE TABLE IF NOT EXISTS province_status (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       province_id INTEGER NOT NULL REFERENCES provinces(id),
+      key_hash TEXT,
       plagued INTEGER,
       overpopulated INTEGER,
       hit_status TEXT,
@@ -154,6 +160,7 @@ export function initSchema(db: Database.Database) {
     CREATE TABLE IF NOT EXISTS province_effects (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       province_id INTEGER NOT NULL REFERENCES provinces(id),
+      key_hash TEXT,
       effect_name TEXT NOT NULL,
       effect_kind TEXT NOT NULL,
       duration_text TEXT,
@@ -170,6 +177,7 @@ export function initSchema(db: Database.Database) {
     CREATE TABLE IF NOT EXISTS military_intel (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       province_id INTEGER NOT NULL REFERENCES provinces(id),
+      key_hash TEXT,
       ome REAL,
       dme REAL,
       source TEXT NOT NULL DEFAULT 'som',
@@ -200,6 +208,7 @@ export function initSchema(db: Database.Database) {
     CREATE TABLE IF NOT EXISTS survey_intel (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       province_id INTEGER NOT NULL REFERENCES provinces(id),
+      key_hash TEXT,
       source TEXT NOT NULL DEFAULT 'survey',
       saved_by TEXT,
       accuracy INTEGER DEFAULT 100,
@@ -220,6 +229,7 @@ export function initSchema(db: Database.Database) {
     CREATE TABLE IF NOT EXISTS sos_intel (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       province_id INTEGER NOT NULL REFERENCES provinces(id),
+      key_hash TEXT,
       source TEXT NOT NULL DEFAULT 'sos',
       saved_by TEXT,
       accuracy INTEGER DEFAULT 100,
@@ -253,6 +263,7 @@ export function initSchema(db: Database.Database) {
     -- Kingdom-level intel
     CREATE TABLE IF NOT EXISTS kingdom_intel (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      key_hash TEXT,
       name TEXT NOT NULL,
       location TEXT NOT NULL,
       kingdom_title TEXT,
@@ -311,6 +322,31 @@ export function initSchema(db: Database.Database) {
     );
     CREATE INDEX IF NOT EXISTS idx_kingdom_news_kd_date
       ON kingdom_news(kingdom, game_date DESC);
+
+    CREATE TABLE IF NOT EXISTS kingdom_news_sharded (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      key_hash TEXT NOT NULL,
+      kingdom TEXT NOT NULL,
+      game_date TEXT NOT NULL,
+      game_date_ord INTEGER,
+      event_type TEXT NOT NULL,
+      raw_text TEXT NOT NULL,
+      attacker_name TEXT,
+      attacker_kingdom TEXT,
+      defender_name TEXT,
+      defender_kingdom TEXT,
+      acres INTEGER,
+      books INTEGER,
+      sender_name TEXT,
+      receiver_name TEXT,
+      relation_kingdom TEXT,
+      dragon_type TEXT,
+      dragon_name TEXT,
+      received_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(key_hash, kingdom, game_date, raw_text)
+    );
+    CREATE INDEX IF NOT EXISTS idx_kingdom_news_sharded_kd_ord
+      ON kingdom_news_sharded(key_hash, kingdom, game_date_ord DESC);
   `);
 
   // Additive migrations
@@ -319,6 +355,17 @@ export function initSchema(db: Database.Database) {
   if (!hasCol("survey_intel", "thievery_effectiveness")) db.exec("ALTER TABLE survey_intel ADD COLUMN thievery_effectiveness REAL");
   if (!hasCol("survey_intel", "thief_prevent_chance"))   db.exec("ALTER TABLE survey_intel ADD COLUMN thief_prevent_chance REAL");
   if (!hasCol("survey_intel", "castles_effect"))         db.exec("ALTER TABLE survey_intel ADD COLUMN castles_effect REAL");
+  if (!hasCol("province_overview", "key_hash")) db.exec("ALTER TABLE province_overview ADD COLUMN key_hash TEXT");
+  if (!hasCol("total_military_points", "key_hash")) db.exec("ALTER TABLE total_military_points ADD COLUMN key_hash TEXT");
+  if (!hasCol("home_military_points", "key_hash")) db.exec("ALTER TABLE home_military_points ADD COLUMN key_hash TEXT");
+  if (!hasCol("province_troops", "key_hash")) db.exec("ALTER TABLE province_troops ADD COLUMN key_hash TEXT");
+  if (!hasCol("province_resources", "key_hash")) db.exec("ALTER TABLE province_resources ADD COLUMN key_hash TEXT");
+  if (!hasCol("province_status", "key_hash")) db.exec("ALTER TABLE province_status ADD COLUMN key_hash TEXT");
+  if (!hasCol("province_effects", "key_hash")) db.exec("ALTER TABLE province_effects ADD COLUMN key_hash TEXT");
+  if (!hasCol("military_intel", "key_hash")) db.exec("ALTER TABLE military_intel ADD COLUMN key_hash TEXT");
+  if (!hasCol("survey_intel", "key_hash")) db.exec("ALTER TABLE survey_intel ADD COLUMN key_hash TEXT");
+  if (!hasCol("sos_intel", "key_hash")) db.exec("ALTER TABLE sos_intel ADD COLUMN key_hash TEXT");
+  if (!hasCol("kingdom_intel", "key_hash")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN key_hash TEXT");
   if (!hasCol("province_effects", "remaining_ticks")) db.exec("ALTER TABLE province_effects ADD COLUMN remaining_ticks INTEGER");
   if (!hasCol("province_effects", "effectiveness_percent")) db.exec("ALTER TABLE province_effects ADD COLUMN effectiveness_percent REAL");
   if (!hasCol("kingdom_intel", "their_attitude_to_us")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN their_attitude_to_us TEXT");
@@ -360,22 +407,22 @@ export function initSchema(db: Database.Database) {
 // state rows have NULL race/personality/honor; kingdom rows have NULL personality.
 const OVERVIEW_LAND_JOIN = `
   LEFT JOIN province_overview po ON po.id = (
-    SELECT id FROM province_overview WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1
+    SELECT id FROM province_overview WHERE province_id = p.id AND key_hash = @keyHash ORDER BY received_at DESC LIMIT 1
   )`;
 // Scalar subqueries for per-field latest-non-null values, used in SELECT clause
-const OVERVIEW_RACE_SQL    = `(SELECT race         FROM province_overview WHERE province_id = p.id AND race         IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS race`;
-const OVERVIEW_PERS_SQL    = `(SELECT personality  FROM province_overview WHERE province_id = p.id AND personality  IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS personality`;
-const OVERVIEW_HONOR_SQL   = `(SELECT honor_title  FROM province_overview WHERE province_id = p.id AND honor_title  IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS honor_title`;
+const OVERVIEW_RACE_SQL    = `(SELECT race         FROM province_overview WHERE province_id = p.id AND key_hash = @keyHash AND race         IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS race`;
+const OVERVIEW_PERS_SQL    = `(SELECT personality  FROM province_overview WHERE province_id = p.id AND key_hash = @keyHash AND personality  IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS personality`;
+const OVERVIEW_HONOR_SQL   = `(SELECT honor_title  FROM province_overview WHERE province_id = p.id AND key_hash = @keyHash AND honor_title  IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS honor_title`;
 
-function queryOverview(db: Database.Database, provId: number) {
+function queryOverview(db: Database.Database, provId: number, keyHash: string) {
   const row = db.prepare(`
     SELECT
       land, networth, source, saved_by, received_at,
-      (SELECT race        FROM province_overview WHERE province_id = ? AND race        IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS race,
-      (SELECT personality FROM province_overview WHERE province_id = ? AND personality IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS personality,
-      (SELECT honor_title FROM province_overview WHERE province_id = ? AND honor_title IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS honor_title
-    FROM province_overview WHERE province_id = ? ORDER BY received_at DESC LIMIT 1
-  `).get(provId, provId, provId, provId) as any;
+      (SELECT race        FROM province_overview WHERE province_id = ? AND key_hash = ? AND race        IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS race,
+      (SELECT personality FROM province_overview WHERE province_id = ? AND key_hash = ? AND personality IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS personality,
+      (SELECT honor_title FROM province_overview WHERE province_id = ? AND key_hash = ? AND honor_title IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS honor_title
+    FROM province_overview WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1
+  `).get(provId, keyHash, provId, keyHash, provId, keyHash, provId, keyHash) as any;
   if (!row) return null;
   return {
     race: row.race ?? null,
@@ -436,41 +483,42 @@ export function storeSoT(data: SoTData, savedBy: string, keyHash: string, isSelf
 
     // 1. Overview
     db.prepare(`
-      INSERT INTO province_overview (province_id, race, personality, honor_title, land, networth, source, saved_by, accuracy)
-      VALUES (?, ?, ?, ?, ?, ?, 'sot', ?, ?)
-    `).run(provId, data.race, data.personality ?? null, data.honorTitle ?? null, data.land, data.networth, savedBy, data.accuracy);
+      INSERT INTO province_overview (province_id, key_hash, race, personality, honor_title, land, networth, source, saved_by, accuracy)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'sot', ?, ?)
+    `).run(provId, keyHash, data.race, data.personality ?? null, data.honorTitle ?? null, data.land, data.networth, savedBy, data.accuracy);
 
     // 2. Total military points (province-wide)
     db.prepare(`
-      INSERT INTO total_military_points (province_id, off_points, def_points, saved_by, accuracy)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(provId, data.offPoints, data.defPoints, savedBy, data.accuracy);
+      INSERT INTO total_military_points (province_id, key_hash, off_points, def_points, saved_by, accuracy)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(provId, keyHash, data.offPoints, data.defPoints, savedBy, data.accuracy);
 
     // 3. Troops at home
     db.prepare(`
-      INSERT INTO province_troops (province_id, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, saved_by, accuracy)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 'sot', ?, ?)
-    `).run(provId, data.soldiers, data.offSpecs, data.defSpecs, data.elites, data.warHorses, data.peasants, savedBy, data.accuracy);
+      INSERT INTO province_troops (province_id, key_hash, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, saved_by, accuracy)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'sot', ?, ?)
+    `).run(provId, keyHash, data.soldiers, data.offSpecs, data.defSpecs, data.elites, data.warHorses, data.peasants, savedBy, data.accuracy);
 
     // 4. Resources
     db.prepare(`
-      INSERT INTO province_resources (province_id, money, food, runes, prisoners, trade_balance, building_efficiency, thieves, stealth, wizards, mana, saved_by, accuracy)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(provId, data.money, data.food, data.runes, data.prisoners, data.tradeBalance, data.buildingEfficiency, data.thieves, data.stealth, data.wizards, data.mana, savedBy, data.accuracy);
+      INSERT INTO province_resources (province_id, key_hash, money, food, runes, prisoners, trade_balance, building_efficiency, thieves, stealth, wizards, mana, saved_by, accuracy)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(provId, keyHash, data.money, data.food, data.runes, data.prisoners, data.tradeBalance, data.buildingEfficiency, data.thieves, data.stealth, data.wizards, data.mana, savedBy, data.accuracy);
 
     // 5. Status
     db.prepare(`
-      INSERT INTO province_status (province_id, plagued, overpopulated, overpop_deserters, dragon_type, dragon_name, hit_status, war, saved_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(provId, data.plagued ? 1 : 0, data.overpopulated ? 1 : 0, data.overpopDeserters ?? null, data.dragonType ?? null, data.dragonName ?? null, data.hitStatus, data.war ? 1 : 0, savedBy);
+      INSERT INTO province_status (province_id, key_hash, plagued, overpopulated, overpop_deserters, dragon_type, dragon_name, hit_status, war, saved_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(provId, keyHash, data.plagued ? 1 : 0, data.overpopulated ? 1 : 0, data.overpopDeserters ?? null, data.dragonType ?? null, data.dragonName ?? null, data.hitStatus, data.war ? 1 : 0, savedBy);
 
     const insertEffect = db.prepare(`
-      INSERT INTO province_effects (province_id, effect_name, effect_kind, duration_text, remaining_ticks, effectiveness_percent, source, saved_by)
-      VALUES (?, ?, ?, ?, ?, ?, 'sot', ?)
+      INSERT INTO province_effects (province_id, key_hash, effect_name, effect_kind, duration_text, remaining_ticks, effectiveness_percent, source, saved_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'sot', ?)
     `);
     for (const effect of data.activeEffects) {
       insertEffect.run(
         provId,
+        keyHash,
         effect.name,
         effect.kind,
         effect.durationText,
@@ -483,9 +531,9 @@ export function storeSoT(data: SoTData, savedBy: string, keyHash: string, isSelf
     // 6. Armies out (self-throne only)
     if (isSelfThrone && data.armiesOut?.length) {
       const milResult = db.prepare(`
-        INSERT INTO military_intel (province_id, ome, dme, source, saved_by, accuracy)
-        VALUES (?, NULL, NULL, 'throne', ?, ?)
-      `).run(provId, savedBy, data.accuracy);
+        INSERT INTO military_intel (province_id, key_hash, ome, dme, source, saved_by, accuracy)
+        VALUES (?, ?, NULL, NULL, 'throne', ?, ?)
+      `).run(provId, keyHash, savedBy, data.accuracy);
       const milId = milResult.lastInsertRowid;
       const insArmy = db.prepare(`
         INSERT INTO som_armies (military_intel_id, army_type, land_gained, return_days)
@@ -506,9 +554,9 @@ export function storeSoD(data: SoDData, savedBy: string, keyHash: string) {
 
     // SoD returns net modified def at home
     db.prepare(`
-      INSERT INTO home_military_points (province_id, mod_off_at_home, mod_def_at_home, source, saved_by, accuracy)
-      VALUES (?, NULL, ?, 'sod', ?, ?)
-    `).run(provId, data.defPoints, savedBy, data.accuracy);
+      INSERT INTO home_military_points (province_id, key_hash, mod_off_at_home, mod_def_at_home, source, saved_by, accuracy)
+      VALUES (?, ?, NULL, ?, 'sod', ?, ?)
+    `).run(provId, keyHash, data.defPoints, savedBy, data.accuracy);
   })();
 }
 
@@ -518,9 +566,9 @@ export function storeInfiltrate(data: InfiltrateData, savedBy: string, keyHash: 
     const provId = ensureProvince(db, data.name, data.kingdom);
     recordSubmission(db, keyHash, provId);
     db.prepare(`
-      INSERT INTO province_resources (province_id, thieves, source, saved_by, accuracy)
-      VALUES (?, ?, 'infiltrate', ?, ?)
-    `).run(provId, data.thieves, savedBy, data.accuracy);
+      INSERT INTO province_resources (province_id, key_hash, thieves, source, saved_by, accuracy)
+      VALUES (?, ?, ?, 'infiltrate', ?, ?)
+    `).run(provId, keyHash, data.thieves, savedBy, data.accuracy);
   })();
 }
 
@@ -534,22 +582,22 @@ export function storeSoM(data: SoMData, savedBy: string, keyHash: string) {
     const homeArmy = data.armies.find((a) => a.armyType === "home");
     if (homeArmy) {
       db.prepare(`
-        INSERT INTO province_troops (province_id, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, saved_by, accuracy)
-        VALUES (?, ?, ?, ?, ?, ?, NULL, 'som', ?, ?)
-      `).run(provId, homeArmy.soldiers, homeArmy.offSpecs, homeArmy.defSpecs, homeArmy.elites, homeArmy.warHorses, savedBy, data.accuracy);
+        INSERT INTO province_troops (province_id, key_hash, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, saved_by, accuracy)
+        VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 'som', ?, ?)
+      `).run(provId, keyHash, homeArmy.soldiers, homeArmy.offSpecs, homeArmy.defSpecs, homeArmy.elites, homeArmy.warHorses, savedBy, data.accuracy);
     }
 
     // Net modified off/def at home
     db.prepare(`
-      INSERT INTO home_military_points (province_id, mod_off_at_home, mod_def_at_home, source, saved_by, accuracy)
-      VALUES (?, ?, ?, 'som', ?, ?)
-    `).run(provId, data.netOffense, data.netDefense, savedBy, data.accuracy);
+      INSERT INTO home_military_points (province_id, key_hash, mod_off_at_home, mod_def_at_home, source, saved_by, accuracy)
+      VALUES (?, ?, ?, ?, 'som', ?, ?)
+    `).run(provId, keyHash, data.netOffense, data.netDefense, savedBy, data.accuracy);
 
     // Military effectiveness + army detail
     const result = db.prepare(`
-      INSERT INTO military_intel (province_id, ome, dme, saved_by, accuracy)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(provId, data.ome, data.dme, savedBy, data.accuracy);
+      INSERT INTO military_intel (province_id, key_hash, ome, dme, saved_by, accuracy)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(provId, keyHash, data.ome, data.dme, savedBy, data.accuracy);
 
     const milIntelId = result.lastInsertRowid;
 
@@ -571,9 +619,9 @@ export function storeTrainArmy(data: TrainArmyData, savedBy: string, keyHash: st
     const provId = ensureProvince(db, data.name, data.kingdom);
     recordSubmission(db, keyHash, provId);
     db.prepare(`
-      INSERT INTO province_resources (province_id, free_specialist_credits, source, saved_by, accuracy)
-      VALUES (?, ?, 'train_army', ?, 100)
-    `).run(provId, data.freeSpecialistCredits, savedBy);
+      INSERT INTO province_resources (province_id, key_hash, free_specialist_credits, source, saved_by, accuracy)
+      VALUES (?, ?, ?, 'train_army', ?, 100)
+    `).run(provId, keyHash, data.freeSpecialistCredits, savedBy);
   })();
 }
 
@@ -583,9 +631,9 @@ export function storeBuild(data: BuildData, savedBy: string, keyHash: string) {
     const provId = ensureProvince(db, data.name, data.kingdom);
     recordSubmission(db, keyHash, provId);
     db.prepare(`
-      INSERT INTO province_resources (province_id, free_building_credits, source, saved_by, accuracy)
-      VALUES (?, ?, 'build', ?, 100)
-    `).run(provId, data.freeBuildingCredits, savedBy);
+      INSERT INTO province_resources (province_id, key_hash, free_building_credits, source, saved_by, accuracy)
+      VALUES (?, ?, ?, 'build', ?, 100)
+    `).run(provId, keyHash, data.freeBuildingCredits, savedBy);
   })();
 }
 
@@ -596,9 +644,9 @@ export function storeSoS(data: SoSData, savedBy: string, keyHash: string) {
     recordSubmission(db, keyHash, provId);
 
     const result = db.prepare(`
-      INSERT INTO sos_intel (province_id, saved_by, accuracy)
-      VALUES (?, ?, ?)
-    `).run(provId, savedBy, data.accuracy);
+      INSERT INTO sos_intel (province_id, key_hash, saved_by, accuracy)
+      VALUES (?, ?, ?, ?)
+    `).run(provId, keyHash, savedBy, data.accuracy);
 
     const sosId = result.lastInsertRowid;
     const ins = db.prepare("INSERT INTO sos_sciences (sos_intel_id, science, books, effect) VALUES (?, ?, ?, ?)");
@@ -615,10 +663,11 @@ export function storeSurvey(data: SurveyData, savedBy: string, keyHash: string) 
     recordSubmission(db, keyHash, provId);
 
     const result = db.prepare(`
-      INSERT INTO survey_intel (province_id, saved_by, accuracy, thievery_effectiveness, thief_prevent_chance, castles_effect)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO survey_intel (province_id, key_hash, saved_by, accuracy, thievery_effectiveness, thief_prevent_chance, castles_effect)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(
       provId,
+      keyHash,
       savedBy,
       data.accuracy,
       data.thieveryEffectiveness ?? null,
@@ -639,13 +688,14 @@ export function storeKingdom(data: KingdomData, savedBy: string, keyHash: string
   db.transaction(() => {
     const result = db.prepare(`
       INSERT INTO kingdom_intel (
-        name, location, kingdom_title, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, honor_rank, war_target,
+        key_hash, name, location, kingdom_title, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, honor_rank, war_target,
         their_attitude_to_us, their_attitude_points,
         our_attitude_to_them, our_attitude_points,
         hostility_meter_visible_until, open_relations_json, war_doctrines_json, saved_by
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
+      keyHash,
       data.name,
       data.location,
       data.kingdomTitle,
@@ -677,9 +727,9 @@ export function storeKingdom(data: KingdomData, savedBy: string, keyHash: string
 
       // Also write to province_overview
       db.prepare(`
-        INSERT INTO province_overview (province_id, race, personality, honor_title, land, networth, source, saved_by)
-        VALUES (?, ?, NULL, ?, ?, ?, 'kingdom', ?)
-      `).run(provId, p.race, p.honorTitle, p.land, p.networth, savedBy);
+        INSERT INTO province_overview (province_id, key_hash, race, personality, honor_title, land, networth, source, saved_by)
+        VALUES (?, ?, ?, NULL, ?, ?, ?, 'kingdom', ?)
+      `).run(provId, keyHash, p.race, p.honorTitle, p.land, p.networth, savedBy);
     }
   })();
 }
@@ -692,21 +742,21 @@ export function storeState(data: StateData, savedBy: string, keyHash: string) {
 
     // Overview: land and networth (no race/personality from council_state)
     db.prepare(`
-      INSERT INTO province_overview (province_id, land, networth, source, saved_by, accuracy)
-      VALUES (?, ?, ?, 'state', ?, 100)
-    `).run(provId, data.land, data.networth, savedBy);
+      INSERT INTO province_overview (province_id, key_hash, land, networth, source, saved_by, accuracy)
+      VALUES (?, ?, ?, ?, 'state', ?, 100)
+    `).run(provId, keyHash, data.land, data.networth, savedBy);
 
     // Resources: thieves, wizards, and direct population counts (self-intel is always 100% accurate)
     db.prepare(`
-      INSERT INTO province_resources (province_id, thieves, wizards, total_pop, max_pop, source, saved_by, accuracy)
-      VALUES (?, ?, ?, ?, ?, 'state', ?, 100)
-    `).run(provId, data.thieves, data.wizards, data.totalPop ?? null, data.maxPop ?? null, savedBy);
+      INSERT INTO province_resources (province_id, key_hash, thieves, wizards, total_pop, max_pop, source, saved_by, accuracy)
+      VALUES (?, ?, ?, ?, ?, ?, 'state', ?, 100)
+    `).run(provId, keyHash, data.thieves, data.wizards, data.totalPop ?? null, data.maxPop ?? null, savedBy);
 
     // Peasants live in province_troops
     db.prepare(`
-      INSERT INTO province_troops (province_id, peasants, source, saved_by, accuracy)
-      VALUES (?, ?, 'state', ?, 100)
-    `).run(provId, data.peasants, savedBy);
+      INSERT INTO province_troops (province_id, key_hash, peasants, source, saved_by, accuracy)
+      VALUES (?, ?, ?, 'state', ?, 100)
+    `).run(provId, keyHash, data.peasants, savedBy);
   })();
 }
 
@@ -978,7 +1028,8 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
                ORDER BY pe.id DESC
              ) AS rn
       FROM province_effects pe
-      WHERE pe.received_at = (
+      WHERE pe.key_hash = @keyHash
+        AND pe.received_at = (
         SELECT MAX(pe2.received_at) FROM province_effects pe2 WHERE pe2.province_id = pe.province_id
       )
     ),
@@ -1000,21 +1051,8 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
              JOIN kingdom_provinces kp
                ON kp.kingdom_intel_id = ki.id
              WHERE ki.location = p.kingdom
+               AND ki.key_hash = @keyHash
                AND kp.name = p.name
-               AND NOT EXISTS (
-                 SELECT 1
-                 FROM kingdom_provinces kp2
-                 WHERE kp2.kingdom_intel_id = ki.id
-                   AND NOT EXISTS (
-                     SELECT 1
-                     FROM provinces p2
-                     JOIN intel_partitions ip2
-                       ON ip2.province_id = p2.id
-                      AND ip2.key_hash = ?
-                     WHERE p2.name = kp2.name
-                       AND p2.kingdom = ki.location
-                   )
-               )
              ORDER BY ki.received_at DESC
              LIMIT 1
            ) AS slot,
@@ -1023,33 +1061,33 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
            pt.soldiers, pt.off_specs, pt.def_specs, pt.elites, pt.war_horses, pt.peasants, pt.received_at AS troops_age, pt.source AS troops_source,
            pt_home.soldiers AS soldiers_home, pt_home.off_specs AS off_specs_home, pt_home.def_specs AS def_specs_home, pt_home.elites AS elites_home, pt_home.received_at AS troops_home_age,
            pr.money, pr.food, pr.runes, pr.prisoners, pr.trade_balance, pr.building_efficiency, pr.wizards, pr.received_at AS resources_age, pr.source AS resources_source,
-           (SELECT p2.total_pop FROM province_resources p2 WHERE p2.province_id = p.id AND p2.total_pop IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS total_pop,
-           (SELECT p2.max_pop FROM province_resources p2 WHERE p2.province_id = p.id AND p2.max_pop IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS max_pop,
-           (SELECT p2.thieves FROM province_resources p2 WHERE p2.province_id = p.id AND p2.thieves IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS thieves,
-           (SELECT p2.received_at FROM province_resources p2 WHERE p2.province_id = p.id AND p2.thieves IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS thieves_age,
-           (SELECT p2.free_specialist_credits FROM province_resources p2 WHERE p2.province_id = p.id AND p2.free_specialist_credits IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS free_specialist_credits,
-           (SELECT p2.received_at FROM province_resources p2 WHERE p2.province_id = p.id AND p2.free_specialist_credits IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS free_specialist_credits_age,
-           (SELECT p2.free_building_credits FROM province_resources p2 WHERE p2.province_id = p.id AND p2.free_building_credits IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS free_building_credits,
-           (SELECT p2.received_at FROM province_resources p2 WHERE p2.province_id = p.id AND p2.free_building_credits IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS free_building_credits_age,
+           (SELECT p2.total_pop FROM province_resources p2 WHERE p2.province_id = p.id AND p2.key_hash = @keyHash AND p2.total_pop IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS total_pop,
+           (SELECT p2.max_pop FROM province_resources p2 WHERE p2.province_id = p.id AND p2.key_hash = @keyHash AND p2.max_pop IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS max_pop,
+           (SELECT p2.thieves FROM province_resources p2 WHERE p2.province_id = p.id AND p2.key_hash = @keyHash AND p2.thieves IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS thieves,
+           (SELECT p2.received_at FROM province_resources p2 WHERE p2.province_id = p.id AND p2.key_hash = @keyHash AND p2.thieves IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS thieves_age,
+           (SELECT p2.free_specialist_credits FROM province_resources p2 WHERE p2.province_id = p.id AND p2.key_hash = @keyHash AND p2.free_specialist_credits IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS free_specialist_credits,
+           (SELECT p2.received_at FROM province_resources p2 WHERE p2.province_id = p.id AND p2.key_hash = @keyHash AND p2.free_specialist_credits IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS free_specialist_credits_age,
+           (SELECT p2.free_building_credits FROM province_resources p2 WHERE p2.province_id = p.id AND p2.key_hash = @keyHash AND p2.free_building_credits IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS free_building_credits,
+           (SELECT p2.received_at FROM province_resources p2 WHERE p2.province_id = p.id AND p2.key_hash = @keyHash AND p2.free_building_credits IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS free_building_credits_age,
            ps.hit_status, ps.received_at AS status_age,
            ss.effects_age, ss.good_spell_details, ss.bad_spell_details, ss.good_spell_count, ss.bad_spell_count,
            hmp.mod_off_at_home AS off_home, hmp.mod_def_at_home AS def_home, hmp.received_at AS home_mil_age,
            mi.ome, mi.dme, mi.received_at AS som_age,
-           (SELECT si.received_at FROM sos_intel si WHERE si.province_id = p.id ORDER BY si.received_at DESC LIMIT 1) AS sciences_age,
-           (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND ss.science = 'Crime' ORDER BY si.received_at DESC LIMIT 1) AS crime_effect,
-           (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND ss.science = 'Siege' ORDER BY si.received_at DESC LIMIT 1) AS siege_effect,
-           (SELECT si.received_at FROM survey_intel si WHERE si.province_id = p.id ORDER BY si.received_at DESC LIMIT 1) AS survey_age,
-           (SELECT si.thief_prevent_chance FROM survey_intel si WHERE si.province_id = p.id ORDER BY si.received_at DESC LIMIT 1) AS watch_towers_effect,
-           (SELECT si.thievery_effectiveness FROM survey_intel si WHERE si.province_id = p.id ORDER BY si.received_at DESC LIMIT 1) AS thieves_dens_effect,
-           (SELECT si.castles_effect FROM survey_intel si WHERE si.province_id = p.id ORDER BY si.received_at DESC LIMIT 1) AS castles_effect,
-           (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND ss.science = 'Channeling' ORDER BY si.received_at DESC LIMIT 1) AS channeling_effect,
-           (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND ss.science = 'Shielding' ORDER BY si.received_at DESC LIMIT 1) AS shielding_effect,
-           (SELECT SUM(ss.books) FROM sos_sciences ss WHERE ss.sos_intel_id = (SELECT id FROM sos_intel WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1)) AS science_total_books,
-           (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND ss.science = 'Housing' ORDER BY si.received_at DESC LIMIT 1) AS housing_effect,
-           (SELECT sb.built FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1) AND sb.building = 'Barren Land') AS barren_land,
-           (SELECT sb.built FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1) AND sb.building = 'Homes') AS homes_built,
-           (SELECT SUM(sb.built) FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1) AND sb.building != 'Barren Land') AS buildings_built,
-           (SELECT SUM(sb.in_progress) FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1)) AS buildings_in_progress,
+           (SELECT si.received_at FROM sos_intel si WHERE si.province_id = p.id AND si.key_hash = @keyHash ORDER BY si.received_at DESC LIMIT 1) AS sciences_age,
+           (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND si.key_hash = @keyHash AND ss.science = 'Crime' ORDER BY si.received_at DESC LIMIT 1) AS crime_effect,
+           (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND si.key_hash = @keyHash AND ss.science = 'Siege' ORDER BY si.received_at DESC LIMIT 1) AS siege_effect,
+           (SELECT si.received_at FROM survey_intel si WHERE si.province_id = p.id AND si.key_hash = @keyHash ORDER BY si.received_at DESC LIMIT 1) AS survey_age,
+           (SELECT si.thief_prevent_chance FROM survey_intel si WHERE si.province_id = p.id AND si.key_hash = @keyHash ORDER BY si.received_at DESC LIMIT 1) AS watch_towers_effect,
+           (SELECT si.thievery_effectiveness FROM survey_intel si WHERE si.province_id = p.id AND si.key_hash = @keyHash ORDER BY si.received_at DESC LIMIT 1) AS thieves_dens_effect,
+           (SELECT si.castles_effect FROM survey_intel si WHERE si.province_id = p.id AND si.key_hash = @keyHash ORDER BY si.received_at DESC LIMIT 1) AS castles_effect,
+           (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND si.key_hash = @keyHash AND ss.science = 'Channeling' ORDER BY si.received_at DESC LIMIT 1) AS channeling_effect,
+           (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND si.key_hash = @keyHash AND ss.science = 'Shielding' ORDER BY si.received_at DESC LIMIT 1) AS shielding_effect,
+           (SELECT SUM(ss.books) FROM sos_sciences ss WHERE ss.sos_intel_id = (SELECT id FROM sos_intel WHERE province_id = p.id AND key_hash = @keyHash ORDER BY received_at DESC LIMIT 1)) AS science_total_books,
+           (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND si.key_hash = @keyHash AND ss.science = 'Housing' ORDER BY si.received_at DESC LIMIT 1) AS housing_effect,
+           (SELECT sb.built FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id AND key_hash = @keyHash ORDER BY received_at DESC LIMIT 1) AND sb.building = 'Barren Land') AS barren_land,
+           (SELECT sb.built FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id AND key_hash = @keyHash ORDER BY received_at DESC LIMIT 1) AND sb.building = 'Homes') AS homes_built,
+           (SELECT SUM(sb.built) FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id AND key_hash = @keyHash ORDER BY received_at DESC LIMIT 1) AND sb.building != 'Barren Land') AS buildings_built,
+           (SELECT SUM(sb.in_progress) FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id AND key_hash = @keyHash ORDER BY received_at DESC LIMIT 1)) AS buildings_in_progress,
            mi_throne.received_at AS throne_age,
            (SELECT COUNT(*) FROM som_armies WHERE military_intel_id = (CASE WHEN mi_throne.id IS NOT NULL AND (mi.id IS NULL OR mi_throne.received_at > mi.received_at) THEN mi_throne.id ELSE mi.id END) AND return_days IS NOT NULL) AS armies_out_count,
            (SELECT SUM(land_gained) FROM som_armies WHERE military_intel_id = (CASE WHEN mi_throne.id IS NOT NULL AND (mi.id IS NULL OR mi_throne.received_at > mi.received_at) THEN mi_throne.id ELSE mi.id END) AND return_days IS NOT NULL) AS land_incoming,
@@ -1060,44 +1098,44 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
     ${OVERVIEW_LAND_JOIN}
     LEFT JOIN total_military_points tmp ON tmp.id = (
       SELECT id FROM total_military_points
-      WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1
+      WHERE province_id = p.id AND key_hash = @keyHash ORDER BY received_at DESC LIMIT 1
     )
     LEFT JOIN province_troops pt ON pt.id = (
       SELECT id FROM province_troops
-      WHERE province_id = p.id AND source = 'sot' ORDER BY received_at DESC LIMIT 1
+      WHERE province_id = p.id AND key_hash = @keyHash AND source = 'sot' ORDER BY received_at DESC LIMIT 1
     )
     LEFT JOIN province_troops pt_home ON pt_home.id = (
       SELECT id FROM province_troops
-      WHERE province_id = p.id AND source = 'som' ORDER BY received_at DESC LIMIT 1
+      WHERE province_id = p.id AND key_hash = @keyHash AND source = 'som' ORDER BY received_at DESC LIMIT 1
     )
     LEFT JOIN province_resources pr ON pr.id = (
       SELECT id FROM province_resources
-      WHERE province_id = p.id AND source = 'sot' ORDER BY received_at DESC LIMIT 1
+      WHERE province_id = p.id AND key_hash = @keyHash AND source = 'sot' ORDER BY received_at DESC LIMIT 1
     )
     LEFT JOIN province_status ps ON ps.id = (
       SELECT id FROM province_status
-      WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1
+      WHERE province_id = p.id AND key_hash = @keyHash ORDER BY received_at DESC LIMIT 1
     )
     LEFT JOIN spell_summary ss ON ss.province_id = p.id
     LEFT JOIN home_military_points hmp ON hmp.id = (
       SELECT id FROM home_military_points
-      WHERE province_id = p.id ORDER BY received_at DESC LIMIT 1
+      WHERE province_id = p.id AND key_hash = @keyHash ORDER BY received_at DESC LIMIT 1
     )
     LEFT JOIN military_intel mi ON mi.id = (
       SELECT id FROM military_intel
-      WHERE province_id = p.id AND source = 'som' ORDER BY received_at DESC LIMIT 1
+      WHERE province_id = p.id AND key_hash = @keyHash AND source = 'som' ORDER BY received_at DESC LIMIT 1
     )
     LEFT JOIN military_intel mi_throne ON mi_throne.id = (
       SELECT id FROM military_intel
-      WHERE province_id = p.id AND source = 'throne' ORDER BY received_at DESC LIMIT 1
+      WHERE province_id = p.id AND key_hash = @keyHash AND source = 'throne' ORDER BY received_at DESC LIMIT 1
     )
-    WHERE p.kingdom = ?
+    WHERE p.kingdom = @kingdom
       AND EXISTS (
         SELECT 1 FROM intel_partitions
-        WHERE key_hash = ? AND province_id = p.id
+        WHERE key_hash = @keyHash AND province_id = p.id
       )
     ORDER BY po.networth DESC NULLS LAST
-  `).all(keyHash, kingdom, keyHash) as ProvinceRow[];
+  `).all({ keyHash, kingdom }) as ProvinceRow[];
 
   for (const row of rows) {
     row.armies_out_json = mergeArmiesJson(row.som_armies_json, row.throne_armies_json, row.som_age, row.throne_age);
@@ -1131,43 +1169,43 @@ function getProvinceDetailForDb(db: Database.Database, name: string, kingdom: st
 
   const id = prov.id;
 
-  const overview = queryOverview(db, id);
+  const overview = queryOverview(db, id, keyHash);
 
   const tmRaw = db.prepare(
-    "SELECT off_points, def_points, received_at FROM total_military_points WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
-  ).get(id) as any;
+    "SELECT off_points, def_points, received_at FROM total_military_points WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1"
+  ).get(id, keyHash) as any;
   const totalMilitary = tmRaw ? { offPoints: tmRaw.off_points, defPoints: tmRaw.def_points, receivedAt: tmRaw.received_at } : null;
 
   const hmRaw = db.prepare(
-    "SELECT mod_off_at_home, mod_def_at_home, source, received_at FROM home_military_points WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
-  ).get(id) as any;
+    "SELECT mod_off_at_home, mod_def_at_home, source, received_at FROM home_military_points WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1"
+  ).get(id, keyHash) as any;
   const homeMilitary = hmRaw ? { modOffAtHome: hmRaw.mod_off_at_home, modDefAtHome: hmRaw.mod_def_at_home, source: hmRaw.source, receivedAt: hmRaw.received_at } : null;
 
   const troopsRaw = db.prepare(
-    "SELECT soldiers, off_specs, def_specs, elites, war_horses, peasants, source, received_at FROM province_troops WHERE province_id = ? AND source = 'sot' ORDER BY received_at DESC LIMIT 1"
-  ).get(id) as any;
+    "SELECT soldiers, off_specs, def_specs, elites, war_horses, peasants, source, received_at FROM province_troops WHERE province_id = ? AND key_hash = ? AND source = 'sot' ORDER BY received_at DESC LIMIT 1"
+  ).get(id, keyHash) as any;
   const sot = troopsRaw ? { soldiers: troopsRaw.soldiers, offSpecs: troopsRaw.off_specs, defSpecs: troopsRaw.def_specs, elites: troopsRaw.elites, warHorses: troopsRaw.war_horses, peasants: troopsRaw.peasants, source: troopsRaw.source, receivedAt: troopsRaw.received_at } : null;
 
   const resRaw = db.prepare(
-    "SELECT money, food, runes, prisoners, trade_balance, building_efficiency, stealth, wizards, mana, received_at FROM province_resources WHERE province_id = ? AND source = 'sot' ORDER BY received_at DESC LIMIT 1"
-  ).get(id) as any;
+    "SELECT money, food, runes, prisoners, trade_balance, building_efficiency, stealth, wizards, mana, received_at FROM province_resources WHERE province_id = ? AND key_hash = ? AND source = 'sot' ORDER BY received_at DESC LIMIT 1"
+  ).get(id, keyHash) as any;
   const totalPopRaw = db.prepare(
-    "SELECT total_pop, max_pop FROM province_resources WHERE province_id = ? AND total_pop IS NOT NULL ORDER BY received_at DESC LIMIT 1"
-  ).get(id) as { total_pop: number; max_pop: number | null } | undefined;
+    "SELECT total_pop, max_pop FROM province_resources WHERE province_id = ? AND key_hash = ? AND total_pop IS NOT NULL ORDER BY received_at DESC LIMIT 1"
+  ).get(id, keyHash) as { total_pop: number; max_pop: number | null } | undefined;
   const thievesRaw = db.prepare(
-    "SELECT thieves, received_at FROM province_resources WHERE province_id = ? AND thieves IS NOT NULL ORDER BY received_at DESC LIMIT 1"
-  ).get(id) as { thieves: number; received_at: string } | undefined;
+    "SELECT thieves, received_at FROM province_resources WHERE province_id = ? AND key_hash = ? AND thieves IS NOT NULL ORDER BY received_at DESC LIMIT 1"
+  ).get(id, keyHash) as { thieves: number; received_at: string } | undefined;
   const creditsRaw = db.prepare(
-    "SELECT free_specialist_credits, received_at FROM province_resources WHERE province_id = ? AND free_specialist_credits IS NOT NULL ORDER BY received_at DESC LIMIT 1"
-  ).get(id) as { free_specialist_credits: number; received_at: string } | undefined;
+    "SELECT free_specialist_credits, received_at FROM province_resources WHERE province_id = ? AND key_hash = ? AND free_specialist_credits IS NOT NULL ORDER BY received_at DESC LIMIT 1"
+  ).get(id, keyHash) as { free_specialist_credits: number; received_at: string } | undefined;
   const buildCreditsRaw = db.prepare(
-    "SELECT free_building_credits, received_at FROM province_resources WHERE province_id = ? AND free_building_credits IS NOT NULL ORDER BY received_at DESC LIMIT 1"
-  ).get(id) as { free_building_credits: number; received_at: string } | undefined;
+    "SELECT free_building_credits, received_at FROM province_resources WHERE province_id = ? AND key_hash = ? AND free_building_credits IS NOT NULL ORDER BY received_at DESC LIMIT 1"
+  ).get(id, keyHash) as { free_building_credits: number; received_at: string } | undefined;
   const resources = resRaw ? { money: resRaw.money, food: resRaw.food, runes: resRaw.runes, prisoners: resRaw.prisoners, tradeBalance: resRaw.trade_balance, buildingEfficiency: resRaw.building_efficiency, thieves: thievesRaw?.thieves ?? null, thievesAge: thievesRaw?.received_at ?? null, stealth: resRaw.stealth, wizards: resRaw.wizards, mana: resRaw.mana, totalPop: totalPopRaw?.total_pop ?? null, maxPop: totalPopRaw?.max_pop ?? null, freeSpecialistCredits: creditsRaw?.free_specialist_credits ?? null, freeSpecialistCreditsAge: creditsRaw?.received_at ?? null, freeBuildingCredits: buildCreditsRaw?.free_building_credits ?? null, freeBuildingCreditsAge: buildCreditsRaw?.received_at ?? null, receivedAt: resRaw.received_at } : null;
 
   const statusRaw = db.prepare(
-    "SELECT plagued, overpopulated, overpop_deserters, dragon_type, dragon_name, hit_status, war, received_at FROM province_status WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
-  ).get(id) as any;
+    "SELECT plagued, overpopulated, overpop_deserters, dragon_type, dragon_name, hit_status, war, received_at FROM province_status WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1"
+  ).get(id, keyHash) as any;
   const status = statusRaw ? { plagued: !!statusRaw.plagued, overpopulated: !!statusRaw.overpopulated, overpopDeserters: statusRaw.overpop_deserters ?? null, dragonType: statusRaw.dragon_type ?? null, dragonName: statusRaw.dragon_name ?? null, hitStatus: statusRaw.hit_status, war: !!statusRaw.war, receivedAt: statusRaw.received_at } : null;
 
   const effects = db.prepare(
@@ -1180,18 +1218,19 @@ function getProvinceDetailForDb(db: Database.Database, name: string, kingdom: st
               ) AS rn
        FROM province_effects
        WHERE province_id = ?
+         AND key_hash = ?
          AND received_at = (SELECT MAX(pe2.received_at) FROM province_effects pe2 WHERE pe2.province_id = ?)
      )
      WHERE rn = 1
      ORDER BY effect_kind ASC, effect_name ASC`
-  ).all(id, id) as Array<{ effect_name: string; effect_kind: string; duration_text: string | null; remaining_ticks: number | null; effectiveness_percent: number | null; received_at: string }>;
+  ).all(id, keyHash, id) as Array<{ effect_name: string; effect_kind: string; duration_text: string | null; remaining_ticks: number | null; effectiveness_percent: number | null; received_at: string }>;
 
   const miRaw = db.prepare(
-    "SELECT id, ome, dme, received_at FROM military_intel WHERE province_id = ? AND source = 'som' ORDER BY received_at DESC LIMIT 1"
-  ).get(id) as any;
+    "SELECT id, ome, dme, received_at FROM military_intel WHERE province_id = ? AND key_hash = ? AND source = 'som' ORDER BY received_at DESC LIMIT 1"
+  ).get(id, keyHash) as any;
   const miThroneRaw = db.prepare(
-    "SELECT id, received_at FROM military_intel WHERE province_id = ? AND source = 'throne' ORDER BY received_at DESC LIMIT 1"
-  ).get(id) as any;
+    "SELECT id, received_at FROM military_intel WHERE province_id = ? AND key_hash = ? AND source = 'throne' ORDER BY received_at DESC LIMIT 1"
+  ).get(id, keyHash) as any;
   let militaryIntel = null;
   if (miRaw || miThroneRaw) {
     const somRaw: any[] = miRaw ? db.prepare(
@@ -1216,8 +1255,8 @@ function getProvinceDetailForDb(db: Database.Database, name: string, kingdom: st
   }
 
   const surveyRaw = db.prepare(
-    "SELECT id, received_at FROM survey_intel WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
-  ).get(id) as any;
+    "SELECT id, received_at FROM survey_intel WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1"
+  ).get(id, keyHash) as any;
   let survey = null;
   if (surveyRaw) {
     const buildings = db.prepare(
@@ -1227,8 +1266,8 @@ function getProvinceDetailForDb(db: Database.Database, name: string, kingdom: st
   }
 
   const sosRaw = db.prepare(
-    "SELECT id, received_at FROM sos_intel WHERE province_id = ? ORDER BY received_at DESC LIMIT 1"
-  ).get(id) as any;
+    "SELECT id, received_at FROM sos_intel WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1"
+  ).get(id, keyHash) as any;
   let sciences = null;
   if (sosRaw) {
     const sciRows = db.prepare(
@@ -1276,20 +1315,21 @@ export function storeKingdomNews(data: KingdomNewsData, keyHash: string, isSnatc
   if (!kingdom) return;
 
   const ins = db.prepare(`
-    INSERT OR IGNORE INTO kingdom_news (
-      kingdom, game_date, game_date_ord, event_type, raw_text,
+    INSERT OR IGNORE INTO kingdom_news_sharded (
+      key_hash, kingdom, game_date, game_date_ord, event_type, raw_text,
       attacker_name, attacker_kingdom,
       defender_name, defender_kingdom,
       acres, books,
       sender_name, receiver_name,
       relation_kingdom,
       dragon_type, dragon_name
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const insertMany = db.transaction((events: KingdomNewsEvent[]) => {
     for (const e of events) {
       ins.run(
+        keyHash,
         kingdom, e.gameDate, parseUtopiaDate(e.gameDate), e.eventType, e.rawText,
         e.attackerName, e.attackerKingdom,
         e.defenderName, e.defenderKingdom,
@@ -1441,7 +1481,7 @@ export function createDbApi(db: Database.Database): DbApi {
                COUNT(DISTINCT p.id) AS province_count,
                MAX(po.received_at) AS last_seen
         FROM provinces p
-        LEFT JOIN province_overview po ON po.province_id = p.id
+        LEFT JOIN province_overview po ON po.province_id = p.id AND po.key_hash = ?
         WHERE p.kingdom != ''
           AND EXISTS (
             SELECT 1 FROM intel_partitions
@@ -1449,7 +1489,7 @@ export function createDbApi(db: Database.Database): DbApi {
           )
         GROUP BY p.kingdom
         ORDER BY last_seen DESC
-      `).all(keyHash) as KingdomRow[];
+      `).all(keyHash, keyHash) as KingdomRow[];
     },
 
     getLatestKingdomSnapshot(location, keyHash) {
@@ -1463,20 +1503,7 @@ export function createDbApi(db: Database.Database): DbApi {
                ki.received_at
         FROM kingdom_intel ki
         WHERE ki.location = ?
-          AND NOT EXISTS (
-            SELECT 1
-            FROM kingdom_provinces kp
-            WHERE kp.kingdom_intel_id = ki.id
-              AND NOT EXISTS (
-                SELECT 1
-                FROM provinces p
-                JOIN intel_partitions ip
-                  ON ip.province_id = p.id
-                 AND ip.key_hash = ?
-                WHERE p.name = kp.name
-                  AND p.kingdom = ki.location
-              )
-          )
+          AND ki.key_hash = ?
         ORDER BY ki.received_at DESC, ki.id DESC
         LIMIT 1
       `).get(location, keyHash) as {
@@ -1558,20 +1585,7 @@ export function createDbApi(db: Database.Database): DbApi {
         FROM kingdom_intel ki
         WHERE ki.location = ?
           AND (ki.total_networth IS NOT NULL OR ki.total_land IS NOT NULL OR ki.total_honor IS NOT NULL)
-          AND NOT EXISTS (
-            SELECT 1
-            FROM kingdom_provinces kp
-            WHERE kp.kingdom_intel_id = ki.id
-              AND NOT EXISTS (
-                SELECT 1
-                FROM provinces p
-                JOIN intel_partitions ip
-                  ON ip.province_id = p.id
-                 AND ip.key_hash = ?
-                WHERE p.name = kp.name
-                  AND p.kingdom = ki.location
-              )
-          )
+          AND ki.key_hash = ?
         ORDER BY ki.received_at ASC, ki.id ASC
       `).all(location, keyHash) as {
         id: number;
@@ -1613,14 +1627,13 @@ export function createDbApi(db: Database.Database): DbApi {
         SELECT pe.effect_name, pe.remaining_ticks, pe.effectiveness_percent, pe.received_at
         FROM province_effects pe
         JOIN provinces p ON p.id = pe.province_id
-        JOIN intel_partitions ip ON ip.province_id = p.id AND ip.key_hash = ?
-        WHERE p.kingdom = ? AND pe.effect_kind = 'ritual'
+        WHERE p.kingdom = ? AND pe.key_hash = ? AND pe.effect_kind = 'ritual'
           AND pe.received_at = (
             SELECT MAX(pe2.received_at) FROM province_effects pe2 WHERE pe2.province_id = pe.province_id
           )
         ORDER BY pe.received_at DESC, pe.id DESC
         LIMIT 1
-      `).get(keyHash, kingdom) as { effect_name: string; remaining_ticks: number | null; effectiveness_percent: number | null; received_at: string } | undefined;
+      `).get(kingdom, keyHash) as { effect_name: string; remaining_ticks: number | null; effectiveness_percent: number | null; received_at: string } | undefined;
       if (!row) return null;
       return { name: row.effect_name, remainingTicks: row.remaining_ticks, effectivenessPercent: row.effectiveness_percent, receivedAt: row.received_at };
     },
@@ -1630,15 +1643,14 @@ export function createDbApi(db: Database.Database): DbApi {
         SELECT ps.dragon_type, ps.dragon_name, ps.received_at
         FROM province_status ps
         JOIN provinces p ON p.id = ps.province_id
-        JOIN intel_partitions ip ON ip.province_id = p.id AND ip.key_hash = ?
-        WHERE p.kingdom = ? AND ps.dragon_type IS NOT NULL
+        WHERE p.kingdom = ? AND ps.key_hash = ? AND ps.dragon_type IS NOT NULL
           AND NOT EXISTS (
             SELECT 1 FROM province_status ps2
             WHERE ps2.province_id = ps.province_id AND ps2.id > ps.id AND ps2.dragon_type IS NULL
           )
         ORDER BY ps.received_at DESC, ps.id DESC
         LIMIT 1
-      `).get(keyHash, kingdom) as { dragon_type: string; dragon_name: string; received_at: string } | undefined;
+      `).get(kingdom, keyHash) as { dragon_type: string; dragon_name: string; received_at: string } | undefined;
       if (!row) return null;
       return { dragonType: row.dragon_type, dragonName: row.dragon_name, receivedAt: row.received_at };
     },
@@ -1649,9 +1661,8 @@ export function createDbApi(db: Database.Database): DbApi {
 
     getKingdomNews(kingdom, keyHash, from, to) {
       const hasAccess = db.prepare(`
-        SELECT 1 FROM intel_partitions ip
-        JOIN provinces p ON p.id = ip.province_id
-        WHERE ip.key_hash = ? AND p.kingdom = ?
+        SELECT 1 FROM kingdom_news_sharded
+        WHERE key_hash = ? AND kingdom = ?
         LIMIT 1
       `).get(keyHash, kingdom);
       if (!hasAccess) return { events: [], effectiveFrom: null };
@@ -1663,7 +1674,7 @@ export function createDbApi(db: Database.Database): DbApi {
         fromOrd = from ? parseUtopiaDate(from) : 0;
         toOrd   = to   ? parseUtopiaDate(to)   : 999999;
       } else {
-        const maxRow = db.prepare(`SELECT MAX(game_date_ord) as m FROM kingdom_news WHERE kingdom = ?`).get(kingdom) as { m: number | null };
+        const maxRow = db.prepare(`SELECT MAX(game_date_ord) as m FROM kingdom_news_sharded WHERE key_hash = ? AND kingdom = ?`).get(keyHash, kingdom) as { m: number | null };
         const maxOrd = maxRow?.m ?? 0;
         fromOrd = maxOrd - 3 * UTOPIA_MONTH_DAYS + 1;
         toOrd   = 999999;
@@ -1679,10 +1690,10 @@ export function createDbApi(db: Database.Database): DbApi {
                relation_kingdom,
                dragon_type, dragon_name,
                received_at
-        FROM kingdom_news
-        WHERE kingdom = ? AND game_date_ord >= ? AND game_date_ord <= ?
+        FROM kingdom_news_sharded
+        WHERE key_hash = ? AND kingdom = ? AND game_date_ord >= ? AND game_date_ord <= ?
         ORDER BY game_date_ord DESC, id DESC
-      `).all(kingdom, fromOrd, toOrd) as Array<{
+      `).all(keyHash, kingdom, fromOrd, toOrd) as Array<{
         id: number;
         kingdom: string;
         game_date: string;
@@ -1726,26 +1737,24 @@ export function createDbApi(db: Database.Database): DbApi {
 
     getLatestWarDate(kingdom, keyHash) {
       const hasAccess = db.prepare(`
-        SELECT 1 FROM intel_partitions ip
-        JOIN provinces p ON p.id = ip.province_id
-        WHERE ip.key_hash = ? AND p.kingdom = ?
+        SELECT 1 FROM kingdom_news_sharded
+        WHERE key_hash = ? AND kingdom = ?
         LIMIT 1
       `).get(keyHash, kingdom);
       if (!hasAccess) return null;
       const row = db.prepare(`
-        SELECT game_date FROM kingdom_news
-        WHERE kingdom = ? AND event_type = 'war_declared'
+        SELECT game_date FROM kingdom_news_sharded
+        WHERE key_hash = ? AND kingdom = ? AND event_type = 'war_declared'
         ORDER BY game_date_ord DESC, id DESC
         LIMIT 1
-      `).get(kingdom) as { game_date: string } | undefined;
+      `).get(keyHash, kingdom) as { game_date: string } | undefined;
       return row?.game_date ?? null;
     },
 
     getKingdomNewsSummary(kingdom, keyHash, from, to) {
       const hasAccess = db.prepare(`
-        SELECT 1 FROM intel_partitions ip
-        JOIN provinces p ON p.id = ip.province_id
-        WHERE ip.key_hash = ? AND p.kingdom = ?
+        SELECT 1 FROM kingdom_news_sharded
+        WHERE key_hash = ? AND kingdom = ?
         LIMIT 1
       `).get(keyHash, kingdom);
       const empty: KingdomNewsSummary = { ourKingdom: kingdom, totalMarchAcresIn: 0, totalRazeAcresIn: 0, totalMarchAcresOut: 0, totalRazeAcresOut: 0, uniqueAttackers: 0, byKingdom: [] };
@@ -1757,7 +1766,7 @@ export function createDbApi(db: Database.Database): DbApi {
         fromOrd = from ? parseUtopiaDate(from) : 0;
         toOrd   = to   ? parseUtopiaDate(to)   : 999999;
       } else {
-        const maxRow = db.prepare(`SELECT MAX(game_date_ord) as m FROM kingdom_news WHERE kingdom = ?`).get(kingdom) as { m: number | null };
+        const maxRow = db.prepare(`SELECT MAX(game_date_ord) as m FROM kingdom_news_sharded WHERE key_hash = ? AND kingdom = ?`).get(keyHash, kingdom) as { m: number | null };
         const maxOrd = maxRow?.m ?? 0;
         fromOrd = maxOrd - 3 * UTOPIA_MONTH_DAYS + 1;
         toOrd   = 999999;
@@ -1766,11 +1775,11 @@ export function createDbApi(db: Database.Database): DbApi {
       const combatRows = db.prepare(`
         SELECT attacker_name, attacker_kingdom, defender_name, defender_kingdom,
                event_type, acres, books
-        FROM kingdom_news
-        WHERE kingdom = ? AND event_type IN (${COMBAT_TYPES})
+        FROM kingdom_news_sharded
+        WHERE key_hash = ? AND kingdom = ? AND event_type IN (${COMBAT_TYPES})
           AND attacker_kingdom IS NOT NULL AND defender_kingdom IS NOT NULL
           AND game_date_ord >= ? AND game_date_ord <= ?
-      `).all(kingdom, fromOrd, toOrd) as {
+      `).all(keyHash, kingdom, fromOrd, toOrd) as {
         attacker_name: string | null; attacker_kingdom: string;
         defender_name: string | null; defender_kingdom: string;
         event_type: string; acres: number | null; books: number | null;
@@ -1866,8 +1875,8 @@ export function createDbApi(db: Database.Database): DbApi {
           SELECT kp.name, ki.location as kingdom, kp.slot
           FROM kingdom_provinces kp
           JOIN kingdom_intel ki ON ki.id = kp.kingdom_intel_id
-          WHERE ki.location IN (${placeholders}) AND kp.name IS NOT NULL
-        `).all(...kingdoms) as { name: string; kingdom: string; slot: number | null }[];
+          WHERE ki.key_hash = ? AND ki.location IN (${placeholders}) AND kp.name IS NOT NULL
+        `).all(keyHash, ...kingdoms) as { name: string; kingdom: string; slot: number | null }[];
         for (const r of slotRows) slotMap.set(`${r.name}\0${r.kingdom}`, r.slot);
       }
 
@@ -1889,7 +1898,7 @@ export function createDbApi(db: Database.Database): DbApi {
 
       const kdNames = new Map<string, string>();
       for (const loc of kdMap.keys()) {
-        const row = db.prepare(`SELECT name FROM kingdom_intel WHERE location = ? ORDER BY received_at DESC LIMIT 1`).get(loc) as { name: string } | undefined;
+        const row = db.prepare(`SELECT name FROM kingdom_intel WHERE key_hash = ? AND location = ? ORDER BY received_at DESC LIMIT 1`).get(keyHash, loc) as { name: string } | undefined;
         if (row) kdNames.set(loc, row.name);
       }
 
@@ -1956,6 +1965,7 @@ export function createDbApi(db: Database.Database): DbApi {
         DELETE FROM sos_intel WHERE received_at < ${cutoff};
         DELETE FROM kingdom_intel WHERE received_at < ${cutoff};
         DELETE FROM kingdom_news WHERE received_at < ${cutoff};
+        DELETE FROM kingdom_news_sharded WHERE received_at < ${cutoff};
       `);
     },
   };
