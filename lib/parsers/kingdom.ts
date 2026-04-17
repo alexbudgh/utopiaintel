@@ -9,6 +9,7 @@ const TOTAL_NETWORTH_RE = new RegExp(`Total Networth\\s*(${INT})gc\\s*\\(avg:[^)
 const TOTAL_LAND_RE = new RegExp(`Total Land\\s*(${INT}) acres\\s*\\(avg:[^)]+\\)\\s*Land Rank\\s*(${INT}) of ${INT}`, "i");
 const TOTAL_HONOR_RE = new RegExp(`Total Honor\\s*(${INT})\\s*Honor Rank\\s*(${INT}) of ${INT}`, "i");
 const WARS_WON_RE = new RegExp(`Wars Won / War Score\\s*(${INT})\\s*/\\s*[-\\d.]+`, "i");
+const WAR_HISTORY_SECTION_RE = /War History\t?\n([\s\S]*?)(?:\nOpen Relations|\nThemNormalUnfriendlyHostileWarUs|\nProvinces)/i;
 const WAR_RE = new RegExp(`at war with ([^(]+)${KDLOC}`, "i");
 const ATTITUDES_RE = /Their Attitude To Us\t([^\t]+?) \(([-\d.]+) points\)\tOur Attitude To Them\t([^\t]+?) \(([-\d.]+) points\)/i;
 const HOSTILITY_VISIBLE_RE = /Hostility meter visible until ([^\n]+)/i;
@@ -54,6 +55,13 @@ export function parseKingdom(text: string): KingdomData | null {
   const totalLandMatch = TOTAL_LAND_RE.exec(text);
   const totalHonorMatch = TOTAL_HONOR_RE.exec(text);
   const warsWonMatch = WARS_WON_RE.exec(text);
+  const warHistorySection = WAR_HISTORY_SECTION_RE.exec(text)?.[1] ?? "";
+  const warLosses = warHistorySection
+    ? warHistorySection
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.endsWith("Loss")).length
+    : null;
 
   const warMatch = WAR_RE.exec(text);
   const warTarget = warMatch ? warMatch[2] : null;
@@ -133,6 +141,7 @@ export function parseKingdom(text: string): KingdomData | null {
     totalLand: totalLandMatch ? parseNum(totalLandMatch[1]) : null,
     totalHonor: totalHonorMatch ? parseNum(totalHonorMatch[1]) : null,
     warsWon: warsWonMatch ? parseNum(warsWonMatch[1]) : null,
+    warLosses,
     networthRank: totalNetworthMatch ? parseNum(totalNetworthMatch[2]) : null,
     landRank: totalLandMatch ? parseNum(totalLandMatch[2]) : null,
     honorRank: totalHonorMatch ? parseNum(totalHonorMatch[2]) : null,

@@ -271,6 +271,7 @@ export function initSchema(db: Database.Database) {
       total_land INTEGER,
       total_honor INTEGER,
       wars_won INTEGER,
+      war_losses INTEGER,
       networth_rank INTEGER,
       land_rank INTEGER,
       honor_rank INTEGER,
@@ -374,6 +375,7 @@ export function initSchema(db: Database.Database) {
   if (!hasCol("kingdom_intel", "total_land")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN total_land INTEGER");
   if (!hasCol("kingdom_intel", "total_honor")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN total_honor INTEGER");
   if (!hasCol("kingdom_intel", "wars_won")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN wars_won INTEGER");
+  if (!hasCol("kingdom_intel", "war_losses")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN war_losses INTEGER");
   if (!hasCol("kingdom_intel", "networth_rank")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN networth_rank INTEGER");
   if (!hasCol("kingdom_intel", "land_rank")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN land_rank INTEGER");
   if (!hasCol("kingdom_intel", "honor_rank")) db.exec("ALTER TABLE kingdom_intel ADD COLUMN honor_rank INTEGER");
@@ -688,12 +690,12 @@ export function storeKingdom(data: KingdomData, savedBy: string, keyHash: string
   db.transaction(() => {
     const result = db.prepare(`
       INSERT INTO kingdom_intel (
-        key_hash, name, location, kingdom_title, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, honor_rank, war_target,
+        key_hash, name, location, kingdom_title, total_networth, total_land, total_honor, wars_won, war_losses, networth_rank, land_rank, honor_rank, war_target,
         their_attitude_to_us, their_attitude_points,
         our_attitude_to_them, our_attitude_points,
         hostility_meter_visible_until, open_relations_json, war_doctrines_json, saved_by
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       keyHash,
       data.name,
@@ -703,6 +705,7 @@ export function storeKingdom(data: KingdomData, savedBy: string, keyHash: string
       data.totalLand,
       data.totalHonor,
       data.warsWon,
+      data.warLosses,
       data.networthRank,
       data.landRank,
       data.honorRank,
@@ -786,6 +789,7 @@ export interface KingdomSnapshot {
   totalLand: number | null;
   totalHonor: number | null;
   warsWon: number | null;
+  warLosses: number | null;
   networthRank: number | null;
   landRank: number | null;
   honorRank: number | null;
@@ -810,6 +814,7 @@ export interface KingdomSnapshotHistoryPoint {
   totalLand: number | null;
   totalHonor: number | null;
   warsWon: number | null;
+  warLosses: number | null;
   networthRank: number | null;
   landRank: number | null;
   honorRank: number | null;
@@ -1495,7 +1500,7 @@ export function createDbApi(db: Database.Database): DbApi {
     getLatestKingdomSnapshot(location, keyHash) {
       const snapshot = db.prepare(`
         SELECT ki.id, ki.name, ki.location, ki.kingdom_title,
-               ki.total_networth, ki.total_land, ki.total_honor, ki.wars_won, ki.networth_rank, ki.land_rank, ki.honor_rank,
+               ki.total_networth, ki.total_land, ki.total_honor, ki.wars_won, ki.war_losses, ki.networth_rank, ki.land_rank, ki.honor_rank,
                ki.war_target,
                ki.their_attitude_to_us, ki.their_attitude_points,
                ki.our_attitude_to_them, ki.our_attitude_points,
@@ -1515,6 +1520,7 @@ export function createDbApi(db: Database.Database): DbApi {
         total_land: number | null;
         total_honor: number | null;
         wars_won: number | null;
+        war_losses: number | null;
         networth_rank: number | null;
         land_rank: number | null;
         honor_rank: number | null;
@@ -1554,6 +1560,7 @@ export function createDbApi(db: Database.Database): DbApi {
         totalLand: snapshot.total_land,
         totalHonor: snapshot.total_honor,
         warsWon: snapshot.wars_won,
+        warLosses: snapshot.war_losses,
         networthRank: snapshot.networth_rank,
         landRank: snapshot.land_rank,
         honorRank: snapshot.honor_rank,
@@ -1580,7 +1587,7 @@ export function createDbApi(db: Database.Database): DbApi {
     getKingdomSnapshotHistory(location, keyHash) {
       const rows = db.prepare(`
         SELECT ki.id, ki.name, ki.location, ki.kingdom_title,
-               ki.total_networth, ki.total_land, ki.total_honor, ki.wars_won, ki.networth_rank, ki.land_rank, ki.honor_rank,
+               ki.total_networth, ki.total_land, ki.total_honor, ki.wars_won, ki.war_losses, ki.networth_rank, ki.land_rank, ki.honor_rank,
                ki.received_at
         FROM kingdom_intel ki
         WHERE ki.location = ?
@@ -1596,6 +1603,7 @@ export function createDbApi(db: Database.Database): DbApi {
         total_land: number | null;
         total_honor: number | null;
         wars_won: number | null;
+        war_losses: number | null;
         networth_rank: number | null;
         land_rank: number | null;
         honor_rank: number | null;
@@ -1611,6 +1619,7 @@ export function createDbApi(db: Database.Database): DbApi {
         totalLand: row.total_land,
         totalHonor: row.total_honor,
         warsWon: row.wars_won,
+        warLosses: row.war_losses,
         networthRank: row.networth_rank,
         landRank: row.land_rank,
         honorRank: row.honor_rank,

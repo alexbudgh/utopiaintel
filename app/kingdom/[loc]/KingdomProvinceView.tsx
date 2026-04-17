@@ -136,6 +136,7 @@ export function KingdomProvinceView({
               <span>Land <span className="text-gray-200 tabular-nums">{statValue(kdSnapshot.totalLand, "a")}</span>{kdSnapshot.landRank != null && <span className="text-gray-500"> · rank #{kdSnapshot.landRank}</span>}</span>
               <span>Honor <span className="text-gray-200 tabular-nums">{statValue(kdSnapshot.totalHonor)}</span>{kdSnapshot.honorRank != null && <span className="text-gray-500"> · rank #{kdSnapshot.honorRank}</span>}</span>
               <span>War Wins <span className="text-gray-200 tabular-nums">{statValue(kdSnapshot.warsWon)}</span></span>
+              <span>War Losses <span className="text-gray-200 tabular-nums">{statValue(kdSnapshot.warLosses)}</span></span>
             </div>
           )}
           <KingdomRelations

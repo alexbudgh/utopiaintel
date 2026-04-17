@@ -127,6 +127,7 @@ export interface KingdomData {
   totalLand: number | null;
   totalHonor: number | null;
   warsWon: number | null;
+  warLosses: number | null;
   networthRank: number | null;
   landRank: number | null;
   honorRank: number | null;

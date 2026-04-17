@@ -574,6 +574,7 @@ function makePartitionedDb() {
       total_land INTEGER,
       total_honor INTEGER,
       wars_won INTEGER,
+      war_losses INTEGER,
       networth_rank INTEGER,
       land_rank INTEGER,
       honor_rank INTEGER,
@@ -669,6 +670,7 @@ function addKingdomSnapshot(
     totalLand?: number | null;
     totalHonor?: number | null;
     warsWon?: number | null;
+    warLosses?: number | null;
     networthRank?: number | null;
     landRank?: number | null;
     honorRank?: number | null;
@@ -682,10 +684,10 @@ function addKingdomSnapshot(
 ) {
   const result = db.prepare(
     `INSERT INTO kingdom_intel (
-      key_hash, name, location, kingdom_title, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, honor_rank, their_attitude_to_us, their_attitude_points,
+      key_hash, name, location, kingdom_title, total_networth, total_land, total_honor, wars_won, war_losses, networth_rank, land_rank, honor_rank, their_attitude_to_us, their_attitude_points,
       our_attitude_to_them, our_attitude_points,
       hostility_meter_visible_until, open_relations_json, received_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     KEY_A,
     `KD ${location}`,
@@ -695,6 +697,7 @@ function addKingdomSnapshot(
     relation.totalLand ?? null,
     relation.totalHonor ?? null,
     relation.warsWon ?? null,
+    relation.warLosses ?? null,
     relation.networthRank ?? null,
     relation.landRank ?? null,
     relation.honorRank ?? null,
@@ -727,6 +730,7 @@ function queryLatestKingdomSnapshot(
   totalLand: number | null;
   totalHonor: number | null;
   warsWon: number | null;
+  warLosses: number | null;
   networthRank: number | null;
   landRank: number | null;
   honorRank: number | null;
@@ -744,6 +748,7 @@ function queryLatestKingdomSnapshot(
            ki.total_land,
            ki.total_honor,
            ki.wars_won,
+           ki.war_losses,
            ki.networth_rank,
            ki.land_rank,
            ki.honor_rank,
@@ -765,6 +770,7 @@ function queryLatestKingdomSnapshot(
     total_land: number | null;
     total_honor: number | null;
     wars_won: number | null;
+    war_losses: number | null;
     networth_rank: number | null;
     land_rank: number | null;
     honor_rank: number | null;
@@ -792,6 +798,7 @@ function queryLatestKingdomSnapshot(
     totalLand: snapshot.total_land,
     totalHonor: snapshot.total_honor,
     warsWon: snapshot.wars_won,
+    warLosses: snapshot.war_losses,
     networthRank: snapshot.networth_rank,
     landRank: snapshot.land_rank,
     honorRank: snapshot.honor_rank,
@@ -1030,6 +1037,7 @@ test("kingdom snapshot: top-level kingdom stats are returned with the snapshot",
       totalLand: 95368,
       totalHonor: 24810,
       warsWon: 2,
+      warLosses: 3,
       networthRank: 3,
       landRank: 5,
       honorRank: 7,
@@ -1042,6 +1050,7 @@ test("kingdom snapshot: top-level kingdom stats are returned with the snapshot",
   assert.equal(snapshot.totalLand, 95368);
   assert.equal(snapshot.totalHonor, 24810);
   assert.equal(snapshot.warsWon, 2);
+  assert.equal(snapshot.warLosses, 3);
   assert.equal(snapshot.networthRank, 3);
   assert.equal(snapshot.landRank, 5);
   assert.equal(snapshot.honorRank, 7);
@@ -1091,18 +1100,18 @@ test("getKingdomSnapshotHistory: returns accessible stat snapshots in ascending 
 
     const accessible1 = Number(db.prepare(`
       INSERT INTO kingdom_intel (
-        key_hash, name, location, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, honor_rank, received_at
-      ) VALUES (?, 'KD 7:5', '7:5', 12000000, 45000, 15000, 2, 40, 30, 22, '2026-04-04 16:00:00')
+        key_hash, name, location, total_networth, total_land, total_honor, wars_won, war_losses, networth_rank, land_rank, honor_rank, received_at
+      ) VALUES (?, 'KD 7:5', '7:5', 12000000, 45000, 15000, 2, 1, 40, 30, 22, '2026-04-04 16:00:00')
     `).run(KEY_A).lastInsertRowid);
     const accessible2 = Number(db.prepare(`
       INSERT INTO kingdom_intel (
-        key_hash, name, location, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, honor_rank, received_at
-      ) VALUES (?, 'KD 7:5', '7:5', 12500000, 45250, 15500, 2, 38, 29, 19, '2026-04-04 18:00:00')
+        key_hash, name, location, total_networth, total_land, total_honor, wars_won, war_losses, networth_rank, land_rank, honor_rank, received_at
+      ) VALUES (?, 'KD 7:5', '7:5', 12500000, 45250, 15500, 2, 2, 38, 29, 19, '2026-04-04 18:00:00')
     `).run(KEY_A).lastInsertRowid);
     const inaccessible = Number(db.prepare(`
       INSERT INTO kingdom_intel (
-        key_hash, name, location, total_networth, total_land, total_honor, wars_won, networth_rank, land_rank, honor_rank, received_at
-      ) VALUES (?, 'KD 7:5', '7:5', 13000000, 46000, 16000, 3, 35, 28, 17, '2026-04-04 19:00:00')
+        key_hash, name, location, total_networth, total_land, total_honor, wars_won, war_losses, networth_rank, land_rank, honor_rank, received_at
+      ) VALUES (?, 'KD 7:5', '7:5', 13000000, 46000, 16000, 3, 4, 35, 28, 17, '2026-04-04 19:00:00')
     `).run(KEY_B).lastInsertRowid);
     const noStats = Number(db.prepare(`
       INSERT INTO kingdom_intel (key_hash, name, location, received_at)
@@ -1131,6 +1140,7 @@ test("getKingdomSnapshotHistory: returns accessible stat snapshots in ascending 
         totalNetworth: point.totalNetworth,
         totalLand: point.totalLand,
         totalHonor: point.totalHonor,
+        warLosses: point.warLosses,
         honorRank: point.honorRank,
       })),
       [
@@ -1139,6 +1149,7 @@ test("getKingdomSnapshotHistory: returns accessible stat snapshots in ascending 
           totalNetworth: 12000000,
           totalLand: 45000,
           totalHonor: 15000,
+          warLosses: 1,
           honorRank: 22,
         },
         {
@@ -1146,6 +1157,7 @@ test("getKingdomSnapshotHistory: returns accessible stat snapshots in ascending 
           totalNetworth: 12500000,
           totalLand: 45250,
           totalHonor: 15500,
+          warLosses: 2,
           honorRank: 19,
         },
       ],

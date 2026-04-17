@@ -686,6 +686,7 @@ test("parseKingdom — directional relations and hostility timer", () => {
   assert.equal(r.totalHonor, 24810);
   assert.equal(r.honorRank, 51);
   assert.equal(r.warsWon, 2);
+  assert.equal(r.warLosses, 2);
   assert.equal(r.theirAttitudeToUs, "Non Aggression Pact");
   assert.equal(r.theirAttitudePoints, 0);
   assert.equal(r.ourAttitudeToThem, "Non Aggression Pact");
