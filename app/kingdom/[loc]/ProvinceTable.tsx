@@ -584,12 +584,11 @@ const TEXT_LEFT = new Set<ColKey>(["race", "personality"]);
 
 export function ProvinceTable({
   kingdom,
-  initial,
+  provinces,
 }: {
   kingdom: string;
-  initial: ProvinceRow[];
+  provinces: ProvinceRow[];
 }) {
-  const [provinces, setProvinces] = useState(initial);
   const [selectedRowId, setSelectedRowId] = useState<number | null>(null);
   const [activeView, setActiveView] = useState<string | null>("Overview");
   const [customCols, setCustomCols] = useState<Set<ColKey>>(new Set(VIEWS.Overview));
@@ -653,15 +652,6 @@ export function ProvinceTable({
     document.addEventListener("mousedown", handleDown);
     return () => document.removeEventListener("mousedown", handleDown);
   }, [dropdownOpen]);
-
-  // Poll every 30s
-  useEffect(() => {
-    const id = setInterval(async () => {
-      const res = await fetch(`/api/kingdom/${encodeURIComponent(kingdom)}`);
-      if (res.ok) setProvinces(await res.json());
-    }, 30_000);
-    return () => clearInterval(id);
-  }, [kingdom]);
 
   const selectView = (name: string) => {
     setActiveView(name);
