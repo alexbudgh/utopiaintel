@@ -6,7 +6,7 @@ import { hashKey } from "@/lib/keys";
 import { IntelSetupCard } from "@/app/components/IntelSetupCard";
 import { toRelationContext } from "@/lib/relation-context";
 import { KingdomHistoryView } from "./KingdomSnapshotChart";
-import { KingdomPageShell } from "./KingdomPageShell";
+import { KingdomShellWrapper } from "./KingdomShellWrapper";
 import { KingdomProvinceView } from "./KingdomProvinceView";
 import { GainsTable } from "./gains/GainsTable";
 import { ThieveryTable } from "./thievery/ThieveryTable";
@@ -88,18 +88,18 @@ export default async function KingdomPage({
           initialRitual={ritual}
         />
       ) : tabContent ? (
-        <KingdomPageShell
+        <KingdomShellWrapper
           kingdom={kingdom}
           boundKingdom={boundKingdom}
           endpointUrl={`${baseUrl}/api/intel`}
-          kdSnapshot={snapshot}
-          relationContexts={initialRelationContexts}
-          dragon={dragon}
-          ritual={ritual}
-          provinceCount={provinces.length}
+          initialKdSnapshot={snapshot}
+          initialRelationContexts={initialRelationContexts}
+          initialDragon={dragon}
+          initialRitual={ritual}
+          initialProvinceCount={provinces.length}
         >
           {tabContent}
-        </KingdomPageShell>
+        </KingdomShellWrapper>
       ) : (
         <div className="rounded-lg border border-gray-800 bg-gray-900/50 px-5 py-6 text-sm text-gray-300">
           <div className="font-medium text-gray-100">No intel available for {kingdom}</div>
