@@ -30,7 +30,7 @@ Stored intel is then surfaced through:
 - `/`
   A kingdom list with freshness, relation badges, current ritual/dragon state, and a shortcut to your bound kingdom.
 - `/kingdom/[loc]`
-  The main kingdom page, with province table, gains view, and news view.
+  The main kingdom page, with province table, gains, thievery, news, and history views.
 - `/kingdom/[loc]/[prov]`
   Province detail with overview, population estimate, military, resources, sciences, survey/buildings, armies, and active effects.
 - `/login`
@@ -67,7 +67,9 @@ The province table and detail page also compute derived values such as:
 ### Kingdom Page
 - Default province table view.
 - `?view=gains` gains matrix for self-vs-target province matchups.
+- `?view=thievery` thievery intel overview.
 - `?view=news` kingdom news explorer with summaries and charts.
+- `?view=history` NW/land/honor snapshot chart over time.
 
 Province table highlights:
 - default sort is slot ascending
@@ -165,8 +167,8 @@ If a payload is received but not recognized, the endpoint still returns success 
 
 ### `GET /api/kingdom/[loc]`
 
-Returns the current province rows for a kingdom, filtered by the authenticated key.
-This is used by the client-side province table refresh loop.
+Returns province rows, kingdom snapshot, relation contexts, dragon, and ritual for a kingdom, filtered by the authenticated key.
+Used by the client-side polling loop to refresh the kingdom header and province table on all tab views.
 
 ## Storage and Debugging
 
@@ -181,7 +183,6 @@ pm2 reload ecosystem.config.js --update-env
 ```
 
 Operational notes:
-- the production source of truth is the live server DB, not a copied local `intel.db`
 - keep `--exclude=intel.db` on deploy syncs
 - set `INTEL_DEBUG_PATH` outside the deployed app directory in production, e.g. `/home/ec2-user/utopiaintel-data/intel_debug.jsonl`
 - optional rotation env vars:
@@ -273,7 +274,5 @@ Current PM2 env in `ecosystem.config.js` includes:
 
 ## Repo Notes
 
-- Gains are a same-page kingdom view at `/kingdom/[loc]?view=gains`, not a separate standalone page.
-- News is a same-page kingdom view at `/kingdom/[loc]?view=news`.
 - The app assumes access control through intel partitioning by hashed key.
 - The kingdom page can render partial data when only some intel types are available.
