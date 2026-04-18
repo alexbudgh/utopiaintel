@@ -6,11 +6,13 @@ import { hashKey } from "@/lib/keys";
 import { IntelSetupCard } from "@/app/components/IntelSetupCard";
 import { toRelationContext } from "@/lib/relation-context";
 import { KingdomHistoryView } from "./KingdomSnapshotChart";
+import { KingdomPageShell } from "./KingdomPageShell";
 import { KingdomProvinceView } from "./KingdomProvinceView";
 import { GainsTable } from "./gains/GainsTable";
 import { ThieveryTable } from "./thievery/ThieveryTable";
 import { KingdomNewsTable } from "./KingdomNewsTable";
 import { getGainsPageData } from "@/lib/gains-page";
+import type { ReactNode } from "react";
 
 export default async function KingdomPage({
   params,
@@ -51,6 +53,26 @@ export default async function KingdomPage({
   const latestWarDate = view === "news" ? getLatestWarDate(kingdom, keyHash) : null;
   const ritual = getKingdomRitual(kingdom, keyHash);
   const dragon = getKingdomDragon(kingdom, keyHash);
+  let tabContent: ReactNode | null = null;
+
+  if (view === "news") {
+    tabContent = (
+      <KingdomNewsTable events={newsEvents!} summary={newsSummary!} kingdom={kingdom} from={from} to={to} effectiveFrom={newsEffectiveFrom ?? undefined} latestWarDate={latestWarDate ?? undefined} warTarget={snapshot?.warTarget ?? undefined} />
+    );
+  } else if (view === "gains") {
+    tabContent = <GainsTable initial={gainsInitial!} embedded />;
+  } else if (view === "thievery") {
+    tabContent = <ThieveryTable initial={thieveryInitial!} embedded />;
+  } else if (view === "history") {
+    tabContent = (
+      <KingdomHistoryView
+        primaryKingdom={kingdom}
+        primaryHistory={snapshotHistory}
+        compareKingdom={compareKingdom}
+        compareHistory={compareHistory}
+      />
+    );
+  }
 
   return (
     <main className="p-6">
@@ -65,19 +87,19 @@ export default async function KingdomPage({
           initialDragon={dragon}
           initialRitual={ritual}
         />
-      ) : view === "news" ? (
-        <KingdomNewsTable events={newsEvents!} summary={newsSummary!} kingdom={kingdom} from={from} to={to} effectiveFrom={newsEffectiveFrom ?? undefined} latestWarDate={latestWarDate ?? undefined} warTarget={snapshot?.warTarget ?? undefined} />
-      ) : view === "gains" ? (
-        <GainsTable initial={gainsInitial!} embedded />
-      ) : view === "thievery" ? (
-        <ThieveryTable initial={thieveryInitial!} embedded />
-      ) : view === "history" ? (
-        <KingdomHistoryView
-          primaryKingdom={kingdom}
-          primaryHistory={snapshotHistory}
-          compareKingdom={compareKingdom}
-          compareHistory={compareHistory}
-        />
+      ) : tabContent ? (
+        <KingdomPageShell
+          kingdom={kingdom}
+          boundKingdom={boundKingdom}
+          endpointUrl={`${baseUrl}/api/intel`}
+          kdSnapshot={snapshot}
+          relationContexts={initialRelationContexts}
+          dragon={dragon}
+          ritual={ritual}
+          provinceCount={provinces.length}
+        >
+          {tabContent}
+        </KingdomPageShell>
       ) : (
         <div className="rounded-lg border border-gray-800 bg-gray-900/50 px-5 py-6 text-sm text-gray-300">
           <div className="font-medium text-gray-100">No intel available for {kingdom}</div>
