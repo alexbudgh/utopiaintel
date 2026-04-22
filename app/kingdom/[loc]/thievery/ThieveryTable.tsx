@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { KingdomTabs, btnBase, btnActive, btnInactive } from "../KingdomTabs";
 import { Tooltip } from "@/app/components/Tooltip";
 import type { ProvinceRow } from "@/lib/db";
 import type { GainsPageData } from "@/lib/gains-page";
 import { OPS, computeCell, type Op, type CellResult } from "@/lib/thievery";
-import { formatNum } from "@/lib/ui";
+import { formatExactNum, formatNum } from "@/lib/ui";
 
 const ATTACKER_COL_WIDTH = "w-52 min-w-52";
 const TARGET_COL_WIDTH = "w-36 min-w-36";
@@ -29,16 +29,13 @@ function cellTooltip(
   op: Op,
   isWar: boolean,
   result: CellResult,
-): string {
-  const config = OPS[op];
-  if (result.rawCap == null) return "No resource data for this target province.";
-
-  const capRate = isWar ? config.capWar : config.capOow;
-  const resource = config.resource(defender)!;
-
+): ReactNode {
+  const exact = (value: number | null | undefined) => formatExactNum(value, 2);
+  const whole = (value: number | null | undefined) =>
+    value == null ? "—" : Math.round(value).toLocaleString();
   const nwLine =
     result.nwRatio != null
-      ? `NW ratio: min(${formatNum(attacker.networth)}/${formatNum(defender.networth)}, ${formatNum(defender.networth)}/${formatNum(attacker.networth)}) = ${result.nwRatio.toFixed(3)}`
+      ? `NW ratio: min(${exact(attacker.networth)}/${exact(defender.networth)}, ${exact(defender.networth)}/${exact(attacker.networth)}) = ${result.nwRatio.toFixed(3)}`
       : "NW ratio: unknown (missing NW) — assumed 1.0";
   const shieldingLine =
     defender.shielding_effect != null
@@ -49,11 +46,69 @@ function cellTooltip(
       ? `Watchtowers: 1 − ${defender.watch_towers_effect.toFixed(1)}% = ${result.watchtowersFactor.toFixed(3)}`
       : "Watchtowers: no Survey data — assumed 1.0";
 
+  if (result.kind === "night_strike") {
+    const ns = result.nightStrike!;
+    if (!ns.hasAnyTroopData) return "No troop data for this target province.";
+    return (
+      <div className="max-w-md space-y-2 text-xs">
+        <div className="font-medium text-gray-100">
+          {attacker.slot != null ? `#${attacker.slot} ` : ""}{attacker.name}
+          <span className="mx-1 text-gray-500">→</span>
+          {defender.slot != null ? `#${defender.slot} ` : ""}{defender.name}
+        </div>
+
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-gray-400">
+          <div>Attacker thieves</div>
+          <div className="text-right text-gray-200">{exact(ns.attackerThieves)}</div>
+          <div>Displayed total</div>
+          <div className="text-right text-gray-200">{whole(result.value)}</div>
+          <div>Theoretical cap</div>
+          <div className="text-right text-gray-200">{exact(ns.capValue)}</div>
+        </div>
+
+        <table className="w-full border-separate border-spacing-0 text-xs">
+          <thead>
+            <tr className="text-gray-500">
+              <th className="border-b border-gray-800 pb-1 pr-3 text-left font-normal">Unit</th>
+              <th className="border-b border-gray-800 pb-1 pr-3 text-right font-normal">Target</th>
+              <th className="border-b border-gray-800 pb-1 pr-3 text-right font-normal">Cap</th>
+              <th className="border-b border-gray-800 pb-1 text-right font-normal">Actual</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ns.breakdown.map((unit) => (
+              <tr key={unit.key}>
+                <td className="py-1 pr-3 text-gray-200">{unit.label}</td>
+                <td className="py-1 pr-3 text-right text-gray-400">{exact(unit.targetTotal)}</td>
+                <td className="py-1 pr-3 text-right text-gray-300">{exact(unit.adjustedCap)}</td>
+                <td className="py-1 text-right text-gray-200">{exact(unit.adjustedActual ?? unit.adjustedCap)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div className="space-y-1 text-gray-400">
+          <div>{nwLine}</div>
+          <div>{shieldingLine}</div>
+          <div>{watchtowersLine}</div>
+          <div>{ns.partial ? "Partial result: one or more defender troop counts are missing." : "All four Night Strike troop pools available."}</div>
+          <div>{ns.attackerThieves == null ? "Actual-by-send unavailable: attacker thieves unknown, so the cell falls back to the cap total." : "Actual estimate assumes sending all currently available thieves."}</div>
+          <div>{ns.usedFallback ? "Out-of-war specialist values are best-effort: missing guide values fall back to war cap/rate assumptions." : "Guide-derived values used directly for all displayed Night Strike units."}</div>
+          <div>Night Strike affects total troops, including armies away from home.</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (result.rawCap == null || result.resource == null || result.capRate == null || result.unit == null) {
+    return "No resource data for this target province.";
+  }
+
   return [
     `${attacker.slot != null ? `#${attacker.slot} ` : ""}${attacker.name} → ${defender.slot != null ? `#${defender.slot} ` : ""}${defender.name}`,
     "",
-    `Resource: ${formatNum(resource)} ${config.unit}`,
-    `Cap (${isWar ? "war" : "non-war"}): ${formatNum(resource)} × ${(capRate * 100).toFixed(1)}% = ${formatNum(result.rawCap)}`,
+    `Resource: ${formatNum(result.resource)} ${result.unit}`,
+    `Cap (${isWar ? "war" : "non-war"}): ${formatNum(result.resource)} × ${(result.capRate * 100).toFixed(1)}% = ${formatNum(result.rawCap)}`,
     nwLine,
     shieldingLine,
     watchtowersLine,
@@ -78,6 +133,40 @@ function emptyState(message: string) {
       {message}
     </div>
   );
+}
+
+function defenderNightStrikeTotal(defender: ProvinceRow): number | null {
+  const values = [defender.soldiers, defender.off_specs, defender.def_specs, defender.elites];
+  let hasValue = false;
+  let total = 0;
+  for (const value of values) {
+    if (value == null) continue;
+    hasValue = true;
+    total += value;
+  }
+  return hasValue ? total : null;
+}
+
+function cellSubline(result: CellResult): string | null {
+  if (result.kind === "night_strike") {
+    const ns = result.nightStrike!;
+    if (ns.partial) return "Partial";
+    if (ns.actualValue == null) return "No thief data";
+    if (ns.capValue != null && Math.abs(ns.actualValue - ns.capValue) < 0.01) return "Cap-limited";
+    return "Thief-limited";
+  }
+
+  if (result.nwRatio != null && result.nwRatio < 0.95) {
+    return `NW ${(result.nwRatio * 100).toFixed(0)}%`;
+  }
+
+  return null;
+}
+
+function displayCellValue(result: CellResult): string {
+  if (result.value == null) return "—";
+  if (result.kind === "night_strike") return Math.round(result.value).toLocaleString();
+  return formatNum(result.value);
 }
 
 export function ThieveryTable({
@@ -129,11 +218,15 @@ export function ThieveryTable({
       ))}
       <Tooltip
         content={[
-          { text: "Rob Vaults / Rob Granaries / Rob Towers only.", tone: "strong" },
-          { text: "Cell = resource × cap% × NW ratio × (1 − Shielding%) × (1 − Watchtowers%)." },
+          { text: "Resource ops show adjusted max steals. Night Strike shows adjusted troop kills.", tone: "strong" },
+          { text: "Resource cells = resource × cap% × NW ratio × (1 − Shielding%) × (1 − Watchtowers%)." },
+          { text: "Night Strike assumes sending all available thieves and shows actual total when thief count is known, otherwise the adjusted cap total." },
+          { text: "Night Strike affects total troops, including armies away from home." },
           { text: "NW ratio: min(attackerNW/defenderNW, defenderNW/attackerNW). Defaults to 1.0 if NW unknown." },
           { text: "Shielding from latest SoS. Watchtowers from latest Survey. Both default to 1.0 if unavailable." },
           { text: "War rates apply when either kingdom has declared war on the other." },
+          { text: "Out-of-war Night Strike specialist values are best-effort where the guide is incomplete.", tone: "warn" },
+          { text: "Night Strike itself requires at least Unfriendly relations; the matrix is still shown for planning.", tone: "muted" },
           { text: "No race/personality modifiers affect thievery gains as of age 114.", tone: "muted" },
         ]}
       >
@@ -179,7 +272,8 @@ export function ThieveryTable({
                 {selfKingdom}
               </th>
               {targetSorted.map((defender) => {
-                const resource = OPS[op].resource(defender);
+                const resource = OPS[op].kind === "resource" ? OPS[op].resource(defender) : null;
+                const nsTotal = defenderNightStrikeTotal(defender);
                 return (
                   <th
                     key={defender.id}
@@ -190,7 +284,12 @@ export function ThieveryTable({
                         `${defender.slot != null ? `#${defender.slot} ` : ""}${defender.name}`,
                         `NW ${formatNum(defender.networth)}`,
                         `Land ${defender.land?.toLocaleString() ?? "—"}a`,
-                        `${OPS[op].label}: ${formatNum(resource)} ${OPS[op].unit}`,
+                        OPS[op].kind === "resource"
+                          ? `${OPS[op].label}: ${formatNum(resource)} ${OPS[op].unit}`
+                          : `Night Strike troops: ${formatNum(nsTotal)}`,
+                        OPS[op].kind === "night_strike"
+                          ? `Soldiers ${formatNum(defender.soldiers)} · Off ${formatNum(defender.off_specs)} · Def ${formatNum(defender.def_specs)} · Elites ${formatNum(defender.elites)}`
+                          : "",
                       ].join("\n")}
                     >
                       <Link
@@ -209,7 +308,9 @@ export function ThieveryTable({
                           {formatNum(defender.networth)} NW
                         </div>
                         <div className="mt-0.5 text-[10px] font-normal text-gray-600">
-                          {formatNum(resource)} {OPS[op].unit}
+                          {OPS[op].kind === "resource"
+                            ? `${formatNum(resource)} ${OPS[op].unit}`
+                            : `${formatNum(nsTotal)} troops`}
                         </div>
                       </Link>
                     </Tooltip>
@@ -292,12 +393,10 @@ export function ThieveryTable({
                       } ${tone.cell}`}
                     >
                       <Tooltip content={cellTooltip(attacker, defender, op, isWar, result)}>
-                        <div className={tone.text}>
-                          {result.value != null ? formatNum(result.value) : "—"}
-                        </div>
-                        {result.nwRatio != null && result.nwRatio < 0.95 && (
-                          <div className="mt-0.5 text-[10px] text-amber-500">
-                            NW {(result.nwRatio * 100).toFixed(0)}%
+                        <div className={tone.text}>{displayCellValue(result)}</div>
+                        {cellSubline(result) && (
+                          <div className={`mt-0.5 text-[10px] ${result.kind === "night_strike" ? "text-gray-500" : "text-amber-500"}`}>
+                            {cellSubline(result)}
                           </div>
                         )}
                       </Tooltip>
