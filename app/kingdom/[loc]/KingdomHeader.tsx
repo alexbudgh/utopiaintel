@@ -103,8 +103,15 @@ export function KingdomHeader({
         </div>
       </div>
 
-      {(dragon || ritual || (kdSnapshot && kdSnapshot.warDoctrines.length > 0)) && (
-        <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap gap-2">
+          <a
+            href="https://utopiaguide.chaos-intel.com/history/Age_115/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center rounded border border-teal-500/40 bg-teal-500/10 px-3 py-1.5 text-sm text-teal-300 transition-colors hover:border-teal-400/60 hover:text-teal-100"
+          >
+            Updated for Age 115
+          </a>
           {dragon && (
             <a href="https://utopiaguide.chaos-intel.com/main/Dragons/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded border border-rose-500/40 bg-rose-500/10 px-3 py-1.5 text-sm text-rose-300 hover:border-rose-400/60 transition-colors">
               <span className="font-medium">{dragon.dragonType} Dragon</span>
@@ -155,7 +162,6 @@ export function KingdomHeader({
             </Tooltip>
           )}
         </div>
-      )}
     </>
   );
 }
