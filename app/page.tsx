@@ -35,17 +35,17 @@ const FEATURE_SECTIONS = [
 
 const FEATURE_LIST = [
   {
-    label: "Age 114 mechanics",
+    label: "Age 115 mechanics",
     body: (
       <>
         Updated for the current age.{" "}
         <a
-          href="https://utopiaguide.chaos-intel.com/history/Age_114/"
+          href="https://utopiaguide.chaos-intel.com/history/Age_115/"
           target="_blank"
           rel="noopener noreferrer"
           className="text-amber-200 underline decoration-amber-700/40 underline-offset-4 transition-colors hover:text-amber-100"
         >
-          Age 114 guide
+          Age 115 guide
         </a>
       </>
     ),

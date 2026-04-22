@@ -13,17 +13,17 @@ export interface RaceData {
   eliteDefStr: number;
 }
 
-// Age 114 unit stats.
+// Age 115 unit stats.
 export const RACES: RaceData[] = [
-  { name: "Avian",    shortName: "AV", offSpec: "Griffins",              defSpec: "Harpies",            elite: "Drakes",             soldierStr: 3, offSpecStr: 13, defSpecStr:  9, eliteOffStr: 16, eliteDefStr:  6 },
-  { name: "Dark Elf", shortName: "DE", offSpec: "Night Rangers",         defSpec: "Druids",             elite: "Drows",              soldierStr: 3, offSpecStr: 15, defSpecStr:  8, eliteOffStr:  4, eliteDefStr: 12 },
-  { name: "Dwarf",    shortName: "DW", offSpec: "Warriors",              defSpec: "Axemen",             elite: "Berserkers",         soldierStr: 3, offSpecStr: 10, defSpecStr: 11, eliteOffStr: 15, eliteDefStr:  9 },
-  { name: "Elf",      shortName: "EL", offSpec: "Rangers",               defSpec: "Archers",            elite: "Elf Lords",          soldierStr: 3, offSpecStr: 10, defSpecStr: 13, eliteOffStr: 14, eliteDefStr:  6 },
-  { name: "Faery",    shortName: "FA", offSpec: "Magicians",             defSpec: "Druids",             elite: "Beastmasters",       soldierStr: 3, offSpecStr: 10, defSpecStr: 10, eliteOffStr:  8, eliteDefStr: 15 },
-  { name: "Halfling", shortName: "HA", offSpec: "Strongarms",            defSpec: "Slingers",           elite: "Brutes",             soldierStr: 3, offSpecStr: 10, defSpecStr: 11, eliteOffStr: 10, eliteDefStr: 13 },
-  { name: "Human",    shortName: "HU", offSpec: "Swordsmen",             defSpec: "Archers",            elite: "Knights",            soldierStr: 3, offSpecStr: 12, defSpecStr: 10, eliteOffStr: 14, eliteDefStr:  9 },
-  { name: "Orc",      shortName: "OR", offSpec: "Goblins",               defSpec: "Trolls",             elite: "Ogres",              soldierStr: 3, offSpecStr: 13, defSpecStr: 10, eliteOffStr: 20, eliteDefStr:  1 },
-  { name: "Undead",   shortName: "UD", offSpec: "Skeletons",             defSpec: "Zombies",            elite: "Ghouls",             soldierStr: 3, offSpecStr: 11, defSpecStr: 10, eliteOffStr: 16, eliteDefStr:  7 },
+  { name: "Avian",    shortName: "AV", offSpec: "Griffins",              defSpec: "Harpies",            elite: "Drakes",             soldierStr: 3, offSpecStr: 12, defSpecStr: 10, eliteOffStr: 16, eliteDefStr:  3 },
+  { name: "Dark Elf", shortName: "DE", offSpec: "Night Rangers",         defSpec: "Druids",             elite: "Drows",              soldierStr: 3, offSpecStr: 15, defSpecStr: 11, eliteOffStr:  4, eliteDefStr: 12 },
+  { name: "Dwarf",    shortName: "DW", offSpec: "Warriors",              defSpec: "Axemen",             elite: "Berserkers",         soldierStr: 3, offSpecStr: 10, defSpecStr: 10, eliteOffStr: 15, eliteDefStr:  5 },
+  { name: "Elf",      shortName: "EL", offSpec: "Rangers",               defSpec: "Archers",            elite: "Elf Lords",          soldierStr: 3, offSpecStr: 10, defSpecStr: 13, eliteOffStr: 15, eliteDefStr:  4 },
+  { name: "Faery",    shortName: "FA", offSpec: "Magicians",             defSpec: "Druids",             elite: "Beastmasters",       soldierStr: 3, offSpecStr: 10, defSpecStr: 10, eliteOffStr:  4, eliteDefStr: 16 },
+  { name: "Halfling", shortName: "HA", offSpec: "Strongarms",            defSpec: "Slingers",           elite: "Brutes",             soldierStr: 3, offSpecStr: 10, defSpecStr: 10, eliteOffStr:  6, eliteDefStr: 12 },
+  { name: "Human",    shortName: "HU", offSpec: "Swordsmen",             defSpec: "Archers",            elite: "Knights",            soldierStr: 3, offSpecStr: 12, defSpecStr: 10, eliteOffStr: 16, eliteDefStr:  3 },
+  { name: "Orc",      shortName: "OR", offSpec: "Goblins",               defSpec: "Trolls",             elite: "Ogres",              soldierStr: 3, offSpecStr: 13, defSpecStr: 10, eliteOffStr: 18, eliteDefStr:  2 },
+  { name: "Undead",   shortName: "UD", offSpec: "Skeletons",             defSpec: "Zombies",            elite: "Ghouls",             soldierStr: 3, offSpecStr: 11, defSpecStr: 10, eliteOffStr: 17, eliteDefStr:  4 },
 ];
 
 export const RACE_NAMES = RACES.flatMap((r) => [r.name, r.shortName]);

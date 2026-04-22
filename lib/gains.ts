@@ -107,6 +107,7 @@ export function incomingRelationGainsFactor(attitude: string | null): number {
   return 1;
 }
 
+// TODO Age 115: Orc gets +5% gains OOW / +15% in War. Add an orcGainsFactor param (1.05/1.15) here.
 export function estimateTraditionalMarchAcres(input: {
   attackerLand: number | null;
   attackerNetworth: number | null;

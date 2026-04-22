@@ -145,16 +145,17 @@ test("computeAmbushRawOff — returns null for null/unknown race", () => {
   assert.equal(computeAmbushRawOff("Dragon", { elites: 100, offSpecs: 100, soldiers: 100 }), null);
 });
 
-test("computeAmbushRawOff — Orc: elites defend at 1, offSpecs at 10, soldiers at 3", () => {
-  // Formula: (elites*eliteDef + offSpecs*defSpecDef + soldiers*soldierOff) * 0.8 + 1
+test("computeAmbushRawOff — Orc: derives defending values from RACES constants", () => {
+  const r = getRaceByName("Orc")!;
   const elites = 100, offSpecs = 50, soldiers = 200;
-  const expected = (elites * 1 + offSpecs * 10 + soldiers * 3) * 0.8 + 1;
+  const expected = (elites * r.eliteDefStr + offSpecs * r.defSpecStr + soldiers * r.soldierStr) * 0.8 + 1;
   assert.equal(computeAmbushRawOff("Orc", { elites, offSpecs, soldiers }), expected);
 });
 
-test("computeAmbushRawOff — Elf: elites defend at 6, offSpecs (Rangers) at 13, soldiers at 3", () => {
+test("computeAmbushRawOff — Elf: derives defending values from RACES constants", () => {
+  const r = getRaceByName("Elf")!;
   const elites = 50, offSpecs = 100, soldiers = 0;
-  const expected = (elites * 6 + offSpecs * 13 + soldiers * 3) * 0.8 + 1;
+  const expected = (elites * r.eliteDefStr + offSpecs * r.defSpecStr + soldiers * r.soldierStr) * 0.8 + 1;
   assert.equal(computeAmbushRawOff("Elf", { elites, offSpecs, soldiers }), expected);
 });
 

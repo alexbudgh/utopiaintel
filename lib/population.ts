@@ -3,6 +3,7 @@ import { computeWizardCount } from "./nw";
 
 const RACE_POP_FACTOR: Record<string, number> = {
   Halfling: 1.1,
+  Faery: 0.95,
 };
 
 // Honor title → base population bonus (from the Titles of Nobility table)
@@ -20,12 +21,7 @@ const HONOR_POP_BONUS: Record<string, number> = {
 
 // Personality modifiers to honor effects (only War Hero has one)
 const PERSONALITY_HONOR_EFFECT_MOD: Record<string, number> = {
-  "War Hero": 1.5,
-};
-
-// Personality direct population bonuses (Paladin = "the Chivalrous" only)
-const PERSONALITY_POP_BONUS: Record<string, number> = {
-  "Paladin": 0.05,
+  "War Hero": 1.7,
 };
 
 export interface PopInputs {
@@ -108,8 +104,7 @@ export function estimatePop(p: PopInputs): PopEstimate {
     const housingMult = 1 + (p.housing_effect ?? 0) / 100;
     const honorBonus = (p.honor_title && HONOR_POP_BONUS[p.honor_title]) ? HONOR_POP_BONUS[p.honor_title] : 0;
     const honorEffectMod = (p.personality && PERSONALITY_HONOR_EFFECT_MOD[p.personality]) ? PERSONALITY_HONOR_EFFECT_MOD[p.personality] : 1.0;
-    const personalityPopBonus = (p.personality && PERSONALITY_POP_BONUS[p.personality]) ? PERSONALITY_POP_BONUS[p.personality] : 0;
-    const honorMult = 1 + honorBonus * honorEffectMod + personalityPopBonus;
+    const honorMult = 1 + honorBonus * honorEffectMod;
     maxPop = Math.round(rawCap * raceFactor * housingMult * honorMult);
   }
 

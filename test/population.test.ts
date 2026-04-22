@@ -234,8 +234,8 @@ test("estimatePop — currentPop: null when SoT and SoM are different ticks", ()
   assert.ok(needsForCurrent.some((s) => s.includes("same tick")));
 });
 
-test("estimatePop — maxPop: War Hero multiplies honor effect by 1.5×", () => {
-  // Duke base bonus = 0.10; War Hero mod = 1.5 → honorMult = 1 + 0.10 * 1.5 = 1.15
+test("estimatePop — maxPop: War Hero multiplies honor effect by 1.7×", () => {
+  // Duke base bonus = 0.10; War Hero mod = 1.7 → honorMult = 1 + 0.10 * 1.7 = 1.17
   const { maxPop } = estimatePop(makeInputs({
     buildings_built: 1000,
     barren_land: 0,
@@ -247,12 +247,12 @@ test("estimatePop — maxPop: War Hero multiplies honor effect by 1.5×", () => 
     honor_title: "Duke",
     personality: "War Hero",
   }));
-  // rawCap = 1000 * 25 = 25000; * 1.0 (race) * 1.0 (housing) * 1.15 (honor+warHero)
-  assert.equal(maxPop, Math.round(25000 * 1.15));
+  // rawCap = 1000 * 25 = 25000; * 1.0 (race) * 1.0 (housing) * 1.17 (honor+warHero)
+  assert.equal(maxPop, Math.round(25000 * 1.17));
 });
 
-test("estimatePop — maxPop: Paladin adds flat 5% pop bonus", () => {
-  // Paladin personality: +0.05 pop bonus; honorMult = 1 + 0 + 0.05 = 1.05
+test("estimatePop — maxPop: Paladin has no flat pop bonus (Age 115)", () => {
+  // Paladin no longer has a population bonus in Age 115
   const { maxPop } = estimatePop(makeInputs({
     buildings_built: 1000,
     barren_land: 0,
@@ -263,8 +263,8 @@ test("estimatePop — maxPop: Paladin adds flat 5% pop bonus", () => {
     sciences_age: T1,
     personality: "Paladin",
   }));
-  // rawCap = 25000; * 1.05 = 26250
-  assert.equal(maxPop, Math.round(25000 * 1.05));
+  // rawCap = 25000; no personality modifier
+  assert.equal(maxPop, Math.round(25000 * 1.0));
 });
 
 test("estimatePop — wizardsEstimated: false when wizards directly known", () => {
