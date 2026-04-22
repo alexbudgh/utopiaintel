@@ -121,6 +121,12 @@ export function Tooltip({ content, children }: { content: ReactNode | string | T
         setOpen(true);
       }}
       onMouseLeave={scheduleClose}
+      onFocus={(e) => {
+        clearCloseTimer();
+        setAnchor(e.currentTarget.getBoundingClientRect());
+        setOpen(true);
+      }}
+      onBlur={scheduleClose}
     >
       {children}
       {anchor && open && createPortal(
