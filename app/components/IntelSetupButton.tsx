@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { IntelSetupCard } from "@/app/components/IntelSetupCard";
 
 export function IntelSetupButton({ endpointUrl }: { endpointUrl: string }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function onPointerDown(event: MouseEvent) {
@@ -17,6 +18,15 @@ export function IntelSetupButton({ endpointUrl }: { endpointUrl: string }) {
     document.addEventListener("mousedown", onPointerDown);
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, []);
+
+  // Clamp dropdown so it doesn't overflow the left edge of the viewport.
+  useLayoutEffect(() => {
+    if (!open || !dropdownRef.current) return;
+    const el = dropdownRef.current;
+    el.style.transform = "";
+    const overflow = 8 - el.getBoundingClientRect().left;
+    if (overflow > 0) el.style.transform = `translateX(${overflow}px)`;
+  }, [open]);
 
   return (
     <div ref={rootRef} className="relative">
@@ -32,7 +42,7 @@ export function IntelSetupButton({ endpointUrl }: { endpointUrl: string }) {
         Setup
       </button>
       {open && (
-        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-[28rem] max-w-[calc(100vw-2rem)]">
+        <div ref={dropdownRef} className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-[28rem] max-w-[calc(100vw-2rem)]">
           <IntelSetupCard endpointUrl={endpointUrl} compact />
         </div>
       )}
