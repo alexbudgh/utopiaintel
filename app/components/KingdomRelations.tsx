@@ -193,7 +193,7 @@ export function KingdomRelations({
   }
 
   return (
-    <div className={`mt-2 rounded-md border px-3 py-2 text-xs ${relationTone}`}>
+    <div className={`mt-2 max-w-sm rounded-md border px-3 py-2 text-xs ${relationTone}`}>
       <div className="flex flex-wrap gap-1.5">
         {sections.map((section, i) => (
           <div key={i} className={section.standalone ? "" : "w-full"}>
