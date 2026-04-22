@@ -68,16 +68,26 @@ export function KingdomHeader({
               {kdSnapshot?.name ? `${kdSnapshot.name} (${kingdom})` : <span className="font-mono">{kingdom}</span>}
             </h1>
             {kdTitle && kdTitleTooltip && (
-              <Tooltip content={kdTitleTooltip}>
+              <span className="inline-flex items-center gap-1.5">
+                <Tooltip content={kdTitleTooltip}>
+                  <button
+                    type="button"
+                    aria-label={`Show ${kdTitle.title} details`}
+                    className="inline-flex items-center rounded border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-200 transition-colors hover:border-amber-400/60 hover:text-amber-100"
+                  >
+                    {kdTitle.title}
+                  </button>
+                </Tooltip>
                 <a
                   href="https://utopiaguide.chaos-intel.com/misc/Kingdom_Recognition/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex cursor-help items-center rounded border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-200 transition-colors hover:border-amber-400/60 hover:text-amber-100"
+                  aria-label={`${kdTitle.title} documentation`}
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-amber-500/40 bg-amber-500/10 text-[11px] font-semibold leading-none text-amber-200 transition-colors hover:border-amber-400/60 hover:text-amber-100"
                 >
-                  {kdTitle.title}
+                  ?
                 </a>
-              </Tooltip>
+              </span>
             )}
           </div>
           {kdSnapshot && (
