@@ -101,7 +101,7 @@ Do not store real province names, kingdom names, or player names in source code,
 ```bash
 npm test
 npm run build
-rsync -avz --exclude=intel.db .next/standalone/ utopiaintel:~/utopiaintel/
+rsync -avz --exclude=intel.db --exclude=node_modules/better-sqlite3 .next/standalone/ utopiaintel:~/utopiaintel/
 rsync -avz .next/static/ utopiaintel:~/utopiaintel/.next/static/
 ssh utopiaintel "pm2 reload utopiaintel"
 ```
