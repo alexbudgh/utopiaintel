@@ -190,6 +190,8 @@ Slot\tProvince\tRace\tLand\tNet Worth\tNet Worth/Acre\tNobility
 4\tCassiopeia (M)\tAvian\t3,357 acres\t948,576gc\t282gc\tQueen
 5\tBlack hole (S)\tElf\t3,797 acres\t1,063,889gc\t280gc\tCountess
 6\tPrams nova (S)*\tFaery\t1,493 acres\t316,475gc\t211gc\tLady
+7\tNew Province^\tHuman\t400 acres\t27,750gc\t69gc\tPeasant
+8\tNew Province Two^*\tHuman\t400 acres\t27,750gc\t69gc\tPeasant
 `;
 
 const KINGDOM_RELATION_TEXT = `
@@ -669,9 +671,19 @@ test("parseKingdom — monarch/steward markers stripped from province names", ()
   const stewardOnline = r.provinces.find((p) => p.name === "Prams nova");
   assert.ok(stewardOnline, "steward+online name should not include (S) or *");
 
+  // protection ^ alone
+  const prot = r.provinces.find((p) => p.name === "New Province");
+  assert.ok(prot, "protection-only name should not include ^");
+
+  // protection ^ combined with online *
+  const protOnline = r.provinces.find((p) => p.name === "New Province Two");
+  assert.ok(protOnline, "protection+online name should not include ^ or *");
+
   // No false positives — names with markers must not appear
   assert.ok(!r.provinces.find((p) => p.name.includes("(M)")), "no province name should contain (M)");
   assert.ok(!r.provinces.find((p) => p.name.includes("(S)")), "no province name should contain (S)");
+  assert.ok(!r.provinces.find((p) => p.name.includes("^")), "no province name should contain ^");
+  assert.ok(!r.provinces.find((p) => /\*$/.test(p.name)), "no province name should end with *");
 });
 
 test("parseKingdom — directional relations and hostility timer", () => {

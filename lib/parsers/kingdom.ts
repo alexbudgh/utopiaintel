@@ -22,7 +22,7 @@ const DOCTRINE_LINE_RE = /^(.+?)\t(\d+)\t(.+?)\t\s*([-\d.]+)%/gm;
 // Province list pattern: name, optional marker (*+^~), race, land(a), nw(gc), nwpa(gc), honor, optional gains
 const PROVINCE_RE = new RegExp(
   `\\b(${INT})\\s+` +
-  `(.+?)([*+^~]| \\([MS]\\)[*+^~]?)?\\s+` +
+  `(.+?)([*+^~]+| \\([MS]\\)[*+^~]*)?\\s+` +
   `(${RACE_GROUP})\\s+` +
   `(${INT})a\\s+` +
   `(${INT})gc\\s+` +
@@ -34,7 +34,7 @@ const PROVINCE_RE = new RegExp(
 // Older format uses "acres" instead of "a"
 const OLD_PROVINCE_RE = new RegExp(
   `\\b(${INT})\\s+` +
-  `(.+?)([*+^~]| \\([MS]\\)[*+^~]?)?\\s+` +
+  `(.+?)([*+^~]+| \\([MS]\\)[*+^~]*)?\\s+` +
   `(${RACE_GROUP})\\s+` +
   `(${INT}) acres\\s+` +
   `(${INT})gc\\s+` +
