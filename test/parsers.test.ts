@@ -436,6 +436,8 @@ test("parseSoT — Obsidian (7:5)", () => {
 
 for (const { ruler, personality, honorTitle } of [
   { ruler: "Lord Plague Bearer the Hero", personality: "War Hero", honorTitle: "Lord" },
+  { ruler: "Scribe the Warrior", personality: "Warrior", honorTitle: undefined },
+  { ruler: "Mike the Warrior", personality: "Warrior", honorTitle: undefined },
   { ruler: "The Conniving Knight etienne", personality: "Tactician", honorTitle: "Knight" },
   { ruler: "The Brave Knight etienne", personality: "Warrior", honorTitle: "Knight" },
   { ruler: "The Great Knight etienne", personality: "General", honorTitle: "Knight" },

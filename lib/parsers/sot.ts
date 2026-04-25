@@ -21,6 +21,7 @@ const PREFIX_PERSONALITY_MAP: Record<string, string> = {
 };
 const SUFFIX_PERSONALITY_MAP: Record<string, string> = {
   Hero: "War Hero",
+  Warrior: "Warrior",
   Rogue: "Rogue",
   Sorcerer: "Mystic",
   Sorceress: "Mystic",
