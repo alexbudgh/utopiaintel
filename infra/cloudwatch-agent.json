@@ -6,11 +6,6 @@
   "metrics": {
     "namespace": "CWAgent",
     "metrics_collected": {
-      "cpu": {
-        "measurement": ["cpu_usage_active"],
-        "totalcpu": true,
-        "resources": ["*"]
-      },
       "mem": {
         "measurement": ["mem_used_percent"]
       },
