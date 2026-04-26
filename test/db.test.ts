@@ -1879,6 +1879,54 @@ test("getKingdomProvinces: summarizes good and bad spells from the latest effect
   });
 });
 
+test("getKingdomProvinces: superseded province hidden when slot reassigned to new name", async () => {
+  await withRealDb(({ getKingdomProvinces }, db) => {
+    // OldName held slot 3, then reset → NewName now holds slot 3
+    for (const name of ["OldName", "NewName"]) {
+      db.prepare("INSERT INTO provinces (name, kingdom) VALUES (?, '7:5')").run(name);
+      const { id } = db.prepare("SELECT id FROM provinces WHERE name = ? AND kingdom = '7:5'").get(name) as { id: number };
+      db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, id);
+      db.prepare(`
+        INSERT INTO province_overview (province_id, key_hash, race, land, networth, source, saved_by, received_at)
+        VALUES (?, ?, 'Orc', 1000, 200000, 'sot', ?, '2026-04-04 18:00:00')
+      `).run(id, KEY_A, name);
+    }
+
+    // Old snapshot: slot 3 → OldName
+    const snap1 = Number(db.prepare(`
+      INSERT INTO kingdom_intel (key_hash, name, location, received_at) VALUES (?, 'KD', '7:5', '2026-04-04 16:00:00')
+    `).run(KEY_A).lastInsertRowid);
+    db.prepare("INSERT INTO kingdom_provinces (kingdom_intel_id, slot, name, race, land, networth) VALUES (?, 3, 'OldName', 'Orc', 1000, 200000)").run(snap1);
+
+    // New snapshot: slot 3 → NewName (reset happened)
+    const snap2 = Number(db.prepare(`
+      INSERT INTO kingdom_intel (key_hash, name, location, received_at) VALUES (?, 'KD', '7:5', '2026-04-04 18:00:00')
+    `).run(KEY_A).lastInsertRowid);
+    db.prepare("INSERT INTO kingdom_provinces (kingdom_intel_id, slot, name, race, land, networth) VALUES (?, 3, 'NewName', 'Orc', 1000, 200000)").run(snap2);
+
+    const rows = getKingdomProvinces("7:5", KEY_A);
+    assert.deepEqual(rows.map((r) => r.name), ["NewName"]);
+    assert.equal(rows[0].slot, 3);
+  });
+});
+
+test("getKingdomProvinces: SoT-only province with no kingdom snapshot is preserved", async () => {
+  await withRealDb(({ getKingdomProvinces }, db) => {
+    // SotOnly never appeared on a kingdom page — no kingdom_provinces rows
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('SotOnly', '7:5')").run();
+    const { id } = db.prepare("SELECT id FROM provinces WHERE name = 'SotOnly' AND kingdom = '7:5'").get() as { id: number };
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, id);
+    db.prepare(`
+      INSERT INTO province_overview (province_id, key_hash, race, land, networth, source, saved_by, received_at)
+      VALUES (?, ?, 'Elf', 900, 150000, 'sot', 'SotOnly', '2026-04-04 18:00:00')
+    `).run(id, KEY_A);
+
+    const rows = getKingdomProvinces("7:5", KEY_A);
+    assert.deepEqual(rows.map((r) => r.name), ["SotOnly"]);
+    assert.equal(rows[0].slot, null);
+  });
+});
+
 test("getKingdomNews: applies from/to filters and returns newest-first rows", async () => {
   await withRealDb(({ getKingdomNews }, db) => {
     db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();

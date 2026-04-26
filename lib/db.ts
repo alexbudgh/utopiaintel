@@ -1027,6 +1027,9 @@ export interface KingdomDragon {
 function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHash: string): ProvinceRow[] {
   const rows = db.prepare(`
     WITH latest_effects AS (
+      -- Restrict to the single most-recent effect snapshot per province, then
+      -- use row_number to de-duplicate multiple rows for the same effect within
+      -- that snapshot (e.g. two Inspire Army entries from the same SoT page).
       SELECT pe.province_id, pe.effect_name, pe.effect_kind, pe.remaining_ticks, pe.received_at,
              row_number() OVER (
                PARTITION BY pe.province_id, pe.effect_name, pe.effect_kind
@@ -1037,6 +1040,25 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
         AND pe.received_at = (
         SELECT MAX(pe2.received_at) FROM province_effects pe2 WHERE pe2.province_id = pe.province_id
       )
+    ),
+    latest_slot AS (
+      -- For each slot number, find the province name most recently seen in a
+      -- kingdom snapshot for this shard. MAX(id) works as a recency proxy
+      -- because kingdom_provinces.id is AUTOINCREMENT (insertion order =
+      -- snapshot order). The outer query omits ki.location/key_hash filters
+      -- because the subquery already constrains them, and the PK match
+      -- guarantees the returned row belongs to this kingdom.
+      SELECT kp.slot, kp.name
+      FROM kingdom_provinces kp
+      WHERE kp.slot IS NOT NULL
+        AND kp.id = (
+          SELECT MAX(kp2.id)
+          FROM kingdom_provinces kp2
+          JOIN kingdom_intel ki2 ON kp2.kingdom_intel_id = ki2.id
+          WHERE ki2.location = @kingdom
+            AND ki2.key_hash = @keyHash
+            AND kp2.slot = kp.slot
+        )
     ),
     spell_summary AS (
       SELECT province_id,
@@ -1050,17 +1072,7 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
       GROUP BY province_id
     )
     SELECT p.id, p.name, p.kingdom,
-           (
-             SELECT kp.slot
-             FROM kingdom_intel ki
-             JOIN kingdom_provinces kp
-               ON kp.kingdom_intel_id = ki.id
-             WHERE ki.location = p.kingdom
-               AND ki.key_hash = @keyHash
-               AND kp.name = p.name
-             ORDER BY ki.received_at DESC
-             LIMIT 1
-           ) AS slot,
+           (SELECT ls.slot FROM latest_slot ls WHERE ls.name = p.name) AS slot,
            ${OVERVIEW_RACE_SQL}, ${OVERVIEW_PERS_SQL}, ${OVERVIEW_HONOR_SQL}, po.land, po.networth, po.received_at AS overview_age, po.source AS overview_source,
            tmp.off_points, tmp.def_points, tmp.received_at AS military_age,
            pt.soldiers, pt.off_specs, pt.def_specs, pt.elites, pt.war_horses, pt.peasants, pt.received_at AS troops_age, pt.source AS troops_source,
@@ -1068,6 +1080,8 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
            pr.money, pr.food, pr.runes, pr.prisoners, pr.trade_balance, pr.building_efficiency, pr.wizards, pr.received_at AS resources_age, pr.source AS resources_source,
            (SELECT p2.total_pop FROM province_resources p2 WHERE p2.province_id = p.id AND p2.key_hash = @keyHash AND p2.total_pop IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS total_pop,
            (SELECT p2.max_pop FROM province_resources p2 WHERE p2.province_id = p.id AND p2.key_hash = @keyHash AND p2.max_pop IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS max_pop,
+           -- Thieves come from the Infiltrate op, not SoT, so they live in a
+           -- separate province_resources row and are fetched independently.
            (SELECT p2.thieves FROM province_resources p2 WHERE p2.province_id = p.id AND p2.key_hash = @keyHash AND p2.thieves IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS thieves,
            (SELECT p2.received_at FROM province_resources p2 WHERE p2.province_id = p.id AND p2.key_hash = @keyHash AND p2.thieves IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS thieves_age,
            (SELECT p2.free_specialist_credits FROM province_resources p2 WHERE p2.province_id = p.id AND p2.key_hash = @keyHash AND p2.free_specialist_credits IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS free_specialist_credits,
@@ -1105,6 +1119,7 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
       SELECT id FROM total_military_points
       WHERE province_id = p.id AND key_hash = @keyHash ORDER BY received_at DESC LIMIT 1
     )
+    -- pt = total troops from SoT; pt_home = home troops from SoM (separate rows, separate sources).
     LEFT JOIN province_troops pt ON pt.id = (
       SELECT id FROM province_troops
       WHERE province_id = p.id AND key_hash = @keyHash AND source = 'sot' ORDER BY received_at DESC LIMIT 1
@@ -1126,6 +1141,8 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
       SELECT id FROM home_military_points
       WHERE province_id = p.id AND key_hash = @keyHash ORDER BY received_at DESC LIMIT 1
     )
+    -- mi = SoM intel (full troop counts); mi_throne = self throne intel (ETA/land only).
+    -- Army aggregate columns use whichever is newer via the CASE below.
     LEFT JOIN military_intel mi ON mi.id = (
       SELECT id FROM military_intel
       WHERE province_id = p.id AND key_hash = @keyHash AND source = 'som' ORDER BY received_at DESC LIMIT 1
@@ -1138,6 +1155,18 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
       AND EXISTS (
         SELECT 1 FROM intel_partitions
         WHERE key_hash = @keyHash AND province_id = p.id
+      )
+      -- Hide superseded provinces: after a reset, the old name keeps its slot
+      -- in historical snapshots. Show a province only if it is the current
+      -- holder of its slot (in latest_slot), or if it never appeared on any
+      -- kingdom page at all (SoT-only intel, no slot).
+      AND (
+        EXISTS (SELECT 1 FROM latest_slot WHERE name = p.name)
+        OR NOT EXISTS (
+          SELECT 1 FROM kingdom_provinces kp
+          JOIN kingdom_intel ki ON kp.kingdom_intel_id = ki.id
+          WHERE ki.location = p.kingdom AND ki.key_hash = @keyHash AND kp.name = p.name
+        )
       )
     ORDER BY po.networth DESC NULLS LAST
   `).all({ keyHash, kingdom }) as ProvinceRow[];
