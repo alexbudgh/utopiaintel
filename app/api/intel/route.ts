@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
 
   const result = parseIntel(fields.url, fields.data_simple, fields.prov);
   if (!result) {
-    intelLog(`unrecognized  from=${fields.prov}  url=${fields.url}`);
+    intelLog(`from=${fields.prov}  key=${keyHash.slice(0, 8)}  unrecognized  url=${fields.url}`);
     return NextResponse.json({
       success: true,
       parsed: false,
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
 
   const province = "name" in result.data ? result.data.name : "—";
   const kingdom  = "kingdom" in result.data ? result.data.kingdom : result.type === "kingdom_news" ? `${result.data.events.length} events` : "—";
-  intelLog(`${result.type.padEnd(12)}  ${province} (${kingdom})  from=${savedBy}  → ${TABLES[result.type]?.join(", ")}`);
+  intelLog(`from=${savedBy}  key=${keyHash.slice(0, 8)}  ${result.type.padEnd(12)}  ${province} (${kingdom})  → ${TABLES[result.type]?.join(", ")}`);
 
   switch (result.type) {
     case "sot":
