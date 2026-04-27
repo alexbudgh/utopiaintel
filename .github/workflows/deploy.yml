@@ -1,0 +1,39 @@
+name: Deploy
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm test
+
+      - run: npm run build
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "${{ secrets.SSH_KNOWN_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy
+        run: |
+          rsync -avz --exclude=intel.db \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            .next/standalone/ ec2-user@${{ secrets.SSH_HOST }}:~/utopiaintel/
+          rsync -avz \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            .next/static/ ec2-user@${{ secrets.SSH_HOST }}:~/utopiaintel/.next/static/
+          ssh -i ~/.ssh/deploy_key ec2-user@${{ secrets.SSH_HOST }} "pm2 reload utopiaintel"
