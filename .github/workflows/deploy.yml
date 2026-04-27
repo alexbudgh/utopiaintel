@@ -19,7 +19,7 @@ jobs:
 
       - run: npm test
 
-      - run: npm run build
+      - run: NEXT_PUBLIC_COMMIT_SHA=${{ github.sha }} npm run build
 
       - name: Set up SSH
         run: |

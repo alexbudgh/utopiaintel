@@ -11,6 +11,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   const isStaging = process.env.STAGING === "true";
+  const commitHash = process.env.NEXT_PUBLIC_COMMIT_SHA?.slice(0, 7);
   return (
     <html lang="en">
       <body className="bg-gray-950 text-gray-100 min-h-screen">
@@ -20,6 +21,11 @@ export default function RootLayout({
           </div>
         )}
         {children}
+        {commitHash && (
+          <footer className="text-center text-xs text-gray-600 py-2">
+            {commitHash}
+          </footer>
+        )}
       </body>
     </html>
   );
