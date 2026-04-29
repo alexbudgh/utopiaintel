@@ -2,6 +2,7 @@ module.exports = {
   apps: [{
     name: "utopiaintel",
     script: "server.js",
+    log_date_format: "YYYY-MM-DD HH:mm:ss",
     env: {
       HOSTNAME: "127.0.0.1",
       INTEL_DB_PATH: "/home/ec2-user/utopiaintel-data/intel.db",
