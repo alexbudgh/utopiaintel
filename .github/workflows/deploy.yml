@@ -44,5 +44,7 @@ jobs:
           rsync -avz \
             -e "ssh -i ~/.ssh/deploy_key" \
             .next/static/ ec2-user@${{ secrets.SSH_HOST }}:~/utopiaintel/.next/static/
+          scp -i ~/.ssh/deploy_key \
+            ecosystem.config.js ec2-user@${{ secrets.SSH_HOST }}:~/utopiaintel/
           ssh -i ~/.ssh/deploy_key ec2-user@${{ secrets.SSH_HOST }} \
             "AXIOM_TOKEN='${AXIOM_TOKEN}' AXIOM_DATASET='utopiaintel' pm2 reload ~/utopiaintel/ecosystem.config.js"
