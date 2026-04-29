@@ -1,3 +1,6 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { timeAgo } from "@/lib/ui";
 import type { RecentOp } from "@/lib/db";
@@ -11,7 +14,31 @@ const OP_COLORS: Record<string, string> = {
   Infiltrate: "border-red-500/40 bg-red-500/10 text-red-300",
 };
 
-export function RecentOpsView({ ops }: { ops: RecentOp[] }) {
+const MAX_OPS = 50;
+const POLL_MS = 10_000;
+
+export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
+  const [ops, setOps] = useState(initialOps);
+  const [newKeys, setNewKeys] = useState<Set<string>>(new Set());
+  const latestRef = useRef(initialOps[0]?.received_at ?? "");
+
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const since = latestRef.current;
+      const res = await fetch(`/api/ops${since ? `?since=${encodeURIComponent(since)}` : ""}`);
+      if (!res.ok) return;
+      const fresh: RecentOp[] = await res.json();
+      if (fresh.length === 0) return;
+
+      latestRef.current = fresh[0].received_at;
+      const keys = new Set(fresh.map((op) => op.received_at + op.province_name));
+      setNewKeys(keys);
+      setOps((prev) => [...fresh, ...prev].slice(0, MAX_OPS));
+      setTimeout(() => setNewKeys(new Set()), 2000);
+    }, POLL_MS);
+    return () => clearInterval(interval);
+  }, []);
+
   if (ops.length === 0) {
     return <p className="text-sm text-gray-500">No ops recorded yet.</p>;
   }
@@ -28,12 +55,17 @@ export function RecentOpsView({ ops }: { ops: RecentOp[] }) {
         </tr>
       </thead>
       <tbody>
-        {ops.map((op, i) => {
+        {ops.map((op) => {
+          const key = op.received_at + op.province_name;
           const kdHref = `/kingdom/${encodeURIComponent(op.kingdom)}`;
           const provHref = `${kdHref}/${encodeURIComponent(op.province_name)}`;
           const color = OP_COLORS[op.op_type] ?? "border-gray-600 bg-gray-800/40 text-gray-400";
+          const isNew = newKeys.has(key);
           return (
-            <tr key={i} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
+            <tr
+              key={key}
+              className={`border-b border-gray-800/50 transition-colors duration-1000 ${isNew ? "bg-gray-700/40" : "hover:bg-gray-800/30"}`}
+            >
               <td className="py-2 pr-4">
                 <span className={`rounded border px-1.5 py-0.5 text-[11px] font-medium ${color}`}>
                   {op.op_type}

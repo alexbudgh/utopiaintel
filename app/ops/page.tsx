@@ -10,7 +10,7 @@ export default async function OpsPage() {
   if (!key) redirect("/");
 
   const keyHash = hashKey(key);
-  const ops = getRecentOps(keyHash);
+  const initialOps = getRecentOps(keyHash);
 
   return (
     <main className="p-8 max-w-3xl mx-auto">
@@ -20,7 +20,7 @@ export default async function OpsPage() {
         </Link>
         <h1 className="text-2xl font-bold tracking-tight text-gray-100">Recent Ops</h1>
       </div>
-      <RecentOpsView ops={ops} />
+      <RecentOpsView initialOps={initialOps} />
     </main>
   );
 }
