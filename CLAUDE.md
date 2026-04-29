@@ -106,6 +106,14 @@ rsync -avz .next/static/ utopiaintel:~/utopiaintel/.next/static/
 ssh utopiaintel "pm2 reload utopiaintel"
 ```
 
+For the test instance (same SSH host, different directory and PM2 process):
+
+```bash
+rsync -avz --exclude=intel.db --exclude=node_modules/better-sqlite3 .next/standalone/ utopiaintel:~/utopiaintel-test/
+rsync -avz .next/static/ utopiaintel:~/utopiaintel-test/.next/static/
+ssh utopiaintel "pm2 reload utopiaintel-test"
+```
+
 Keep that order strict. Reloading PM2 before both `rsync` steps finish can leave
 production with mismatched server and static assets.
 Keep `--exclude=intel.db` on the standalone sync: Next's standalone output can
