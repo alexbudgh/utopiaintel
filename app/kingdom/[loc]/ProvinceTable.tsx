@@ -55,11 +55,11 @@ const COLUMNS = [
   { key: "wizards",     label: "Wizards",     group: "Resources", desc: "Wizards"                                     },
   { key: "age",         label: "Age",         group: "Overview",  desc: "Most recent intel across all sources\nOther columns may have older data — hover them to check"    },
   { key: "rtpa",        label: "rTPA",        group: "T/M",       desc: "Raw TPA = thieves / land\nNeeds: Infiltrate Thieves' Dens + SoT (same tick)"                   },
-  { key: "mtpa",        label: "mTPA",        group: "T/M",       desc: "Modified TPA = rTPA × (1 + Crime%)\nNeeds: rTPA sources + SoS (same tick)"                     },
-  { key: "otpa",        label: "oTPA",        group: "T/M",       desc: "Offensive TPA = mTPA × (1 + Thieves' Den%)\nNeeds: mTPA sources + Survey (same tick)"          },
-  { key: "dtpa",        label: "dTPA",        group: "T/M",       desc: "Defensive TPA = mTPA × (1 + Watch Tower prevent%)\nNeeds: mTPA sources + Survey (same tick)"   },
+  { key: "mtpa",        label: "mTPA",        group: "T/M",       desc: "Modified TPA = rTPA × Crime × Personality\nNeeds: rTPA sources + SoS (same tick)"                     },
+  { key: "otpa",        label: "oTPA",        group: "T/M",       desc: "Offensive TPA = mTPA × Thieves' Den\nNeeds: mTPA sources + Survey (same tick)"          },
+  { key: "dtpa",        label: "dTPA",        group: "T/M",       desc: "Defensive TPA = mTPA × Watch Tower prevent\nNeeds: mTPA sources + Survey (same tick)"   },
   { key: "rwpa",        label: "rWPA",        group: "T/M",       desc: "Raw WPA = wizards ÷ land\nSelf: direct from throne (needs same tick as land)\nEnemy: back-calc from NW residual (needs SoT+SoS+Survey+Infiltrate same tick)" },
-  { key: "mwpa",        label: "mWPA",        group: "T/M",       desc: "Modified WPA = rWPA × (1 + Channeling%)\nAlso needs SoS same tick as other sources"               },
+  { key: "mwpa",        label: "mWPA",        group: "T/M",       desc: "Modified WPA = rWPA × Channeling × Personality\nAlso needs SoS same tick as other sources"               },
 ] as const;
 
 type ColKey = (typeof COLUMNS)[number]["key"];
@@ -149,11 +149,28 @@ function computeRtpa(p: ProvinceRow): number | null {
   return p.thieves / p.land;
 }
 
+function tpaPersonalityEffect(p: ProvinceRow): number {
+  if (p.personality === "Rogue") return 20;
+  if (p.personality === "Heretic") return 15;
+  return 0;
+}
+
+function wpaPersonalityEffect(p: ProvinceRow): number {
+  if (p.personality === "Necromancer") return 35;
+  if (p.personality === "Heretic") return 15;
+  if (p.personality === "Mystic" && p.mana != null && p.mana > 40) return 20;
+  return 0;
+}
+
+function personalityEffectLabel(effect: number): string {
+  return effect > 0 ? ` × (1 + ${effect.toFixed(1)}% Personality)` : "";
+}
+
 function computeMtpa(p: ProvinceRow): number | null {
   const rtpa = computeRtpa(p);
   if (rtpa == null || p.crime_effect == null) return null;
   if (!sameTick(p.thieves_age, p.overview_age, p.sciences_age)) return null;
-  return rtpa * (1 + p.crime_effect / 100);
+  return rtpa * (1 + p.crime_effect / 100) * (1 + tpaPersonalityEffect(p) / 100);
 }
 
 function computeOtpa(p: ProvinceRow): number | null {
@@ -215,7 +232,7 @@ function computeMwpa(p: ProvinceRow): number | null {
   if (rwpa == null) return null;
   // For direct wizard path, sciences must also be same tick as overview
   if (p.wizards != null && !sameTick(p.resources_age, p.overview_age, p.sciences_age)) return null;
-  return rwpa * (1 + p.channeling_effect / 100);
+  return rwpa * (1 + p.channeling_effect / 100) * (1 + wpaPersonalityEffect(p) / 100);
 }
 
 function ageFor(p: ProvinceRow, key: ColKey): string | null {
@@ -397,8 +414,9 @@ function tipFor(p: ProvinceRow, key: ColKey): string | TooltipLine[] | React.Rea
     if (rtpa == null) return tipFor(p, "rtpa");
     if (p.crime_effect == null) return `rTPA = ${rtpa.toFixed(2)}\nNo Crime science data`;
     const ok = sameTick(p.thieves_age, p.overview_age, p.sciences_age);
-    const val = ok ? (rtpa * (1 + p.crime_effect / 100)).toFixed(2) : "—";
-    return `mTPA = ${rtpa.toFixed(2)} × (1 + ${p.crime_effect.toFixed(1)}% Crime) = ${val}` + (ok ? "" : `\n(${tpaStaleReason(p, true, false)})`);
+    const personalityEffect = tpaPersonalityEffect(p);
+    const val = ok ? computeMtpa(p)?.toFixed(2) ?? "—" : "—";
+    return `mTPA = ${rtpa.toFixed(2)} × (1 + ${p.crime_effect.toFixed(1)}% Crime)${personalityEffectLabel(personalityEffect)} = ${val}` + (ok ? "" : `\n(${tpaStaleReason(p, true, false)})`);
   }
   if (key === "otpa") {
     const mtpa = computeMtpa(p);
@@ -435,8 +453,10 @@ function tipFor(p: ProvinceRow, key: ColKey): string | TooltipLine[] | React.Rea
     if (rwpa == null) return tipFor(p, "rwpa");
     if (p.channeling_effect == null) return `rWPA = ${rwpa.toFixed(2)}\nNo Channeling science data`;
     if (p.wizards != null && !sameTick(p.resources_age, p.overview_age, p.sciences_age))
-      return `rWPA = ${rwpa.toFixed(2)} × (1 + ${p.channeling_effect.toFixed(1)}% Channeling)\nSoS not same tick as throne — stale Channeling%`;
-    return `mWPA = ${rwpa.toFixed(2)} × (1 + ${p.channeling_effect.toFixed(1)}% Channeling) = ${computeMwpa(p)!.toFixed(2)}`;
+      return `rWPA = ${rwpa.toFixed(2)} × (1 + ${p.channeling_effect.toFixed(1)}% Channeling)${personalityEffectLabel(wpaPersonalityEffect(p))}\nSoS not same tick as throne — stale Channeling%`;
+    const personalityEffect = wpaPersonalityEffect(p);
+    const mysticNote = p.personality === "Mystic" && p.mana == null ? "\nMystic Focused Channeling not applied: mana unknown" : "";
+    return `mWPA = ${rwpa.toFixed(2)} × (1 + ${p.channeling_effect.toFixed(1)}% Channeling)${personalityEffectLabel(personalityEffect)} = ${computeMwpa(p)!.toFixed(2)}${mysticNote}`;
   }
   const age = ageFor(p, key);
   const source = sourceFor(p, key);
