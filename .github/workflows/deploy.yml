@@ -33,18 +33,14 @@ jobs:
           echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           echo "${{ secrets.SSH_KNOWN_HOST }}" >> ~/.ssh/known_hosts
+          printf 'Host deploy\n  HostName %s\n  User ec2-user\n  IdentityFile ~/.ssh/deploy_key\n' \
+            "${{ secrets.SSH_HOST }}" >> ~/.ssh/config
 
       - name: Deploy
         env:
           AXIOM_TOKEN: ${{ secrets.AXIOM_TOKEN }}
         run: |
-          rsync -avz --exclude=intel.db \
-            -e "ssh -i ~/.ssh/deploy_key" \
-            .next/standalone/ ec2-user@${{ secrets.SSH_HOST }}:~/utopiaintel/
-          rsync -avz \
-            -e "ssh -i ~/.ssh/deploy_key" \
-            .next/static/ ec2-user@${{ secrets.SSH_HOST }}:~/utopiaintel/.next/static/
-          scp -i ~/.ssh/deploy_key \
-            ecosystem.config.js ec2-user@${{ secrets.SSH_HOST }}:~/utopiaintel/
-          ssh -i ~/.ssh/deploy_key ec2-user@${{ secrets.SSH_HOST }} \
-            "AXIOM_TOKEN='${AXIOM_TOKEN}' AXIOM_DATASET='utopiaintel' pm2 reload ~/utopiaintel/ecosystem.config.js"
+          rsync -avz --exclude=intel.db .next/standalone/ deploy:~/utopiaintel/
+          rsync -avz .next/static/ deploy:~/utopiaintel/.next/static/
+          scp ecosystem.config.js deploy:~/utopiaintel/
+          ssh deploy "AXIOM_TOKEN='${AXIOM_TOKEN}' AXIOM_DATASET='utopiaintel' pm2 reload ~/utopiaintel/ecosystem.config.js"
