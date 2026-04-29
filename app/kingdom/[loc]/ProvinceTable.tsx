@@ -11,6 +11,11 @@ import { computeAmbushRawOff } from "@/lib/ambush";
 import { estimatePop } from "@/lib/population";
 import { overpopulationTone } from "@/lib/overpopulation";
 
+function oldest(...ages: (string | null | undefined)[]): string | null {
+  const valid = ages.filter((a): a is string => a != null);
+  return valid.length ? valid.reduce((a, b) => (a < b ? a : b)) : null;
+}
+
 const COLUMNS = [
   { key: "race",        label: "Race",        group: "Overview",  desc: "Race"                                        },
   { key: "personality", label: "Personality", group: "Overview",  desc: "Personality"                                 },
@@ -239,8 +244,14 @@ function ageFor(p: ProvinceRow, key: ColKey): string | null {
   if (key === "rtpa") return p.thieves_age ?? p.overview_age;
   if (key === "mtpa") return p.sciences_age;
   if (key === "otpa" || key === "dtpa") return p.survey_age;
-  if (key === "rwpa") return p.survey_age;
-  if (key === "mwpa") return p.sciences_age;
+  if (key === "rwpa") {
+    if (p.wizards != null) return oldest(p.resources_age, p.overview_age);
+    return oldest(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age);
+  }
+  if (key === "mwpa") {
+    if (p.wizards != null) return oldest(p.resources_age, p.overview_age, p.sciences_age);
+    return oldest(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age);
+  }
   if (key === "pop_pct") return p.resources_age ?? p.survey_age;
   return p.overview_age;
 }
