@@ -843,6 +843,43 @@ export function getKingdomSnapshotHistory(location: string, keyHash: string): Ki
   return createDbApi(getDb()).getKingdomSnapshotHistory(location, keyHash);
 }
 
+export interface RecentOp {
+  op_type: string;
+  received_at: string;
+  saved_by: string | null;
+  province_name: string;
+  kingdom: string;
+}
+
+export function getRecentOps(keyHash: string, limit = 20): RecentOp[] {
+  return getDb().prepare(`
+    SELECT 'SoT' AS op_type, po.received_at, po.saved_by, p.name AS province_name, p.kingdom
+    FROM province_overview po JOIN provinces p ON p.id = po.province_id
+    WHERE po.key_hash = ? AND po.source = 'sot'
+    UNION ALL
+    SELECT 'SoM', mi.received_at, mi.saved_by, p.name, p.kingdom
+    FROM military_intel mi JOIN provinces p ON p.id = mi.province_id
+    WHERE mi.key_hash = ? AND mi.source = 'som'
+    UNION ALL
+    SELECT 'SoD', hmp.received_at, hmp.saved_by, p.name, p.kingdom
+    FROM home_military_points hmp JOIN provinces p ON p.id = hmp.province_id
+    WHERE hmp.key_hash = ? AND hmp.source = 'sod'
+    UNION ALL
+    SELECT 'SoS', si.received_at, si.saved_by, p.name, p.kingdom
+    FROM sos_intel si JOIN provinces p ON p.id = si.province_id
+    WHERE si.key_hash = ? AND si.source = 'sos'
+    UNION ALL
+    SELECT 'Survey', sv.received_at, sv.saved_by, p.name, p.kingdom
+    FROM survey_intel sv JOIN provinces p ON p.id = sv.province_id
+    WHERE sv.key_hash = ? AND sv.source = 'survey'
+    UNION ALL
+    SELECT 'Infiltrate', pr.received_at, pr.saved_by, p.name, p.kingdom
+    FROM province_resources pr JOIN provinces p ON p.id = pr.province_id
+    WHERE pr.key_hash = ? AND pr.source = 'infiltrate'
+    ORDER BY received_at DESC LIMIT ?
+  `).all(keyHash, keyHash, keyHash, keyHash, keyHash, keyHash, limit) as RecentOp[];
+}
+
 export interface ProvinceRow {
   id: number;
   slot: number | null;

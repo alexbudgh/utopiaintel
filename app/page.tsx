@@ -292,6 +292,9 @@ export default async function Home() {
           )}
         </div>
         <div className="flex items-center gap-3">
+          <Link href="/ops" className="text-sm text-gray-500 hover:text-gray-300 transition-colors">
+            Recent Ops
+          </Link>
           <IntelSetupButton endpointUrl={`${baseUrl}/api/intel`} />
           <form action={logout}>
             <button type="submit" className="text-sm text-gray-500 hover:text-gray-300 transition-colors">
