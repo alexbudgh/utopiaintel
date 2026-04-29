@@ -56,6 +56,19 @@ function intelLog(message: string) {
   console.log(`[intel ${new Date().toISOString()}] ${message}`);
 }
 
+type ParseResult = NonNullable<ReturnType<typeof parseIntel>>;
+
+function getLogProvince(result: ParseResult): string {
+  if (result.type === "kingdom") return "—";
+  return "name" in result.data ? result.data.name : "—";
+}
+
+function getLogKingdom(result: ParseResult): string {
+  if (result.type === "kingdom") return `${result.data.name} (${result.data.location})`;
+  if (result.type === "kingdom_news") return `${result.data.events.length} events`;
+  return "kingdom" in result.data ? result.data.kingdom : "—";
+}
+
 export const POST = withAxiom(async (request: AxiomRequest) => {
   const formData = await request.formData();
 
@@ -102,8 +115,8 @@ export const POST = withAxiom(async (request: AxiomRequest) => {
   const isSelfScience  = pathname?.endsWith("/council_science") ?? false;
   const isSelfInternal = pathname?.endsWith("/council_internal") ?? false;
 
-  const province = "name" in result.data ? result.data.name : "—";
-  const kingdom  = "kingdom" in result.data ? result.data.kingdom : result.type === "kingdom_news" ? `${result.data.events.length} events` : "—";
+  const province = getLogProvince(result);
+  const kingdom  = getLogKingdom(result);
   intelLog(`from=${savedBy}  key=${keyHash.slice(0, 8)}  ${result.type.padEnd(12)}  ${province} (${kingdom})  → ${TABLES[result.type]?.join(", ")}`);
   request.log.info("intel", { type: result.type, province, kingdom, savedBy, keyHash: keyHash.slice(0, 8) });
 
