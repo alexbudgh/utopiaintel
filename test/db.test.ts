@@ -1946,3 +1946,55 @@ test("getKingdomNews: applies from/to filters and returns newest-first rows", as
     assert.deepEqual(result.events.map((e) => e.rawText), ["middle"]);
   });
 });
+
+// --- getRecentOps ---
+
+test("getRecentOps: returns enemy ops and excludes self-intel sources", async () => {
+  await withRealDb(({ getRecentOps }, db) => {
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Target', '8:6')").run();
+    const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name = 'Target'").get() as { id: number };
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
+    db.prepare(`
+      INSERT INTO province_overview (province_id, key_hash, race, personality, honor_title, land, networth, source, saved_by, accuracy)
+      VALUES (?, ?, 'Human', NULL, NULL, 500, 100000, 'sot', 'Sender', 100)
+    `).run(provId, KEY_A);
+
+    const ops = getRecentOps(KEY_A);
+    assert.equal(ops.length, 1);
+    assert.equal(ops[0].op_type, "SoT");
+    assert.equal(ops[0].province_name, "Target");
+
+    // Self-intel (throne source) must not appear
+    db.prepare(`
+      INSERT INTO province_overview (province_id, key_hash, race, personality, honor_title, land, networth, source, saved_by, accuracy)
+      VALUES (?, ?, 'Human', NULL, NULL, 500, 100000, 'throne', 'Target', 100)
+    `).run(provId, KEY_A);
+    const ops2 = getRecentOps(KEY_A);
+    assert.equal(ops2.length, 1);
+  });
+});
+
+test("getRecentOps: since param filters to newer ops only", async () => {
+  await withRealDb(({ getRecentOps }, db) => {
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Beta', '7:5')").run();
+    const { id: idA } = db.prepare("SELECT id FROM provinces WHERE name = 'Alpha'").get() as { id: number };
+    const { id: idB } = db.prepare("SELECT id FROM provinces WHERE name = 'Beta'").get() as { id: number };
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, idA);
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, idB);
+
+    const ins = db.prepare(`
+      INSERT INTO province_overview (province_id, key_hash, race, personality, honor_title, land, networth, source, saved_by, accuracy, received_at)
+      VALUES (?, ?, 'Human', NULL, NULL, 500, 100000, 'sot', 'Spy', 100, ?)
+    `);
+    ins.run(idA, KEY_A, "2026-04-01 10:00:00");
+    ins.run(idB, KEY_A, "2026-04-01 12:00:00");
+
+    const all = getRecentOps(KEY_A);
+    assert.equal(all.length, 2);
+
+    const filtered = getRecentOps(KEY_A, 20, "2026-04-01 10:00:00");
+    assert.equal(filtered.length, 1);
+    assert.equal(filtered[0].province_name, "Beta");
+  });
+});

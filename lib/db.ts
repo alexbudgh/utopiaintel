@@ -852,34 +852,7 @@ export interface RecentOp {
 }
 
 export function getRecentOps(keyHash: string, limit = 20, since?: string): RecentOp[] {
-  const sinceClause = since ? `AND received_at > '${since.replace(/'/g, "''")}'` : "";
-  return getDb().prepare(`
-    SELECT op_type, received_at, saved_by, province_name, kingdom FROM (
-      SELECT 'SoT' AS op_type, po.received_at, po.saved_by, p.name AS province_name, p.kingdom
-      FROM province_overview po JOIN provinces p ON p.id = po.province_id
-      WHERE po.key_hash = ? AND po.source = 'sot'
-      UNION ALL
-      SELECT 'SoM', mi.received_at, mi.saved_by, p.name, p.kingdom
-      FROM military_intel mi JOIN provinces p ON p.id = mi.province_id
-      WHERE mi.key_hash = ? AND mi.source = 'som'
-      UNION ALL
-      SELECT 'SoD', hmp.received_at, hmp.saved_by, p.name, p.kingdom
-      FROM home_military_points hmp JOIN provinces p ON p.id = hmp.province_id
-      WHERE hmp.key_hash = ? AND hmp.source = 'sod'
-      UNION ALL
-      SELECT 'SoS', si.received_at, si.saved_by, p.name, p.kingdom
-      FROM sos_intel si JOIN provinces p ON p.id = si.province_id
-      WHERE si.key_hash = ? AND si.source = 'sos'
-      UNION ALL
-      SELECT 'Survey', sv.received_at, sv.saved_by, p.name, p.kingdom
-      FROM survey_intel sv JOIN provinces p ON p.id = sv.province_id
-      WHERE sv.key_hash = ? AND sv.source = 'survey'
-      UNION ALL
-      SELECT 'Infiltrate', pr.received_at, pr.saved_by, p.name, p.kingdom
-      FROM province_resources pr JOIN provinces p ON p.id = pr.province_id
-      WHERE pr.key_hash = ? AND pr.source = 'infiltrate'
-    ) ${sinceClause} ORDER BY received_at DESC LIMIT ?
-  `).all(keyHash, keyHash, keyHash, keyHash, keyHash, keyHash, limit) as RecentOp[];
+  return createDbApi(getDb()).getRecentOps(keyHash, limit, since);
 }
 
 export interface ProvinceRow {
@@ -1535,6 +1508,7 @@ export interface DbApi {
   getKingdoms(keyHash: string): KingdomRow[];
   getLatestKingdomSnapshot(location: string, keyHash: string): KingdomSnapshot | null;
   getKingdomSnapshotHistory(location: string, keyHash: string): KingdomSnapshotHistoryPoint[];
+  getRecentOps(keyHash: string, limit?: number, since?: string): RecentOp[];
   getKingdomProvinces(kingdom: string, keyHash: string): ProvinceRow[];
   getKingdomRitual(kingdom: string, keyHash: string): KingdomRitual | null;
   getKingdomDragon(kingdom: string, keyHash: string): KingdomDragon | null;
@@ -1699,6 +1673,37 @@ export function createDbApi(db: Database.Database): DbApi {
         honorRank: row.honor_rank,
         receivedAt: row.received_at,
       }));
+    },
+
+    getRecentOps(keyHash, limit = 20, since) {
+      const sinceClause = since ? `WHERE received_at > '${since.replace(/'/g, "''")}'` : "";
+      return db.prepare(`
+        SELECT op_type, received_at, saved_by, province_name, kingdom FROM (
+          SELECT 'SoT' AS op_type, po.received_at, po.saved_by, p.name AS province_name, p.kingdom
+          FROM province_overview po JOIN provinces p ON p.id = po.province_id
+          WHERE po.key_hash = ? AND po.source = 'sot'
+          UNION ALL
+          SELECT 'SoM', mi.received_at, mi.saved_by, p.name, p.kingdom
+          FROM military_intel mi JOIN provinces p ON p.id = mi.province_id
+          WHERE mi.key_hash = ? AND mi.source = 'som'
+          UNION ALL
+          SELECT 'SoD', hmp.received_at, hmp.saved_by, p.name, p.kingdom
+          FROM home_military_points hmp JOIN provinces p ON p.id = hmp.province_id
+          WHERE hmp.key_hash = ? AND hmp.source = 'sod'
+          UNION ALL
+          SELECT 'SoS', si.received_at, si.saved_by, p.name, p.kingdom
+          FROM sos_intel si JOIN provinces p ON p.id = si.province_id
+          WHERE si.key_hash = ? AND si.source = 'sos'
+          UNION ALL
+          SELECT 'Survey', sv.received_at, sv.saved_by, p.name, p.kingdom
+          FROM survey_intel sv JOIN provinces p ON p.id = sv.province_id
+          WHERE sv.key_hash = ? AND sv.source = 'survey'
+          UNION ALL
+          SELECT 'Infiltrate', pr.received_at, pr.saved_by, p.name, p.kingdom
+          FROM province_resources pr JOIN provinces p ON p.id = pr.province_id
+          WHERE pr.key_hash = ? AND pr.source = 'infiltrate'
+        ) ${sinceClause} ORDER BY received_at DESC LIMIT ?
+      `).all(keyHash, keyHash, keyHash, keyHash, keyHash, keyHash, limit) as RecentOp[];
     },
 
     getKingdomProvinces(kingdom, keyHash) {
