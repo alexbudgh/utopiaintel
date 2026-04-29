@@ -172,7 +172,8 @@ export function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options
   }
 
   if (parsed.type === "survey") {
-    storeSurvey(parsed.data, savedBy, keyHash);
+    const isSelfInternal = getIntelPathname(entry.url)?.endsWith("/council_internal") ?? false;
+    storeSurvey(parsed.data, savedBy, keyHash, isSelfInternal);
     if (normalizedReceivedAt) {
       setLatestSurveyTimestamp(parsed.data.name, parsed.data.kingdom, savedBy, keyHash, normalizedReceivedAt);
     }
@@ -200,7 +201,8 @@ export function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options
   }
 
   if (parsed.type === "som") {
-    storeSoM(parsed.data, savedBy, keyHash);
+    const isSelfMilitary = getIntelPathname(entry.url)?.endsWith("/council_military") ?? false;
+    storeSoM(parsed.data, savedBy, keyHash, isSelfMilitary);
     return "som";
   }
 

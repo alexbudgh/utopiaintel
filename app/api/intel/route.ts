@@ -95,7 +95,10 @@ export async function POST(request: NextRequest) {
 
   const savedBy = fields.prov;
   const pathname = getIntelPathname(fields.url);
-  const isSelfThrone = pathname === "/wol/game/throne";
+  const isSelfThrone   = pathname === "/wol/game/throne";
+  const isSelfMilitary = pathname?.endsWith("/council_military") ?? false;
+  const isSelfScience  = pathname?.endsWith("/council_science") ?? false;
+  const isSelfInternal = pathname?.endsWith("/council_internal") ?? false;
 
   const province = "name" in result.data ? result.data.name : "—";
   const kingdom  = "kingdom" in result.data ? result.data.kingdom : result.type === "kingdom_news" ? `${result.data.events.length} events` : "—";
@@ -106,13 +109,13 @@ export async function POST(request: NextRequest) {
       storeSoT(result.data, savedBy, keyHash, isSelfThrone);
       break;
     case "survey":
-      storeSurvey(result.data, savedBy, keyHash);
+      storeSurvey(result.data, savedBy, keyHash, isSelfInternal);
       break;
     case "som":
-      storeSoM(result.data, savedBy, keyHash);
+      storeSoM(result.data, savedBy, keyHash, isSelfMilitary);
       break;
     case "sos":
-      storeSoS(result.data, savedBy, keyHash);
+      storeSoS(result.data, savedBy, keyHash, isSelfScience);
       break;
     case "sod":
       storeSoD(result.data, savedBy, keyHash);
