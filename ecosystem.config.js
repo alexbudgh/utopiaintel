@@ -6,6 +6,8 @@ module.exports = {
     env: {
       HOSTNAME: "127.0.0.1",
       INTEL_DB_PATH: "/home/ec2-user/utopiaintel-data/intel.db",
+      AXIOM_TOKEN: process.env.AXIOM_TOKEN,
+      AXIOM_DATASET: process.env.AXIOM_DATASET ?? "utopiaintel",
       INTEL_DEBUG: "0",
       INTEL_DEBUG_PATH: "/home/ec2-user/utopiaintel-data/intel_debug.jsonl",
       INTEL_DEBUG_MAX_BYTES: "10485760",

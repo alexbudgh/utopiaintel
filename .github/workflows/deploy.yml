@@ -35,6 +35,8 @@ jobs:
           echo "${{ secrets.SSH_KNOWN_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Deploy
+        env:
+          AXIOM_TOKEN: ${{ secrets.AXIOM_TOKEN }}
         run: |
           rsync -avz --exclude=intel.db \
             -e "ssh -i ~/.ssh/deploy_key" \
@@ -42,4 +44,5 @@ jobs:
           rsync -avz \
             -e "ssh -i ~/.ssh/deploy_key" \
             .next/static/ ec2-user@${{ secrets.SSH_HOST }}:~/utopiaintel/.next/static/
-          ssh -i ~/.ssh/deploy_key ec2-user@${{ secrets.SSH_HOST }} "pm2 reload utopiaintel"
+          ssh -i ~/.ssh/deploy_key ec2-user@${{ secrets.SSH_HOST }} \
+            "AXIOM_TOKEN='${AXIOM_TOKEN}' AXIOM_DATASET='utopiaintel' pm2 reload ~/utopiaintel/ecosystem.config.js"

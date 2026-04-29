@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
+import { withAxiom } from "next-axiom";
 
 const nextConfig: NextConfig = {
   output: "standalone",
 };
 
-export default nextConfig;
+export default withAxiom(nextConfig);
