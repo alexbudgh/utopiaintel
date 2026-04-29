@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { withAxiom, AxiomRequest } from "next-axiom";
 import { appendDebugLog } from "@/lib/debug-log";
 import { hashKey } from "@/lib/keys";
 import { parseIntel } from "@/lib/parsers";
@@ -55,7 +56,7 @@ function intelLog(message: string) {
   console.log(`[intel ${new Date().toISOString()}] ${message}`);
 }
 
-export async function POST(request: NextRequest) {
+export const POST = withAxiom(async (request: AxiomRequest) => {
   const formData = await request.formData();
 
   const missing = REQUIRED_FIELDS.filter((f) => !formData.get(f));
@@ -86,6 +87,7 @@ export async function POST(request: NextRequest) {
   const result = parseIntel(fields.url, fields.data_simple, fields.prov);
   if (!result) {
     intelLog(`from=${fields.prov}  key=${keyHash.slice(0, 8)}  unrecognized  url=${fields.url}`);
+    request.log.warn("unrecognized intel", { url: fields.url, prov: fields.prov, keyHash: keyHash.slice(0, 8) });
     return NextResponse.json({
       success: true,
       parsed: false,
@@ -103,6 +105,7 @@ export async function POST(request: NextRequest) {
   const province = "name" in result.data ? result.data.name : "—";
   const kingdom  = "kingdom" in result.data ? result.data.kingdom : result.type === "kingdom_news" ? `${result.data.events.length} events` : "—";
   intelLog(`from=${savedBy}  key=${keyHash.slice(0, 8)}  ${result.type.padEnd(12)}  ${province} (${kingdom})  → ${TABLES[result.type]?.join(", ")}`);
+  request.log.info("intel", { type: result.type, province, kingdom, savedBy, keyHash: keyHash.slice(0, 8) });
 
   switch (result.type) {
     case "sot":
@@ -150,4 +153,4 @@ export async function POST(request: NextRequest) {
     parsed: true,
     type: result.type,
   });
-}
+});
