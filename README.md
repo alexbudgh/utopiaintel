@@ -248,11 +248,16 @@ npm test
 npm run build
 rsync -avz --exclude=intel.db .next/standalone/ utopiaintel:~/utopiaintel/
 rsync -avz .next/static/ utopiaintel:~/utopiaintel/.next/static/
-ssh utopiaintel "pm2 reload utopiaintel"
+scp ecosystem.config.js utopiaintel:~/utopiaintel/
+ssh utopiaintel "pm2 reload ~/utopiaintel/ecosystem.config.js"
 ```
 
 Keep that order strict. Reloading PM2 before both `rsync` steps finish can leave
 production with mismatched server and static assets.
+
+The GitHub Deploy workflow uses the same production reload pattern: it copies
+`ecosystem.config.js` to the server and reloads PM2 through that file. This
+keeps the PM2-managed environment together with the deployed code.
 
 First-time server setup:
 
@@ -271,6 +276,27 @@ Current PM2 env in `ecosystem.config.js` includes:
 - `INTEL_DEBUG_PATH=/home/ec2-user/utopiaintel-data/intel_debug.jsonl`
 - `INTEL_DEBUG_MAX_BYTES=10485760`
 - `INTEL_DEBUG_MAX_FILES=5`
+
+Use the ecosystem file whenever changing process environment. A plain app-name
+reload is fine for code-only reloads:
+
+```bash
+pm2 reload utopiaintel
+```
+
+Do not use `pm2 reload utopiaintel --update-env` / `-a` with only ad hoc shell
+variables. That can refresh the process env without re-reading
+`ecosystem.config.js`, dropping config-managed values such as
+`HOSTNAME=127.0.0.1` and `INTEL_DB_PATH`. For a temporary debug toggle, use:
+
+```bash
+INTEL_DEBUG=1 pm2 reload ~/utopiaintel/ecosystem.config.js --update-env
+```
+
+If `INTEL_DB_PATH` is not set, the app falls back to `intel.db` in the current
+working directory. In standalone deploys, `server.js` changes cwd to the app
+directory, so the fallback would be `~/utopiaintel/intel.db`, not the durable
+production DB path.
 
 ## Repo Notes
 

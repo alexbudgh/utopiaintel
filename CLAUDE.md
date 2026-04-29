@@ -104,7 +104,8 @@ npm test
 npm run build
 rsync -avz --exclude=intel.db --exclude=node_modules/better-sqlite3 .next/standalone/ utopiaintel:~/utopiaintel/
 rsync -avz .next/static/ utopiaintel:~/utopiaintel/.next/static/
-ssh utopiaintel "pm2 reload utopiaintel"
+scp ecosystem.config.js utopiaintel:~/utopiaintel/
+ssh utopiaintel "pm2 reload ~/utopiaintel/ecosystem.config.js"
 ```
 
 For the test instance (same SSH host, different directory and PM2 process):
@@ -114,6 +115,27 @@ rsync -avz --exclude=intel.db --exclude=node_modules/better-sqlite3 .next/standa
 rsync -avz .next/static/ utopiaintel:~/utopiaintel-test/.next/static/
 ssh utopiaintel "pm2 reload utopiaintel-test"
 ```
+
+The GitHub Deploy workflow follows the production path above: it syncs the
+standalone server, syncs static assets, copies `ecosystem.config.js`, then runs
+`pm2 reload ~/utopiaintel/ecosystem.config.js` with Axiom env vars supplied by
+the workflow.
+
+PM2 env rule: use the ecosystem file when changing process environment. A
+plain app-name reload is fine for code-only reloads, but do not use
+`pm2 reload utopiaintel --update-env` / `-a` with only ad hoc shell variables.
+That can refresh the process without re-reading `ecosystem.config.js`, dropping
+config-managed values such as `HOSTNAME=127.0.0.1` and `INTEL_DB_PATH`. For a
+temporary debug toggle, use:
+
+```bash
+ssh utopiaintel "INTEL_DEBUG=1 pm2 reload ~/utopiaintel/ecosystem.config.js --update-env"
+```
+
+If `INTEL_DB_PATH` is missing, the app falls back to `intel.db` in the current
+working directory. In standalone deploys, `server.js` changes cwd to the app
+directory, so the fallback would be `~/utopiaintel/intel.db`; this is not the
+durable production DB path.
 
 Keep that order strict. Reloading PM2 before both `rsync` steps finish can leave
 production with mismatched server and static assets.
