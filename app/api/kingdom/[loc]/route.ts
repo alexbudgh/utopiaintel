@@ -1,13 +1,14 @@
 import { cookies } from "next/headers";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { withAxiom, AxiomRequest } from "next-axiom";
 import { getBoundKingdom, getKingdomDragon, getKingdomProvinces, getKingdomRitual, getLatestKingdomSnapshot } from "@/lib/db";
 import { hashKey } from "@/lib/keys";
 import { toRelationContext } from "@/lib/relation-context";
 
-export async function GET(
-  _req: NextRequest,
+export const GET = withAxiom(async (
+  _req: AxiomRequest,
   { params }: { params: Promise<{ loc: string }> }
-) {
+) => {
   const { loc } = await params;
   const kingdom = decodeURIComponent(loc);
   const key = (await cookies()).get("auth")?.value ?? "";
@@ -26,4 +27,4 @@ export async function GET(
     dragon: getKingdomDragon(kingdom, keyHash),
     ritual: getKingdomRitual(kingdom, keyHash),
   });
-}
+});
