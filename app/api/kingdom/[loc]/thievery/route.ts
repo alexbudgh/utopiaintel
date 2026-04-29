@@ -1,10 +1,10 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { withAxiom, AxiomRequest } from "next-axiom";
+import { withAxiomRouteHandler, AxiomRequest } from "next-axiom";
 import { getGainsPageData } from "@/lib/gains-page";
 import { hashKey } from "@/lib/keys";
 
-export const GET = withAxiom(async (
+export const GET = withAxiomRouteHandler(async (
   _req: AxiomRequest,
   { params }: { params: Promise<{ loc: string }> }
 ) => {

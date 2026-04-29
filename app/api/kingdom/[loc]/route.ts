@@ -1,11 +1,11 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { withAxiom, AxiomRequest } from "next-axiom";
+import { withAxiomRouteHandler, AxiomRequest } from "next-axiom";
 import { getBoundKingdom, getKingdomDragon, getKingdomProvinces, getKingdomRitual, getLatestKingdomSnapshot } from "@/lib/db";
 import { hashKey } from "@/lib/keys";
 import { toRelationContext } from "@/lib/relation-context";
 
-export const GET = withAxiom(async (
+export const GET = withAxiomRouteHandler(async (
   _req: AxiomRequest,
   { params }: { params: Promise<{ loc: string }> }
 ) => {
