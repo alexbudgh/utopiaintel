@@ -205,7 +205,7 @@ function computeRwpa(p: ProvinceRow): number | null {
 }
 
 function computeMwpa(p: ProvinceRow): number | null {
-  if (!p.channeling_effect) return null;
+  if (p.channeling_effect == null) return null;
   const rwpa = computeRwpa(p);
   if (rwpa == null) return null;
   // For direct wizard path, sciences must also be same tick as overview
