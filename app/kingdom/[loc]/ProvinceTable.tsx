@@ -434,8 +434,9 @@ function tipFor(p: ProvinceRow, key: ColKey): string | TooltipLine[] | React.Rea
     const rwpa = computeRwpa(p);
     if (rwpa == null) return tipFor(p, "rwpa");
     if (p.channeling_effect == null) return `rWPA = ${rwpa.toFixed(2)}\nNo Channeling science data`;
-    const val = computeMwpa(p)?.toFixed(2) ?? "—";
-    return `mWPA = ${rwpa.toFixed(2)} × (1 + ${p.channeling_effect.toFixed(1)}% Channeling) = ${val}`;
+    if (p.wizards != null && !sameTick(p.resources_age, p.overview_age, p.sciences_age))
+      return `rWPA = ${rwpa.toFixed(2)} × (1 + ${p.channeling_effect.toFixed(1)}% Channeling)\nSoS not same tick as throne — stale Channeling%`;
+    return `mWPA = ${rwpa.toFixed(2)} × (1 + ${p.channeling_effect.toFixed(1)}% Channeling) = ${computeMwpa(p)!.toFixed(2)}`;
   }
   const age = ageFor(p, key);
   const source = sourceFor(p, key);
