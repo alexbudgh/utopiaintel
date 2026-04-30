@@ -74,6 +74,30 @@ Science Book Recovery Schedule
 ...
 Early indications show that our operation was a success and we have 100% confidence in the information retrieved.`;
 
+const COUNCIL_SCIENCE_TEXT = `Current Effects of Science
+Science Type\tNumber of books\tEffect
+Economy - 17 scientists - 105,020 books available
+Alchemy\t93,526\t 15.8% Income
+Tools\t100,631\t 11.8% Building Effectiveness
+Housing\t131,094\t 6.7% Population Limits
+Production\t103,416\t 49.7% Food & Rune Production
+Bookkeeping\t132,865\t-17.5% Wage Reduction
+Artisan\t798\t-1.2% Construction Time & -1.2% Construction & Raze Cost
+Military - 12 scientists - 121,620 books available
+Strategy\t186,282\t 11.1% Defensive Military Efficiency
+Siege\t87,822\t 6.4% Battle Gains
+Tactics\t201,850\t 11.5% Offensive Military Efficiency
+Valor\t1,369\t-1.8% Military Train Time &  1.8% Dragon Slaying Strength
+Heroism\t89,489\t 9.0% Draft Speed & -9.0% Draft Costs
+Resilience\t99,403\t-11.0% Military Casualties
+Arcane Arts - 2 scientists - 20,400 books available
+Crime\t2,515\t 6.5% Thief Effectiveness (TPA)
+Channeling\t1,577\t 6.3% Wizard Effectiveness (WPA)
+Shielding\t211,755\t-10.1% Damage from Enemy Thievery and Magic Instant Operations
+Cunning\t1,154\t 0.9% Thievery Sabotage Operation Damage
+Sorcery\t205\t 0.4% Magic Instant Spell Damage
+Finesse\t1,049\t-2.7% Wizard and Thief losses on failed attempts`;
+
 const SURVEY_TEXT = `You descend into an underground area of your castle and enter the Guild of Thieves. An organization created under your leadership, the Guild trains the lowest classes of people to learn the tools of the trade. Trained by your military, your thieves stand ready at your service to do what is needed.
 
 Our thieves scour the lands of Obsidian (7:5) and learn...
@@ -121,6 +145,13 @@ Barren Land\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t
 Homes\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t
 Farms\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t
 Early indications show that our operation was a success and we have 100% confidence in the information retrieved.`;
+
+const INCOMPLETE_SURVEY_FORM_TEXT = `You descend into an underground area of your castle and enter the Guild of Thieves.
+Number of thieves\t2,068 (4.924 per acre)\tStealth\t90%
+Target kingdom is Example Kingdom (3:8)
+Select province:\t17 Organic Lab Grown Meat --- ( 90% )
+Select operation:\tSurvey
+Number of thieves to send:`;
 
 const SOM_TEXT = `You descend into an underground area of your castle and enter the Guild of Thieves. An organization created under your leadership, the Guild trains the lowest classes of people to learn the tools of the trade. Trained by your military, your thieves stand ready at your service to do what is needed.
 
@@ -247,6 +278,29 @@ Duration: Builders Boon ( 1 day ) Inspire Army ( - )
 
 Armies : (1.00 days left) (0) (1.05 days left) (0)`;
 
+const COUNCIL_MILITARY_TEXT = `The Conniving Knight etienne, we have 5 generals available to lead our armies. One must always stay here to lead our forces in defense, but you may send the others out to combat at any time.
+Our Generals' current activities and our military strength is detailed below.
+
+Wage Rate
+Our military effectiveness is determined by the wage rates of our armed forces. Higher wages can drive up productivity. Any changes to pay will take time to change our efficiency.
+
+At this time, approximately 79.7% of our maximum population is allocated to non-peasant roles. Our wage rate is 200.0% of normal levels, and our military is functioning at 113.5% efficiency.
+
+Military Strength
+In addition, our military strength is affected by a number of other factors including buildings, honor, spells, and more. Our net military effectiveness is as follows:
+
+Offensive Military Effectiveness\t145.5%\tNet Offensive Points at Home\t198,347
+Defensive Military Effectiveness\t135.9%\tNet Defensive Points at Home\t92,910
+Army Availability
+Standing Army\tUndeployed Army\tUndeployed Army\tUndeployed Army\tUndeployed Army
+Generals\t5\t\t\t\t
+Soldiers\t10,574\t\t\t\t
+Griffins\t5,221\t\t\t\t
+Harpies\t6,065\t\t\t\t
+Drakes\t2,294\t\t\t\t
+War Horses\t0\t\t\t\t
+Captured Land\t-\t\t\t\t`;
+
 function throneTextWithRuler(ruler: string): string {
   return THRONE_TEXT.replace(
     "Ruler\tLord Plague Bearer the Hero\tSkeletons\t2,085",
@@ -320,6 +374,57 @@ test("parseIntel — dispatches SoT URLs to parseSoT", () => {
   assert.equal(result.type, "sot");
   assert.equal(result.data.name, "TestProv");
   assert.equal(result.data.kingdom, "2:6");
+});
+
+test("parseIntel — thievery Survey requires a completed operation result", () => {
+  assert.equal(
+    parseIntel(
+      "https://utopia-game.com/wol/game/thievery?p=1196&o=SURVEY&q=103&c=5129",
+      INCOMPLETE_SURVEY_FORM_TEXT,
+      "SelfProv",
+    ),
+    null,
+  );
+
+  const result = parseIntel(
+    "https://utopia-game.com/wol/game/thievery?p=1196&o=SURVEY&q=103&c=5129",
+    SURVEY_TEXT,
+    "SelfProv",
+  );
+  assert.ok(result);
+  assert.equal(result.type, "survey");
+  assert.equal(result.data.name, "Obsidian");
+  assert.equal(result.data.kingdom, "7:5");
+});
+
+test("parseIntel — self fallback is limited to matching council pages", () => {
+  const military = parseIntel("https://utopia-game.com/wol/game/council_military", COUNCIL_MILITARY_TEXT, "SelfProv");
+  assert.ok(military);
+  assert.equal(military.type, "som");
+  assert.equal(military.data.name, "SelfProv");
+
+  assert.equal(
+    parseIntel(
+      "https://utopia-game.com/wol/game/thievery?p=1196&o=SPY_ON_MILITARY&q=103&c=5129",
+      COUNCIL_MILITARY_TEXT,
+      "SelfProv",
+    ),
+    null,
+  );
+
+  const science = parseIntel("https://utopia-game.com/wol/game/council_science", COUNCIL_SCIENCE_TEXT, "SelfProv");
+  assert.ok(science);
+  assert.equal(science.type, "sos");
+  assert.equal(science.data.name, "SelfProv");
+
+  assert.equal(
+    parseIntel(
+      "https://utopia-game.com/wol/game/thievery?p=1196&o=SPY_ON_SCIENCES&q=103&c=5129",
+      COUNCIL_SCIENCE_TEXT,
+      "SelfProv",
+    ),
+    null,
+  );
 });
 
 test("parseIntel — state intel requires selfProv", () => {

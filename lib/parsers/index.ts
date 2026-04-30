@@ -11,12 +11,16 @@ import { parseKingdomNews } from "./kingdom_news";
 import { parseTrainArmy } from "./train_army";
 import { parseBuild } from "./build";
 import type { ParseResult } from "./types";
+import { getIntelPathname } from "./detect";
 
 export type { ParseResult } from "./types";
 
 export function parseIntel(url: string, dataSimple: string, selfProv?: string): ParseResult | null {
   const type = detectIntelType(url);
   if (!type) return null;
+  const pathname = getIntelPathname(url);
+  // selfProv is the submitting province. Only pass it as a target fallback
+  // for self council pages; thievery ops must prove their target in the payload.
 
   switch (type) {
     case "sot": {
@@ -24,15 +28,15 @@ export function parseIntel(url: string, dataSimple: string, selfProv?: string): 
       return data ? { type: "sot", data } : null;
     }
     case "survey": {
-      const data = parseSurvey(dataSimple, selfProv);
+      const data = parseSurvey(dataSimple, pathname?.endsWith("/council_internal") ? selfProv : undefined);
       return data ? { type: "survey", data } : null;
     }
     case "som": {
-      const data = parseSoM(dataSimple, selfProv);
+      const data = parseSoM(dataSimple, pathname?.endsWith("/council_military") ? selfProv : undefined);
       return data ? { type: "som", data } : null;
     }
     case "sos": {
-      const data = parseSoS(dataSimple, selfProv);
+      const data = parseSoS(dataSimple, pathname?.endsWith("/council_science") ? selfProv : undefined);
       return data ? { type: "sos", data } : null;
     }
     case "sod": {
