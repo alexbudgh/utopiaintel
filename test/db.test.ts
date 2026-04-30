@@ -1807,6 +1807,18 @@ test("metrics cache: back-calculated WPA uses same-tick residual inputs when dir
       INSERT INTO province_resources (province_id, key_hash, thieves, money, prisoners, source, saved_by, received_at)
       VALUES (?, ?, 0, 0, 0, 'infiltrate', 'Backcalc', '2026-04-04 13:10:00')
     `).run(provId, KEY_A);
+    db.prepare(`
+      INSERT INTO province_troops (province_id, key_hash, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, saved_by, received_at)
+      VALUES (?, ?, 0, 0, 0, 0, 0, 0, 'sot', 'Backcalc', '2026-04-04 13:12:00')
+    `).run(provId, KEY_A);
+    db.prepare(`
+      INSERT INTO province_resources (province_id, key_hash, money, prisoners, source, saved_by, received_at)
+      VALUES (?, ?, 0, 0, 'sot', 'Backcalc', '2026-04-04 13:12:00')
+    `).run(provId, KEY_A);
+    db.prepare(`
+      INSERT INTO province_troops (province_id, key_hash, soldiers, off_specs, def_specs, elites, war_horses, source, saved_by, received_at)
+      VALUES (?, ?, 500, 500, 500, 500, 500, 'som', 'Backcalc', '2026-04-04 14:10:00')
+    `).run(provId, KEY_A);
     const sosId = Number(db.prepare(`
       INSERT INTO sos_intel (province_id, key_hash, source, saved_by, received_at)
       VALUES (?, ?, 'sos', 'Backcalc', '2026-04-04 13:20:00')

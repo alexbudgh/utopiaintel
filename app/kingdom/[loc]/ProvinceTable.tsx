@@ -205,11 +205,11 @@ function ageFor(p: ProvinceRow, key: ColKey): string | null {
   if (key === "otpa" || key === "dtpa") return p.survey_age;
   if (key === "rwpa") {
     if (p.wizards != null) return oldest(p.resources_age, p.overview_age);
-    return oldest(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age);
+    return oldest(p.thieves_age, p.overview_age, p.troops_age, p.resources_age, p.sciences_age, p.survey_age);
   }
   if (key === "mwpa") {
     if (p.wizards != null) return oldest(p.resources_age, p.overview_age, p.sciences_age);
-    return oldest(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age);
+    return oldest(p.thieves_age, p.overview_age, p.troops_age, p.resources_age, p.sciences_age, p.survey_age);
   }
   if (key === "pop_pct") return p.resources_age ?? p.survey_age;
   return p.overview_age;
@@ -516,13 +516,15 @@ function tipFor(
       const cached = includeLastValid ? metricLastValidLine(p, "rwpa") : "";
       return `Missing NW, land, or race data${cached}`;
     }
-    const ok = sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age);
+    const ok = sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age, p.troops_age, p.resources_age);
     const w = ok ? computeWizardCount(p) : null;
     if (w == null) {
       const cached = includeLastValid ? metricLastValidLine(p, "rwpa") : "";
       const detail = metricAgeSummary([
         ["infiltrate", p.thieves_age],
         ["overview", p.overview_age],
+        ["troops (SoT)", p.troops_age],
+        ["resources (SoT)", p.resources_age],
         ["SoS", p.sciences_age],
         ["Survey", p.survey_age],
       ]);
@@ -532,6 +534,8 @@ function tipFor(
     return `wizards ≈ (${formatNum(p.networth)} NW residual) ÷ ${NW_PER_WIZARD} = ${Math.round(w).toLocaleString()}\nrWPA = ${Math.round(w).toLocaleString()} ÷ ${formatNum(p.land)} = ${rwpa.toFixed(2)}${metricAgeLine([
       ["infiltrate", p.thieves_age],
       ["overview", p.overview_age],
+      ["troops (SoT)", p.troops_age],
+      ["resources (SoT)", p.resources_age],
       ["SoS", p.sciences_age],
       ["Survey", p.survey_age],
     ])}`;
@@ -558,7 +562,7 @@ function tipFor(
     const mysticNote = p.personality === "Mystic" && p.mana == null ? "\nMystic Focused Channeling not applied: mana unknown" : "";
     const ages = p.wizards != null
       ? metricAgeLine([["wizards", p.resources_age], ["overview", p.overview_age], ["SoS", p.sciences_age]])
-      : metricAgeLine([["infiltrate", p.thieves_age], ["overview", p.overview_age], ["SoS", p.sciences_age], ["Survey", p.survey_age]]);
+      : metricAgeLine([["infiltrate", p.thieves_age], ["overview", p.overview_age], ["troops (SoT)", p.troops_age], ["resources (SoT)", p.resources_age], ["SoS", p.sciences_age], ["Survey", p.survey_age]]);
     return `mWPA = ${rwpa.toFixed(2)} × (1 + ${p.channeling_effect.toFixed(1)}% Channeling)${personalityEffectLabel(personalityEffect)} = ${computeMwpa(p)!.toFixed(2)}${ages}${mysticNote}`;
   }
   const age = ageFor(p, key);

@@ -4,8 +4,6 @@
 // NW/wiz=7 → 6,534 computed (~1% error); NW/wiz=5 → 9,148 (way off)
 export const NW_PER_WIZARD = 7;
 
-// TODO Age 115: War Hero grants +2 off-spec strength (affects NW); personality-aware NW weights not yet modeled.
-// TODO Age 115: Paladin grants +2 war-horse strength (affects NW); personality-aware NW weights not yet modeled.
 export const RACE_NW: Record<string, { offSpecs: number; defSpecs: number; elites: number; warHorses: number }> = {
   Avian:      { offSpecs: 4.8, defSpecs: 5.0, elites: 7.0, warHorses: 0   },
   "Dark Elf": { offSpecs: 6.0, defSpecs: 5.5, elites: 7.0, warHorses: 0.6 },
@@ -22,6 +20,7 @@ export interface NwInputs {
   networth: number | null;
   land: number | null;
   race: string | null;
+  personality?: string | null;
   soldiers: number | null;
   off_specs: number | null;
   def_specs: number | null;
@@ -42,18 +41,24 @@ export function computeWizardCount(p: NwInputs): number | null {
   if (!raceNw) return null;
   if (p.thieves == null || p.buildings_built == null || p.science_total_books == null) return null;
 
+  // Paladin generates 8 free horses per acre automatically; these have 0 NW.
+  const freeHorses = p.personality === "Paladin" ? Math.min(p.war_horses ?? 0, 8 * p.land) : 0;
+  const offSpecNw = raceNw.offSpecs + (p.personality === "War Hero" ? 2 * 0.4 : 0);
+  const warHorseNw = raceNw.warHorses + (p.personality === "Paladin" ? 2 * 0.3 : 0);
+  const prisonerNw = (p.personality === "Warrior" ? 8 + 5 : 8) * 0.2;
+
   const troopNw =
     (p.soldiers ?? 0) * 0.75 +
-    (p.off_specs ?? 0) * raceNw.offSpecs +
+    (p.off_specs ?? 0) * offSpecNw +
     (p.def_specs ?? 0) * raceNw.defSpecs +
     (p.elites ?? 0) * raceNw.elites +
-    (p.war_horses ?? 0) * raceNw.warHorses +
+    ((p.war_horses ?? 0) - freeHorses) * warHorseNw +
     (p.peasants ?? 0) * 0.25 +
-    (p.prisoners ?? 0) * 1.6;
+    (p.prisoners ?? 0) * prisonerNw;
 
   const landBuildingNw = p.land * 40
     + p.buildings_built * 20
-    + (p.buildings_in_progress ?? 0) * 10;
+    + (p.buildings_in_progress ?? 0) * 50;
 
   const scienceNw = p.science_total_books * 0.000007 * p.land;
 

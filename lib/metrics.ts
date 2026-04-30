@@ -80,7 +80,7 @@ export function computeRwpa(p: ProvinceRow): number | null {
     return rawPerAcreValue(p.wizards, p.land);
   }
   if (!p.networth || !p.race) return null;
-  if (!sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age)) return null;
+  if (!sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age, p.troops_age, p.resources_age)) return null;
   const w = computeWizardCount(p);
   return rawPerAcreValue(w, p.land);
 }

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { computeWizardCount, NW_PER_WIZARD, RACE_NW } from "../lib/nw";
+import { computeRwpa } from "../lib/metrics";
 import { computeAmbushRawOff } from "../lib/ambush";
 import { formatNum, fullValueTooltip, parseUtopiaDate } from "../lib/ui";
 import { getRaceByName, normalizeScienceName } from "../lib/game";
@@ -121,13 +122,116 @@ test("computeWizardCount — money contributes NW at 1 per 1000 gold", () => {
   assert.ok(Math.abs(result - 100) < 1, `expected ~100 wizards, got ${result}`);
 });
 
-test("computeWizardCount — buildings_in_progress contribute at 10 per acre", () => {
+test("computeRwpa — uses same-tick SoT troop data when SoM is from another tick", () => {
+  const tick = "2026-04-04 13:10:00";
+  const result = computeRwpa({
+    race: "Human",
+    land: 1000,
+    networth: 40700,
+    thieves: 0,
+    soldiers: 0,
+    off_specs: 0,
+    def_specs: 0,
+    elites: 0,
+    war_horses: 0,
+    peasants: 0,
+    prisoners: 0,
+    money: 0,
+    buildings_built: 0,
+    buildings_in_progress: 0,
+    science_total_books: 0,
+    wizards: null,
+    thieves_age: tick,
+    overview_age: tick,
+    troops_age: tick,
+    resources_age: tick,
+    sciences_age: tick,
+    survey_age: tick,
+    som_age: "2026-04-04 14:10:00",
+  } as any);
+
+  assert.ok(result != null);
+  assert.ok(Math.abs(result - 0.1) < 0.0001, `expected 0.1 rWPA, got ${result}`);
+});
+
+test("computeRwpa — rejects back-calc when SoT troop data is not same-tick", () => {
+  const result = computeRwpa({
+    race: "Human",
+    land: 1000,
+    networth: 40700,
+    thieves: 0,
+    soldiers: 0,
+    off_specs: 0,
+    def_specs: 0,
+    elites: 0,
+    war_horses: 0,
+    peasants: 0,
+    prisoners: 0,
+    money: 0,
+    buildings_built: 0,
+    buildings_in_progress: 0,
+    science_total_books: 0,
+    wizards: null,
+    thieves_age: "2026-04-04 13:10:00",
+    overview_age: "2026-04-04 13:10:00",
+    troops_age: "2026-04-04 14:10:00",
+    resources_age: "2026-04-04 13:10:00",
+    sciences_age: "2026-04-04 13:10:00",
+    survey_age: "2026-04-04 13:10:00",
+    som_age: "2026-04-04 13:10:00",
+  } as any);
+
+  assert.equal(result, null);
+});
+
+test("computeWizardCount — buildings_in_progress contribute at 50 per building", () => {
   const land = 500;
   const inProgress = 100;
-  const landNw = land * 40 + inProgress * 10;
+  const landNw = land * 40 + inProgress * 50;
   const wizardNw = 700;
   const nw = landNw + wizardNw;
   const result = computeWizardCount({ ...baseInputs(), race: "Human", networth: nw, land, buildings_in_progress: inProgress });
+  assert.ok(result != null);
+  assert.ok(Math.abs(result - 100) < 1, `expected ~100 wizards, got ${result}`);
+});
+
+test("computeWizardCount — Paladin free horses (8/acre) have 0 NW; paid horses use boosted strength", () => {
+  const land = 100;
+  const freeHorses = 8 * land;
+  const paidHorses = 200;
+  const humanWarHorseNw = RACE_NW["Human"].warHorses + 2 * 0.3;
+  const nw = land * 40 + paidHorses * humanWarHorseNw + 700;
+  const result = computeWizardCount({
+    ...baseInputs(), race: "Human", personality: "Paladin",
+    networth: nw, land,
+    war_horses: freeHorses + paidHorses,
+  });
+  assert.ok(result != null);
+  assert.ok(Math.abs(result - 100) < 1, `expected ~100 wizards, got ${result}`);
+});
+
+test("computeWizardCount — War Hero off-specs cost 0.8 more NW each", () => {
+  const land = 100;
+  const offSpecs = 500;
+  const humanOffSpecNw = RACE_NW["Human"].offSpecs + 2 * 0.4;
+  const nw = land * 40 + offSpecs * humanOffSpecNw + 700;
+  const result = computeWizardCount({
+    ...baseInputs(), race: "Human", personality: "War Hero",
+    networth: nw, land, off_specs: offSpecs,
+  });
+  assert.ok(result != null);
+  assert.ok(Math.abs(result - 100) < 1, `expected ~100 wizards, got ${result}`);
+});
+
+test("computeWizardCount — Warrior prisoners cost 2.6 NW each (vs 1.6 base)", () => {
+  const land = 100;
+  const prisoners = 200;
+  const warriorPrisonerNw = (8 + 5) * 0.2;
+  const nw = land * 40 + prisoners * warriorPrisonerNw + 700;
+  const result = computeWizardCount({
+    ...baseInputs(), race: "Human", personality: "Warrior",
+    networth: nw, land, prisoners,
+  });
   assert.ok(result != null);
   assert.ok(Math.abs(result - 100) < 1, `expected ~100 wizards, got ${result}`);
 });

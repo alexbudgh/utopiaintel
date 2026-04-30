@@ -223,7 +223,8 @@ export function updateMetricsCache(db: Database.Database, provinceId: number, ke
     ORDER BY pr.received_at DESC LIMIT 1
   `).get(p);
 
-  // ── rWPA / mWPA back-calc: same-tick (infiltrate + overview + sos + survey) ─
+  // ── rWPA / mWPA back-calc: same-tick residual inputs. Total troops and
+  // resources come from SoT/throne; SoM home troops are intentionally ignored.
   type RwpaBackRow = {
     thieves: number; land: number; networth: number; race: string;
     personality: string | null; mana: number | null;
@@ -247,14 +248,8 @@ export function updateMetricsCache(db: Database.Database, provinceId: number, ke
       (SELECT SUM(sb.built) FROM survey_buildings sb
        WHERE sb.survey_intel_id = srv.id AND sb.building != 'Barren Land') AS buildings_built,
       (SELECT SUM(sb.in_progress) FROM survey_buildings sb WHERE sb.survey_intel_id = srv.id) AS buildings_in_progress,
-      (SELECT pt.soldiers FROM province_troops pt WHERE pt.province_id = pr.province_id AND pt.key_hash = :key_hash AND pt.source IN ('sot','throne') ORDER BY pt.received_at DESC LIMIT 1) AS soldiers,
-      (SELECT pt.off_specs FROM province_troops pt WHERE pt.province_id = pr.province_id AND pt.key_hash = :key_hash AND pt.source IN ('sot','throne') ORDER BY pt.received_at DESC LIMIT 1) AS off_specs,
-      (SELECT pt.def_specs FROM province_troops pt WHERE pt.province_id = pr.province_id AND pt.key_hash = :key_hash AND pt.source IN ('sot','throne') ORDER BY pt.received_at DESC LIMIT 1) AS def_specs,
-      (SELECT pt.elites FROM province_troops pt WHERE pt.province_id = pr.province_id AND pt.key_hash = :key_hash AND pt.source IN ('sot','throne') ORDER BY pt.received_at DESC LIMIT 1) AS elites,
-      (SELECT pt.war_horses FROM province_troops pt WHERE pt.province_id = pr.province_id AND pt.key_hash = :key_hash AND pt.source IN ('sot','throne') ORDER BY pt.received_at DESC LIMIT 1) AS war_horses,
-      (SELECT pt.peasants FROM province_troops pt WHERE pt.province_id = pr.province_id AND pt.key_hash = :key_hash AND pt.source IN ('sot','throne') ORDER BY pt.received_at DESC LIMIT 1) AS peasants,
-      (SELECT pr2.money FROM province_resources pr2 WHERE pr2.province_id = pr.province_id AND pr2.key_hash = pr.key_hash AND pr2.money IS NOT NULL ORDER BY pr2.received_at DESC LIMIT 1) AS money,
-      (SELECT pr2.prisoners FROM province_resources pr2 WHERE pr2.province_id = pr.province_id AND pr2.key_hash = pr.key_hash AND pr2.prisoners IS NOT NULL ORDER BY pr2.received_at DESC LIMIT 1) AS prisoners,
+      pt.soldiers, pt.off_specs, pt.def_specs, pt.elites, pt.war_horses, pt.peasants,
+      pr_sot.money, pr_sot.prisoners,
       (SELECT ss2.effect FROM sos_sciences ss2 WHERE ss2.sos_intel_id = si.id AND ss2.science = 'Channeling') AS channeling_effect,
       pr.received_at AS age
     FROM province_resources pr
@@ -268,6 +263,14 @@ export function updateMetricsCache(db: Database.Database, provinceId: number, ke
     JOIN survey_intel srv
       ON srv.province_id = pr.province_id AND srv.key_hash = pr.key_hash
       AND ${SAME_TICK_EXPR("pr.received_at", "srv.received_at")}
+    JOIN province_troops pt
+      ON pt.province_id = pr.province_id AND pt.key_hash = pr.key_hash
+      AND pt.source IN ('sot', 'throne')
+      AND ${SAME_TICK_EXPR("pr.received_at", "pt.received_at")}
+    JOIN province_resources pr_sot
+      ON pr_sot.province_id = pr.province_id AND pr_sot.key_hash = pr.key_hash
+      AND pr_sot.source IN ('sot', 'throne')
+      AND ${SAME_TICK_EXPR("pr.received_at", "pr_sot.received_at")}
     WHERE pr.province_id = :province_id AND pr.key_hash = :key_hash AND pr.thieves IS NOT NULL
     ORDER BY pr.received_at DESC LIMIT 1
   `).get(p);
