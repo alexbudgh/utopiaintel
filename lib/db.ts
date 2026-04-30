@@ -3,6 +3,8 @@ import fs from "fs";
 import path from "path";
 import { BAD_SPELL_NAMES } from "./effects";
 import { parseUtopiaDate, formatUtopiaDate } from "./ui";
+import { computeWizardCount } from "./nw";
+import { computeDtpaValue, computeMtpaValue, computeMwpaValue, computeOtpaValue, rawPerAcreValue } from "./metrics";
 import type {
   SoTData,
   SurveyData,
@@ -34,6 +36,252 @@ export function getDb(): Database.Database {
     initSchema(_db);
   }
   return _db;
+}
+
+// Same-tick check matching lib/ui.ts sameTick() — SQLite integer division of epoch seconds by 3600
+const SAME_TICK_EXPR = (a: string, b: string) =>
+  `(strftime('%s', ${a}) / 3600) = (strftime('%s', ${b}) / 3600)`;
+
+export function updateMetricsCache(db: Database.Database, provinceId: number, keyHash: string): void {
+  const p = { province_id: provinceId, key_hash: keyHash };
+  // Preserve existing cached values when a metric is not currently reconstructable
+  // from retained historical intel. This keeps cache refreshes from erasing a
+  // known-good fallback after sparse updates or history cleanup.
+  const upd = db.prepare(
+    `UPDATE provinces SET
+      cached_rtpa=COALESCE(?, cached_rtpa),
+      cached_rtpa_age=COALESCE(?, cached_rtpa_age),
+      cached_mtpa=COALESCE(?, cached_mtpa),
+      cached_mtpa_age=COALESCE(?, cached_mtpa_age),
+      cached_otpa=COALESCE(?, cached_otpa),
+      cached_otpa_age=COALESCE(?, cached_otpa_age),
+      cached_dtpa=COALESCE(?, cached_dtpa),
+      cached_dtpa_age=COALESCE(?, cached_dtpa_age),
+      cached_rwpa=COALESCE(?, cached_rwpa),
+      cached_rwpa_age=COALESCE(?, cached_rwpa_age),
+      cached_mwpa=COALESCE(?, cached_mwpa),
+      cached_mwpa_age=COALESCE(?, cached_mwpa_age)
+    WHERE id=?`
+  );
+
+  // ── rTPA: most recent same-tick (infiltrate thieves + overview land) ──────
+  type RtpaRow = { thieves: number; land: number; age: string };
+  const rtpaRow = db.prepare<typeof p, RtpaRow>(`
+    SELECT pr.thieves, po.land, pr.received_at AS age
+    FROM province_resources pr
+    JOIN province_overview po
+      ON po.province_id = pr.province_id AND po.key_hash = pr.key_hash
+      AND po.land > 0
+      AND ${SAME_TICK_EXPR("pr.received_at", "po.received_at")}
+    WHERE pr.province_id = :province_id AND pr.key_hash = :key_hash AND pr.thieves IS NOT NULL
+    ORDER BY pr.received_at DESC LIMIT 1
+  `).get(p);
+
+  let cached_rtpa: number | null = null, cached_rtpa_age: string | null = null;
+  if (rtpaRow) {
+    cached_rtpa = rawPerAcreValue(rtpaRow.thieves, rtpaRow.land);
+    cached_rtpa_age = rtpaRow.age;
+  }
+
+  // ── mTPA: same-tick (infiltrate + overview + sos sciences crime) ──────────
+  type MtpaRow = { thieves: number; land: number; personality: string | null; crime_effect: number; age: string };
+  const mtpaRow = db.prepare<typeof p, MtpaRow>(`
+    SELECT pr.thieves, po.land,
+      COALESCE(po.personality, (
+        SELECT po2.personality FROM province_overview po2
+        WHERE po2.province_id = pr.province_id AND po2.personality IS NOT NULL
+        ORDER BY po2.received_at DESC LIMIT 1
+      )) AS personality,
+      ss.effect AS crime_effect,
+      pr.received_at AS age
+    FROM province_resources pr
+    JOIN province_overview po
+      ON po.province_id = pr.province_id AND po.key_hash = pr.key_hash
+      AND po.land > 0
+      AND ${SAME_TICK_EXPR("pr.received_at", "po.received_at")}
+    JOIN sos_intel si
+      ON si.province_id = pr.province_id AND si.key_hash = pr.key_hash
+      AND ${SAME_TICK_EXPR("pr.received_at", "si.received_at")}
+    JOIN sos_sciences ss ON ss.sos_intel_id = si.id AND ss.science = 'Crime'
+    WHERE pr.province_id = :province_id AND pr.key_hash = :key_hash AND pr.thieves IS NOT NULL
+    ORDER BY pr.received_at DESC LIMIT 1
+  `).get(p);
+
+  let cached_mtpa: number | null = null, cached_mtpa_age: string | null = null;
+  if (mtpaRow) {
+    const rtpa = rawPerAcreValue(mtpaRow.thieves, mtpaRow.land);
+    cached_mtpa = computeMtpaValue(rtpa, mtpaRow.crime_effect, mtpaRow.personality);
+    cached_mtpa_age = mtpaRow.age;
+  }
+
+  // ── oTPA / dTPA: same-tick + survey (thieves' dens / watch towers) ────────
+  type OdtpaRow = MtpaRow & { thieves_dens_effect: number | null; watch_towers_effect: number | null };
+  const odtpaRow = db.prepare<typeof p, OdtpaRow>(`
+    SELECT pr.thieves, po.land,
+      COALESCE(po.personality, (
+        SELECT po2.personality FROM province_overview po2
+        WHERE po2.province_id = pr.province_id AND po2.personality IS NOT NULL
+        ORDER BY po2.received_at DESC LIMIT 1
+      )) AS personality,
+      ss.effect AS crime_effect,
+      srv.thievery_effectiveness AS thieves_dens_effect,
+      srv.thief_prevent_chance AS watch_towers_effect,
+      pr.received_at AS age
+    FROM province_resources pr
+    JOIN province_overview po
+      ON po.province_id = pr.province_id AND po.key_hash = pr.key_hash
+      AND po.land > 0
+      AND ${SAME_TICK_EXPR("pr.received_at", "po.received_at")}
+    JOIN sos_intel si
+      ON si.province_id = pr.province_id AND si.key_hash = pr.key_hash
+      AND ${SAME_TICK_EXPR("pr.received_at", "si.received_at")}
+    JOIN sos_sciences ss ON ss.sos_intel_id = si.id AND ss.science = 'Crime'
+    JOIN survey_intel srv
+      ON srv.province_id = pr.province_id AND srv.key_hash = pr.key_hash
+      AND ${SAME_TICK_EXPR("pr.received_at", "srv.received_at")}
+    WHERE pr.province_id = :province_id AND pr.key_hash = :key_hash AND pr.thieves IS NOT NULL
+    ORDER BY pr.received_at DESC LIMIT 1
+  `).get(p);
+
+  let cached_otpa: number | null = null, cached_otpa_age: string | null = null;
+  let cached_dtpa: number | null = null, cached_dtpa_age: string | null = null;
+  if (odtpaRow) {
+    const rtpa = rawPerAcreValue(odtpaRow.thieves, odtpaRow.land);
+    const mtpa = computeMtpaValue(rtpa, odtpaRow.crime_effect, odtpaRow.personality);
+    cached_otpa = computeOtpaValue(mtpa, odtpaRow.thieves_dens_effect);
+    if (cached_otpa != null) {
+      cached_otpa_age = odtpaRow.age;
+    }
+    cached_dtpa = computeDtpaValue(mtpa, odtpaRow.watch_towers_effect);
+    if (cached_dtpa != null) {
+      cached_dtpa_age = odtpaRow.age;
+    }
+  }
+
+  // ── rWPA direct: most recent same-tick (throne/state wizards + overview) ──
+  type RwpaDirectRow = { wizards: number; land: number; personality: string | null; mana: number | null; age: string };
+  const rwpaDirectRow = db.prepare<typeof p, RwpaDirectRow>(`
+    SELECT pr.wizards, po.land, pr.mana,
+      COALESCE(po.personality, (
+        SELECT po2.personality FROM province_overview po2
+        WHERE po2.province_id = pr.province_id AND po2.personality IS NOT NULL
+        ORDER BY po2.received_at DESC LIMIT 1
+      )) AS personality,
+      pr.received_at AS age
+    FROM province_resources pr
+    JOIN province_overview po
+      ON po.province_id = pr.province_id AND po.key_hash = pr.key_hash
+      AND po.land > 0
+      AND ${SAME_TICK_EXPR("pr.received_at", "po.received_at")}
+    WHERE pr.province_id = :province_id AND pr.key_hash = :key_hash AND pr.wizards IS NOT NULL
+    ORDER BY pr.received_at DESC LIMIT 1
+  `).get(p);
+
+  // ── mWPA direct: same as above but also needs same-tick channeling ────────
+  type MwpaDirectRow = RwpaDirectRow & { channeling_effect: number };
+  const mwpaDirectRow = db.prepare<typeof p, MwpaDirectRow>(`
+    SELECT pr.wizards, po.land, pr.mana,
+      COALESCE(po.personality, (
+        SELECT po2.personality FROM province_overview po2
+        WHERE po2.province_id = pr.province_id AND po2.personality IS NOT NULL
+        ORDER BY po2.received_at DESC LIMIT 1
+      )) AS personality,
+      ss.effect AS channeling_effect,
+      pr.received_at AS age
+    FROM province_resources pr
+    JOIN province_overview po
+      ON po.province_id = pr.province_id AND po.key_hash = pr.key_hash
+      AND po.land > 0
+      AND ${SAME_TICK_EXPR("pr.received_at", "po.received_at")}
+    JOIN sos_intel si
+      ON si.province_id = pr.province_id AND si.key_hash = pr.key_hash
+      AND ${SAME_TICK_EXPR("pr.received_at", "si.received_at")}
+    JOIN sos_sciences ss ON ss.sos_intel_id = si.id AND ss.science = 'Channeling'
+    WHERE pr.province_id = :province_id AND pr.key_hash = :key_hash AND pr.wizards IS NOT NULL
+    ORDER BY pr.received_at DESC LIMIT 1
+  `).get(p);
+
+  // ── rWPA / mWPA back-calc: same-tick (infiltrate + overview + sos + survey) ─
+  type RwpaBackRow = {
+    thieves: number; land: number; networth: number; race: string;
+    personality: string | null; mana: number | null;
+    science_total_books: number | null; buildings_built: number | null; buildings_in_progress: number | null;
+    soldiers: number | null; off_specs: number | null; def_specs: number | null;
+    elites: number | null; war_horses: number | null; peasants: number | null;
+    money: number | null; prisoners: number | null;
+    channeling_effect: number | null; age: string;
+  };
+  const rwpaBackRow = db.prepare<typeof p, RwpaBackRow>(`
+    SELECT pr.thieves, po.land, po.networth, po.race,
+      COALESCE(po.personality, (
+        SELECT po2.personality FROM province_overview po2
+        WHERE po2.province_id = pr.province_id AND po2.personality IS NOT NULL
+        ORDER BY po2.received_at DESC LIMIT 1
+      )) AS personality,
+      (SELECT pr2.mana FROM province_resources pr2
+       WHERE pr2.province_id = pr.province_id AND pr2.key_hash = pr.key_hash AND pr2.mana IS NOT NULL
+       ORDER BY pr2.received_at DESC LIMIT 1) AS mana,
+      (SELECT SUM(ss2.books) FROM sos_sciences ss2 WHERE ss2.sos_intel_id = si.id) AS science_total_books,
+      (SELECT SUM(sb.built) FROM survey_buildings sb
+       WHERE sb.survey_intel_id = srv.id AND sb.building != 'Barren Land') AS buildings_built,
+      (SELECT SUM(sb.in_progress) FROM survey_buildings sb WHERE sb.survey_intel_id = srv.id) AS buildings_in_progress,
+      (SELECT pt.soldiers FROM province_troops pt WHERE pt.province_id = pr.province_id AND pt.key_hash = :key_hash AND pt.source IN ('sot','throne') ORDER BY pt.received_at DESC LIMIT 1) AS soldiers,
+      (SELECT pt.off_specs FROM province_troops pt WHERE pt.province_id = pr.province_id AND pt.key_hash = :key_hash AND pt.source IN ('sot','throne') ORDER BY pt.received_at DESC LIMIT 1) AS off_specs,
+      (SELECT pt.def_specs FROM province_troops pt WHERE pt.province_id = pr.province_id AND pt.key_hash = :key_hash AND pt.source IN ('sot','throne') ORDER BY pt.received_at DESC LIMIT 1) AS def_specs,
+      (SELECT pt.elites FROM province_troops pt WHERE pt.province_id = pr.province_id AND pt.key_hash = :key_hash AND pt.source IN ('sot','throne') ORDER BY pt.received_at DESC LIMIT 1) AS elites,
+      (SELECT pt.war_horses FROM province_troops pt WHERE pt.province_id = pr.province_id AND pt.key_hash = :key_hash AND pt.source IN ('sot','throne') ORDER BY pt.received_at DESC LIMIT 1) AS war_horses,
+      (SELECT pt.peasants FROM province_troops pt WHERE pt.province_id = pr.province_id AND pt.key_hash = :key_hash AND pt.source IN ('sot','throne') ORDER BY pt.received_at DESC LIMIT 1) AS peasants,
+      (SELECT pr2.money FROM province_resources pr2 WHERE pr2.province_id = pr.province_id AND pr2.key_hash = pr.key_hash AND pr2.money IS NOT NULL ORDER BY pr2.received_at DESC LIMIT 1) AS money,
+      (SELECT pr2.prisoners FROM province_resources pr2 WHERE pr2.province_id = pr.province_id AND pr2.key_hash = pr.key_hash AND pr2.prisoners IS NOT NULL ORDER BY pr2.received_at DESC LIMIT 1) AS prisoners,
+      (SELECT ss2.effect FROM sos_sciences ss2 WHERE ss2.sos_intel_id = si.id AND ss2.science = 'Channeling') AS channeling_effect,
+      pr.received_at AS age
+    FROM province_resources pr
+    JOIN province_overview po
+      ON po.province_id = pr.province_id AND po.key_hash = pr.key_hash
+      AND po.land > 0 AND po.networth IS NOT NULL AND po.race IS NOT NULL
+      AND ${SAME_TICK_EXPR("pr.received_at", "po.received_at")}
+    JOIN sos_intel si
+      ON si.province_id = pr.province_id AND si.key_hash = pr.key_hash
+      AND ${SAME_TICK_EXPR("pr.received_at", "si.received_at")}
+    JOIN survey_intel srv
+      ON srv.province_id = pr.province_id AND srv.key_hash = pr.key_hash
+      AND ${SAME_TICK_EXPR("pr.received_at", "srv.received_at")}
+    WHERE pr.province_id = :province_id AND pr.key_hash = :key_hash AND pr.thieves IS NOT NULL
+    ORDER BY pr.received_at DESC LIMIT 1
+  `).get(p);
+
+  // Pick best rWPA: direct (more accurate) preferred over back-calc
+  let cached_rwpa: number | null = null, cached_rwpa_age: string | null = null;
+  let cached_mwpa: number | null = null, cached_mwpa_age: string | null = null;
+
+  if (rwpaDirectRow) {
+    cached_rwpa = rawPerAcreValue(rwpaDirectRow.wizards, rwpaDirectRow.land);
+    cached_rwpa_age = rwpaDirectRow.age;
+    if (mwpaDirectRow) {
+      cached_mwpa = computeMwpaValue(cached_rwpa, mwpaDirectRow.channeling_effect, mwpaDirectRow.personality, mwpaDirectRow.mana);
+      cached_mwpa_age = mwpaDirectRow.age;
+    }
+  } else if (rwpaBackRow) {
+    const w = computeWizardCount(rwpaBackRow);
+    if (w != null) {
+      cached_rwpa = rawPerAcreValue(w, rwpaBackRow.land);
+      cached_rwpa_age = rwpaBackRow.age;
+      cached_mwpa = computeMwpaValue(cached_rwpa, rwpaBackRow.channeling_effect, rwpaBackRow.personality, rwpaBackRow.mana);
+      if (cached_mwpa != null) {
+        cached_mwpa_age = rwpaBackRow.age;
+      }
+    }
+  }
+
+  upd.run(
+    cached_rtpa, cached_rtpa_age,
+    cached_mtpa, cached_mtpa_age,
+    cached_otpa, cached_otpa_age,
+    cached_dtpa, cached_dtpa_age,
+    cached_rwpa, cached_rwpa_age,
+    cached_mwpa, cached_mwpa_age,
+    provinceId,
+  );
 }
 
 export function initSchema(db: Database.Database) {
@@ -402,6 +650,29 @@ export function initSchema(db: Database.Database) {
     db.transaction(() => { for (const r of allRows) upd.run(parseUtopiaDate(r.game_date), r.id); })();
     db.exec("CREATE INDEX IF NOT EXISTS idx_kingdom_news_kd_ord ON kingdom_news(kingdom, game_date_ord DESC)");
   }
+  if (!hasCol("provinces", "cached_rtpa")) {
+    db.exec("ALTER TABLE provinces ADD COLUMN cached_rtpa REAL");
+    db.exec("ALTER TABLE provinces ADD COLUMN cached_rtpa_age TEXT");
+    db.exec("ALTER TABLE provinces ADD COLUMN cached_mtpa REAL");
+    db.exec("ALTER TABLE provinces ADD COLUMN cached_mtpa_age TEXT");
+    db.exec("ALTER TABLE provinces ADD COLUMN cached_otpa REAL");
+    db.exec("ALTER TABLE provinces ADD COLUMN cached_otpa_age TEXT");
+    db.exec("ALTER TABLE provinces ADD COLUMN cached_dtpa REAL");
+    db.exec("ALTER TABLE provinces ADD COLUMN cached_dtpa_age TEXT");
+    db.exec("ALTER TABLE provinces ADD COLUMN cached_rwpa REAL");
+    db.exec("ALTER TABLE provinces ADD COLUMN cached_rwpa_age TEXT");
+    db.exec("ALTER TABLE provinces ADD COLUMN cached_mwpa REAL");
+    db.exec("ALTER TABLE provinces ADD COLUMN cached_mwpa_age TEXT");
+    // Backfill cache from existing history
+    const pairs = db.prepare(
+      "SELECT DISTINCT province_id, key_hash FROM intel_partitions WHERE key_hash IS NOT NULL"
+    ).all() as Array<{ province_id: number; key_hash: string }>;
+    db.transaction(() => {
+      for (const { province_id, key_hash } of pairs) {
+        updateMetricsCache(db, province_id, key_hash);
+      }
+    })();
+  }
 }
 
 // SQL fragments for province_overview — used in both the list query and detail query.
@@ -547,6 +818,7 @@ export function storeSoT(data: SoTData, savedBy: string, keyHash: string, isSelf
         insArmy.run(milId, `out_${i + 1}`, a.acres, a.daysLeft);
       });
     }
+    updateMetricsCache(db, provId, keyHash);
   })();
 }
 
@@ -573,6 +845,7 @@ export function storeInfiltrate(data: InfiltrateData, savedBy: string, keyHash: 
       INSERT INTO province_resources (province_id, key_hash, thieves, source, saved_by, accuracy)
       VALUES (?, ?, ?, 'infiltrate', ?, ?)
     `).run(provId, keyHash, data.thieves, savedBy, data.accuracy);
+    updateMetricsCache(db, provId, keyHash);
   })();
 }
 
@@ -659,6 +932,7 @@ export function storeSoS(data: SoSData, savedBy: string, keyHash: string, isSelf
     for (const s of data.sciences) {
       ins.run(sosId, s.science, s.books, s.effect);
     }
+    updateMetricsCache(db, provId, keyHash);
   })();
 }
 
@@ -688,6 +962,7 @@ export function storeSurvey(data: SurveyData, savedBy: string, keyHash: string, 
     for (const b of data.buildings) {
       ins.run(surveyId, b.building, b.built, b.inProgress);
     }
+    updateMetricsCache(db, provId, keyHash);
   })();
 }
 
@@ -766,6 +1041,7 @@ export function storeState(data: StateData, savedBy: string, keyHash: string) {
       INSERT INTO province_troops (province_id, key_hash, peasants, source, saved_by, accuracy)
       VALUES (?, ?, ?, 'state', ?, 100)
     `).run(provId, keyHash, data.peasants, savedBy);
+    updateMetricsCache(db, provId, keyHash);
   })();
 }
 
@@ -936,6 +1212,18 @@ export interface ProvinceRow {
   som_armies_json: string | null;
   throne_armies_json: string | null;
   armies_out_json: string | null;
+  cached_rtpa?: number | null;
+  cached_rtpa_age?: string | null;
+  cached_mtpa?: number | null;
+  cached_mtpa_age?: string | null;
+  cached_otpa?: number | null;
+  cached_otpa_age?: string | null;
+  cached_dtpa?: number | null;
+  cached_dtpa_age?: string | null;
+  cached_rwpa?: number | null;
+  cached_rwpa_age?: string | null;
+  cached_mwpa?: number | null;
+  cached_mwpa_age?: string | null;
 }
 
 type SomArmy = { type: string; generals: number; soldiers: number; offSpecs: number; defSpecs: number; elites: number; warHorses: number; thieves: number; land: number; eta: number };
@@ -1131,7 +1419,13 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
            (SELECT SUM(land_gained) FROM som_armies WHERE military_intel_id = (CASE WHEN mi_throne.id IS NOT NULL AND (mi.id IS NULL OR mi_throne.received_at > mi.received_at) THEN mi_throne.id ELSE mi.id END) AND return_days IS NOT NULL) AS land_incoming,
            (SELECT MIN(return_days) FROM som_armies WHERE military_intel_id = (CASE WHEN mi_throne.id IS NOT NULL AND (mi.id IS NULL OR mi_throne.received_at > mi.received_at) THEN mi_throne.id ELSE mi.id END) AND return_days IS NOT NULL) AS earliest_return,
            (SELECT json_group_array(json_object('type', army_type, 'generals', generals, 'soldiers', soldiers, 'offSpecs', off_specs, 'defSpecs', def_specs, 'elites', elites, 'warHorses', war_horses, 'thieves', thieves, 'land', land_gained, 'eta', return_days)) FROM som_armies WHERE military_intel_id = mi.id AND return_days IS NOT NULL) AS som_armies_json,
-           (SELECT json_group_array(json_object('type', army_type, 'land', land_gained, 'eta', return_days)) FROM som_armies WHERE military_intel_id = mi_throne.id AND return_days IS NOT NULL) AS throne_armies_json
+           (SELECT json_group_array(json_object('type', army_type, 'land', land_gained, 'eta', return_days)) FROM som_armies WHERE military_intel_id = mi_throne.id AND return_days IS NOT NULL) AS throne_armies_json,
+           p.cached_rtpa, p.cached_rtpa_age,
+           p.cached_mtpa, p.cached_mtpa_age,
+           p.cached_otpa, p.cached_otpa_age,
+           p.cached_dtpa, p.cached_dtpa_age,
+           p.cached_rwpa, p.cached_rwpa_age,
+           p.cached_mwpa, p.cached_mwpa_age
     FROM provinces p
     ${OVERVIEW_LAND_JOIN}
     LEFT JOIN total_military_points tmp ON tmp.id = (

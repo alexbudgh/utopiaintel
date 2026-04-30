@@ -2,9 +2,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import Database from "better-sqlite3";
 import { sameTick, parseUtopiaDate, formatUtopiaDate } from "../lib/ui";
-import { createDbApi, initSchema } from "../lib/db";
+import { createDbApi, initSchema, updateMetricsCache } from "../lib/db";
 import { getGainsPageData } from "../lib/gains-page";
 import type { KingdomNewsData } from "../lib/parsers/kingdom_news";
+import { assertApprox } from "./helpers";
 
 async function withRealDb(
   run: (api: ReturnType<typeof createDbApi>, db: Database.Database) => Promise<void> | void,
@@ -1715,6 +1716,140 @@ test("getKingdomProvinces: armies_out_json uses throne ETA/land with SoM troop c
     assert.deepEqual(armies, [
       { type: "out_1", soldiers: 100, offSpecs: 200, defSpecs: 300, elites: 400, land: 30, eta: 4.5 },
     ]);
+  });
+});
+
+test("metrics cache: TPA values use latest historical same-tick inputs after newer partial overview", async () => {
+  await withRealDb(({ getKingdomProvinces }, db) => {
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();
+    const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name = 'Alpha' AND kingdom = '7:5'").get() as { id: number };
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
+
+    db.prepare(`
+      INSERT INTO province_overview (province_id, key_hash, race, personality, land, networth, source, saved_by, received_at)
+      VALUES (?, ?, 'Halfling', 'Rogue', 1000, 200000, 'sot', 'Alpha', '2026-04-04 10:05:00')
+    `).run(provId, KEY_A);
+    db.prepare(`
+      INSERT INTO province_resources (province_id, key_hash, thieves, source, saved_by, received_at)
+      VALUES (?, ?, 2000, 'infiltrate', 'Alpha', '2026-04-04 10:10:00')
+    `).run(provId, KEY_A);
+    const sosId = Number(db.prepare(`
+      INSERT INTO sos_intel (province_id, key_hash, source, saved_by, received_at)
+      VALUES (?, ?, 'sos', 'Alpha', '2026-04-04 10:20:00')
+    `).run(provId, KEY_A).lastInsertRowid);
+    db.prepare("INSERT INTO sos_sciences (sos_intel_id, science, books, effect) VALUES (?, 'Crime', 0, 10)").run(sosId);
+    const surveyId = Number(db.prepare(`
+      INSERT INTO survey_intel (province_id, key_hash, source, saved_by, received_at, thievery_effectiveness, thief_prevent_chance)
+      VALUES (?, ?, 'survey', 'Alpha', '2026-04-04 10:30:00', 25, -15)
+    `).run(provId, KEY_A).lastInsertRowid);
+    db.prepare("INSERT INTO survey_buildings (survey_intel_id, building, built, in_progress) VALUES (?, 'Thieves'' Dens', 100, 0)").run(surveyId);
+
+    updateMetricsCache(db, provId, KEY_A);
+
+    db.prepare(`
+      INSERT INTO province_overview (province_id, key_hash, race, personality, land, networth, source, saved_by, received_at)
+      VALUES (?, ?, 'Halfling', 'Rogue', 1200, 240000, 'sot', 'Alpha', '2026-04-04 11:00:00')
+    `).run(provId, KEY_A);
+    updateMetricsCache(db, provId, KEY_A);
+
+    const [row] = getKingdomProvinces("7:5", KEY_A);
+    assert.equal(row.land, 1200, "live overview should be the newer partial tick");
+    assertApprox(row.cached_rtpa, 2, 0.0001, "cached rTPA");
+    assertApprox(row.cached_mtpa, 2.64, 0.0001, "cached mTPA");
+    assertApprox(row.cached_otpa, 3.3, 0.0001, "cached oTPA");
+    assertApprox(row.cached_dtpa, 2.244, 0.0001, "cached dTPA");
+    assert.equal(row.cached_rtpa_age, "2026-04-04 10:10:00");
+    assert.equal(row.cached_mtpa_age, "2026-04-04 10:10:00");
+  });
+});
+
+test("metrics cache: direct WPA prefers wizard count and applies channeling plus personality", async () => {
+  await withRealDb(({ getKingdomProvinces }, db) => {
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Mystic', '7:5')").run();
+    const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name = 'Mystic' AND kingdom = '7:5'").get() as { id: number };
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
+
+    db.prepare(`
+      INSERT INTO province_overview (province_id, key_hash, race, personality, land, networth, source, saved_by, received_at)
+      VALUES (?, ?, 'Elf', 'Mystic', 1000, 200000, 'throne', 'Mystic', '2026-04-04 12:05:00')
+    `).run(provId, KEY_A);
+    db.prepare(`
+      INSERT INTO province_resources (province_id, key_hash, wizards, mana, source, saved_by, received_at)
+      VALUES (?, ?, 3000, 50, 'state', 'Mystic', '2026-04-04 12:10:00')
+    `).run(provId, KEY_A);
+    const sosId = Number(db.prepare(`
+      INSERT INTO sos_intel (province_id, key_hash, source, saved_by, received_at)
+      VALUES (?, ?, 'sos', 'Mystic', '2026-04-04 12:20:00')
+    `).run(provId, KEY_A).lastInsertRowid);
+    db.prepare("INSERT INTO sos_sciences (sos_intel_id, science, books, effect) VALUES (?, 'Channeling', 0, 10)").run(sosId);
+
+    updateMetricsCache(db, provId, KEY_A);
+
+    const [row] = getKingdomProvinces("7:5", KEY_A);
+    assertApprox(row.cached_rwpa, 3, 0.0001, "cached direct rWPA");
+    assertApprox(row.cached_mwpa, 3.96, 0.0001, "cached direct mWPA");
+    assert.equal(row.cached_rwpa_age, "2026-04-04 12:10:00");
+    assert.equal(row.cached_mwpa_age, "2026-04-04 12:10:00");
+  });
+});
+
+test("metrics cache: back-calculated WPA uses same-tick residual inputs when direct wizards are absent", async () => {
+  await withRealDb(({ getKingdomProvinces }, db) => {
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Backcalc', '7:5')").run();
+    const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name = 'Backcalc' AND kingdom = '7:5'").get() as { id: number };
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
+
+    db.prepare(`
+      INSERT INTO province_overview (province_id, key_hash, race, land, networth, source, saved_by, received_at)
+      VALUES (?, ?, 'Human', 1000, 40700, 'sot', 'Backcalc', '2026-04-04 13:05:00')
+    `).run(provId, KEY_A);
+    db.prepare(`
+      INSERT INTO province_resources (province_id, key_hash, thieves, money, prisoners, source, saved_by, received_at)
+      VALUES (?, ?, 0, 0, 0, 'infiltrate', 'Backcalc', '2026-04-04 13:10:00')
+    `).run(provId, KEY_A);
+    const sosId = Number(db.prepare(`
+      INSERT INTO sos_intel (province_id, key_hash, source, saved_by, received_at)
+      VALUES (?, ?, 'sos', 'Backcalc', '2026-04-04 13:20:00')
+    `).run(provId, KEY_A).lastInsertRowid);
+    db.prepare("INSERT INTO sos_sciences (sos_intel_id, science, books, effect) VALUES (?, 'Channeling', 0, 10)").run(sosId);
+    const surveyId = Number(db.prepare(`
+      INSERT INTO survey_intel (province_id, key_hash, source, saved_by, received_at)
+      VALUES (?, ?, 'survey', 'Backcalc', '2026-04-04 13:30:00')
+    `).run(provId, KEY_A).lastInsertRowid);
+    db.prepare("INSERT INTO survey_buildings (survey_intel_id, building, built, in_progress) VALUES (?, 'Farms', 0, 0)").run(surveyId);
+
+    updateMetricsCache(db, provId, KEY_A);
+
+    const [row] = getKingdomProvinces("7:5", KEY_A);
+    assert.equal(row.wizards, null, "no direct wizard count should be present");
+    assertApprox(row.cached_rwpa, 0.1, 0.0001, "cached back-calculated rWPA");
+    assertApprox(row.cached_mwpa, 0.11, 0.0001, "cached back-calculated mWPA");
+    assert.equal(row.cached_rwpa_age, "2026-04-04 13:10:00");
+  });
+});
+
+test("metrics cache: refresh preserves cached values when historical inputs are unavailable", async () => {
+  await withRealDb(({ getKingdomProvinces }, db) => {
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Preserved', '7:5')").run();
+    const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name = 'Preserved' AND kingdom = '7:5'").get() as { id: number };
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
+
+    db.prepare(`
+      INSERT INTO province_overview (province_id, key_hash, land, networth, source, saved_by, received_at)
+      VALUES (?, ?, 1000, 200000, 'sot', 'Preserved', '2026-04-04 14:05:00')
+    `).run(provId, KEY_A);
+    db.prepare(`
+      INSERT INTO province_resources (province_id, key_hash, thieves, source, saved_by, received_at)
+      VALUES (?, ?, 2000, 'infiltrate', 'Preserved', '2026-04-04 14:10:00')
+    `).run(provId, KEY_A);
+
+    updateMetricsCache(db, provId, KEY_A);
+    db.prepare("DELETE FROM province_resources WHERE province_id = ? AND key_hash = ?").run(provId, KEY_A);
+    updateMetricsCache(db, provId, KEY_A);
+
+    const [row] = getKingdomProvinces("7:5", KEY_A);
+    assertApprox(row.cached_rtpa, 2, 0.0001, "cached rTPA should survive missing historical inputs");
+    assert.equal(row.cached_rtpa_age, "2026-04-04 14:10:00");
   });
 });
 

@@ -2,13 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { computeCell, NIGHT_STRIKE_UNITS, OPS } from "../lib/thievery";
 import type { ProvinceRow } from "../lib/db";
-
-function assertApprox(actual: number, expected: number, epsilon = 0.01, message?: string): void {
-  assert.ok(
-    Math.abs(actual - expected) < epsilon,
-    message ?? `expected ${actual} to be within ${epsilon} of ${expected}`,
-  );
-}
+import { assertApprox } from "./helpers";
 
 function makeProvince(overrides: Partial<ProvinceRow>): ProvinceRow {
   return {

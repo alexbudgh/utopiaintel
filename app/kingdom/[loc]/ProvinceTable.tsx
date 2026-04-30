@@ -8,6 +8,10 @@ import type { ProvinceRow } from "@/lib/db";
 import { freshnessColor, formatNum, timeAgo, formatTimestamp, sameTick, fullValueTooltip, parseUtc } from "@/lib/ui";
 import { computeWizardCount, NW_PER_WIZARD } from "@/lib/nw";
 import { computeAmbushRawOff } from "@/lib/ambush";
+import {
+  computeRtpa, computeMtpa, computeOtpa, computeDtpa, computeRwpa, computeMwpa,
+  tpaPersonalityEffect, wpaPersonalityEffect,
+} from "@/lib/metrics";
 import { estimatePop } from "@/lib/population";
 import { overpopulationTone } from "@/lib/overpopulation";
 
@@ -143,48 +147,8 @@ function compareSortValues(a: number | string | null, b: number | string | null)
   return String(a).localeCompare(String(b), undefined, { sensitivity: "base" });
 }
 
-function computeRtpa(p: ProvinceRow): number | null {
-  if (p.thieves == null || !p.land) return null;
-  if (!sameTick(p.thieves_age, p.overview_age)) return null;
-  return p.thieves / p.land;
-}
-
-function tpaPersonalityEffect(p: ProvinceRow): number {
-  if (p.personality === "Rogue") return 20;
-  if (p.personality === "Heretic") return 15;
-  return 0;
-}
-
-function wpaPersonalityEffect(p: ProvinceRow): number {
-  if (p.personality === "Necromancer") return 35;
-  if (p.personality === "Heretic") return 15;
-  if (p.personality === "Mystic" && p.mana != null && p.mana > 40) return 20;
-  return 0;
-}
-
 function personalityEffectLabel(effect: number): string {
   return effect > 0 ? ` × (1 + ${effect.toFixed(1)}% Personality)` : "";
-}
-
-function computeMtpa(p: ProvinceRow): number | null {
-  const rtpa = computeRtpa(p);
-  if (rtpa == null || p.crime_effect == null) return null;
-  if (!sameTick(p.thieves_age, p.overview_age, p.sciences_age)) return null;
-  return rtpa * (1 + p.crime_effect / 100) * (1 + tpaPersonalityEffect(p) / 100);
-}
-
-function computeOtpa(p: ProvinceRow): number | null {
-  const mtpa = computeMtpa(p);
-  if (mtpa == null || p.thieves_dens_effect == null) return null;
-  if (!sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age)) return null;
-  return mtpa * (1 + p.thieves_dens_effect / 100);
-}
-
-function computeDtpa(p: ProvinceRow): number | null {
-  const mtpa = computeMtpa(p);
-  if (mtpa == null || p.watch_towers_effect == null) return null;
-  if (!sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age)) return null;
-  return mtpa * (1 + p.watch_towers_effect / 100);
 }
 
 function computePopPct(p: ProvinceRow): { pct: number; estimated: boolean } | null {
@@ -212,28 +176,6 @@ function computePopPct(p: ProvinceRow): { pct: number; estimated: boolean } | nu
   return { pct: pop.currentPop / pop.maxPop, estimated: pop.wizardsEstimated };
 }
 
-function computeRwpa(p: ProvinceRow): number | null {
-  if (!p.land) return null;
-  // Direct: wizards known from throne/self-intel
-  if (p.wizards != null) {
-    if (!sameTick(p.resources_age, p.overview_age)) return null;
-    return p.wizards / p.land;
-  }
-  // Back-calculate from NW residual (enemy provinces)
-  if (!p.networth || !p.race) return null;
-  if (!sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age)) return null;
-  const w = computeWizardCount(p);
-  return w != null ? w / p.land : null;
-}
-
-function computeMwpa(p: ProvinceRow): number | null {
-  if (p.channeling_effect == null) return null;
-  const rwpa = computeRwpa(p);
-  if (rwpa == null) return null;
-  // For direct wizard path, sciences must also be same tick as overview
-  if (p.wizards != null && !sameTick(p.resources_age, p.overview_age, p.sciences_age)) return null;
-  return rwpa * (1 + p.channeling_effect / 100) * (1 + wpaPersonalityEffect(p) / 100);
-}
 
 function ageFor(p: ProvinceRow, key: ColKey): string | null {
   if (key === "age") {
@@ -288,12 +230,96 @@ function sourceFor(p: ProvinceRow, key: ColKey): string | null {
   return p.overview_source;
 }
 
+function metricAgeSummary(entries: Array<[string, string | null]>): string {
+  return entries
+    .map(([label, age]) => `${label} ${age ? timeAgo(age) : "missing"}`)
+    .join(", ");
+}
+
+function metricAgeLine(entries: Array<[string, string | null]>): string {
+  return `\nCurrent data: ${metricAgeSummary(entries)}`;
+}
+
 function tpaStaleReason(p: ProvinceRow, needSoS: boolean, needSurvey: boolean): string {
-  const ages = [p.thieves_age, p.overview_age];
-  if (needSoS) ages.push(p.sciences_age);
-  if (needSurvey) ages.push(p.survey_age);
-  if (ages.some((a) => !a)) return "missing data";
-  return "data not from same tick";
+  const entries: Array<[string, string | null]> = [
+    ["infiltrate", p.thieves_age],
+    ["overview", p.overview_age],
+  ];
+  if (needSoS) entries.push(["SoS", p.sciences_age]);
+  if (needSurvey) entries.push(["Survey", p.survey_age]);
+  const reason = entries.some(([, age]) => !age)
+    ? "current data is missing required inputs"
+    : "current data is not from the same tick";
+  return `${reason}: ${metricAgeSummary(entries)}`;
+}
+
+type MetricKey = "rtpa" | "mtpa" | "otpa" | "dtpa" | "rwpa" | "mwpa";
+
+function cachedMetric(p: ProvinceRow, key: MetricKey): { value: number | null | undefined; age: string | null | undefined } {
+  switch (key) {
+    case "rtpa":
+      return { value: p.cached_rtpa, age: p.cached_rtpa_age };
+    case "mtpa":
+      return { value: p.cached_mtpa, age: p.cached_mtpa_age };
+    case "otpa":
+      return { value: p.cached_otpa, age: p.cached_otpa_age };
+    case "dtpa":
+      return { value: p.cached_dtpa, age: p.cached_dtpa_age };
+    case "rwpa":
+      return { value: p.cached_rwpa, age: p.cached_rwpa_age };
+    case "mwpa":
+      return { value: p.cached_mwpa, age: p.cached_mwpa_age };
+  }
+}
+
+function metricLastValidLine(p: ProvinceRow, key: MetricKey): string {
+  const { value, age } = cachedMetric(p, key);
+  return value != null && age != null ? `\nLast valid value: ${value.toFixed(2)} · ${timeAgo(age)}` : "";
+}
+
+function missingDependencyReason(metric: string): string {
+  return `${metric} unavailable`;
+}
+
+function metricFallbackCell(p: ProvinceRow, key: MetricKey): React.ReactNode {
+  const { value, age } = cachedMetric(p, key);
+  return value != null && age != null ? value.toFixed(2) : "—";
+}
+
+function metricKeyForColumn(key: ColKey): MetricKey | null {
+  switch (key) {
+    case "rtpa":
+    case "mtpa":
+    case "otpa":
+    case "dtpa":
+    case "rwpa":
+    case "mwpa":
+      return key;
+    default:
+      return null;
+  }
+}
+
+function liveMetricValue(p: ProvinceRow, key: MetricKey): number | null {
+  switch (key) {
+    case "rtpa": return computeRtpa(p);
+    case "mtpa": return computeMtpa(p);
+    case "otpa": return computeOtpa(p);
+    case "dtpa": return computeDtpa(p);
+    case "rwpa": return computeRwpa(p);
+    case "mwpa": return computeMwpa(p);
+  }
+}
+
+function freshnessAgeFor(p: ProvinceRow, key: ColKey): string | null {
+  const metricKey = metricKeyForColumn(key);
+  if (metricKey && liveMetricValue(p, metricKey) == null) {
+    // When the displayed metric is a cached fallback, color the cell by the
+    // cached metric age instead of whichever live input happened to be newest.
+    const { value, age } = cachedMetric(p, metricKey);
+    if (value != null && age != null) return age;
+  }
+  return ageFor(p, key);
 }
 
 // Returns the age of whichever source (som/throne) is actually providing army data
@@ -314,7 +340,11 @@ function freshnessToTone(age: string): TooltipLine["tone"] {
   return "bad";
 }
 
-function tipFor(p: ProvinceRow, key: ColKey): string | TooltipLine[] | React.ReactElement {
+function tipFor(
+  p: ProvinceRow,
+  key: ColKey,
+  { includeLastValid = true }: { includeLastValid?: boolean } = {},
+): string | TooltipLine[] | React.ReactElement {
   // Special case: age column shows all intel source ages
   if (key === "age") {
     const entries: Array<{ label: string; age: string }> = [
@@ -404,59 +434,132 @@ function tipFor(p: ProvinceRow, key: ColKey): string | TooltipLine[] | React.Rea
     return lines.length ? lines.join("\n") : "No active bad spell data";
   }
   if (key === "rtpa") {
-    if (p.thieves == null || !p.land) return "No thieves or land data";
+    if (p.thieves == null || !p.land) {
+      const cached = includeLastValid ? metricLastValidLine(p, "rtpa") : "";
+      return `No thieves or land data${cached}`;
+    }
     const ok = sameTick(p.thieves_age, p.overview_age);
     const val = ok ? (p.thieves / p.land).toFixed(2) : "—";
-    return `rTPA = ${formatNum(p.thieves)} ÷ ${formatNum(p.land)} = ${val}` + (ok ? "" : `\n(${tpaStaleReason(p, false, false)})`);
+    const cached = includeLastValid && !ok ? metricLastValidLine(p, "rtpa") : "";
+    const ages = metricAgeLine([["infiltrate", p.thieves_age], ["overview", p.overview_age]]);
+    return `rTPA = ${formatNum(p.thieves)} ÷ ${formatNum(p.land)} = ${val}${ages}` + (ok ? "" : `\n(${tpaStaleReason(p, false, false)})${cached}`);
   }
   if (key === "mtpa") {
     const rtpa = computeRtpa(p);
-    if (rtpa == null) return tipFor(p, "rtpa");
-    if (p.crime_effect == null) return `rTPA = ${rtpa.toFixed(2)}\nNo Crime science data`;
+    if (rtpa == null) {
+      const cached = includeLastValid ? metricLastValidLine(p, "mtpa") : "";
+      return missingDependencyReason("rTPA") + cached;
+    }
+    if (p.crime_effect == null) {
+      const cached = includeLastValid ? metricLastValidLine(p, "mtpa") : "";
+      return `rTPA = ${rtpa.toFixed(2)}\nNo Crime science data${cached}`;
+    }
     const ok = sameTick(p.thieves_age, p.overview_age, p.sciences_age);
     const personalityEffect = tpaPersonalityEffect(p);
     const val = ok ? computeMtpa(p)?.toFixed(2) ?? "—" : "—";
-    return `mTPA = ${rtpa.toFixed(2)} × (1 + ${p.crime_effect.toFixed(1)}% Crime)${personalityEffectLabel(personalityEffect)} = ${val}` + (ok ? "" : `\n(${tpaStaleReason(p, true, false)})`);
+    const cached = includeLastValid && !ok ? metricLastValidLine(p, "mtpa") : "";
+    const ages = metricAgeLine([["infiltrate", p.thieves_age], ["overview", p.overview_age], ["SoS", p.sciences_age]]);
+    return `mTPA = ${rtpa.toFixed(2)} × (1 + ${p.crime_effect.toFixed(1)}% Crime)${personalityEffectLabel(personalityEffect)} = ${val}${ages}` + (ok ? "" : `\n(${tpaStaleReason(p, true, false)})${cached}`);
   }
   if (key === "otpa") {
     const mtpa = computeMtpa(p);
-    if (mtpa == null) return tipFor(p, "mtpa");
-    if (p.thieves_dens_effect == null) return `mTPA = ${mtpa.toFixed(2)}\nNo Survey data`;
+    if (mtpa == null) {
+      const cached = includeLastValid ? metricLastValidLine(p, "otpa") : "";
+      return missingDependencyReason("mTPA") + cached;
+    }
+    if (p.thieves_dens_effect == null) {
+      const cached = includeLastValid ? metricLastValidLine(p, "otpa") : "";
+      return `mTPA = ${mtpa.toFixed(2)}\nNo Survey data${cached}`;
+    }
     const ok = sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age);
     const val = ok ? computeOtpa(p)?.toFixed(2) ?? "—" : "—";
-    return `oTPA = ${mtpa.toFixed(2)} × (1 + ${p.thieves_dens_effect.toFixed(1)}% Thieves' Den) = ${val}` + (ok ? "" : `\n(${tpaStaleReason(p, true, true)})`);
+    const cached = includeLastValid && !ok ? metricLastValidLine(p, "otpa") : "";
+    const ages = metricAgeLine([["infiltrate", p.thieves_age], ["overview", p.overview_age], ["SoS", p.sciences_age], ["Survey", p.survey_age]]);
+    return `oTPA = ${mtpa.toFixed(2)} × (1 + ${p.thieves_dens_effect.toFixed(1)}% Thieves' Den) = ${val}${ages}` + (ok ? "" : `\n(${tpaStaleReason(p, true, true)})${cached}`);
   }
   if (key === "dtpa") {
     const mtpa = computeMtpa(p);
-    if (mtpa == null) return tipFor(p, "mtpa");
-    if (p.watch_towers_effect == null) return `mTPA = ${mtpa.toFixed(2)}\nNo Survey data`;
+    if (mtpa == null) {
+      const cached = includeLastValid ? metricLastValidLine(p, "dtpa") : "";
+      return missingDependencyReason("mTPA") + cached;
+    }
+    if (p.watch_towers_effect == null) {
+      const cached = includeLastValid ? metricLastValidLine(p, "dtpa") : "";
+      return `mTPA = ${mtpa.toFixed(2)}\nNo Survey data${cached}`;
+    }
     const ok = sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age);
     const val = ok ? computeDtpa(p)?.toFixed(2) ?? "—" : "—";
-    return `dTPA = ${mtpa.toFixed(2)} × (1 + ${p.watch_towers_effect.toFixed(1)}% Watch Tower) = ${val}` + (ok ? "" : `\n(${tpaStaleReason(p, true, true)})`);
+    const cached = includeLastValid && !ok ? metricLastValidLine(p, "dtpa") : "";
+    const ages = metricAgeLine([["infiltrate", p.thieves_age], ["overview", p.overview_age], ["SoS", p.sciences_age], ["Survey", p.survey_age]]);
+    return `dTPA = ${mtpa.toFixed(2)} × (1 + ${p.watch_towers_effect.toFixed(1)}% Watch Tower) = ${val}${ages}` + (ok ? "" : `\n(${tpaStaleReason(p, true, true)})${cached}`);
   }
   if (key === "rwpa") {
-    if (!p.land) return "No land data";
+    if (!p.land) {
+      const cached = includeLastValid ? metricLastValidLine(p, "rwpa") : "";
+      return `No land data${cached}`;
+    }
     if (p.wizards != null) {
       const ok = sameTick(p.resources_age, p.overview_age);
-      if (!ok) return "Wizards and land not from same tick";
-      return `rWPA = ${formatNum(p.wizards)} ÷ ${formatNum(p.land)} = ${(p.wizards / p.land).toFixed(2)}\n(direct from throne/self-intel)`;
+      if (!ok) {
+        const cached = includeLastValid ? metricLastValidLine(p, "rwpa") : "";
+        return `Current wizard and land data is not from the same tick: ${metricAgeSummary([
+          ["wizards", p.resources_age],
+          ["overview", p.overview_age],
+        ])}${cached}`;
+      }
+      return `rWPA = ${formatNum(p.wizards)} ÷ ${formatNum(p.land)} = ${(p.wizards / p.land).toFixed(2)}\n(direct from throne/self-intel)${metricAgeLine([
+        ["wizards", p.resources_age],
+        ["overview", p.overview_age],
+      ])}`;
     }
-    if (!p.networth || !p.race) return "Missing NW, land, or race data";
+    if (!p.networth || !p.race) {
+      const cached = includeLastValid ? metricLastValidLine(p, "rwpa") : "";
+      return `Missing NW, land, or race data${cached}`;
+    }
     const ok = sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age);
     const w = ok ? computeWizardCount(p) : null;
-    if (w == null) return ok ? "Missing SoT/SoS/Survey/Infiltrate data" : "data not from same tick";
+    if (w == null) {
+      const cached = includeLastValid ? metricLastValidLine(p, "rwpa") : "";
+      const detail = metricAgeSummary([
+        ["infiltrate", p.thieves_age],
+        ["overview", p.overview_age],
+        ["SoS", p.sciences_age],
+        ["Survey", p.survey_age],
+      ]);
+      return (ok ? "Current data is missing SoT/SoS/Survey/Infiltrate inputs" : `Current data is not from the same tick: ${detail}`) + cached;
+    }
     const rwpa = w / p.land;
-    return `wizards ≈ (${formatNum(p.networth)} NW residual) ÷ ${NW_PER_WIZARD} = ${Math.round(w).toLocaleString()}\nrWPA = ${Math.round(w).toLocaleString()} ÷ ${formatNum(p.land)} = ${rwpa.toFixed(2)}`;
+    return `wizards ≈ (${formatNum(p.networth)} NW residual) ÷ ${NW_PER_WIZARD} = ${Math.round(w).toLocaleString()}\nrWPA = ${Math.round(w).toLocaleString()} ÷ ${formatNum(p.land)} = ${rwpa.toFixed(2)}${metricAgeLine([
+      ["infiltrate", p.thieves_age],
+      ["overview", p.overview_age],
+      ["SoS", p.sciences_age],
+      ["Survey", p.survey_age],
+    ])}`;
   }
   if (key === "mwpa") {
     const rwpa = computeRwpa(p);
-    if (rwpa == null) return tipFor(p, "rwpa");
-    if (p.channeling_effect == null) return `rWPA = ${rwpa.toFixed(2)}\nNo Channeling science data`;
-    if (p.wizards != null && !sameTick(p.resources_age, p.overview_age, p.sciences_age))
-      return `rWPA = ${rwpa.toFixed(2)} × (1 + ${p.channeling_effect.toFixed(1)}% Channeling)${personalityEffectLabel(wpaPersonalityEffect(p))}\nSoS not same tick as throne — stale Channeling%`;
+    if (rwpa == null) {
+      const cached = includeLastValid ? metricLastValidLine(p, "mwpa") : "";
+      return missingDependencyReason("rWPA") + cached;
+    }
+    if (p.channeling_effect == null) {
+      const cached = includeLastValid ? metricLastValidLine(p, "mwpa") : "";
+      return `rWPA = ${rwpa.toFixed(2)}\nNo Channeling science data${cached}`;
+    }
+    if (p.wizards != null && !sameTick(p.resources_age, p.overview_age, p.sciences_age)) {
+      const cached = includeLastValid ? metricLastValidLine(p, "mwpa") : "";
+      return `rWPA = ${rwpa.toFixed(2)} × (1 + ${p.channeling_effect.toFixed(1)}% Channeling)${personalityEffectLabel(wpaPersonalityEffect(p))}\nCurrent WPA data is not from the same tick: ${metricAgeSummary([
+        ["wizards", p.resources_age],
+        ["overview", p.overview_age],
+        ["SoS", p.sciences_age],
+      ])}${cached}`;
+    }
     const personalityEffect = wpaPersonalityEffect(p);
     const mysticNote = p.personality === "Mystic" && p.mana == null ? "\nMystic Focused Channeling not applied: mana unknown" : "";
-    return `mWPA = ${rwpa.toFixed(2)} × (1 + ${p.channeling_effect.toFixed(1)}% Channeling)${personalityEffectLabel(personalityEffect)} = ${computeMwpa(p)!.toFixed(2)}${mysticNote}`;
+    const ages = p.wizards != null
+      ? metricAgeLine([["wizards", p.resources_age], ["overview", p.overview_age], ["SoS", p.sciences_age]])
+      : metricAgeLine([["infiltrate", p.thieves_age], ["overview", p.overview_age], ["SoS", p.sciences_age], ["Survey", p.survey_age]]);
+    return `mWPA = ${rwpa.toFixed(2)} × (1 + ${p.channeling_effect.toFixed(1)}% Channeling)${personalityEffectLabel(personalityEffect)} = ${computeMwpa(p)!.toFixed(2)}${ages}${mysticNote}`;
   }
   const age = ageFor(p, key);
   const source = sourceFor(p, key);
@@ -597,12 +700,12 @@ function cellValue(p: ProvinceRow, key: ColKey): React.ReactNode {
       const a = ageFor(p, "age");
       return <span className={freshnessColor(a)}>{timeAgo(a)}</span>;
     }
-    case "rtpa": { const v = computeRtpa(p); return v != null ? v.toFixed(2) : "—"; }
-    case "mtpa": { const v = computeMtpa(p); return v != null ? v.toFixed(2) : "—"; }
-    case "otpa": { const v = computeOtpa(p); return v != null ? v.toFixed(2) : "—"; }
-    case "dtpa": { const v = computeDtpa(p); return v != null ? v.toFixed(2) : "—"; }
-    case "rwpa": { const v = computeRwpa(p); return v != null ? v.toFixed(2) : "—"; }
-    case "mwpa": { const v = computeMwpa(p); return v != null ? v.toFixed(2) : "—"; }
+    case "rtpa": { const v = computeRtpa(p); return v != null ? v.toFixed(2) : metricFallbackCell(p, "rtpa"); }
+    case "mtpa": { const v = computeMtpa(p); return v != null ? v.toFixed(2) : metricFallbackCell(p, "mtpa"); }
+    case "otpa": { const v = computeOtpa(p); return v != null ? v.toFixed(2) : metricFallbackCell(p, "otpa"); }
+    case "dtpa": { const v = computeDtpa(p); return v != null ? v.toFixed(2) : metricFallbackCell(p, "dtpa"); }
+    case "rwpa": { const v = computeRwpa(p); return v != null ? v.toFixed(2) : metricFallbackCell(p, "rwpa"); }
+    case "mwpa": { const v = computeMwpa(p); return v != null ? v.toFixed(2) : metricFallbackCell(p, "mwpa"); }
     case "pop_pct": {
       const r = computePopPct(p);
       if (!r) return "—";
@@ -933,7 +1036,7 @@ export function ProvinceTable({
                     </Link>
                   </td>
                   {visibleCols.map((col) => {
-                    const age = ageFor(p, col.key);
+                    const age = freshnessAgeFor(p, col.key);
                     const fc = col.key === "age" ? "" : freshnessColor(age);
                     return (
                       <td
