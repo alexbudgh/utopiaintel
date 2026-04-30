@@ -2164,6 +2164,33 @@ test("getRecentOps: returns enemy ops and excludes self-intel sources", async ()
   });
 });
 
+test("getRecentOps: includes current province slot when known", async () => {
+  await withRealDb(({ getRecentOps }, db) => {
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Target', '8:6')").run();
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Replacement', '8:6')").run();
+    const { id: targetId } = db.prepare("SELECT id FROM provinces WHERE name = 'Target'").get() as { id: number };
+    const { id: replacementId } = db.prepare("SELECT id FROM provinces WHERE name = 'Replacement'").get() as { id: number };
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, targetId);
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, replacementId);
+
+    const oldSnapshot = db.prepare("INSERT INTO kingdom_intel (key_hash, name, location, received_at) VALUES (?, 'Enemy', '8:6', '2026-04-01 09:00:00')").run(KEY_A).lastInsertRowid;
+    db.prepare("INSERT INTO kingdom_provinces (kingdom_intel_id, slot, name, race, land, networth) VALUES (?, 4, 'Target', 'Human', 500, 100000)").run(oldSnapshot);
+    const currentSnapshot = db.prepare("INSERT INTO kingdom_intel (key_hash, name, location, received_at) VALUES (?, 'Enemy', '8:6', '2026-04-01 10:00:00')").run(KEY_A).lastInsertRowid;
+    db.prepare("INSERT INTO kingdom_provinces (kingdom_intel_id, slot, name, race, land, networth) VALUES (?, 4, 'Replacement', 'Human', 500, 100000)").run(currentSnapshot);
+
+    const ins = db.prepare(`
+      INSERT INTO province_overview (province_id, key_hash, race, personality, honor_title, land, networth, source, saved_by, accuracy, received_at)
+      VALUES (?, ?, 'Human', NULL, NULL, 500, 100000, 'sot', 'Sender', 100, ?)
+    `);
+    ins.run(targetId, KEY_A, "2026-04-01 11:00:00");
+    ins.run(replacementId, KEY_A, "2026-04-01 12:00:00");
+
+    const ops = getRecentOps(KEY_A);
+    assert.equal(ops.find((op) => op.province_name === "Replacement")?.slot, 4);
+    assert.equal(ops.find((op) => op.province_name === "Target")?.slot, null);
+  });
+});
+
 test("getRecentOps: since param filters to newer ops only", async () => {
   await withRealDb(({ getRecentOps }, db) => {
     db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();

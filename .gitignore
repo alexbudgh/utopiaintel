@@ -2,7 +2,5 @@ node_modules/
 .next/
 intel.jsonl
 intel_debug.jsonl*
-intel.db
-intel.db-wal
-intel.db-shm
+intel.db*
 tsconfig.tsbuildinfo

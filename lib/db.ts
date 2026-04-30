@@ -42,6 +42,28 @@ export function getDb(): Database.Database {
 const SAME_TICK_EXPR = (a: string, b: string) =>
   `(strftime('%s', ${a}) / 3600) = (strftime('%s', ${b}) / 3600)`;
 
+const latestSlotCte = (extraWhere = "") => `
+  latest_slot AS (
+    -- For each slot number, find the province name most recently seen in a
+    -- kingdom snapshot for this shard. This avoids showing stale slot numbers
+    -- for old province names after resets/renames.
+    SELECT ki.location AS kingdom, kp.slot, kp.name
+    FROM kingdom_provinces kp
+    JOIN kingdom_intel ki ON ki.id = kp.kingdom_intel_id
+    WHERE ki.key_hash = @keyHash
+      AND kp.slot IS NOT NULL
+      ${extraWhere}
+      AND kp.id = (
+        SELECT MAX(kp2.id)
+        FROM kingdom_provinces kp2
+        JOIN kingdom_intel ki2 ON ki2.id = kp2.kingdom_intel_id
+        WHERE ki2.key_hash = @keyHash
+          AND ki2.location = ki.location
+          AND kp2.slot = kp.slot
+      )
+  )
+`;
+
 export function updateMetricsCache(db: Database.Database, provinceId: number, keyHash: string): void {
   const p = { province_id: provinceId, key_hash: keyHash };
   // Preserve existing cached values when a metric is not currently reconstructable
@@ -1125,6 +1147,7 @@ export interface RecentOp {
   saved_by: string | null;
   province_name: string;
   kingdom: string;
+  slot: number | null;
 }
 
 export function getRecentOps(keyHash: string, limit = 20, since?: string): RecentOp[] {
@@ -1348,25 +1371,7 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
         SELECT MAX(pe2.received_at) FROM province_effects pe2 WHERE pe2.province_id = pe.province_id
       )
     ),
-    latest_slot AS (
-      -- For each slot number, find the province name most recently seen in a
-      -- kingdom snapshot for this shard. MAX(id) works as a recency proxy
-      -- because kingdom_provinces.id is AUTOINCREMENT (insertion order =
-      -- snapshot order). The outer query omits ki.location/key_hash filters
-      -- because the subquery already constrains them, and the PK match
-      -- guarantees the returned row belongs to this kingdom.
-      SELECT kp.slot, kp.name
-      FROM kingdom_provinces kp
-      WHERE kp.slot IS NOT NULL
-        AND kp.id = (
-          SELECT MAX(kp2.id)
-          FROM kingdom_provinces kp2
-          JOIN kingdom_intel ki2 ON kp2.kingdom_intel_id = ki2.id
-          WHERE ki2.location = @kingdom
-            AND ki2.key_hash = @keyHash
-            AND kp2.slot = kp.slot
-        )
-    ),
+    ${latestSlotCte("AND ki.location = @kingdom")},
     spell_summary AS (
       SELECT province_id,
              MAX(received_at) AS effects_age,
@@ -1379,7 +1384,7 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
       GROUP BY province_id
     )
     SELECT p.id, p.name, p.kingdom,
-           (SELECT ls.slot FROM latest_slot ls WHERE ls.name = p.name) AS slot,
+           (SELECT ls.slot FROM latest_slot ls WHERE ls.kingdom = p.kingdom AND ls.name = p.name) AS slot,
            ${OVERVIEW_RACE_SQL}, ${OVERVIEW_PERS_SQL}, ${OVERVIEW_HONOR_SQL}, po.land, po.networth, po.received_at AS overview_age, po.source AS overview_source,
            tmp.off_points, tmp.def_points, tmp.received_at AS military_age,
            pt.soldiers, pt.off_specs, pt.def_specs, pt.elites, pt.war_horses, pt.peasants, pt.received_at AS troops_age, pt.source AS troops_source,
@@ -1474,7 +1479,7 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
       -- holder of its slot (in latest_slot), or if it never appeared on any
       -- kingdom page at all (SoT-only intel, no slot).
       AND (
-        EXISTS (SELECT 1 FROM latest_slot WHERE name = p.name)
+        EXISTS (SELECT 1 FROM latest_slot WHERE kingdom = p.kingdom AND name = p.name)
         OR NOT EXISTS (
           SELECT 1 FROM kingdom_provinces kp
           JOIN kingdom_intel ki ON kp.kingdom_intel_id = ki.id
@@ -1825,21 +1830,7 @@ export function createDbApi(db: Database.Database): DbApi {
 
     getKingdoms(keyHash) {
       return db.prepare(`
-        WITH latest_slot AS (
-          SELECT ki.location, kp.slot, kp.name
-          FROM kingdom_provinces kp
-          JOIN kingdom_intel ki ON kp.kingdom_intel_id = ki.id
-          WHERE ki.key_hash = @keyHash
-            AND kp.slot IS NOT NULL
-            AND kp.id = (
-              SELECT MAX(kp2.id)
-              FROM kingdom_provinces kp2
-              JOIN kingdom_intel ki2 ON kp2.kingdom_intel_id = ki2.id
-              WHERE ki2.location = ki.location
-                AND ki2.key_hash = @keyHash
-                AND kp2.slot = kp.slot
-            )
-        )
+        WITH ${latestSlotCte()}
         SELECT p.kingdom AS location,
                COUNT(DISTINCT p.id) AS province_count,
                MAX(po.received_at) AS last_seen
@@ -1853,7 +1844,7 @@ export function createDbApi(db: Database.Database): DbApi {
           AND (
             EXISTS (
               SELECT 1 FROM latest_slot ls
-              WHERE ls.location = p.kingdom AND ls.name = p.name
+              WHERE ls.kingdom = p.kingdom AND ls.name = p.name
             )
             OR NOT EXISTS (
               SELECT 1
@@ -2000,34 +1991,41 @@ export function createDbApi(db: Database.Database): DbApi {
     },
 
     getRecentOps(keyHash, limit = 20, since) {
-      const sinceClause = since ? `WHERE received_at > '${since.replace(/'/g, "''")}'` : "";
+      const sinceClause = since ? "WHERE received_at > @since" : "";
       return db.prepare(`
-        SELECT op_type, received_at, saved_by, province_name, kingdom FROM (
+        WITH ${latestSlotCte()},
+        ops AS (
           SELECT 'SoT' AS op_type, po.received_at, po.saved_by, p.name AS province_name, p.kingdom
           FROM province_overview po JOIN provinces p ON p.id = po.province_id
-          WHERE po.key_hash = ? AND po.source = 'sot'
+          WHERE po.key_hash = @keyHash AND po.source = 'sot'
           UNION ALL
           SELECT 'SoM', mi.received_at, mi.saved_by, p.name, p.kingdom
           FROM military_intel mi JOIN provinces p ON p.id = mi.province_id
-          WHERE mi.key_hash = ? AND mi.source = 'som'
+          WHERE mi.key_hash = @keyHash AND mi.source = 'som'
           UNION ALL
           SELECT 'SoD', hmp.received_at, hmp.saved_by, p.name, p.kingdom
           FROM home_military_points hmp JOIN provinces p ON p.id = hmp.province_id
-          WHERE hmp.key_hash = ? AND hmp.source = 'sod'
+          WHERE hmp.key_hash = @keyHash AND hmp.source = 'sod'
           UNION ALL
           SELECT 'SoS', si.received_at, si.saved_by, p.name, p.kingdom
           FROM sos_intel si JOIN provinces p ON p.id = si.province_id
-          WHERE si.key_hash = ? AND si.source = 'sos'
+          WHERE si.key_hash = @keyHash AND si.source = 'sos'
           UNION ALL
           SELECT 'Survey', sv.received_at, sv.saved_by, p.name, p.kingdom
           FROM survey_intel sv JOIN provinces p ON p.id = sv.province_id
-          WHERE sv.key_hash = ? AND sv.source = 'survey'
+          WHERE sv.key_hash = @keyHash AND sv.source = 'survey'
           UNION ALL
           SELECT 'Infiltrate', pr.received_at, pr.saved_by, p.name, p.kingdom
           FROM province_resources pr JOIN provinces p ON p.id = pr.province_id
-          WHERE pr.key_hash = ? AND pr.source = 'infiltrate'
-        ) ${sinceClause} ORDER BY received_at DESC LIMIT ?
-      `).all(keyHash, keyHash, keyHash, keyHash, keyHash, keyHash, limit) as RecentOp[];
+          WHERE pr.key_hash = @keyHash AND pr.source = 'infiltrate'
+        )
+        SELECT op_type, received_at, saved_by, province_name, kingdom,
+               (SELECT ls.slot FROM latest_slot ls WHERE ls.kingdom = ops.kingdom AND ls.name = ops.province_name) AS slot
+        FROM ops
+        ${sinceClause}
+        ORDER BY received_at DESC
+        LIMIT @limit
+      `).all({ keyHash, since: since ?? null, limit }) as RecentOp[];
     },
 
     getKingdomProvinces(kingdom, keyHash) {

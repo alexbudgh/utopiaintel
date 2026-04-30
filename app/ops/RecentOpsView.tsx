@@ -73,6 +73,9 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
               </td>
               <td className="py-2 pr-4">
                 <Link href={provHref} className="text-gray-200 hover:text-white transition-colors">
+                  {op.slot != null && (
+                    <span className="mr-1.5 text-xs tabular-nums text-gray-500">#{op.slot}</span>
+                  )}
                   {op.province_name}
                 </Link>
               </td>
