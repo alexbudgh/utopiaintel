@@ -833,6 +833,61 @@ test("multi-tenancy: shared kingdom visible to both keys", () => {
   db.close();
 });
 
+test("getKingdoms: province count ignores superseded slot incarnations", async () => {
+  await withRealDb(({ getKingdoms }, db) => {
+    const addVisibleProvince = (name: string) => {
+      db.prepare("INSERT INTO provinces (name, kingdom) VALUES (?, '7:5')").run(name);
+      const row = db.prepare(`
+        SELECT id FROM provinces WHERE name = ? AND kingdom = '7:5'
+      `).get(name) as { id: number };
+      db.prepare(`
+        INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)
+      `).run(KEY_A, row.id);
+      return row.id;
+    };
+
+    const oldId = addVisibleProvince("OldName");
+    const newId = addVisibleProvince("NewName");
+    const stableId = addVisibleProvince("StableName");
+    const sotOnlyId = addVisibleProvince("SotOnly");
+
+    const oldSnapshot = Number(db.prepare(`
+      INSERT INTO kingdom_intel (key_hash, name, location, received_at)
+      VALUES (?, 'Test Kingdom', '7:5', '2026-04-04 10:00:00')
+    `).run(KEY_A).lastInsertRowid);
+    db.prepare(`
+      INSERT INTO kingdom_provinces (kingdom_intel_id, slot, name, race, land, networth)
+      VALUES (?, 3, 'OldName', 'Orc', 1000, 200000),
+             (?, 9, 'StableName', 'Elf', 1100, 220000)
+    `).run(oldSnapshot, oldSnapshot);
+
+    const newSnapshot = Number(db.prepare(`
+      INSERT INTO kingdom_intel (key_hash, name, location, received_at)
+      VALUES (?, 'Test Kingdom', '7:5', '2026-04-04 11:00:00')
+    `).run(KEY_A).lastInsertRowid);
+    db.prepare(`
+      INSERT INTO kingdom_provinces (kingdom_intel_id, slot, name, race, land, networth)
+      VALUES (?, 3, 'NewName', 'Human', 950, 210000),
+             (?, 9, 'StableName', 'Elf', 1100, 220000)
+    `).run(newSnapshot, newSnapshot);
+
+    const insertOverview = db.prepare(`
+      INSERT INTO province_overview (
+        province_id, key_hash, land, networth, source, received_at
+      ) VALUES (?, ?, 1000, 200000, 'sot', ?)
+    `);
+    insertOverview.run(oldId, KEY_A, "2026-04-04 12:00:00");
+    insertOverview.run(newId, KEY_A, "2026-04-04 11:05:00");
+    insertOverview.run(stableId, KEY_A, "2026-04-04 11:10:00");
+    insertOverview.run(sotOnlyId, KEY_A, "2026-04-04 11:30:00");
+
+    const row = getKingdoms(KEY_A).find((kingdom) => kingdom.location === "7:5");
+    assert.ok(row);
+    assert.equal(row.province_count, 3);
+    assert.equal(row.last_seen, "2026-04-04 11:30:00");
+  });
+});
+
 // --- getKingdomProvinces ---
 
 test("multi-tenancy: getKingdomProvinces excludes other key's provinces", () => {

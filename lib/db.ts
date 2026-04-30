@@ -1531,19 +1531,48 @@ export function createDbApi(db: Database.Database): DbApi {
 
     getKingdoms(keyHash) {
       return db.prepare(`
+        WITH latest_slot AS (
+          SELECT ki.location, kp.slot, kp.name
+          FROM kingdom_provinces kp
+          JOIN kingdom_intel ki ON kp.kingdom_intel_id = ki.id
+          WHERE ki.key_hash = @keyHash
+            AND kp.slot IS NOT NULL
+            AND kp.id = (
+              SELECT MAX(kp2.id)
+              FROM kingdom_provinces kp2
+              JOIN kingdom_intel ki2 ON kp2.kingdom_intel_id = ki2.id
+              WHERE ki2.location = ki.location
+                AND ki2.key_hash = @keyHash
+                AND kp2.slot = kp.slot
+            )
+        )
         SELECT p.kingdom AS location,
                COUNT(DISTINCT p.id) AS province_count,
                MAX(po.received_at) AS last_seen
         FROM provinces p
-        LEFT JOIN province_overview po ON po.province_id = p.id AND po.key_hash = ?
+        LEFT JOIN province_overview po ON po.province_id = p.id AND po.key_hash = @keyHash
         WHERE p.kingdom != ''
           AND EXISTS (
             SELECT 1 FROM intel_partitions
-            WHERE key_hash = ? AND province_id = p.id
+            WHERE key_hash = @keyHash AND province_id = p.id
+          )
+          AND (
+            EXISTS (
+              SELECT 1 FROM latest_slot ls
+              WHERE ls.location = p.kingdom AND ls.name = p.name
+            )
+            OR NOT EXISTS (
+              SELECT 1
+              FROM kingdom_provinces kp
+              JOIN kingdom_intel ki ON kp.kingdom_intel_id = ki.id
+              WHERE ki.location = p.kingdom
+                AND ki.key_hash = @keyHash
+                AND kp.name = p.name
+            )
           )
         GROUP BY p.kingdom
         ORDER BY last_seen DESC
-      `).all(keyHash, keyHash) as KingdomRow[];
+      `).all({ keyHash }) as KingdomRow[];
     },
 
     getLatestKingdomSnapshot(location, keyHash) {
