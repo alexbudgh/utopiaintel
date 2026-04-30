@@ -11,6 +11,7 @@ import { login } from "@/app/login/action";
 import { logout } from "@/app/logout/action";
 import { KingdomRelations } from "@/app/components/KingdomRelations";
 import { toRelationContext } from "@/lib/relation-context";
+import { KingdomJump } from "@/app/kingdom/[loc]/KingdomJump";
 
 const FEATURE_SECTIONS = [
   {
@@ -269,38 +270,80 @@ export default async function Home() {
     ? (kingdomRows.find((r) => r.kd.location === boundKingdom)?.snapshot?.warTarget ?? null)
     : null;
 
+  const ourRelationLocations = new Set(
+    (kingdomRows.find((r) => r.kd.location === boundKingdom)?.snapshot?.openRelations ?? []).map(
+      (r) => r.location
+    )
+  );
+
+  const groups = [
+    { label: null, collapsible: false, rows: kingdomRows.filter((r) => r.kd.location === boundKingdom) },
+    {
+      label: "AT WAR",
+      collapsible: false,
+      rows: kingdomRows.filter(
+        (r) => r.kd.location !== boundKingdom && r.kd.location === selfWarTarget
+      ),
+    },
+    {
+      label: "OPEN RELATIONS",
+      collapsible: false,
+      rows: kingdomRows.filter(
+        (r) =>
+          r.kd.location !== boundKingdom &&
+          r.kd.location !== selfWarTarget &&
+          ourRelationLocations.has(r.kd.location)
+      ),
+    },
+    {
+      label: "OTHER",
+      collapsible: true,
+      rows: kingdomRows.filter(
+        (r) =>
+          r.kd.location !== boundKingdom &&
+          r.kd.location !== selfWarTarget &&
+          !ourRelationLocations.has(r.kd.location)
+      ),
+    },
+  ].filter((g) => g.rows.length > 0);
+
   return (
-    <main className="p-8 max-w-2xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
+    <main className="p-8 max-w-3xl mx-auto">
+      <div className="mb-6 space-y-3">
+        <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold tracking-tight text-gray-100">Chaos Intel</h1>
-          {boundKingdom && (
-            <Link
-              href={`/kingdom/${encodeURIComponent(boundKingdom)}`}
-              className="text-sm rounded border border-gray-700 px-3 py-1.5 text-gray-300 hover:border-gray-500 hover:text-gray-100 transition-colors"
-            >
-              My Kingdom: <span className="font-mono">{boundKingdom}</span>
+          <div className="flex items-center gap-3">
+            <Link href="/ops" className="text-sm text-gray-500 hover:text-gray-300 transition-colors">
+              Recent Ops
             </Link>
-          )}
-          {selfWarTarget && (
-            <Link
-              href={`/kingdom/${encodeURIComponent(selfWarTarget)}`}
-              className="text-sm rounded border border-orange-500/60 bg-orange-950/30 px-3 py-1.5 font-medium text-orange-200 hover:border-orange-400 hover:text-orange-100 transition-colors"
-            >
-              ⚔ War · {selfWarTarget}
-            </Link>
-          )}
+            <IntelSetupButton endpointUrl={`${baseUrl}/api/intel`} />
+            <form action={logout}>
+              <button type="submit" className="text-sm text-gray-500 hover:text-gray-300 transition-colors">
+                Sign out
+              </button>
+            </form>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <Link href="/ops" className="text-sm text-gray-500 hover:text-gray-300 transition-colors">
-            Recent Ops
-          </Link>
-          <IntelSetupButton endpointUrl={`${baseUrl}/api/intel`} />
-          <form action={logout}>
-            <button type="submit" className="text-sm text-gray-500 hover:text-gray-300 transition-colors">
-              Sign out
-            </button>
-          </form>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            {boundKingdom && (
+              <Link
+                href={`/kingdom/${encodeURIComponent(boundKingdom)}`}
+                className="text-sm rounded border border-gray-700 px-3 py-1.5 text-gray-300 hover:border-gray-500 hover:text-gray-100 transition-colors"
+              >
+                My Kingdom: <span className="font-mono">{boundKingdom}</span>
+              </Link>
+            )}
+            {selfWarTarget && (
+              <Link
+                href={`/kingdom/${encodeURIComponent(selfWarTarget)}`}
+                className="text-sm rounded border border-orange-500/60 bg-orange-950/30 px-3 py-1.5 font-medium text-orange-200 hover:border-orange-400 hover:text-orange-100 transition-colors"
+              >
+                ⚔ War · {selfWarTarget}
+              </Link>
+            )}
+          </div>
+          <KingdomJump />
         </div>
       </div>
 
@@ -308,63 +351,140 @@ export default async function Home() {
         <IntelSetupCard endpointUrl={`${baseUrl}/api/intel`} title="No intel received yet." />
       ) : (
         <div className="space-y-4">
-          <ul className="space-y-2">
-            {kingdomRows.map(({ kd, snapshot, relationContexts, ritual, dragon }) => (
-              <li key={kd.location}>
-                <div className="rounded-lg bg-gray-800 px-4 py-3">
-                  <Link
-                    href={`/kingdom/${kd.location}`}
-                    className="flex items-center justify-between gap-4 hover:opacity-80 transition-opacity"
-                  >
-                    <div className="min-w-0">
-                      <span className="font-mono font-semibold text-gray-100">
-                        {kd.location}
-                      </span>
-                      {kd.location === boundKingdom && (
-                        <span className="ml-1.5 text-xs font-medium text-blue-400">★</span>
-                      )}
-                      {kd.location === selfWarTarget && (
-                        <span className="ml-1.5 text-xs font-medium text-orange-400">⚔</span>
-                      )}
-                      {snapshot?.name && (
-                        <div className="text-xs text-gray-500">{snapshot.name}</div>
-                      )}
-                    </div>
-                    <span className="text-sm text-gray-400">
-                      {kd.province_count} province{kd.province_count !== 1 ? "s" : ""}
-                    </span>
-                    <span className={`text-sm ${freshnessColor(kd.last_seen)}`}>
-                      {timeAgo(kd.last_seen)}
-                    </span>
-                  </Link>
-                  {(ritual || dragon) && (
-                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
-                      {dragon && (
-                        <a href="https://utopiaguide.chaos-intel.com/main/Dragons/" target="_blank" rel="noopener noreferrer" className="rounded border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 font-medium text-rose-300 hover:border-rose-400/60 transition-colors">
-                          {dragon.dragonType} Dragon · {dragon.dragonName}
-                        </a>
-                      )}
-                      {ritual && (
-                        <a href="https://utopiaguide.chaos-intel.com/misc/Ritual/" target="_blank" rel="noopener noreferrer" className="rounded border border-purple-500/40 bg-purple-500/10 px-2 py-0.5 font-medium text-purple-300 hover:border-purple-400/60 transition-colors">
-                          {ritual.name}
-                          {ritual.remainingTicks != null && ` · ${ritual.remainingTicks}t`}
-                          {ritual.effectivenessPercent != null && ` · ${ritual.effectivenessPercent.toFixed(1)}%`}
-                        </a>
-                      )}
+          {groups.map((group) => (
+            <div key={group.label ?? "own"} className="space-y-2">
+              {group.collapsible && group.label ? (
+                <details className="group/details">
+                  <summary className="flex cursor-pointer list-none items-center gap-2 px-1 pt-2 pb-1 text-[10px] font-semibold tracking-widest text-gray-500 uppercase hover:text-gray-400">
+                    <span className="transition-transform group-open/details:rotate-90">▶</span>
+                    {group.label} ({group.rows.length})
+                  </summary>
+                  <ul className="mt-2 space-y-2">
+                    {group.rows.map(({ kd, snapshot, relationContexts, ritual, dragon }) => (
+                      <li key={kd.location}>
+                        <div className="rounded-lg bg-gray-800 px-4 py-3">
+                          <Link
+                            href={`/kingdom/${kd.location}`}
+                            className="flex items-center justify-between gap-4 hover:opacity-80 transition-opacity"
+                          >
+                            <div className="min-w-0">
+                              <span className="font-mono font-semibold text-gray-100">
+                                {kd.location}
+                              </span>
+                              {kd.location === boundKingdom && (
+                                <span className="ml-1.5 text-xs font-medium text-blue-400">★</span>
+                              )}
+                              {kd.location === selfWarTarget && (
+                                <span className="ml-1.5 text-xs font-medium text-orange-400">⚔</span>
+                              )}
+                              {snapshot?.name && (
+                                <div className="text-xs text-gray-500">{snapshot.name}</div>
+                              )}
+                            </div>
+                            <span className="text-sm text-gray-400">
+                              {kd.province_count} province{kd.province_count !== 1 ? "s" : ""}
+                            </span>
+                            <span className={`text-sm ${freshnessColor(kd.last_seen)}`}>
+                              {timeAgo(kd.last_seen)}
+                            </span>
+                          </Link>
+                          {(ritual || dragon) && (
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+                              {dragon && (
+                                <a href="https://utopiaguide.chaos-intel.com/main/Dragons/" target="_blank" rel="noopener noreferrer" className="rounded border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 font-medium text-rose-300 hover:border-rose-400/60 transition-colors">
+                                  {dragon.dragonType} Dragon · {dragon.dragonName}
+                                </a>
+                              )}
+                              {ritual && (
+                                <a href="https://utopiaguide.chaos-intel.com/misc/Ritual/" target="_blank" rel="noopener noreferrer" className="rounded border border-purple-500/40 bg-purple-500/10 px-2 py-0.5 font-medium text-purple-300 hover:border-purple-400/60 transition-colors">
+                                  {ritual.name}
+                                  {ritual.remainingTicks != null && ` · ${ritual.remainingTicks}t`}
+                                  {ritual.effectivenessPercent != null && ` · ${ritual.effectivenessPercent.toFixed(1)}%`}
+                                </a>
+                              )}
+                            </div>
+                          )}
+                          <div className="mt-2">
+                            <KingdomRelations
+                              kingdom={kd.location}
+                              boundKingdom={boundKingdom}
+                              snapshot={snapshot}
+                              relationContexts={relationContexts}
+                            />
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ) : (
+                <>
+                  {group.label && (
+                    <div className="px-1 pt-2 pb-1 text-[10px] font-semibold tracking-widest text-gray-500 uppercase">
+                      {group.label}
                     </div>
                   )}
-                  <div className="mt-2">
-                    <KingdomRelations
-                      kingdom={kd.location}
-                      boundKingdom={boundKingdom}
-                      snapshot={snapshot}
-                      relationContexts={relationContexts}
-                    />
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
+                  <ul className="space-y-2">
+                    {group.rows.map(({ kd, snapshot, relationContexts, ritual, dragon }) => (
+                  <li key={kd.location}>
+                    <div className="rounded-lg bg-gray-800 px-4 py-3">
+                      <Link
+                        href={`/kingdom/${kd.location}`}
+                        className="flex items-center justify-between gap-4 hover:opacity-80 transition-opacity"
+                      >
+                        <div className="min-w-0">
+                          <span className="font-mono font-semibold text-gray-100">
+                            {kd.location}
+                          </span>
+                          {kd.location === boundKingdom && (
+                            <span className="ml-1.5 text-xs font-medium text-blue-400">★</span>
+                          )}
+                          {kd.location === selfWarTarget && (
+                            <span className="ml-1.5 text-xs font-medium text-orange-400">⚔</span>
+                          )}
+                          {snapshot?.name && (
+                            <div className="text-xs text-gray-500">{snapshot.name}</div>
+                          )}
+                        </div>
+                        <span className="text-sm text-gray-400">
+                          {kd.province_count} province{kd.province_count !== 1 ? "s" : ""}
+                        </span>
+                        <span className={`text-sm ${freshnessColor(kd.last_seen)}`}>
+                          {timeAgo(kd.last_seen)}
+                        </span>
+                      </Link>
+                      {(ritual || dragon) && (
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+                          {dragon && (
+                            <a href="https://utopiaguide.chaos-intel.com/main/Dragons/" target="_blank" rel="noopener noreferrer" className="rounded border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 font-medium text-rose-300 hover:border-rose-400/60 transition-colors">
+                              {dragon.dragonType} Dragon · {dragon.dragonName}
+                            </a>
+                          )}
+                          {ritual && (
+                            <a href="https://utopiaguide.chaos-intel.com/misc/Ritual/" target="_blank" rel="noopener noreferrer" className="rounded border border-purple-500/40 bg-purple-500/10 px-2 py-0.5 font-medium text-purple-300 hover:border-purple-400/60 transition-colors">
+                              {ritual.name}
+                              {ritual.remainingTicks != null && ` · ${ritual.remainingTicks}t`}
+                              {ritual.effectivenessPercent != null && ` · ${ritual.effectivenessPercent.toFixed(1)}%`}
+                            </a>
+                          )}
+                        </div>
+                      )}
+                      <div className="mt-2">
+                        <KingdomRelations
+                          kingdom={kd.location}
+                          boundKingdom={boundKingdom}
+                          snapshot={snapshot}
+                          relationContexts={relationContexts}
+                        />
+                      </div>
+                    </div>
+                  </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </main>
