@@ -81,6 +81,7 @@ function makeProvince(overrides: Partial<ProvinceRow>): ProvinceRow {
     som_armies_json: null,
     throne_armies_json: null,
     armies_out_json: null,
+    mana: null,
     shielding_effect: null,
     free_specialist_credits: null,
     free_specialist_credits_age: null,
