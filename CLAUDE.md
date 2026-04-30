@@ -113,8 +113,12 @@ For the test instance (same SSH host, different directory and PM2 process):
 ```bash
 rsync -avz --exclude=intel.db --exclude=node_modules/better-sqlite3 .next/standalone/ utopiaintel:~/utopiaintel-test/
 rsync -avz .next/static/ utopiaintel:~/utopiaintel-test/.next/static/
-ssh utopiaintel "pm2 reload utopiaintel-test"
+scp ecosystem.test.config.js utopiaintel:~/utopiaintel-test/ecosystem.config.js
+ssh utopiaintel "pm2 reload ~/utopiaintel-test/ecosystem.config.js"
 ```
+
+The test ecosystem config uses app name `utopiaintel-test`, `PORT=3001`,
+`STAGING=true`, blank Axiom token/dataset values, and `INTEL_DEBUG=0`.
 
 The GitHub Deploy workflow follows the production path above: it syncs the
 standalone server, syncs static assets, copies `ecosystem.config.js`, then runs

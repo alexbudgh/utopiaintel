@@ -259,6 +259,18 @@ The GitHub Deploy workflow uses the same production reload pattern: it copies
 `ecosystem.config.js` to the server and reloads PM2 through that file. This
 keeps the PM2-managed environment together with the deployed code.
 
+For the test instance, use the test ecosystem config:
+
+```bash
+rsync -avz --exclude=intel.db .next/standalone/ utopiaintel:~/utopiaintel-test/
+rsync -avz .next/static/ utopiaintel:~/utopiaintel-test/.next/static/
+scp ecosystem.test.config.js utopiaintel:~/utopiaintel-test/ecosystem.config.js
+ssh utopiaintel "pm2 reload ~/utopiaintel-test/ecosystem.config.js"
+```
+
+The test config uses app name `utopiaintel-test`, `PORT=3001`, `STAGING=true`,
+blank Axiom token/dataset values, and `INTEL_DEBUG=0`.
+
 First-time server setup:
 
 ```bash
