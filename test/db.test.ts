@@ -1770,8 +1770,8 @@ test("metrics cache: direct WPA prefers wizard count and applies channeling plus
     db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
 
     db.prepare(`
-      INSERT INTO province_overview (province_id, key_hash, race, personality, land, networth, source, saved_by, received_at)
-      VALUES (?, ?, 'Elf', 'Mystic', 1000, 200000, 'throne', 'Mystic', '2026-04-04 12:05:00')
+      INSERT INTO province_overview (province_id, key_hash, race, personality, honor_title, land, networth, source, saved_by, received_at)
+      VALUES (?, ?, 'Elf', 'Mystic', 'Baron', 1000, 200000, 'throne', 'Mystic', '2026-04-04 12:05:00')
     `).run(provId, KEY_A);
     db.prepare(`
       INSERT INTO province_resources (province_id, key_hash, wizards, mana, source, saved_by, received_at)
@@ -1787,7 +1787,7 @@ test("metrics cache: direct WPA prefers wizard count and applies channeling plus
 
     const [row] = getKingdomProvinces("7:5", KEY_A);
     assertApprox(row.cached_rwpa, 3, 0.0001, "cached direct rWPA");
-    assertApprox(row.cached_mwpa, 5.544, 0.0001, "cached direct mWPA");
+    assertApprox(row.cached_mwpa, 6.04296, 0.0001, "cached direct mWPA");
     assert.equal(row.cached_rwpa_age, "2026-04-04 12:10:00");
     assert.equal(row.cached_mwpa_age, "2026-04-04 12:10:00");
   });

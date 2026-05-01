@@ -185,12 +185,18 @@ export function updateMetricsCache(db: Database.Database, provinceId: number, ke
     wizards: number;
     land: number;
     race: string | null;
+    honor_title: string | null;
     personality: string | null;
     mana: number | null;
     age: string;
   };
   const rwpaDirectRow = db.prepare<typeof p, RwpaDirectRow>(`
     SELECT pr.wizards, po.land, po.race, pr.mana,
+      COALESCE(po.honor_title, (
+        SELECT po2.honor_title FROM province_overview po2
+        WHERE po2.province_id = pr.province_id AND po2.honor_title IS NOT NULL
+        ORDER BY po2.received_at DESC LIMIT 1
+      )) AS honor_title,
       COALESCE(po.personality, (
         SELECT po2.personality FROM province_overview po2
         WHERE po2.province_id = pr.province_id AND po2.personality IS NOT NULL
@@ -210,6 +216,11 @@ export function updateMetricsCache(db: Database.Database, provinceId: number, ke
   type MwpaDirectRow = RwpaDirectRow & { channeling_effect: number };
   const mwpaDirectRow = db.prepare<typeof p, MwpaDirectRow>(`
     SELECT pr.wizards, po.land, po.race, pr.mana,
+      COALESCE(po.honor_title, (
+        SELECT po2.honor_title FROM province_overview po2
+        WHERE po2.province_id = pr.province_id AND po2.honor_title IS NOT NULL
+        ORDER BY po2.received_at DESC LIMIT 1
+      )) AS honor_title,
       COALESCE(po.personality, (
         SELECT po2.personality FROM province_overview po2
         WHERE po2.province_id = pr.province_id AND po2.personality IS NOT NULL
@@ -234,7 +245,7 @@ export function updateMetricsCache(db: Database.Database, provinceId: number, ke
   // resources come from SoT/throne; SoM home troops are intentionally ignored.
   type RwpaBackRow = {
     thieves: number; land: number; networth: number; race: string;
-    personality: string | null; mana: number | null;
+    honor_title: string | null; personality: string | null; mana: number | null;
     science_total_books: number | null; buildings_built: number | null; buildings_in_progress: number | null;
     soldiers: number | null; off_specs: number | null; def_specs: number | null;
     elites: number | null; war_horses: number | null; peasants: number | null;
@@ -243,6 +254,11 @@ export function updateMetricsCache(db: Database.Database, provinceId: number, ke
   };
   const rwpaBackRow = db.prepare<typeof p, RwpaBackRow>(`
     SELECT pr.thieves, po.land, po.networth, po.race,
+      COALESCE(po.honor_title, (
+        SELECT po2.honor_title FROM province_overview po2
+        WHERE po2.province_id = pr.province_id AND po2.honor_title IS NOT NULL
+        ORDER BY po2.received_at DESC LIMIT 1
+      )) AS honor_title,
       COALESCE(po.personality, (
         SELECT po2.personality FROM province_overview po2
         WHERE po2.province_id = pr.province_id AND po2.personality IS NOT NULL
@@ -294,6 +310,7 @@ export function updateMetricsCache(db: Database.Database, provinceId: number, ke
         cached_rwpa,
         mwpaDirectRow.channeling_effect,
         mwpaDirectRow.race,
+        mwpaDirectRow.honor_title,
         mwpaDirectRow.personality,
         mwpaDirectRow.mana,
       );
@@ -308,6 +325,7 @@ export function updateMetricsCache(db: Database.Database, provinceId: number, ke
         cached_rwpa,
         rwpaBackRow.channeling_effect,
         rwpaBackRow.race,
+        rwpaBackRow.honor_title,
         rwpaBackRow.personality,
         rwpaBackRow.mana,
       );

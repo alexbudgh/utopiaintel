@@ -28,6 +28,23 @@ export function wpaRaceEffectValue(race: string | null): number {
   return 0;
 }
 
+const HONOR_WPA_EFFECT: Record<string, number> = {
+  Knight: 3, Lady: 3,
+  Lord: 6, "Noble Lady": 6,
+  Baron: 9, Baroness: 9,
+  Viscount: 12, Viscountess: 12,
+  Count: 18, Countess: 18,
+  Marquis: 24, Marchioness: 24,
+  Duke: 30, Duchess: 30,
+  Prince: 36, Princess: 36,
+};
+
+export function wpaHonorEffectValue(honorTitle: string | null, personality: string | null): number {
+  const baseEffect = honorTitle ? HONOR_WPA_EFFECT[honorTitle] ?? 0 : 0;
+  const honorEffectMod = personality === "War Hero" ? 1.7 : 1;
+  return baseEffect * honorEffectMod;
+}
+
 export function computeMtpaValue(rtpa: number | null, crimeEffect: number | null, personality: string | null): number | null {
   if (rtpa == null || crimeEffect == null) return null;
   return rtpa * (1 + crimeEffect / 100) * (1 + tpaPersonalityEffectValue(personality) / 100);
@@ -47,6 +64,7 @@ export function computeMwpaValue(
   rwpa: number | null,
   channelingEffect: number | null,
   race: string | null,
+  honorTitle: string | null,
   personality: string | null,
   mana: number | null,
 ): number | null {
@@ -54,6 +72,7 @@ export function computeMwpaValue(
   return rwpa
     * (1 + channelingEffect / 100)
     * (1 + wpaRaceEffectValue(race) / 100)
+    * (1 + wpaHonorEffectValue(honorTitle, personality) / 100)
     * (1 + wpaPersonalityEffectValue(personality, mana) / 100);
 }
 
@@ -68,6 +87,10 @@ export function wpaPersonalityEffect(p: Pick<ProvinceRow, "personality" | "mana"
 
 export function wpaRaceEffect(p: Pick<ProvinceRow, "race">): number {
   return wpaRaceEffectValue(p.race);
+}
+
+export function wpaHonorEffect(p: Pick<ProvinceRow, "honor_title" | "personality">): number {
+  return wpaHonorEffectValue(p.honor_title, p.personality);
 }
 
 export function computeRtpa(p: ProvinceRow): number | null {
@@ -107,5 +130,5 @@ export function computeRwpa(p: ProvinceRow): number | null {
 export function computeMwpa(p: ProvinceRow): number | null {
   const rwpa = computeRwpa(p);
   if (p.wizards != null && !sameTick(p.resources_age, p.overview_age, p.sciences_age)) return null;
-  return computeMwpaValue(rwpa, p.channeling_effect, p.race, p.personality, p.mana);
+  return computeMwpaValue(rwpa, p.channeling_effect, p.race, p.honor_title, p.personality, p.mana);
 }
