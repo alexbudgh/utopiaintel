@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { hashKey } from "./keys";
 import readline from "node:readline";
 import { parseIntel } from "./parsers";
-import { getIntelPathname } from "./parsers/detect";
+import { getIntelPathname, isSelfPagePath } from "./parsers/detect";
 import {
   getDb,
   storeSoT,
@@ -172,7 +172,7 @@ export function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options
   }
 
   if (parsed.type === "survey") {
-    const isSelfInternal = getIntelPathname(entry.url)?.endsWith("/council_internal") ?? false;
+    const isSelfInternal = isSelfPagePath(getIntelPathname(entry.url), "council_internal");
     storeSurvey(parsed.data, savedBy, keyHash, isSelfInternal);
     if (normalizedReceivedAt) {
       setLatestSurveyTimestamp(parsed.data.name, parsed.data.kingdom, savedBy, keyHash, normalizedReceivedAt);
@@ -182,7 +182,7 @@ export function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options
 
   if (parsed.type === "sot") {
     const pathname = getIntelPathname(entry.url);
-    const isSelfThrone = pathname === "/wol/game/throne";
+    const isSelfThrone = isSelfPagePath(pathname, "throne");
     storeSoT(parsed.data, savedBy, keyHash, isSelfThrone);
     if (normalizedReceivedAt) {
       setLatestSoTTimestamps(parsed.data.name, parsed.data.kingdom, savedBy, keyHash, normalizedReceivedAt);
@@ -201,7 +201,7 @@ export function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options
   }
 
   if (parsed.type === "som") {
-    const isSelfMilitary = getIntelPathname(entry.url)?.endsWith("/council_military") ?? false;
+    const isSelfMilitary = isSelfPagePath(getIntelPathname(entry.url), "council_military");
     storeSoM(parsed.data, savedBy, keyHash, isSelfMilitary);
     return "som";
   }

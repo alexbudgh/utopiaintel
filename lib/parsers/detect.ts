@@ -8,6 +8,11 @@ export function getIntelPathname(url: string): string | null {
   }
 }
 
+export function isSelfPagePath(pathname: string | null, page: string): boolean {
+  return pathname === `/wol/game/${page}` || pathname === `/wol/sit/game/${page}`;
+}
+
+
 function getUtopiaThieveryOp(url: string): string | null {
   try {
     const parsed = new URL(url);

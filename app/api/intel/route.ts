@@ -3,7 +3,7 @@ import { withAxiom, AxiomRequest } from "next-axiom";
 import { appendDebugLog } from "@/lib/debug-log";
 import { hashKey } from "@/lib/keys";
 import { parseIntel } from "@/lib/parsers";
-import { getIntelPathname } from "@/lib/parsers/detect";
+import { getIntelPathname, isSelfPagePath } from "@/lib/parsers/detect";
 import {
   storeSoT,
   storeSurvey,
@@ -110,10 +110,10 @@ export const POST = withAxiom(async (request: AxiomRequest) => {
 
   const savedBy = fields.prov;
   const pathname = getIntelPathname(fields.url);
-  const isSelfThrone   = pathname === "/wol/game/throne";
-  const isSelfMilitary = pathname?.endsWith("/council_military") ?? false;
-  const isSelfScience  = pathname?.endsWith("/council_science") ?? false;
-  const isSelfInternal = pathname?.endsWith("/council_internal") ?? false;
+  const isSelfThrone   = isSelfPagePath(pathname, "throne");
+  const isSelfMilitary = isSelfPagePath(pathname, "council_military");
+  const isSelfScience  = isSelfPagePath(pathname, "council_science");
+  const isSelfInternal = isSelfPagePath(pathname, "council_internal");
 
   const province = getLogProvince(result);
   const kingdom  = getLogKingdom(result);

@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { detectIntelType, getIntelPathname } from "../lib/parsers/detect";
+import {
+  detectIntelType,
+  getIntelPathname,
+  isSelfPagePath,
+} from "../lib/parsers/detect";
 import { parseIntel } from "../lib/parsers";
 import { parseSoT } from "../lib/parsers/sot";
 import { parseSurvey } from "../lib/parsers/survey";
@@ -488,6 +492,17 @@ test("getIntelPathname — extracts lowercased pathname", () => {
 
 test("getIntelPathname — invalid URL returns null", () => {
   assert.equal(getIntelPathname("not-a-url"), null);
+});
+
+test("isSelfPagePath — recognizes normal and sitter self pages", () => {
+  assert.equal(isSelfPagePath("/wol/game/throne", "throne"), true);
+  assert.equal(isSelfPagePath("/wol/sit/game/throne", "throne"), true);
+  assert.equal(isSelfPagePath("/wol/game/spy_on_throne", "throne"), false);
+  assert.equal(isSelfPagePath(null, "throne"), false);
+  assert.equal(isSelfPagePath("/wol/game/council_military", "council_military"), true);
+  assert.equal(isSelfPagePath("/wol/sit/game/council_military", "council_military"), true);
+  assert.equal(isSelfPagePath("/wol/game/spy_on_military", "council_military"), false);
+  assert.equal(isSelfPagePath("/wol/game/thievery", "council_military"), false);
 });
 
 test("parseSoT — throne page (self-intel)", () => {
