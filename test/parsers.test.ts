@@ -505,6 +505,24 @@ test("isSelfPagePath — recognizes normal and sitter self pages", () => {
   assert.equal(isSelfPagePath("/wol/game/thievery", "council_military"), false);
 });
 
+test("parseSoT — war: false and warTarget: null when not at war", () => {
+  const r = parseSoT(THRONE_TEXT);
+  assert.ok(r);
+  assert.equal(r.war, false);
+  assert.equal(r.warTarget, null);
+});
+
+test("parseSoT — war: true and warTarget extracted from active war message", () => {
+  const warText = THRONE_TEXT.replace(
+    "Our Kingdom has concluded WAR with Example (1:11)!",
+    "Our Kingdom is at WAR with TestKingdom (3:9)!",
+  );
+  const r = parseSoT(warText);
+  assert.ok(r);
+  assert.equal(r.war, true);
+  assert.equal(r.warTarget, "3:9");
+});
+
 test("parseSoT — throne page (self-intel)", () => {
   const r = parseSoT(THRONE_TEXT);
   assert.ok(r, "should parse successfully");

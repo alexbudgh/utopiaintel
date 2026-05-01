@@ -39,6 +39,7 @@ export interface SoTData extends ProvinceId {
   dragonName: string | null;
   hitStatus: string;
   war: boolean;
+  warTarget: string | null;
   activeEffects: Array<{
     name: string;
     kind: "spell" | "ritual" | "thievery";

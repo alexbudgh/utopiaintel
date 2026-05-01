@@ -845,6 +845,10 @@ export function storeSoT(data: SoTData, savedBy: string, keyHash: string, isSelf
     recordSubmission(db, keyHash, provId);
     if (isSelfThrone && data.kingdom) {
       bindKeyToKingdom(db, keyHash, data.kingdom, "throne");
+      db.prepare(`
+        UPDATE kingdom_intel SET war_target = ?
+        WHERE id = (SELECT id FROM kingdom_intel WHERE location = ? AND key_hash = ? ORDER BY id DESC LIMIT 1)
+      `).run(data.warTarget ?? null, data.kingdom, keyHash);
     }
 
     // 1. Overview

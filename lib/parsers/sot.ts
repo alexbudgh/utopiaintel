@@ -45,7 +45,7 @@ const OVERPOP_RE = /Riots due to housing shortages/;
 const DRAGON_RE = /The (\w+) Dragon, ([^,]+), ravages our lands!/;
 const OVERPOP_DESERTERS_RE = /We expect roughly ([\d,]+) men from our military will desert/;
 const HIT_RE = /province has been attacked (pretty heavily|moderately|a little|extremely badly)/;
-const WAR_RE = /Our Kingdom is at WAR!/;
+const WAR_RE = /Our Kingdom is at WAR(?: with [^(]+\((\d{1,2}:\d{1,2})\))?!/;
 const DURATION_RE = /^Duration:\s*(.+)$/im;
 const RITUAL_RE = /We are covered by the ([^.]+?) ritual with ([\d.]+%) effectiveness left! The ritual will be lifted in ([^.]+)\./i;
 
@@ -146,6 +146,7 @@ export function parseSoT(text: string): SoTData | null {
   if (!nd) return null;
 
   const hitMatch = HIT_RE.exec(text);
+  const warMatch = WAR_RE.exec(text);
   const dragonMatch = DRAGON_RE.exec(text);
   const activeEffects = parseDurationEffects(text);
   const ritualEffect = parseRitualEffect(text);
@@ -191,7 +192,8 @@ export function parseSoT(text: string): SoTData | null {
     dragonType: dragonMatch ? dragonMatch[1] : null,
     dragonName: dragonMatch ? dragonMatch[2].trim() : null,
     hitStatus: hitMatch ? hitMatch[1] : "",
-    war: WAR_RE.test(text),
+    war: !!warMatch,
+    warTarget: warMatch?.[1] ?? null,
     activeEffects,
     accuracy,
     armiesOut: armiesOut.length > 0 ? armiesOut : undefined,
