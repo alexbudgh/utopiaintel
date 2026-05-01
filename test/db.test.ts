@@ -2002,10 +2002,14 @@ test("getProvinceDetail: returns SoT/resources/status detail and enforces key ac
     db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();
     const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name = 'Alpha' AND kingdom = '7:5'").get() as { id: number };
     db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
+    const snapshotId = Number(db.prepare(`
+      INSERT INTO kingdom_intel (key_hash, name, location, received_at) VALUES (?, 'KD', '7:5', '2026-04-04 18:00:00')
+    `).run(KEY_A).lastInsertRowid);
+    db.prepare("INSERT INTO kingdom_provinces (kingdom_intel_id, slot, name, race, land, networth) VALUES (?, 4, 'Alpha', 'Elf', 1234, 456789)").run(snapshotId);
 
     db.prepare(`
-      INSERT INTO province_overview (province_id, key_hash, race, personality, honor_title, land, networth, source, saved_by, received_at)
-      VALUES (?, ?, 'Elf', 'Merchant', 'Baron', 1234, 456789, 'sot', 'Alpha', '2026-04-04 18:00:00')
+      INSERT INTO province_overview (province_id, key_hash, race, personality, honor_title, ruler, land, networth, source, saved_by, received_at)
+      VALUES (?, ?, 'Elf', 'Merchant', 'Baron', 'Baron Test Ruler the Trader', 1234, 456789, 'sot', 'Alpha', '2026-04-04 18:00:00')
     `).run(provId, KEY_A);
     db.prepare(`
       INSERT INTO total_military_points (province_id, key_hash, off_points, def_points, source, saved_by, received_at)
@@ -2034,7 +2038,9 @@ test("getProvinceDetail: returns SoT/resources/status detail and enforces key ac
 
     const detail = api.getProvinceDetail("Alpha", "7:5", KEY_A);
     assert.equal(detail.province?.name, "Alpha");
+    assert.equal(detail.province?.slot, 4);
     assert.equal(detail.overview?.race, "Elf");
+    assert.equal(detail.overview?.ruler, "Baron Test Ruler the Trader");
     assert.equal(detail.sot?.peasants, 9000);
     assert.equal(detail.resources?.money, 100000);
     assert.equal(detail.resources?.thieves, 1234);

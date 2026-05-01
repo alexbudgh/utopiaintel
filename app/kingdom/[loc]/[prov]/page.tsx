@@ -164,7 +164,10 @@ export default async function ProvincePage({
         <Link href={`/kingdom/${loc}`} className="text-gray-400 hover:text-gray-200 text-sm">
           ← {kingdom}
         </Link>
-        <h1 className="text-xl font-bold text-gray-100 font-mono">{name}</h1>
+        <h1 className="text-xl font-bold text-gray-100 font-mono">
+          {d.province.slot != null && <span className="mr-2 text-gray-500">#{d.province.slot}</span>}
+          {name}
+        </h1>
         {d.overview && <Badge label={d.overview.source} />}
       </div>
 
@@ -174,6 +177,7 @@ export default async function ProvincePage({
           {d.overview ? (
             <>
               <KV label="Race" value={d.overview.race ?? "—"} />
+              {d.overview.ruler && <KV label="Ruler" value={d.overview.ruler} />}
               <KV label="Personality" value={d.overview.personality ?? "—"} />
               <KV label="Honor" value={d.overview.honorTitle ?? "—"} />
               <KV label="Land" value={d.overview.land != null ? d.overview.land.toLocaleString() : "—"} />

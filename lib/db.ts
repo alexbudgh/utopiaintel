@@ -396,6 +396,7 @@ export function initSchema(db: Database.Database) {
       race TEXT,
       personality TEXT,
       honor_title TEXT,
+      ruler TEXT,
       land INTEGER,
       networth INTEGER,
       source TEXT NOT NULL,
@@ -697,6 +698,7 @@ export function initSchema(db: Database.Database) {
   if (!hasCol("survey_intel", "thief_prevent_chance"))   db.exec("ALTER TABLE survey_intel ADD COLUMN thief_prevent_chance REAL");
   if (!hasCol("survey_intel", "castles_effect"))         db.exec("ALTER TABLE survey_intel ADD COLUMN castles_effect REAL");
   if (!hasCol("province_overview", "key_hash")) db.exec("ALTER TABLE province_overview ADD COLUMN key_hash TEXT");
+  if (!hasCol("province_overview", "ruler")) db.exec("ALTER TABLE province_overview ADD COLUMN ruler TEXT");
   if (!hasCol("total_military_points", "key_hash")) db.exec("ALTER TABLE total_military_points ADD COLUMN key_hash TEXT");
   if (!hasCol("home_military_points", "key_hash")) db.exec("ALTER TABLE home_military_points ADD COLUMN key_hash TEXT");
   if (!hasCol("province_troops", "key_hash")) db.exec("ALTER TABLE province_troops ADD COLUMN key_hash TEXT");
@@ -785,14 +787,16 @@ function queryOverview(db: Database.Database, provId: number, keyHash: string) {
       land, networth, source, saved_by, received_at,
       (SELECT race        FROM province_overview WHERE province_id = ? AND key_hash = ? AND race        IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS race,
       (SELECT personality FROM province_overview WHERE province_id = ? AND key_hash = ? AND personality IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS personality,
-      (SELECT honor_title FROM province_overview WHERE province_id = ? AND key_hash = ? AND honor_title IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS honor_title
+      (SELECT honor_title FROM province_overview WHERE province_id = ? AND key_hash = ? AND honor_title IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS honor_title,
+      (SELECT ruler       FROM province_overview WHERE province_id = ? AND key_hash = ? AND ruler       IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS ruler
     FROM province_overview WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1
-  `).get(provId, keyHash, provId, keyHash, provId, keyHash, provId, keyHash) as any;
+  `).get(provId, keyHash, provId, keyHash, provId, keyHash, provId, keyHash, provId, keyHash) as any;
   if (!row) return null;
   return {
     race: row.race ?? null,
     personality: row.personality ?? null,
     honorTitle: row.honor_title ?? null,
+    ruler: row.ruler ?? null,
     land: row.land,
     networth: row.networth,
     source: row.source,
@@ -853,9 +857,9 @@ export function storeSoT(data: SoTData, savedBy: string, keyHash: string, isSelf
 
     // 1. Overview
     db.prepare(`
-      INSERT INTO province_overview (province_id, key_hash, race, personality, honor_title, land, networth, source, saved_by, accuracy)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(provId, keyHash, data.race, data.personality ?? null, data.honorTitle ?? null, data.land, data.networth, src, savedBy, data.accuracy);
+      INSERT INTO province_overview (province_id, key_hash, race, personality, honor_title, ruler, land, networth, source, saved_by, accuracy)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(provId, keyHash, data.race, data.personality ?? null, data.honorTitle ?? null, data.ruler ?? null, data.land, data.networth, src, savedBy, data.accuracy);
 
     // 2. Total military points (province-wide)
     db.prepare(`
@@ -1403,8 +1407,8 @@ export interface ScienceRow {
 }
 
 export interface ProvinceDetail {
-  province: { id: number; name: string; kingdom: string } | null;
-  overview: { race: string | null; personality: string | null; honorTitle: string | null; land: number | null; networth: number | null; source: string; savedBy: string | null; receivedAt: string } | null;
+  province: { id: number; name: string; kingdom: string; slot: number | null } | null;
+  overview: { race: string | null; personality: string | null; honorTitle: string | null; ruler: string | null; land: number | null; networth: number | null; source: string; savedBy: string | null; receivedAt: string } | null;
   totalMilitary: { offPoints: number | null; defPoints: number | null; receivedAt: string } | null;
   homeMilitary: { modOffAtHome: number | null; modDefAtHome: number | null; source: string; receivedAt: string } | null;
   sot: { soldiers: number | null; offSpecs: number | null; defSpecs: number | null; elites: number | null; warHorses: number | null; peasants: number | null; source: string; receivedAt: string } | null;
@@ -1596,6 +1600,10 @@ function getProvinceDetailForDb(db: Database.Database, name: string, kingdom: st
   if (!allowed) return { province: null, overview: null, totalMilitary: null, homeMilitary: null, sot: null, resources: null, status: null, effects: [], militaryIntel: null, survey: null, sciences: null };
 
   const id = prov.id;
+  const slotRow = db.prepare(`
+    WITH ${latestSlotCte("AND ki.location = @kingdom")}
+    SELECT slot FROM latest_slot WHERE kingdom = @kingdom AND name = @name LIMIT 1
+  `).get({ keyHash, kingdom, name }) as { slot: number } | undefined;
 
   const overview = queryOverview(db, id, keyHash);
 
@@ -1705,7 +1713,7 @@ function getProvinceDetailForDb(db: Database.Database, name: string, kingdom: st
   }
 
   return {
-    province: prov,
+    province: { ...prov, slot: slotRow?.slot ?? null },
     overview,
     totalMilitary,
     homeMilitary,
