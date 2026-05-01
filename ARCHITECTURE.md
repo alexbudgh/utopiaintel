@@ -112,6 +112,21 @@ The province table still preserves real SoT-only enemy intel when a province has
 never appeared on a kingdom page. Those rows have no slot, but they must have an
 actual overview row. Partition-only identities with no overview are hidden.
 
+## Kingdom-Wide State
+
+Dragon and ritual state are kingdom-wide, even though submitted pages are stored
+against the province that supplied the observation.
+
+For dragons, the current badge is read from the latest SoT or throne
+`province_status` row for the kingdom and key shard. If that newest observation
+does not include a dragon, older dragon rows are treated as stale.
+
+For rituals, active ritual rows live in `province_effects`, but a page with no
+ritual does not write a replacement ritual effect. The read model therefore
+compares the latest ritual effect against the latest SoT or throne
+`province_status` observation for the kingdom and key shard. Any newer
+observation without a ritual clears the older ritual badge.
+
 ## Replay and Backfills
 
 Debug-log replay routes historical payloads through the normal parser and store

@@ -2127,18 +2127,24 @@ export function createDbApi(db: Database.Database): DbApi {
     },
 
     getKingdomRitual(kingdom, keyHash) {
+      const latestObservation = db.prepare(`
+        SELECT ps.received_at
+        FROM province_status ps
+        JOIN provinces p ON p.id = ps.province_id
+        WHERE p.kingdom = ? AND ps.key_hash = ? AND ps.source IN ('sot', 'throne')
+        ORDER BY ps.received_at DESC, ps.id DESC
+        LIMIT 1
+      `).get(kingdom, keyHash) as { received_at: string } | undefined;
+
       const row = db.prepare(`
         SELECT pe.effect_name, pe.remaining_ticks, pe.effectiveness_percent, pe.received_at
         FROM province_effects pe
         JOIN provinces p ON p.id = pe.province_id
         WHERE p.kingdom = ? AND pe.key_hash = ? AND pe.effect_kind = 'ritual'
-          AND pe.received_at = (
-            SELECT MAX(pe2.received_at) FROM province_effects pe2 WHERE pe2.province_id = pe.province_id
-          )
         ORDER BY pe.received_at DESC, pe.id DESC
         LIMIT 1
       `).get(kingdom, keyHash) as { effect_name: string; remaining_ticks: number | null; effectiveness_percent: number | null; received_at: string } | undefined;
-      if (!row) return null;
+      if (!row || (latestObservation && latestObservation.received_at > row.received_at)) return null;
       return { name: row.effect_name, remainingTicks: row.remaining_ticks, effectivenessPercent: row.effectiveness_percent, receivedAt: row.received_at };
     },
 
@@ -2147,15 +2153,11 @@ export function createDbApi(db: Database.Database): DbApi {
         SELECT ps.dragon_type, ps.dragon_name, ps.received_at
         FROM province_status ps
         JOIN provinces p ON p.id = ps.province_id
-        WHERE p.kingdom = ? AND ps.key_hash = ? AND ps.dragon_type IS NOT NULL
-          AND NOT EXISTS (
-            SELECT 1 FROM province_status ps2
-            WHERE ps2.province_id = ps.province_id AND ps2.id > ps.id AND ps2.dragon_type IS NULL
-          )
+        WHERE p.kingdom = ? AND ps.key_hash = ? AND ps.source IN ('sot', 'throne')
         ORDER BY ps.received_at DESC, ps.id DESC
         LIMIT 1
-      `).get(kingdom, keyHash) as { dragon_type: string; dragon_name: string; received_at: string } | undefined;
-      if (!row) return null;
+      `).get(kingdom, keyHash) as { dragon_type: string | null; dragon_name: string | null; received_at: string } | undefined;
+      if (!row || !row.dragon_type || !row.dragon_name) return null;
       return { dragonType: row.dragon_type, dragonName: row.dragon_name, receivedAt: row.received_at };
     },
 

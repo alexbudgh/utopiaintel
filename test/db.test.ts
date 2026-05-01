@@ -1492,11 +1492,17 @@ test("storeTrainArmy: subsequent SoT with null credits does not shadow train_arm
 // Real DB module regressions: kingdom ritual/dragon/news aggregation
 // ---------------------------------------------------------------------------
 
-test("getKingdomRitual: older ritual is cleared by a newer non-ritual effect snapshot", async () => {
+test("getKingdomRitual: older ritual is cleared by a newer no-ritual observation", async () => {
   await withRealDb(({ getKingdomRitual }, db) => {
     db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();
     const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name = 'Alpha' AND kingdom = '7:5'").get() as { id: number };
     db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
+
+    db.prepare(`
+      INSERT INTO province_status (
+        province_id, key_hash, source, saved_by, received_at
+      ) VALUES (?, ?, 'throne', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId, KEY_A);
 
     db.prepare(`
       INSERT INTO province_effects (
@@ -1512,10 +1518,47 @@ test("getKingdomRitual: older ritual is cleared by a newer non-ritual effect sna
     });
 
     db.prepare(`
+      INSERT INTO province_status (
+        province_id, key_hash, source, saved_by, received_at
+      ) VALUES (?, ?, 'throne', 'Alpha', '2026-04-04 19:00:00')
+    `).run(provId, KEY_A);
+
+    assert.equal(getKingdomRitual("7:5", KEY_A), null);
+  });
+});
+
+test("getKingdomRitual: no-ritual SoT from another province clears kingdom badge", async () => {
+  await withRealDb(({ getKingdomRitual }, db) => {
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Beta', '7:5')").run();
+    const { id: alphaId } = db.prepare("SELECT id FROM provinces WHERE name = 'Alpha' AND kingdom = '7:5'").get() as { id: number };
+    const { id: betaId } = db.prepare("SELECT id FROM provinces WHERE name = 'Beta' AND kingdom = '7:5'").get() as { id: number };
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, alphaId);
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, betaId);
+
+    db.prepare(`
+      INSERT INTO province_status (
+        province_id, key_hash, source, saved_by, received_at
+      ) VALUES (?, ?, 'throne', 'Alpha', '2026-04-04 18:00:00')
+    `).run(alphaId, KEY_A);
+    db.prepare(`
       INSERT INTO province_effects (
         province_id, key_hash, effect_name, effect_kind, remaining_ticks, effectiveness_percent, source, saved_by, received_at
-      ) VALUES (?, ?, 'Builders Boon', 'spell', 1, NULL, 'throne', 'Alpha', '2026-04-04 19:00:00')
-    `).run(provId, KEY_A);
+      ) VALUES (?, ?, 'Onslaught', 'ritual', 56, 91.7, 'throne', 'Alpha', '2026-04-04 18:00:00')
+    `).run(alphaId, KEY_A);
+
+    assert.deepEqual(getKingdomRitual("7:5", KEY_A), {
+      name: "Onslaught",
+      remainingTicks: 56,
+      effectivenessPercent: 91.7,
+      receivedAt: "2026-04-04 18:00:00",
+    });
+
+    db.prepare(`
+      INSERT INTO province_status (
+        province_id, key_hash, source, saved_by, received_at
+      ) VALUES (?, ?, 'sot', 'Beta', '2026-04-04 19:00:00')
+    `).run(betaId, KEY_A);
 
     assert.equal(getKingdomRitual("7:5", KEY_A), null);
   });
@@ -1530,7 +1573,7 @@ test("getKingdomDragon: later cleared status hides an older dragon", async () =>
     db.prepare(`
       INSERT INTO province_status (
         province_id, key_hash, dragon_type, dragon_name, source, saved_by, received_at
-      ) VALUES (?, ?, 'Ruby', 'Firedrake', 'state', 'Alpha', '2026-04-04 18:00:00')
+      ) VALUES (?, ?, 'Ruby', 'Firedrake', 'sot', 'Alpha', '2026-04-04 18:00:00')
     `).run(provId, KEY_A);
 
     assert.deepEqual(getKingdomDragon("7:5", KEY_A), {
@@ -1542,8 +1585,39 @@ test("getKingdomDragon: later cleared status hides an older dragon", async () =>
     db.prepare(`
       INSERT INTO province_status (
         province_id, key_hash, dragon_type, dragon_name, source, saved_by, received_at
-      ) VALUES (?, ?, NULL, NULL, 'state', 'Alpha', '2026-04-04 19:00:00')
+      ) VALUES (?, ?, NULL, NULL, 'sot', 'Alpha', '2026-04-04 19:00:00')
     `).run(provId, KEY_A);
+
+    assert.equal(getKingdomDragon("7:5", KEY_A), null);
+  });
+});
+
+test("getKingdomDragon: no-dragon SoT from another province clears kingdom badge", async () => {
+  await withRealDb(({ getKingdomDragon }, db) => {
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Beta', '7:5')").run();
+    const { id: alphaId } = db.prepare("SELECT id FROM provinces WHERE name = 'Alpha' AND kingdom = '7:5'").get() as { id: number };
+    const { id: betaId } = db.prepare("SELECT id FROM provinces WHERE name = 'Beta' AND kingdom = '7:5'").get() as { id: number };
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, alphaId);
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, betaId);
+
+    db.prepare(`
+      INSERT INTO province_status (
+        province_id, key_hash, dragon_type, dragon_name, source, saved_by, received_at
+      ) VALUES (?, ?, 'Ruby', 'Firedrake', 'throne', 'Alpha', '2026-04-04 18:00:00')
+    `).run(alphaId, KEY_A);
+
+    assert.deepEqual(getKingdomDragon("7:5", KEY_A), {
+      dragonType: "Ruby",
+      dragonName: "Firedrake",
+      receivedAt: "2026-04-04 18:00:00",
+    });
+
+    db.prepare(`
+      INSERT INTO province_status (
+        province_id, key_hash, dragon_type, dragon_name, source, saved_by, received_at
+      ) VALUES (?, ?, NULL, NULL, 'sot', 'Beta', '2026-04-04 19:00:00')
+    `).run(betaId, KEY_A);
 
     assert.equal(getKingdomDragon("7:5", KEY_A), null);
   });
