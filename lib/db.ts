@@ -1545,6 +1545,7 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
       WHERE province_id = p.id AND key_hash = @keyHash AND source = 'throne' ORDER BY received_at DESC LIMIT 1
     )
     WHERE p.kingdom = @kingdom
+      AND po.id IS NOT NULL
       AND EXISTS (
         SELECT 1 FROM intel_partitions
         WHERE key_hash = @keyHash AND province_id = p.id

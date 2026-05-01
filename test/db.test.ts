@@ -2129,6 +2129,17 @@ test("getKingdomProvinces: SoT-only province with no kingdom snapshot is preserv
   });
 });
 
+test("getKingdomProvinces: partition-only province with no overview is hidden", async () => {
+  await withRealDb(({ getKingdomProvinces }, db) => {
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('PartitionOnly', '7:5')").run();
+    const { id } = db.prepare("SELECT id FROM provinces WHERE name = 'PartitionOnly' AND kingdom = '7:5'").get() as { id: number };
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, id);
+
+    const rows = getKingdomProvinces("7:5", KEY_A);
+    assert.deepEqual(rows.map((r) => r.name), []);
+  });
+});
+
 test("getKingdomNews: applies from/to filters and returns newest-first rows", async () => {
   await withRealDb(({ getKingdomNews }, db) => {
     db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();
