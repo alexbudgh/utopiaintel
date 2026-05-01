@@ -41,10 +41,18 @@ export function computeWizardCount(p: NwInputs): number | null {
   if (!raceNw) return null;
   if (p.thieves == null || p.buildings_built == null || p.science_total_books == null) return null;
 
-  // Paladin generates 8 free horses per acre automatically; these have 0 NW.
-  const freeHorses = p.personality === "Paladin" ? Math.min(p.war_horses ?? 0, 8 * p.land) : 0;
   const offSpecNw = raceNw.offSpecs + (p.personality === "War Hero" ? 2 * 0.4 : 0);
-  const warHorseNw = raceNw.warHorses + (p.personality === "Paladin" ? 2 * 0.3 : 0);
+  // Paladin horse NW is empirically treated as 0 for the wizard residual.
+  //
+  // The guide says Paladin gets "+2 War Horse Strength (affects NW)"
+  // and "All lands hold and produce Horses (8 per acre)", which could
+  // be read as: first 8/acre are free, but horses above that cap count
+  // at boosted horse NW. Real same-tick intel from two redacted Paladin
+  // provinces did not match that interpretation: charging horses above
+  // 8/acre made the residual negative, while excluding all Paladin horse
+  // NW matched the official intel site's rWPA within normal drift.
+  // Keep this exception until we can confirm the exact official formula.
+  const warHorseNw = p.personality === "Paladin" ? 0 : raceNw.warHorses;
   const prisonerNw = (p.personality === "Warrior" ? 8 + 5 : 8) * 0.2;
 
   const troopNw =
@@ -52,7 +60,7 @@ export function computeWizardCount(p: NwInputs): number | null {
     (p.off_specs ?? 0) * offSpecNw +
     (p.def_specs ?? 0) * raceNw.defSpecs +
     (p.elites ?? 0) * raceNw.elites +
-    ((p.war_horses ?? 0) - freeHorses) * warHorseNw +
+    (p.war_horses ?? 0) * warHorseNw +
     (p.peasants ?? 0) * 0.25 +
     (p.prisoners ?? 0) * prisonerNw;
 

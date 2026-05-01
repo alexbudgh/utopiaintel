@@ -195,12 +195,11 @@ test("computeWizardCount — buildings_in_progress add 10 NW over barren land", 
   assert.ok(Math.abs(result - 100) < 1, `expected ~100 wizards, got ${result}`);
 });
 
-test("computeWizardCount — Paladin free horses (8/acre) have 0 NW; paid horses use boosted strength", () => {
+test("computeWizardCount — Paladin horses have 0 NW in residual estimate", () => {
   const land = 100;
   const freeHorses = 8 * land;
   const paidHorses = 200;
-  const humanWarHorseNw = RACE_NW["Human"].warHorses + 2 * 0.3;
-  const nw = land * 40 + paidHorses * humanWarHorseNw + 700;
+  const nw = land * 40 + 700;
   const result = computeWizardCount({
     ...baseInputs(), race: "Human", personality: "Paladin",
     networth: nw, land,
