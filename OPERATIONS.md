@@ -21,6 +21,7 @@ Operational notes:
 - optional rotation env vars:
   `INTEL_DEBUG_MAX_BYTES` and `INTEL_DEBUG_MAX_FILES`
 - `npm run replay-debug-log -- <jsonl...>` replays one or more debug log files into the DB pointed to by `INTEL_DB_PATH`
+- replay skips metric-cache refreshes by default; pass `--refresh-metrics` when the backfill should recompute cached derived metrics as it runs
 - new debug log entries include `key_hash`, so future prod backfills can preserve intel partitioning safely
 - older mixed-key prod logs without `key_hash` are ambiguous; for those, replay is only safe when the target DB has one key or you explicitly pass `--key-hash=...`
 
@@ -142,4 +143,3 @@ If `INTEL_DB_PATH` is not set, the app falls back to `intel.db` in the current
 working directory. In standalone deploys, `server.js` changes cwd to the app
 directory, so the fallback would be `~/utopiaintel/intel.db`, not the durable
 production DB path.
-

@@ -14,6 +14,7 @@ import {
   storeSoM,
   storeTrainArmy,
   storeBuild,
+  setMetricsCacheRefreshEnabled,
 } from "./db";
 
 export type ReplayType = "kingdom" | "survey" | "sot" | "kingdom_news" | "state" | "som" | "train_army" | "build";
@@ -32,6 +33,7 @@ export interface ReplayOptions {
   keyHash?: string;
   assumeKeyHash?: string;
   dryRun?: boolean;
+  refreshMetrics?: boolean;
 }
 
 export interface ReplaySummary {
@@ -219,28 +221,33 @@ export function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options
   return null;
 }
 
-export async function replayDebugLogs({ files, replayTypes, keyHash, assumeKeyHash, dryRun = false }: ReplayOptions): Promise<ReplaySummary> {
+export async function replayDebugLogs({ files, replayTypes, keyHash, assumeKeyHash, dryRun = false, refreshMetrics = false }: ReplayOptions): Promise<ReplaySummary> {
+  const restoreMetricsCacheRefresh = setMetricsCacheRefreshEnabled(refreshMetrics);
   const byType = new Map<string, number>();
   let linesSeen = 0;
   let replayed = 0;
 
-  for (const file of files) {
-    const fullPath = resolve(file);
-    const stream = createReadStream(fullPath, "utf8");
-    const rl = readline.createInterface({
-      input: stream,
-      crlfDelay: Infinity,
-    });
+  try {
+    for (const file of files) {
+      const fullPath = resolve(file);
+      const stream = createReadStream(fullPath, "utf8");
+      const rl = readline.createInterface({
+        input: stream,
+        crlfDelay: Infinity,
+      });
 
-    for await (const line of rl) {
-      if (!line.trim()) continue;
-      linesSeen += 1;
-      const entry = JSON.parse(line) as DebugEntry;
-      const type = replayEntry(entry, replayTypes, { keyHash, assumeKeyHash, dryRun });
-      if (!type) continue;
-      replayed += 1;
-      byType.set(type, (byType.get(type) ?? 0) + 1);
+      for await (const line of rl) {
+        if (!line.trim()) continue;
+        linesSeen += 1;
+        const entry = JSON.parse(line) as DebugEntry;
+        const type = replayEntry(entry, replayTypes, { keyHash, assumeKeyHash, dryRun });
+        if (!type) continue;
+        replayed += 1;
+        byType.set(type, (byType.get(type) ?? 0) + 1);
+      }
     }
+  } finally {
+    restoreMetricsCacheRefresh();
   }
 
   return {

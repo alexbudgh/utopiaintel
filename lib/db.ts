@@ -26,6 +26,7 @@ const TTL_DAYS = 7;
 
 let _db: Database.Database | null = null;
 const BAD_SPELL_SQL_LIST = BAD_SPELL_NAMES.map((name) => `'${name.replaceAll("'", "''")}'`).join(", ");
+let metricsCacheRefreshEnabled = true;
 
 export function getDb(): Database.Database {
   if (!_db) {
@@ -65,6 +66,7 @@ const latestSlotCte = (extraWhere = "") => `
 `;
 
 export function updateMetricsCache(db: Database.Database, provinceId: number, keyHash: string): void {
+  if (!metricsCacheRefreshEnabled) return;
   const p = { province_id: provinceId, key_hash: keyHash };
   // Preserve existing cached values when a metric is not currently reconstructable
   // from retained historical intel. This keeps cache refreshes from erasing a
@@ -374,6 +376,14 @@ export function updateMetricsCache(db: Database.Database, provinceId: number, ke
     cached_mwpa, cached_mwpa_age,
     provinceId,
   );
+}
+
+export function setMetricsCacheRefreshEnabled(enabled: boolean): () => void {
+  const previous = metricsCacheRefreshEnabled;
+  metricsCacheRefreshEnabled = enabled;
+  return () => {
+    metricsCacheRefreshEnabled = previous;
+  };
 }
 
 export function initSchema(db: Database.Database) {
