@@ -184,10 +184,10 @@ test("computeRwpa — rejects back-calc when SoT troop data is not same-tick", (
   assert.equal(result, null);
 });
 
-test("computeWizardCount — buildings_in_progress contribute at 50 per building", () => {
+test("computeWizardCount — buildings_in_progress add 10 NW over barren land", () => {
   const land = 500;
   const inProgress = 100;
-  const landNw = land * 40 + inProgress * 50;
+  const landNw = land * 40 + inProgress * 10;
   const wizardNw = 700;
   const nw = landNw + wizardNw;
   const result = computeWizardCount({ ...baseInputs(), race: "Human", networth: nw, land, buildings_in_progress: inProgress });

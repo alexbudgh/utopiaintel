@@ -56,9 +56,12 @@ export function computeWizardCount(p: NwInputs): number | null {
     (p.peasants ?? 0) * 0.25 +
     (p.prisoners ?? 0) * prisonerNw;
 
+  // Residual form of: barren acres * 40 + completed buildings * 60 + in-progress buildings * 50.
+  // Since p.land * 40 already gives every acre its barren-land NW, completed buildings add +20
+  // and in-progress buildings add only +10 more, not the full 50 again.
   const landBuildingNw = p.land * 40
     + p.buildings_built * 20
-    + (p.buildings_in_progress ?? 0) * 50;
+    + (p.buildings_in_progress ?? 0) * 10;
 
   const scienceNw = p.science_total_books * 0.000007 * p.land;
 
