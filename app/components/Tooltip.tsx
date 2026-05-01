@@ -133,7 +133,9 @@ export function Tooltip({ content, children }: { content: ReactNode | string | T
         <div
           ref={tipRef}
           className={`fixed z-50 max-w-[calc(100vw-16px)] overflow-auto rounded border border-gray-700 bg-gray-900 shadow-lg ${
-            lines ? "flex max-h-[calc(100vh-16px)] flex-col gap-0.5 w-max max-w-xs px-2 py-1.5 text-xs" : "max-h-[calc(100vh-16px)] p-2"
+            lines
+              ? "flex max-h-[calc(100vh-16px)] flex-col gap-0.5 w-max max-w-xs px-2 py-1.5 text-xs"
+              : "max-h-[calc(100vh-16px)] w-max p-2"
           }`}
           style={style ?? { left: anchor.left, top: anchor.top - 8 }}
           onMouseEnter={() => {

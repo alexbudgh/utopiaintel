@@ -304,7 +304,7 @@ function FormulaTooltip({
 }): React.ReactElement {
   const detailLines = lines?.split("\n").filter(Boolean) ?? [];
   return (
-    <div className="flex max-w-xs flex-col gap-0.5 text-xs">
+    <div className="flex max-w-md flex-col gap-0.5 text-xs">
       <div className="font-medium">
         {parts.map((part, i) => (
           <span key={i} className={effectClass(part.effect)}>
