@@ -148,16 +148,9 @@ function compareSortValues(a: number | string | null, b: number | string | null)
   return String(a).localeCompare(String(b), undefined, { sensitivity: "base" });
 }
 
-function personalityEffectLabel(effect: number): string {
-  return effect > 0 ? ` × (1 + ${effect.toFixed(1)}% Personality)` : "";
-}
-
-function raceEffectLabel(effect: number): string {
-  return effect > 0 ? ` × (1 + ${effect.toFixed(1)}% Race)` : "";
-}
-
-function honorEffectLabel(effect: number): string {
-  return effect > 0 ? ` × (1 + ${effect.toFixed(1)}% Honor)` : "";
+function effectFactorLabel(effect: number, label: string): string {
+  const op = effect >= 0 ? "+" : "-";
+  return ` × (1 ${op} ${Math.abs(effect).toFixed(1)}% ${label})`;
 }
 
 function computePopPct(p: ProvinceRow): { pct: number; estimated: boolean } | null {
@@ -288,6 +281,44 @@ function metricLastValidLine(p: ProvinceRow, key: MetricKey): string {
 
 function missingDependencyReason(metric: string): string {
   return `${metric} unavailable`;
+}
+
+type FormulaPart = {
+  text: string;
+  effect?: number;
+};
+
+function effectClass(effect: number | undefined): string {
+  if (effect == null) return "text-gray-100";
+  if (effect > 0) return "text-green-300";
+  if (effect < 0) return "text-red-300";
+  return "text-gray-400";
+}
+
+function FormulaTooltip({
+  parts,
+  lines,
+}: {
+  parts: FormulaPart[];
+  lines?: string;
+}): React.ReactElement {
+  const detailLines = lines?.split("\n").filter(Boolean) ?? [];
+  return (
+    <div className="flex max-w-xs flex-col gap-0.5 text-xs">
+      <div className="font-medium">
+        {parts.map((part, i) => (
+          <span key={i} className={effectClass(part.effect)}>
+            {part.text}
+          </span>
+        ))}
+      </div>
+      {detailLines.map((line, i) => (
+        <div key={i} className="text-gray-400">
+          {line}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function metricFallbackCell(p: ProvinceRow, key: MetricKey): React.ReactNode {
@@ -467,16 +498,29 @@ function tipFor(
     const personalityEffect = tpaPersonalityEffect(p);
     const raceEffect = tpaRaceEffect(p);
     const honorEffect = tpaHonorEffect(p);
-    const modifiers = [
-      raceEffectLabel(raceEffect),
-      honorEffectLabel(honorEffect),
-      personalityEffectLabel(personalityEffect),
-    ].join("");
     const val = ok ? computeMtpa(p)?.toFixed(2) ?? "—" : "—";
     const cached = includeLastValid && !ok ? metricLastValidLine(p, "mtpa") : "";
-    const ages = metricAgeLine([["infiltrate", p.thieves_age], ["overview", p.overview_age], ["SoS", p.sciences_age]]);
-    const formula = `mTPA = ${rtpa.toFixed(2)} × (1 + ${p.crime_effect.toFixed(1)}% Crime)${modifiers}`;
-    return `${formula} = ${val}${ages}` + (ok ? "" : `\n(${tpaStaleReason(p, true, false)})${cached}`);
+    const ages = metricAgeLine([
+      ["infiltrate", p.thieves_age],
+      ["overview", p.overview_age],
+      ["SoS", p.sciences_age],
+    ]);
+    const parts: FormulaPart[] = [
+      { text: `mTPA = ${rtpa.toFixed(2)}` },
+      { text: effectFactorLabel(p.crime_effect, "Crime"), effect: p.crime_effect },
+      ...(raceEffect !== 0 ? [{ text: effectFactorLabel(raceEffect, "Race"), effect: raceEffect }] : []),
+      ...(honorEffect !== 0 ? [{ text: effectFactorLabel(honorEffect, "Honor"), effect: honorEffect }] : []),
+      ...(personalityEffect !== 0
+        ? [{ text: effectFactorLabel(personalityEffect, "Personality"), effect: personalityEffect }]
+        : []),
+      { text: ` = ${val}` },
+    ];
+    return (
+      <FormulaTooltip
+        parts={parts}
+        lines={`${ages}${ok ? "" : `\n(${tpaStaleReason(p, true, false)})${cached}`}`}
+      />
+    );
   }
   if (key === "otpa") {
     const mtpa = computeMtpa(p);
@@ -491,8 +535,25 @@ function tipFor(
     const ok = sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age);
     const val = ok ? computeOtpa(p)?.toFixed(2) ?? "—" : "—";
     const cached = includeLastValid && !ok ? metricLastValidLine(p, "otpa") : "";
-    const ages = metricAgeLine([["infiltrate", p.thieves_age], ["overview", p.overview_age], ["SoS", p.sciences_age], ["Survey", p.survey_age]]);
-    return `oTPA = ${mtpa.toFixed(2)} × (1 + ${p.thieves_dens_effect.toFixed(1)}% Thieves' Den) = ${val}${ages}` + (ok ? "" : `\n(${tpaStaleReason(p, true, true)})${cached}`);
+    const ages = metricAgeLine([
+      ["infiltrate", p.thieves_age],
+      ["overview", p.overview_age],
+      ["SoS", p.sciences_age],
+      ["Survey", p.survey_age],
+    ]);
+    return (
+      <FormulaTooltip
+        parts={[
+          { text: `oTPA = ${mtpa.toFixed(2)}` },
+          {
+            text: effectFactorLabel(p.thieves_dens_effect, "Thieves' Den"),
+            effect: p.thieves_dens_effect,
+          },
+          { text: ` = ${val}` },
+        ]}
+        lines={`${ages}${ok ? "" : `\n(${tpaStaleReason(p, true, true)})${cached}`}`}
+      />
+    );
   }
   if (key === "dtpa") {
     const mtpa = computeMtpa(p);
@@ -507,8 +568,25 @@ function tipFor(
     const ok = sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age);
     const val = ok ? computeDtpa(p)?.toFixed(2) ?? "—" : "—";
     const cached = includeLastValid && !ok ? metricLastValidLine(p, "dtpa") : "";
-    const ages = metricAgeLine([["infiltrate", p.thieves_age], ["overview", p.overview_age], ["SoS", p.sciences_age], ["Survey", p.survey_age]]);
-    return `dTPA = ${mtpa.toFixed(2)} × (1 + ${p.watch_towers_effect.toFixed(1)}% Watch Tower) = ${val}${ages}` + (ok ? "" : `\n(${tpaStaleReason(p, true, true)})${cached}`);
+    const ages = metricAgeLine([
+      ["infiltrate", p.thieves_age],
+      ["overview", p.overview_age],
+      ["SoS", p.sciences_age],
+      ["Survey", p.survey_age],
+    ]);
+    return (
+      <FormulaTooltip
+        parts={[
+          { text: `dTPA = ${mtpa.toFixed(2)}` },
+          {
+            text: effectFactorLabel(p.watch_towers_effect, "Watch Tower"),
+            effect: p.watch_towers_effect,
+          },
+          { text: ` = ${val}` },
+        ]}
+        lines={`${ages}${ok ? "" : `\n(${tpaStaleReason(p, true, true)})${cached}`}`}
+      />
+    );
   }
   if (key === "rwpa") {
     if (!p.land) {
@@ -569,17 +647,27 @@ function tipFor(
     }
     if (p.wizards != null && !sameTick(p.resources_age, p.overview_age, p.sciences_age)) {
       const cached = includeLastValid ? metricLastValidLine(p, "mwpa") : "";
-      const modifiers = [
-        raceEffectLabel(wpaRaceEffect(p)),
-        honorEffectLabel(wpaHonorEffect(p)),
-        personalityEffectLabel(wpaPersonalityEffect(p)),
-      ].join("");
-      const formula = `rWPA = ${rwpa.toFixed(2)} × (1 + ${p.channeling_effect.toFixed(1)}% Channeling)${modifiers}`;
-      return `${formula}\nCurrent WPA data is not from the same tick: ${metricAgeSummary([
-        ["wizards", p.resources_age],
-        ["overview", p.overview_age],
-        ["SoS", p.sciences_age],
-      ])}${cached}`;
+      const raceEffect = wpaRaceEffect(p);
+      const honorEffect = wpaHonorEffect(p);
+      const personalityEffect = wpaPersonalityEffect(p);
+      const parts: FormulaPart[] = [
+        { text: `rWPA = ${rwpa.toFixed(2)}` },
+        {
+          text: effectFactorLabel(p.channeling_effect, "Channeling"),
+          effect: p.channeling_effect,
+        },
+        ...(raceEffect !== 0 ? [{ text: effectFactorLabel(raceEffect, "Race"), effect: raceEffect }] : []),
+        ...(honorEffect !== 0 ? [{ text: effectFactorLabel(honorEffect, "Honor"), effect: honorEffect }] : []),
+        ...(personalityEffect !== 0
+          ? [{ text: effectFactorLabel(personalityEffect, "Personality"), effect: personalityEffect }]
+          : []),
+      ];
+      const lines = `Current WPA data is not from the same tick: ${metricAgeSummary([
+          ["wizards", p.resources_age],
+          ["overview", p.overview_age],
+          ["SoS", p.sciences_age],
+        ])}${cached}`;
+      return <FormulaTooltip parts={parts} lines={lines} />;
     }
     const personalityEffect = wpaPersonalityEffect(p);
     const raceEffect = wpaRaceEffect(p);
@@ -588,13 +676,20 @@ function tipFor(
     const ages = p.wizards != null
       ? metricAgeLine([["wizards", p.resources_age], ["overview", p.overview_age], ["SoS", p.sciences_age]])
       : metricAgeLine([["infiltrate", p.thieves_age], ["overview", p.overview_age], ["troops (SoT)", p.troops_age], ["resources (SoT)", p.resources_age], ["SoS", p.sciences_age], ["Survey", p.survey_age]]);
-    const modifiers = [
-      raceEffectLabel(raceEffect),
-      honorEffectLabel(honorEffect),
-      personalityEffectLabel(personalityEffect),
-    ].join("");
-    const formula = `mWPA = ${rwpa.toFixed(2)} × (1 + ${p.channeling_effect.toFixed(1)}% Channeling)${modifiers}`;
-    return `${formula} = ${computeMwpa(p)!.toFixed(2)}${ages}${mysticNote}`;
+    const parts: FormulaPart[] = [
+      { text: `mWPA = ${rwpa.toFixed(2)}` },
+      {
+        text: effectFactorLabel(p.channeling_effect, "Channeling"),
+        effect: p.channeling_effect,
+      },
+      ...(raceEffect !== 0 ? [{ text: effectFactorLabel(raceEffect, "Race"), effect: raceEffect }] : []),
+      ...(honorEffect !== 0 ? [{ text: effectFactorLabel(honorEffect, "Honor"), effect: honorEffect }] : []),
+      ...(personalityEffect !== 0
+        ? [{ text: effectFactorLabel(personalityEffect, "Personality"), effect: personalityEffect }]
+        : []),
+      { text: ` = ${computeMwpa(p)!.toFixed(2)}` },
+    ];
+    return <FormulaTooltip parts={parts} lines={`${ages}${mysticNote}`} />;
   }
   const age = ageFor(p, key);
   const source = sourceFor(p, key);
