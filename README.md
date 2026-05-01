@@ -41,6 +41,9 @@ Stored intel is then surfaced through:
 This app is not just a raw intel dump. It tracks intel by source and timestamp and then
 derives the best currently-available view for each metric.
 
+For details on province identity, key partitions, kingdom slots, and replay
+backfills, see [ARCHITECTURE.md](./ARCHITECTURE.md).
+
 Examples:
 - SoT is treated as the authoritative source for total unit counts, peasants, and most enemy resource values.
 - SoM is used for home troops, OME/DME, outgoing armies, and training counts.
