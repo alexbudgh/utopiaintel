@@ -10,7 +10,8 @@ import { computeWizardCount, NW_PER_WIZARD } from "@/lib/nw";
 import { computeAmbushRawOff } from "@/lib/ambush";
 import {
   computeRtpa, computeMtpa, computeOtpa, computeDtpa, computeRwpa, computeMwpa,
-  tpaPersonalityEffect, wpaPersonalityEffect, wpaRaceEffect, wpaHonorEffect,
+  tpaPersonalityEffect, tpaRaceEffect, tpaHonorEffect,
+  wpaPersonalityEffect, wpaRaceEffect, wpaHonorEffect,
 } from "@/lib/metrics";
 import { estimatePop } from "@/lib/population";
 import { overpopulationTone } from "@/lib/overpopulation";
@@ -59,7 +60,7 @@ const COLUMNS = [
   { key: "wizards",     label: "Wizards",     group: "Resources", desc: "Wizards"                                     },
   { key: "age",         label: "Age",         group: "Overview",  desc: "Most recent intel across all sources\nOther columns may have older data — hover them to check"    },
   { key: "rtpa",        label: "rTPA",        group: "T/M",       desc: "Raw TPA = thieves / land\nNeeds: Infiltrate Thieves' Dens + SoT (same tick)"                   },
-  { key: "mtpa",        label: "mTPA",        group: "T/M",       desc: "Modified TPA = rTPA × Crime × Personality\nNeeds: rTPA sources + SoS (same tick)"                     },
+  { key: "mtpa",        label: "mTPA",        group: "T/M",       desc: "Modified TPA = rTPA × Crime × Race × Honor × Personality\nNeeds: rTPA sources + SoS (same tick)"      },
   { key: "otpa",        label: "oTPA",        group: "T/M",       desc: "Offensive TPA = mTPA × Thieves' Den\nNeeds: mTPA sources + Survey (same tick)"          },
   { key: "dtpa",        label: "dTPA",        group: "T/M",       desc: "Defensive TPA = mTPA × Watch Tower prevent\nNeeds: mTPA sources + Survey (same tick)"   },
   { key: "rwpa",        label: "rWPA",        group: "T/M",       desc: "Raw WPA = wizards ÷ land\nSelf: direct from throne (needs same tick as land)\nEnemy: back-calc from NW residual (needs SoT+SoS+Survey+Infiltrate same tick)" },
@@ -464,10 +465,18 @@ function tipFor(
     }
     const ok = sameTick(p.thieves_age, p.overview_age, p.sciences_age);
     const personalityEffect = tpaPersonalityEffect(p);
+    const raceEffect = tpaRaceEffect(p);
+    const honorEffect = tpaHonorEffect(p);
+    const modifiers = [
+      raceEffectLabel(raceEffect),
+      honorEffectLabel(honorEffect),
+      personalityEffectLabel(personalityEffect),
+    ].join("");
     const val = ok ? computeMtpa(p)?.toFixed(2) ?? "—" : "—";
     const cached = includeLastValid && !ok ? metricLastValidLine(p, "mtpa") : "";
     const ages = metricAgeLine([["infiltrate", p.thieves_age], ["overview", p.overview_age], ["SoS", p.sciences_age]]);
-    return `mTPA = ${rtpa.toFixed(2)} × (1 + ${p.crime_effect.toFixed(1)}% Crime)${personalityEffectLabel(personalityEffect)} = ${val}${ages}` + (ok ? "" : `\n(${tpaStaleReason(p, true, false)})${cached}`);
+    const formula = `mTPA = ${rtpa.toFixed(2)} × (1 + ${p.crime_effect.toFixed(1)}% Crime)${modifiers}`;
+    return `${formula} = ${val}${ages}` + (ok ? "" : `\n(${tpaStaleReason(p, true, false)})${cached}`);
   }
   if (key === "otpa") {
     const mtpa = computeMtpa(p);

@@ -15,6 +15,12 @@ export function tpaPersonalityEffectValue(personality: string | null): number {
   return 0;
 }
 
+export function tpaRaceEffectValue(race: string | null): number {
+  if (race === "Halfling") return 20;
+  if (race === "Elf") return -20;
+  return 0;
+}
+
 export function wpaPersonalityEffectValue(personality: string | null, mana: number | null): number {
   if (personality === "Necromancer") return 35;
   if (personality === "Heretic") return 15;
@@ -39,15 +45,38 @@ const HONOR_WPA_EFFECT: Record<string, number> = {
   Prince: 36, Princess: 36,
 };
 
+// Honor.md has separate WPA and TPA columns. They match today, but keep them
+// modeled separately so a future guide change can diverge one without changing
+// the other. War Hero's "Honor Effects" modifier applies to both columns.
+const HONOR_TPA_EFFECT: Record<string, number> = {
+  ...HONOR_WPA_EFFECT,
+};
+
 export function wpaHonorEffectValue(honorTitle: string | null, personality: string | null): number {
   const baseEffect = honorTitle ? HONOR_WPA_EFFECT[honorTitle] ?? 0 : 0;
   const honorEffectMod = personality === "War Hero" ? 1.7 : 1;
   return baseEffect * honorEffectMod;
 }
 
-export function computeMtpaValue(rtpa: number | null, crimeEffect: number | null, personality: string | null): number | null {
+export function tpaHonorEffectValue(honorTitle: string | null, personality: string | null): number {
+  const baseEffect = honorTitle ? HONOR_TPA_EFFECT[honorTitle] ?? 0 : 0;
+  const honorEffectMod = personality === "War Hero" ? 1.7 : 1;
+  return baseEffect * honorEffectMod;
+}
+
+export function computeMtpaValue(
+  rtpa: number | null,
+  crimeEffect: number | null,
+  race: string | null,
+  honorTitle: string | null,
+  personality: string | null,
+): number | null {
   if (rtpa == null || crimeEffect == null) return null;
-  return rtpa * (1 + crimeEffect / 100) * (1 + tpaPersonalityEffectValue(personality) / 100);
+  return rtpa
+    * (1 + crimeEffect / 100)
+    * (1 + tpaRaceEffectValue(race) / 100)
+    * (1 + tpaHonorEffectValue(honorTitle, personality) / 100)
+    * (1 + tpaPersonalityEffectValue(personality) / 100);
 }
 
 export function computeOtpaValue(mtpa: number | null, thievesDensEffect: number | null): number | null {
@@ -81,6 +110,14 @@ export function tpaPersonalityEffect(p: Pick<ProvinceRow, "personality">): numbe
   return tpaPersonalityEffectValue(p.personality);
 }
 
+export function tpaRaceEffect(p: Pick<ProvinceRow, "race">): number {
+  return tpaRaceEffectValue(p.race);
+}
+
+export function tpaHonorEffect(p: Pick<ProvinceRow, "honor_title" | "personality">): number {
+  return tpaHonorEffectValue(p.honor_title, p.personality);
+}
+
 export function wpaPersonalityEffect(p: Pick<ProvinceRow, "personality" | "mana">): number {
   return wpaPersonalityEffectValue(p.personality, p.mana);
 }
@@ -101,7 +138,7 @@ export function computeRtpa(p: ProvinceRow): number | null {
 export function computeMtpa(p: ProvinceRow): number | null {
   const rtpa = computeRtpa(p);
   if (!sameTick(p.thieves_age, p.overview_age, p.sciences_age)) return null;
-  return computeMtpaValue(rtpa, p.crime_effect, p.personality);
+  return computeMtpaValue(rtpa, p.crime_effect, p.race, p.honor_title, p.personality);
 }
 
 export function computeOtpa(p: ProvinceRow): number | null {

@@ -106,9 +106,22 @@ export function updateMetricsCache(db: Database.Database, provinceId: number, ke
   }
 
   // ── mTPA: same-tick (infiltrate + overview + sos sciences crime) ──────────
-  type MtpaRow = { thieves: number; land: number; personality: string | null; crime_effect: number; age: string };
+  type MtpaRow = {
+    thieves: number;
+    land: number;
+    race: string | null;
+    honor_title: string | null;
+    personality: string | null;
+    crime_effect: number;
+    age: string;
+  };
   const mtpaRow = db.prepare<typeof p, MtpaRow>(`
-    SELECT pr.thieves, po.land,
+    SELECT pr.thieves, po.land, po.race,
+      COALESCE(po.honor_title, (
+        SELECT po2.honor_title FROM province_overview po2
+        WHERE po2.province_id = pr.province_id AND po2.honor_title IS NOT NULL
+        ORDER BY po2.received_at DESC LIMIT 1
+      )) AS honor_title,
       COALESCE(po.personality, (
         SELECT po2.personality FROM province_overview po2
         WHERE po2.province_id = pr.province_id AND po2.personality IS NOT NULL
@@ -132,14 +145,25 @@ export function updateMetricsCache(db: Database.Database, provinceId: number, ke
   let cached_mtpa: number | null = null, cached_mtpa_age: string | null = null;
   if (mtpaRow) {
     const rtpa = rawPerAcreValue(mtpaRow.thieves, mtpaRow.land);
-    cached_mtpa = computeMtpaValue(rtpa, mtpaRow.crime_effect, mtpaRow.personality);
+    cached_mtpa = computeMtpaValue(
+      rtpa,
+      mtpaRow.crime_effect,
+      mtpaRow.race,
+      mtpaRow.honor_title,
+      mtpaRow.personality,
+    );
     cached_mtpa_age = mtpaRow.age;
   }
 
   // ── oTPA / dTPA: same-tick + survey (thieves' dens / watch towers) ────────
   type OdtpaRow = MtpaRow & { thieves_dens_effect: number | null; watch_towers_effect: number | null };
   const odtpaRow = db.prepare<typeof p, OdtpaRow>(`
-    SELECT pr.thieves, po.land,
+    SELECT pr.thieves, po.land, po.race,
+      COALESCE(po.honor_title, (
+        SELECT po2.honor_title FROM province_overview po2
+        WHERE po2.province_id = pr.province_id AND po2.honor_title IS NOT NULL
+        ORDER BY po2.received_at DESC LIMIT 1
+      )) AS honor_title,
       COALESCE(po.personality, (
         SELECT po2.personality FROM province_overview po2
         WHERE po2.province_id = pr.province_id AND po2.personality IS NOT NULL
@@ -169,7 +193,13 @@ export function updateMetricsCache(db: Database.Database, provinceId: number, ke
   let cached_dtpa: number | null = null, cached_dtpa_age: string | null = null;
   if (odtpaRow) {
     const rtpa = rawPerAcreValue(odtpaRow.thieves, odtpaRow.land);
-    const mtpa = computeMtpaValue(rtpa, odtpaRow.crime_effect, odtpaRow.personality);
+    const mtpa = computeMtpaValue(
+      rtpa,
+      odtpaRow.crime_effect,
+      odtpaRow.race,
+      odtpaRow.honor_title,
+      odtpaRow.personality,
+    );
     cached_otpa = computeOtpaValue(mtpa, odtpaRow.thieves_dens_effect);
     if (cached_otpa != null) {
       cached_otpa_age = odtpaRow.age;

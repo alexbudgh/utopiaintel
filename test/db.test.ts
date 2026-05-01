@@ -1726,8 +1726,8 @@ test("metrics cache: TPA values use latest historical same-tick inputs after new
     db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
 
     db.prepare(`
-      INSERT INTO province_overview (province_id, key_hash, race, personality, land, networth, source, saved_by, received_at)
-      VALUES (?, ?, 'Halfling', 'Rogue', 1000, 200000, 'sot', 'Alpha', '2026-04-04 10:05:00')
+      INSERT INTO province_overview (province_id, key_hash, race, personality, honor_title, land, networth, source, saved_by, received_at)
+      VALUES (?, ?, 'Halfling', 'Rogue', 'Lord', 1000, 200000, 'sot', 'Alpha', '2026-04-04 10:05:00')
     `).run(provId, KEY_A);
     db.prepare(`
       INSERT INTO province_resources (province_id, key_hash, thieves, source, saved_by, received_at)
@@ -1755,9 +1755,9 @@ test("metrics cache: TPA values use latest historical same-tick inputs after new
     const [row] = getKingdomProvinces("7:5", KEY_A);
     assert.equal(row.land, 1200, "live overview should be the newer partial tick");
     assertApprox(row.cached_rtpa, 2, 0.0001, "cached rTPA");
-    assertApprox(row.cached_mtpa, 2.64, 0.0001, "cached mTPA");
-    assertApprox(row.cached_otpa, 3.3, 0.0001, "cached oTPA");
-    assertApprox(row.cached_dtpa, 2.244, 0.0001, "cached dTPA");
+    assertApprox(row.cached_mtpa, 3.35808, 0.0001, "cached mTPA");
+    assertApprox(row.cached_otpa, 4.1976, 0.0001, "cached oTPA");
+    assertApprox(row.cached_dtpa, 2.854368, 0.0001, "cached dTPA");
     assert.equal(row.cached_rtpa_age, "2026-04-04 10:10:00");
     assert.equal(row.cached_mtpa_age, "2026-04-04 10:10:00");
   });
