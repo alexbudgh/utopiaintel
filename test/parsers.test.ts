@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   detectIntelType,
   getIntelPathname,
-  isSelfPagePath,
+  matchesGamePath,
 } from "../lib/parsers/detect";
 import { parseIntel } from "../lib/parsers";
 import { parseSoT } from "../lib/parsers/sot";
@@ -358,6 +358,26 @@ test("detectIntelType — thievery query op detection is case-insensitive", () =
   );
 });
 
+test("detectIntelType — province_operations URLs route to same ops as thievery", () => {
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/province_operations/3/9/16?p=808&o=SPY_ON_DEFENSE&q=72&c=8407"),
+    "sod",
+  );
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/province_operations/3/9/16?p=808&o=SPY_ON_THRONE&q=72&c=8407"),
+    "sot",
+  );
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/province_operations/3/9/16?p=808&o=SPY_ON_MILITARY&q=72&c=8407"),
+    "som",
+  );
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/sit/game/province_operations/3/9/16?p=808&o=SPY_ON_DEFENSE&q=72&c=8407"),
+    "sod",
+    "sitter province_operations should also be detected",
+  );
+});
+
 test("detectIntelType — SNATCH_NEWS detected as kingdom_news", () => {
   assert.equal(
     detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=SNATCH_NEWS&q=387&c=4517"),
@@ -494,15 +514,15 @@ test("getIntelPathname — invalid URL returns null", () => {
   assert.equal(getIntelPathname("not-a-url"), null);
 });
 
-test("isSelfPagePath — recognizes normal and sitter self pages", () => {
-  assert.equal(isSelfPagePath("/wol/game/throne", "throne"), true);
-  assert.equal(isSelfPagePath("/wol/sit/game/throne", "throne"), true);
-  assert.equal(isSelfPagePath("/wol/game/spy_on_throne", "throne"), false);
-  assert.equal(isSelfPagePath(null, "throne"), false);
-  assert.equal(isSelfPagePath("/wol/game/council_military", "council_military"), true);
-  assert.equal(isSelfPagePath("/wol/sit/game/council_military", "council_military"), true);
-  assert.equal(isSelfPagePath("/wol/game/spy_on_military", "council_military"), false);
-  assert.equal(isSelfPagePath("/wol/game/thievery", "council_military"), false);
+test("matchesGamePath — recognizes normal and sitter self pages", () => {
+  assert.equal(matchesGamePath("/wol/game/throne", "throne"), true);
+  assert.equal(matchesGamePath("/wol/sit/game/throne", "throne"), true);
+  assert.equal(matchesGamePath("/wol/game/spy_on_throne", "throne"), false);
+  assert.equal(matchesGamePath(null, "throne"), false);
+  assert.equal(matchesGamePath("/wol/game/council_military", "council_military"), true);
+  assert.equal(matchesGamePath("/wol/sit/game/council_military", "council_military"), true);
+  assert.equal(matchesGamePath("/wol/game/spy_on_military", "council_military"), false);
+  assert.equal(matchesGamePath("/wol/game/thievery", "council_military"), false);
 });
 
 test("parseSoT — war: false and warTarget: null when not at war", () => {

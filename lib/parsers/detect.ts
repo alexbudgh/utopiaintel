@@ -8,15 +8,26 @@ export function getIntelPathname(url: string): string | null {
   }
 }
 
-export function isSelfPagePath(pathname: string | null, page: string): boolean {
-  return pathname === `/wol/game/${page}` || pathname === `/wol/sit/game/${page}`;
+// Sitter URLs use /wol/sit/game/... instead of /wol/game/... — normalize to the canonical form.
+function normalizeGamePath(pathname: string): string {
+  return pathname.startsWith("/wol/sit/game/")
+    ? "/wol/game/" + pathname.slice("/wol/sit/game/".length)
+    : pathname;
 }
 
+export function matchesGamePath(pathname: string | null, page: string): boolean {
+  return !!pathname && normalizeGamePath(pathname) === `/wol/game/${page}`;
+}
+
+function isThieveryPathname(pathname: string): boolean {
+  const p = normalizeGamePath(pathname);
+  return p === "/wol/game/thievery" || p.startsWith("/wol/game/province_operations/");
+}
 
 function getUtopiaThieveryOp(url: string): string | null {
   try {
     const parsed = new URL(url);
-    if (parsed.pathname.toLowerCase() !== "/wol/game/thievery") return null;
+    if (!isThieveryPathname(parsed.pathname.toLowerCase())) return null;
     return parsed.searchParams.get("o")?.toUpperCase() ?? null;
   } catch {
     return null;
@@ -27,8 +38,9 @@ function getUtopiaThieveryOp(url: string): string | null {
 // Self-intel pages (council_*) share the same data format as spy results but without
 // a province preamble — parsers accept a selfProv fallback for those.
 export function detectIntelType(url: string): IntelType | null {
-  const pathname = getIntelPathname(url);
-  if (!pathname) return null;
+  const raw = getIntelPathname(url);
+  if (!raw) return null;
+  const pathname = normalizeGamePath(raw);
 
   // Self-intel pages (use prov field as province name, kingdom="")
   if (pathname.endsWith("/council_science")) return "sos";

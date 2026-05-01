@@ -11,7 +11,7 @@ import { parseKingdomNews } from "./kingdom_news";
 import { parseTrainArmy } from "./train_army";
 import { parseBuild } from "./build";
 import type { ParseResult } from "./types";
-import { getIntelPathname, isSelfPagePath } from "./detect";
+import { getIntelPathname, matchesGamePath } from "./detect";
 
 export type { ParseResult } from "./types";
 
@@ -28,15 +28,15 @@ export function parseIntel(url: string, dataSimple: string, selfProv?: string): 
       return data ? { type: "sot", data } : null;
     }
     case "survey": {
-      const data = parseSurvey(dataSimple, isSelfPagePath(pathname, "council_internal") ? selfProv : undefined);
+      const data = parseSurvey(dataSimple, matchesGamePath(pathname, "council_internal") ? selfProv : undefined);
       return data ? { type: "survey", data } : null;
     }
     case "som": {
-      const data = parseSoM(dataSimple, isSelfPagePath(pathname, "council_military") ? selfProv : undefined);
+      const data = parseSoM(dataSimple, matchesGamePath(pathname, "council_military") ? selfProv : undefined);
       return data ? { type: "som", data } : null;
     }
     case "sos": {
-      const data = parseSoS(dataSimple, isSelfPagePath(pathname, "council_science") ? selfProv : undefined);
+      const data = parseSoS(dataSimple, matchesGamePath(pathname, "council_science") ? selfProv : undefined);
       return data ? { type: "sos", data } : null;
     }
     case "sod": {
