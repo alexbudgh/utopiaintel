@@ -44,6 +44,7 @@ function makeProvince(overrides: Partial<ProvinceRow>): ProvinceRow {
     building_efficiency: null,
     thieves: null,
     thieves_age: null,
+    stealth: null,
     wizards: null,
     resources_age: null,
     resources_source: null,

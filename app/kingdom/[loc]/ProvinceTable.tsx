@@ -57,7 +57,9 @@ const COLUMNS = [
   { key: "prisoners",     label: "Prisoners",     group: "Military",  desc: "Prisoners"                               },
   { key: "trade_balance", label: "Trade bal.",    group: "Resources", desc: "Trade balance"                           },
   { key: "thieves",     label: "Thieves",     group: "Resources", desc: "Thieves"                                     },
+  { key: "stealth",     label: "Stealth",     group: "Resources", desc: "Stealth % (self only — from throne)"         },
   { key: "wizards",     label: "Wizards",     group: "Resources", desc: "Wizards"                                     },
+  { key: "mana",        label: "Mana",        group: "Resources", desc: "Mana % (self only — from throne)"            },
   { key: "age",         label: "Age",         group: "Overview",  desc: "Most recent intel across all sources\nOther columns may have older data — hover them to check"    },
   { key: "rtpa",        label: "rTPA",        group: "T/M",       desc: "Raw TPA = thieves / land\nNeeds: Infiltrate Thieves' Dens + SoT (same tick)"                   },
   { key: "mtpa",        label: "mTPA",        group: "T/M",       desc: "Modified TPA = rTPA × Crime × Race × Honor × Personality\nNeeds: rTPA sources + SoS (same tick)"      },
@@ -76,7 +78,7 @@ const VIEWS: Record<string, ColKey[]> = {
   Overview:  ["race", "personality", "honor_title", "land", "networth", "pop_pct", "armies", "off_points", "def_points", "def_home", "good_spells", "bad_spells", "hit_status", "peasants", "building_efficiency", "age"],
   Military:  ["land", "armies", "off_points", "def_points", "off_home", "def_home", "ome", "dme", "free_specialist_credits", "soldiers_home", "off_specs_home", "def_specs_home", "elites_home", "age"],
   Resources: ["land", "networth", "pop_pct", "money", "food", "runes", "prisoners", "trade_balance", "war_horses", "peasants", "thieves", "wizards", "free_building_credits", "age"],
-  "T/M":     ["land", "rtpa", "mtpa", "otpa", "dtpa", "rwpa", "mwpa", "age"],
+  "T/M":     ["land", "stealth", "mana", "rtpa", "mtpa", "otpa", "dtpa", "rwpa", "mwpa", "age"],
 };
 const VIEW_NAMES = Object.keys(VIEWS);
 
@@ -128,7 +130,9 @@ function sortValueFor(p: ProvinceRow, key: SortKey): number | string | null {
     case "prisoners": return p.prisoners;
     case "trade_balance": return p.trade_balance;
     case "thieves": return p.thieves;
+    case "stealth": return p.stealth;
     case "wizards": return p.wizards;
+    case "mana": return p.mana;
     case "age": return ageFor(p, "age");
     case "rtpa": return displayedMetricValue(p, "rtpa");
     case "mtpa": return displayedMetricValue(p, "mtpa");
@@ -195,7 +199,7 @@ function ageFor(p: ProvinceRow, key: ColKey): string | null {
   if (key === "good_spells" || key === "bad_spells") return p.effects_age ?? null;
   if (["soldiers", "off_specs", "def_specs", "elites", "war_horses", "peasants"].includes(key)) return p.troops_age;
   if (["soldiers_home", "off_specs_home", "def_specs_home", "elites_home"].includes(key)) return p.troops_home_age;
-  if (["money", "food", "runes", "prisoners", "trade_balance", "building_efficiency", "wizards"].includes(key)) return p.resources_age;
+  if (["money", "food", "runes", "prisoners", "trade_balance", "building_efficiency", "stealth", "wizards", "mana"].includes(key)) return p.resources_age;
   if (key === "hit_status") return p.status_age;
   if (key === "thieves") return p.thieves_age;
   if (["ome", "dme", "free_specialist_credits"].includes(key)) return p.free_specialist_credits_age ?? p.som_age;
@@ -222,7 +226,7 @@ function sourceFor(p: ProvinceRow, key: ColKey): string | null {
   if (key === "good_spells" || key === "bad_spells") return p.effects_age ? "throne" : null;
   if (["soldiers", "off_specs", "def_specs", "elites", "war_horses", "peasants"].includes(key)) return p.troops_source;
   if (["soldiers_home", "off_specs_home", "def_specs_home", "elites_home"].includes(key)) return "som";
-  if (["money", "food", "runes", "prisoners", "trade_balance", "building_efficiency", "thieves", "wizards"].includes(key)) return p.resources_source;
+  if (["money", "food", "runes", "prisoners", "trade_balance", "building_efficiency", "stealth", "thieves", "wizards", "mana"].includes(key)) return p.resources_source;
   if (key === "hit_status") return p.status_age ? "sot" : null;
   if (["ome", "dme"].includes(key)) return "som";
   if (["off_points", "def_points"].includes(key)) return "sot";
@@ -832,7 +836,9 @@ function cellValue(p: ProvinceRow, key: ColKey): React.ReactNode {
     case "trade_balance": return p.trade_balance != null ? (p.trade_balance >= 0 ? "+" : "") + formatNum(p.trade_balance) : "—";
     case "building_efficiency": return p.building_efficiency != null ? p.building_efficiency + "%" : "—";
     case "thieves":     return formatNum(p.thieves);
+    case "stealth":     return p.stealth != null ? p.stealth + "%" : "—";
     case "wizards":     return formatNum(p.wizards);
+    case "mana":        return p.mana != null ? p.mana + "%" : "—";
     case "age": {
       const a = ageFor(p, "age");
       return <span className={freshnessColor(a)}>{timeAgo(a)}</span>;

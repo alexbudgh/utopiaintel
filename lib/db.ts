@@ -1267,6 +1267,7 @@ export interface ProvinceRow {
   building_efficiency: number | null;
   thieves: number | null;
   thieves_age: string | null;
+  stealth: number | null;
   wizards: number | null;
   mana: number | null;
   total_pop: number | null;
@@ -1463,7 +1464,7 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
            tmp.off_points, tmp.def_points, tmp.received_at AS military_age,
            pt.soldiers, pt.off_specs, pt.def_specs, pt.elites, pt.war_horses, pt.peasants, pt.received_at AS troops_age, pt.source AS troops_source,
            pt_home.soldiers AS soldiers_home, pt_home.off_specs AS off_specs_home, pt_home.def_specs AS def_specs_home, pt_home.elites AS elites_home, pt_home.received_at AS troops_home_age,
-           pr.money, pr.food, pr.runes, pr.prisoners, pr.trade_balance, pr.building_efficiency, pr.wizards, pr.mana, pr.received_at AS resources_age, pr.source AS resources_source,
+           pr.money, pr.food, pr.runes, pr.prisoners, pr.trade_balance, pr.building_efficiency, pr.stealth, pr.wizards, pr.mana, pr.received_at AS resources_age, pr.source AS resources_source,
            (SELECT p2.total_pop FROM province_resources p2 WHERE p2.province_id = p.id AND p2.key_hash = @keyHash AND p2.total_pop IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS total_pop,
            (SELECT p2.max_pop FROM province_resources p2 WHERE p2.province_id = p.id AND p2.key_hash = @keyHash AND p2.max_pop IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS max_pop,
            -- Thieves come from the Infiltrate op, not SoT, so they live in a
