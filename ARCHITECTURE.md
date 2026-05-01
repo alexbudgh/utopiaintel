@@ -3,6 +3,34 @@
 This document captures storage and identity rules that are easy to forget when
 working on ingest, replay, or kingdom table queries.
 
+## Source Tables and Read Model
+
+Intel is stored by source and timestamp rather than as one mutable province
+snapshot. Read queries reconstruct the best current view from the newest
+available source rows.
+
+Source-of-truth rules used by the kingdom table and province detail include:
+
+- SoT is authoritative for total unit counts, peasants, total military points,
+  most enemy resources, race, personality, honor, land, and networth.
+- SoM is authoritative for home troops, OME/DME, outgoing armies, and army
+  training details.
+- `council_state` provides direct self population values when available, but
+  does not replace race, personality, or honor from SoT.
+- `build` and `train_army` provide self-only free credits that are preserved even
+  when later SoT rows omit them.
+- Kingdom page rows provide snapshot-level race, honor, land, networth, and slot
+  data, but do not expose personality.
+
+Some overview fields are read independently as the latest non-null value. This
+prevents later partial rows, such as state rows with null race/personality/honor,
+from shadowing previously known values.
+
+Derived metrics such as modified TPA/WPA and population estimates require
+compatible same-tick inputs where mixing stale and fresh source rows would be
+misleading. Cached metric values are preserved when the current retained history
+is not enough to reconstruct them.
+
 ## Province Identity
 
 Province identity is stored in the `provinces` table. The stable application
@@ -56,6 +84,20 @@ in source tables such as:
 Read queries should not treat partition membership alone as enough to render a
 province row.
 
+## Authentication and Kingdom Binding
+
+Users sign in with a shared kingdom key. The login flow stores the raw key in an
+HTTP-only cookie, but storage and read queries use `hashKey(rawKey)` as
+`key_hash`.
+
+Submitted intel payloads also include the raw key. The ingest route hashes it
+before storing source rows, recording `intel_partitions`, or checking access.
+
+A self `/wol/game/throne` submission is the authoritative source for binding a
+key shard to its home kingdom. The binding is stored separately from
+`intel_partitions`; it supports conveniences such as redirecting login to the
+bound kingdom and choosing the self kingdom for gains views.
+
 ## Kingdom Slots
 
 Kingdom slot numbers are data from real `kingdom_details` pages. They are stored
@@ -80,4 +122,3 @@ Replay can expose stale identities already present in `provinces` and
 `intel_partitions`. That is expected: replay should preserve shard visibility,
 while read queries are responsible for requiring the source rows needed to render
 current UI data.
-

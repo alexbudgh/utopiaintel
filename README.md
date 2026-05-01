@@ -41,15 +41,8 @@ Stored intel is then surfaced through:
 This app is not just a raw intel dump. It tracks intel by source and timestamp and then
 derives the best currently-available view for each metric.
 
-For details on province identity, key partitions, kingdom slots, and replay
-backfills, see [ARCHITECTURE.md](./ARCHITECTURE.md).
-
-Examples:
-- SoT is treated as the authoritative source for total unit counts, peasants, and most enemy resource values.
-- SoM is used for home troops, OME/DME, outgoing armies, and training counts.
-- `council_state` is used for direct self population values when available.
-- `build` and `train_army` provide self-only free credits that are preserved even when later SoT rows omit them.
-- Kingdom slot is stored from real `kingdom_details` intel and should be treated as data, not inferred from current display order.
+For details on province identity, source-of-truth rules, key partitions, kingdom
+slots, and replay backfills, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 The province table and detail page also compute derived values such as:
 - estimated current/max population when direct values are unavailable
@@ -104,10 +97,11 @@ News view highlights:
 
 Sign-in is key-based:
 - the login form stores the kingdom key in an `auth` HTTP-only cookie
-- the server hashes the key and uses the hash to partition accessible intel
+- the server hashes the key before storage and access checks
 - if a key has already been bound to a kingdom, login redirects directly there
 
-The submitted intel payload also includes the raw key. The ingest route hashes it before storage/access checks.
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for how `key_hash`,
+`intel_partitions`, and bound kingdoms interact.
 
 ## Local Setup
 
