@@ -1787,7 +1787,7 @@ test("metrics cache: direct WPA prefers wizard count and applies channeling plus
 
     const [row] = getKingdomProvinces("7:5", KEY_A);
     assertApprox(row.cached_rwpa, 3, 0.0001, "cached direct rWPA");
-    assertApprox(row.cached_mwpa, 3.96, 0.0001, "cached direct mWPA");
+    assertApprox(row.cached_mwpa, 5.544, 0.0001, "cached direct mWPA");
     assert.equal(row.cached_rwpa_age, "2026-04-04 12:10:00");
     assert.equal(row.cached_mwpa_age, "2026-04-04 12:10:00");
   });

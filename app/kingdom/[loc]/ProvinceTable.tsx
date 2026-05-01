@@ -10,7 +10,7 @@ import { computeWizardCount, NW_PER_WIZARD } from "@/lib/nw";
 import { computeAmbushRawOff } from "@/lib/ambush";
 import {
   computeRtpa, computeMtpa, computeOtpa, computeDtpa, computeRwpa, computeMwpa,
-  tpaPersonalityEffect, wpaPersonalityEffect,
+  tpaPersonalityEffect, wpaPersonalityEffect, wpaRaceEffect,
 } from "@/lib/metrics";
 import { estimatePop } from "@/lib/population";
 import { overpopulationTone } from "@/lib/overpopulation";
@@ -63,7 +63,7 @@ const COLUMNS = [
   { key: "otpa",        label: "oTPA",        group: "T/M",       desc: "Offensive TPA = mTPA × Thieves' Den\nNeeds: mTPA sources + Survey (same tick)"          },
   { key: "dtpa",        label: "dTPA",        group: "T/M",       desc: "Defensive TPA = mTPA × Watch Tower prevent\nNeeds: mTPA sources + Survey (same tick)"   },
   { key: "rwpa",        label: "rWPA",        group: "T/M",       desc: "Raw WPA = wizards ÷ land\nSelf: direct from throne (needs same tick as land)\nEnemy: back-calc from NW residual (needs SoT+SoS+Survey+Infiltrate same tick)" },
-  { key: "mwpa",        label: "mWPA",        group: "T/M",       desc: "Modified WPA = rWPA × Channeling × Personality\nAlso needs SoS same tick as other sources"               },
+  { key: "mwpa",        label: "mWPA",        group: "T/M",       desc: "Modified WPA = rWPA × Channeling × Race × Personality\nAlso needs SoS same tick as other sources"        },
 ] as const;
 
 type ColKey = (typeof COLUMNS)[number]["key"];
@@ -149,6 +149,10 @@ function compareSortValues(a: number | string | null, b: number | string | null)
 
 function personalityEffectLabel(effect: number): string {
   return effect > 0 ? ` × (1 + ${effect.toFixed(1)}% Personality)` : "";
+}
+
+function raceEffectLabel(effect: number): string {
+  return effect > 0 ? ` × (1 + ${effect.toFixed(1)}% Race)` : "";
 }
 
 function computePopPct(p: ProvinceRow): { pct: number; estimated: boolean } | null {
@@ -552,18 +556,23 @@ function tipFor(
     }
     if (p.wizards != null && !sameTick(p.resources_age, p.overview_age, p.sciences_age)) {
       const cached = includeLastValid ? metricLastValidLine(p, "mwpa") : "";
-      return `rWPA = ${rwpa.toFixed(2)} × (1 + ${p.channeling_effect.toFixed(1)}% Channeling)${personalityEffectLabel(wpaPersonalityEffect(p))}\nCurrent WPA data is not from the same tick: ${metricAgeSummary([
+      const modifiers = `${raceEffectLabel(wpaRaceEffect(p))}${personalityEffectLabel(wpaPersonalityEffect(p))}`;
+      const formula = `rWPA = ${rwpa.toFixed(2)} × (1 + ${p.channeling_effect.toFixed(1)}% Channeling)${modifiers}`;
+      return `${formula}\nCurrent WPA data is not from the same tick: ${metricAgeSummary([
         ["wizards", p.resources_age],
         ["overview", p.overview_age],
         ["SoS", p.sciences_age],
       ])}${cached}`;
     }
     const personalityEffect = wpaPersonalityEffect(p);
+    const raceEffect = wpaRaceEffect(p);
     const mysticNote = p.personality === "Mystic" && p.mana == null ? "\nMystic Focused Channeling not applied: mana unknown" : "";
     const ages = p.wizards != null
       ? metricAgeLine([["wizards", p.resources_age], ["overview", p.overview_age], ["SoS", p.sciences_age]])
       : metricAgeLine([["infiltrate", p.thieves_age], ["overview", p.overview_age], ["troops (SoT)", p.troops_age], ["resources (SoT)", p.resources_age], ["SoS", p.sciences_age], ["Survey", p.survey_age]]);
-    return `mWPA = ${rwpa.toFixed(2)} × (1 + ${p.channeling_effect.toFixed(1)}% Channeling)${personalityEffectLabel(personalityEffect)} = ${computeMwpa(p)!.toFixed(2)}${ages}${mysticNote}`;
+    const modifiers = `${raceEffectLabel(raceEffect)}${personalityEffectLabel(personalityEffect)}`;
+    const formula = `mWPA = ${rwpa.toFixed(2)} × (1 + ${p.channeling_effect.toFixed(1)}% Channeling)${modifiers}`;
+    return `${formula} = ${computeMwpa(p)!.toFixed(2)}${ages}${mysticNote}`;
   }
   const age = ageFor(p, key);
   const source = sourceFor(p, key);

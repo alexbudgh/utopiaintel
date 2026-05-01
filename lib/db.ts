@@ -181,9 +181,16 @@ export function updateMetricsCache(db: Database.Database, provinceId: number, ke
   }
 
   // ── rWPA direct: most recent same-tick (throne/state wizards + overview) ──
-  type RwpaDirectRow = { wizards: number; land: number; personality: string | null; mana: number | null; age: string };
+  type RwpaDirectRow = {
+    wizards: number;
+    land: number;
+    race: string | null;
+    personality: string | null;
+    mana: number | null;
+    age: string;
+  };
   const rwpaDirectRow = db.prepare<typeof p, RwpaDirectRow>(`
-    SELECT pr.wizards, po.land, pr.mana,
+    SELECT pr.wizards, po.land, po.race, pr.mana,
       COALESCE(po.personality, (
         SELECT po2.personality FROM province_overview po2
         WHERE po2.province_id = pr.province_id AND po2.personality IS NOT NULL
@@ -202,7 +209,7 @@ export function updateMetricsCache(db: Database.Database, provinceId: number, ke
   // ── mWPA direct: same as above but also needs same-tick channeling ────────
   type MwpaDirectRow = RwpaDirectRow & { channeling_effect: number };
   const mwpaDirectRow = db.prepare<typeof p, MwpaDirectRow>(`
-    SELECT pr.wizards, po.land, pr.mana,
+    SELECT pr.wizards, po.land, po.race, pr.mana,
       COALESCE(po.personality, (
         SELECT po2.personality FROM province_overview po2
         WHERE po2.province_id = pr.province_id AND po2.personality IS NOT NULL
@@ -283,7 +290,13 @@ export function updateMetricsCache(db: Database.Database, provinceId: number, ke
     cached_rwpa = rawPerAcreValue(rwpaDirectRow.wizards, rwpaDirectRow.land);
     cached_rwpa_age = rwpaDirectRow.age;
     if (mwpaDirectRow) {
-      cached_mwpa = computeMwpaValue(cached_rwpa, mwpaDirectRow.channeling_effect, mwpaDirectRow.personality, mwpaDirectRow.mana);
+      cached_mwpa = computeMwpaValue(
+        cached_rwpa,
+        mwpaDirectRow.channeling_effect,
+        mwpaDirectRow.race,
+        mwpaDirectRow.personality,
+        mwpaDirectRow.mana,
+      );
       cached_mwpa_age = mwpaDirectRow.age;
     }
   } else if (rwpaBackRow) {
@@ -291,7 +304,13 @@ export function updateMetricsCache(db: Database.Database, provinceId: number, ke
     if (w != null) {
       cached_rwpa = rawPerAcreValue(w, rwpaBackRow.land);
       cached_rwpa_age = rwpaBackRow.age;
-      cached_mwpa = computeMwpaValue(cached_rwpa, rwpaBackRow.channeling_effect, rwpaBackRow.personality, rwpaBackRow.mana);
+      cached_mwpa = computeMwpaValue(
+        cached_rwpa,
+        rwpaBackRow.channeling_effect,
+        rwpaBackRow.race,
+        rwpaBackRow.personality,
+        rwpaBackRow.mana,
+      );
       if (cached_mwpa != null) {
         cached_mwpa_age = rwpaBackRow.age;
       }

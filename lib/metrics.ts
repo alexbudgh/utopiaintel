@@ -22,6 +22,12 @@ export function wpaPersonalityEffectValue(personality: string | null, mana: numb
   return 0;
 }
 
+export function wpaRaceEffectValue(race: string | null): number {
+  if (race === "Elf") return 40;
+  if (race === "Faery") return 20;
+  return 0;
+}
+
 export function computeMtpaValue(rtpa: number | null, crimeEffect: number | null, personality: string | null): number | null {
   if (rtpa == null || crimeEffect == null) return null;
   return rtpa * (1 + crimeEffect / 100) * (1 + tpaPersonalityEffectValue(personality) / 100);
@@ -37,9 +43,18 @@ export function computeDtpaValue(mtpa: number | null, watchTowersEffect: number 
   return mtpa * (1 + watchTowersEffect / 100);
 }
 
-export function computeMwpaValue(rwpa: number | null, channelingEffect: number | null, personality: string | null, mana: number | null): number | null {
+export function computeMwpaValue(
+  rwpa: number | null,
+  channelingEffect: number | null,
+  race: string | null,
+  personality: string | null,
+  mana: number | null,
+): number | null {
   if (rwpa == null || channelingEffect == null) return null;
-  return rwpa * (1 + channelingEffect / 100) * (1 + wpaPersonalityEffectValue(personality, mana) / 100);
+  return rwpa
+    * (1 + channelingEffect / 100)
+    * (1 + wpaRaceEffectValue(race) / 100)
+    * (1 + wpaPersonalityEffectValue(personality, mana) / 100);
 }
 
 // ProvinceRow wrappers apply the live same-tick checks used by the table UI.
@@ -49,6 +64,10 @@ export function tpaPersonalityEffect(p: Pick<ProvinceRow, "personality">): numbe
 
 export function wpaPersonalityEffect(p: Pick<ProvinceRow, "personality" | "mana">): number {
   return wpaPersonalityEffectValue(p.personality, p.mana);
+}
+
+export function wpaRaceEffect(p: Pick<ProvinceRow, "race">): number {
+  return wpaRaceEffectValue(p.race);
 }
 
 export function computeRtpa(p: ProvinceRow): number | null {
@@ -88,5 +107,5 @@ export function computeRwpa(p: ProvinceRow): number | null {
 export function computeMwpa(p: ProvinceRow): number | null {
   const rwpa = computeRwpa(p);
   if (p.wizards != null && !sameTick(p.resources_age, p.overview_age, p.sciences_age)) return null;
-  return computeMwpaValue(rwpa, p.channeling_effect, p.personality, p.mana);
+  return computeMwpaValue(rwpa, p.channeling_effect, p.race, p.personality, p.mana);
 }
