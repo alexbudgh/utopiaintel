@@ -30,6 +30,7 @@ const SUFFIX_PERSONALITY_MAP: Record<string, string> = {
   Skeptic: "Heretic",
   Chivalrous: "Paladin",
   Reanimator: "Necromancer",
+  Commandant: "General",
 };
 const PREFIX_PERSONALITY_GROUP = Object.keys(PREFIX_PERSONALITY_MAP).join("|");
 const SUFFIX_PERSONALITY_GROUP = Object.keys(SUFFIX_PERSONALITY_MAP).join("|");
