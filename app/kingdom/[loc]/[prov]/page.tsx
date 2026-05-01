@@ -336,12 +336,12 @@ export default async function ProvincePage({
               <KV label="Gold" value={d.resources.money != null ? d.resources.money.toLocaleString() : "—"} />
               <KV label="Food" value={d.resources.food != null ? d.resources.food.toLocaleString() : "—"} />
               <KV label="Runes" value={d.resources.runes != null ? d.resources.runes.toLocaleString() : "—"} />
-              <KV label="Mana" value={d.resources.mana != null ? d.resources.mana.toLocaleString() : "—"} />
               <KV label="Prisoners" value={d.resources.prisoners != null ? d.resources.prisoners.toLocaleString() : "—"} />
               <KV label="Trade balance" value={d.resources.tradeBalance != null ? `${d.resources.tradeBalance >= 0 ? "+" : ""}${d.resources.tradeBalance.toLocaleString()}` : "—"} />
               <KV label="Efficiency" value={d.resources.buildingEfficiency != null ? d.resources.buildingEfficiency + "%" : "—"} />
               <KV label="Thieves" value={d.resources.thieves != null ? d.resources.thieves.toLocaleString() : "—"} />
               <KV label="Stealth" value={d.resources.stealth != null ? d.resources.stealth + "%" : "—"} />
+              <KV label="Mana" value={d.resources.mana != null ? d.resources.mana + "%" : "—"} />
               <KV label="Wizards" value={d.resources.wizards != null ? d.resources.wizards.toLocaleString() : "—"} />
               {d.resources.freeSpecialistCredits != null && (
                 <KV label="Spec credits" value={d.resources.freeSpecialistCredits.toLocaleString()} />

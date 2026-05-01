@@ -1,6 +1,7 @@
 export const BAD_SPELL_NAMES = [
   "Amnesia",
   "Chastity",
+  "Expose Thieves",
   "Explosions",
   "Fireball",
   "Fool's Gold",
