@@ -872,6 +872,9 @@ export function ProvinceTable({
   const colsBtnRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const saveInputRef = useRef<HTMLInputElement>(null);
+  const stickyHeaderRef = useRef<HTMLDivElement>(null);
+  const bodyScrollRef = useRef<HTMLDivElement>(null);
+  const mainTheadRef = useRef<HTMLTableSectionElement>(null);
 
   // Unified view map: built-in + saved
   const allViews: Record<string, ColKey[]> = { ...VIEWS, ...savedViews };
@@ -955,6 +958,21 @@ export function ProvinceTable({
   };
 
   const visibleCols = COLUMNS.filter((c) => visible.has(c.key));
+
+  // Sync sticky header column widths from the (invisible) main thead
+  useEffect(() => {
+    function sync() {
+      if (!mainTheadRef.current || !stickyHeaderRef.current) return;
+      const mainThs = mainTheadRef.current.querySelectorAll<HTMLElement>("th");
+      const stickyThs = stickyHeaderRef.current.querySelectorAll<HTMLElement>("th");
+      mainThs.forEach((th, i) => { if (stickyThs[i]) stickyThs[i].style.width = th.offsetWidth + "px"; });
+    }
+    sync();
+    const ro = new ResizeObserver(sync);
+    if (mainTheadRef.current) ro.observe(mainTheadRef.current);
+    return () => ro.disconnect();
+  }, [visibleCols]);
+
   const sortedProvinces = sort
     ? [...provinces].sort((a, b) => {
         const av = sortValueFor(a, sort.key);
@@ -1116,11 +1134,14 @@ export function ProvinceTable({
         document.body
       )}
 
-      <div className="overflow-x-auto">
+      <div
+        ref={stickyHeaderRef}
+        className="sticky top-0 z-10 overflow-hidden bg-gray-950"
+      >
         <table className="min-w-max w-full text-sm">
           <thead>
             <tr className="text-left text-gray-400 border-b border-gray-700">
-              <th className="py-2 pr-4 font-medium">
+              <th className="py-2 pr-4 font-medium whitespace-nowrap">
                 <button
                   type="button"
                   onClick={() => toggleSort("province")}
@@ -1131,10 +1152,7 @@ export function ProvinceTable({
                 </button>
               </th>
               {visibleCols.map((col) => (
-                <th
-                  key={col.key}
-                  className={`py-2 pr-4 font-medium ${TEXT_LEFT.has(col.key) ? "" : "text-right"}`}
-                >
+                <th key={col.key} className={`py-2 pr-4 font-medium whitespace-nowrap ${TEXT_LEFT.has(col.key) ? "" : "text-right"}`}>
                   <button
                     type="button"
                     onClick={() => toggleSort(col.key)}
@@ -1142,6 +1160,35 @@ export function ProvinceTable({
                   >
                     <Tooltip content={col.desc}>{col.label}</Tooltip>
                     <span className={sortIndicatorClass(col.key)}>{sortIndicator(col.key)}</span>
+                  </button>
+                </th>
+              ))}
+            </tr>
+          </thead>
+        </table>
+      </div>
+
+      <div
+        ref={bodyScrollRef}
+        className="overflow-x-auto"
+        onScroll={(e) => {
+          if (stickyHeaderRef.current) stickyHeaderRef.current.scrollLeft = e.currentTarget.scrollLeft;
+        }}
+      >
+        <table className="min-w-max w-full text-sm">
+          <thead ref={mainTheadRef} className="pointer-events-none" style={{ visibility: "collapse" }} aria-hidden="true">
+            <tr className="text-left text-gray-400">
+              <th className="py-2 pr-4 font-medium whitespace-nowrap">
+                <button type="button" className="inline-flex items-center gap-1">
+                  <span>Province</span>
+                  <span className="text-xs">{sortIndicator("province")}</span>
+                </button>
+              </th>
+              {visibleCols.map((col) => (
+                <th key={col.key} className={`py-2 pr-4 font-medium whitespace-nowrap ${TEXT_LEFT.has(col.key) ? "" : "text-right"}`}>
+                  <button type="button" className={`inline-flex items-center gap-1 ${TEXT_LEFT.has(col.key) ? "" : "justify-end w-full"}`}>
+                    <span>{col.label}</span>
+                    <span className="text-xs">{sortIndicator(col.key)}</span>
                   </button>
                 </th>
               ))}
