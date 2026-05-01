@@ -130,12 +130,12 @@ function sortValueFor(p: ProvinceRow, key: SortKey): number | string | null {
     case "thieves": return p.thieves;
     case "wizards": return p.wizards;
     case "age": return ageFor(p, "age");
-    case "rtpa": return computeRtpa(p);
-    case "mtpa": return computeMtpa(p);
-    case "otpa": return computeOtpa(p);
-    case "dtpa": return computeDtpa(p);
-    case "rwpa": return computeRwpa(p);
-    case "mwpa": return computeMwpa(p);
+    case "rtpa": return displayedMetricValue(p, "rtpa");
+    case "mtpa": return displayedMetricValue(p, "mtpa");
+    case "otpa": return displayedMetricValue(p, "otpa");
+    case "dtpa": return displayedMetricValue(p, "dtpa");
+    case "rwpa": return displayedMetricValue(p, "rwpa");
+    case "mwpa": return displayedMetricValue(p, "mwpa");
     case "pop_pct": return computePopPct(p)?.pct ?? null;
   }
 }
@@ -277,6 +277,13 @@ function cachedMetric(p: ProvinceRow, key: MetricKey): { value: number | null | 
 function metricLastValidLine(p: ProvinceRow, key: MetricKey): string {
   const { value, age } = cachedMetric(p, key);
   return value != null && age != null ? `\nLast valid value: ${value.toFixed(2)} · ${timeAgo(age)}` : "";
+}
+
+function displayedMetricValue(p: ProvinceRow, key: MetricKey): number | null {
+  const live = liveMetricValue(p, key);
+  if (live != null) return live;
+  const { value, age } = cachedMetric(p, key);
+  return value != null && age != null ? value : null;
 }
 
 function missingDependencyReason(metric: string): string {
