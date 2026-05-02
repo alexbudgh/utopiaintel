@@ -784,10 +784,6 @@ export function initSchema(db: Database.Database) {
 // SQL fragments for province_overview — used in both the list query and detail query.
 // Each field is fetched from the most recent row where it is non-null, independently.
 // state rows have NULL race/personality/honor; kingdom rows have NULL personality.
-const OVERVIEW_LAND_JOIN = `
-  LEFT JOIN province_overview po ON po.id = (
-    SELECT id FROM province_overview WHERE province_id = p.id AND key_hash = @keyHash ORDER BY received_at DESC LIMIT 1
-  )`;
 // Scalar subqueries for per-field latest-non-null values, used in SELECT clause
 const OVERVIEW_RACE_SQL    = `(SELECT race         FROM province_overview WHERE province_id = p.id AND key_hash = @keyHash AND race         IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS race`;
 const OVERVIEW_PERS_SQL    = `(SELECT personality  FROM province_overview WHERE province_id = p.id AND key_hash = @keyHash AND personality  IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS personality`;
@@ -1448,110 +1444,437 @@ export interface KingdomDragon {
 }
 
 function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHash: string): ProvinceRow[] {
-  const rows = db.prepare(`
+  const baseRows = db.prepare(`
+    WITH ${latestSlotCte("AND ki.location = @kingdom")},
+    latest_overview AS (
+      SELECT *
+      FROM (
+        SELECT po.*,
+               row_number() OVER (
+                 PARTITION BY po.province_id
+                 ORDER BY po.received_at DESC, po.id DESC
+               ) AS rn
+        FROM province_overview po
+        WHERE po.key_hash = @keyHash
+      )
+      WHERE rn = 1
+    )
+    SELECT p.id, p.name, p.kingdom,
+           (SELECT ls.slot FROM latest_slot ls WHERE ls.kingdom = p.kingdom AND ls.name = p.name) AS slot,
+           ${OVERVIEW_RACE_SQL}, ${OVERVIEW_PERS_SQL}, ${OVERVIEW_HONOR_SQL}, po.land, po.networth, po.received_at AS overview_age, po.source AS overview_source,
+           p.cached_rtpa, p.cached_rtpa_age,
+           p.cached_mtpa, p.cached_mtpa_age,
+           p.cached_otpa, p.cached_otpa_age,
+           p.cached_dtpa, p.cached_dtpa_age,
+           p.cached_rwpa, p.cached_rwpa_age,
+           p.cached_mwpa, p.cached_mwpa_age
+    FROM provinces p
+    JOIN latest_overview po ON po.province_id = p.id
+    WHERE p.kingdom = @kingdom
+      AND EXISTS (
+        SELECT 1 FROM intel_partitions
+        WHERE key_hash = @keyHash AND province_id = p.id
+      )
+      -- Hide superseded provinces: after a reset, the old name keeps its slot
+      -- in historical snapshots. Show a province only if it is the current
+      -- holder of its slot (in latest_slot), or if it never appeared on any
+      -- kingdom page at all (SoT-only intel, no slot).
+      AND (
+        EXISTS (SELECT 1 FROM latest_slot WHERE kingdom = p.kingdom AND name = p.name)
+        OR NOT EXISTS (
+          SELECT 1 FROM kingdom_provinces kp
+          JOIN kingdom_intel ki ON kp.kingdom_intel_id = ki.id
+          WHERE ki.location = p.kingdom AND ki.key_hash = @keyHash AND kp.name = p.name
+        )
+      )
+    ORDER BY po.networth DESC NULLS LAST
+  `).all({ keyHash, kingdom }) as Array<Partial<ProvinceRow> & { id: number; name: string; kingdom: string }>;
+
+  const rows = baseRows.map((base) => ({
+    ...base,
+    off_points: null, def_points: null, military_age: null, military_source: null,
+    soldiers: null, off_specs: null, def_specs: null, elites: null, war_horses: null, peasants: null, troops_age: null, troops_source: null,
+    soldiers_home: null, off_specs_home: null, def_specs_home: null, elites_home: null, troops_home_age: null,
+    off_home: null, def_home: null, home_mil_age: null, home_mil_source: null,
+    money: null, food: null, runes: null, prisoners: null, trade_balance: null, building_efficiency: null,
+    thieves: null, thieves_age: null, stealth: null, wizards: null, mana: null, total_pop: null, max_pop: null,
+    resources_age: null, resources_source: null, free_specialist_credits: null, free_specialist_credits_age: null,
+    free_building_credits: null, free_building_credits_age: null, hit_status: null, status_age: null,
+    effects_age: null, good_spell_details: null, bad_spell_details: null, good_spell_count: null, bad_spell_count: null,
+    ome: null, dme: null, som_age: null, throne_age: null, sciences_age: null, crime_effect: null,
+    channeling_effect: null, siege_effect: null, shielding_effect: null, science_total_books: null,
+    survey_age: null, watch_towers_effect: null, thieves_dens_effect: null, castles_effect: null, housing_effect: null,
+    barren_land: null, homes_built: null, buildings_built: null, buildings_in_progress: null,
+    armies_out_count: null, land_incoming: null, earliest_return: null,
+    som_armies_json: null, throne_armies_json: null, armies_out_json: null,
+  })) as ProvinceRow[];
+
+  if (rows.length === 0) return rows;
+
+  hydrateKingdomProvinceRows(db, rows, keyHash);
+
+  for (const row of rows) {
+    row.armies_out_json = mergeArmiesJson(row.som_armies_json, row.throne_armies_json, row.som_age, row.throne_age);
+    const allArmiesHome = (row.armies_out_count ?? 0) === 0;
+    const homeMilitaryNewer = !!row.home_mil_age && (!row.military_age || row.home_mil_age > row.military_age);
+    const homeMilitaryFromSoM = row.home_mil_source === "som" || row.home_mil_source === "council_military";
+    if (row.som_age && allArmiesHome && homeMilitaryNewer && homeMilitaryFromSoM) {
+      if (row.off_home != null) row.off_points = row.off_home;
+      if (row.def_home != null) row.def_points = row.def_home;
+      if (row.off_home != null || row.def_home != null) {
+        row.military_age = row.home_mil_age;
+        row.military_source = row.home_mil_source;
+      }
+    }
+  }
+  return rows;
+}
+
+function hydrateKingdomProvinceRows(db: Database.Database, rows: ProvinceRow[], keyHash: string) {
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  const ids = rows.map((row) => row.id);
+  const idList = ids.map(() => "?").join(", ");
+  const params = () => [keyHash, ...ids];
+
+  const totalMilitaryRows = db.prepare(`
+    SELECT province_id, off_points, def_points, received_at AS military_age, source AS military_source
+    FROM (
+      SELECT tmp.*,
+             row_number() OVER (PARTITION BY tmp.province_id ORDER BY tmp.received_at DESC, tmp.id DESC) AS rn
+      FROM total_military_points tmp
+      WHERE tmp.key_hash = ? AND tmp.province_id IN (${idList})
+    )
+    WHERE rn = 1
+  `).all(...params()) as any[];
+  for (const source of totalMilitaryRows) {
+    Object.assign(byId.get(source.province_id)!, {
+      off_points: source.off_points,
+      def_points: source.def_points,
+      military_age: source.military_age,
+      military_source: source.military_source,
+    });
+  }
+
+  const troopRows = db.prepare(`
+    SELECT province_id, source_group, soldiers, off_specs, def_specs, elites, war_horses, peasants, received_at, source
+    FROM (
+      SELECT pt.*,
+             CASE
+               WHEN pt.source IN ('sot', 'throne') THEN 'total'
+               WHEN pt.source IN ('som', 'council_military') THEN 'home'
+             END AS source_group,
+             row_number() OVER (
+               PARTITION BY pt.province_id,
+                            CASE
+                              WHEN pt.source IN ('sot', 'throne') THEN 'total'
+                              WHEN pt.source IN ('som', 'council_military') THEN 'home'
+                            END
+               ORDER BY pt.received_at DESC, pt.id DESC
+             ) AS rn
+      FROM province_troops pt
+      WHERE pt.key_hash = ?
+        AND pt.province_id IN (${idList})
+        AND pt.source IN ('sot', 'throne', 'som', 'council_military')
+    )
+    WHERE rn = 1
+  `).all(...params()) as any[];
+  for (const source of troopRows) {
+    const row = byId.get(source.province_id)!;
+    if (source.source_group === "total") {
+      Object.assign(row, {
+        soldiers: source.soldiers,
+        off_specs: source.off_specs,
+        def_specs: source.def_specs,
+        elites: source.elites,
+        war_horses: source.war_horses,
+        peasants: source.peasants,
+        troops_age: source.received_at,
+        troops_source: source.source,
+      });
+    } else {
+      Object.assign(row, {
+        soldiers_home: source.soldiers,
+        off_specs_home: source.off_specs,
+        def_specs_home: source.def_specs,
+        elites_home: source.elites,
+        troops_home_age: source.received_at,
+      });
+    }
+  }
+
+  const resourceRows = db.prepare(`
+    SELECT province_id, money, food, runes, prisoners, trade_balance, building_efficiency, stealth, wizards, mana,
+           received_at AS resources_age, source AS resources_source
+    FROM (
+      SELECT pr.*,
+             row_number() OVER (PARTITION BY pr.province_id ORDER BY pr.received_at DESC, pr.id DESC) AS rn
+      FROM province_resources pr
+      WHERE pr.key_hash = ?
+        AND pr.province_id IN (${idList})
+        AND pr.source IN ('sot', 'throne')
+    )
+    WHERE rn = 1
+  `).all(...params()) as any[];
+  for (const source of resourceRows) {
+    Object.assign(byId.get(source.province_id)!, {
+      money: source.money,
+      food: source.food,
+      runes: source.runes,
+      prisoners: source.prisoners,
+      trade_balance: source.trade_balance,
+      building_efficiency: source.building_efficiency,
+      stealth: source.stealth,
+      wizards: source.wizards,
+      mana: source.mana,
+      resources_age: source.resources_age,
+      resources_source: source.resources_source,
+    });
+  }
+
+  const resourceFieldRows = db.prepare(`
+    SELECT province_id, total_pop, max_pop, thieves, free_specialist_credits, free_building_credits, received_at
+    FROM province_resources
+    WHERE key_hash = ?
+      AND province_id IN (${idList})
+      AND (
+        total_pop IS NOT NULL
+        OR max_pop IS NOT NULL
+        OR thieves IS NOT NULL
+        OR free_specialist_credits IS NOT NULL
+        OR free_building_credits IS NOT NULL
+      )
+    ORDER BY province_id ASC, received_at DESC, id DESC
+  `).all(...params()) as any[];
+  for (const source of resourceFieldRows) {
+    const row = byId.get(source.province_id)!;
+    if (row.total_pop == null && source.total_pop != null) row.total_pop = source.total_pop;
+    if (row.max_pop == null && source.max_pop != null) row.max_pop = source.max_pop;
+    if (row.thieves == null && source.thieves != null) {
+      row.thieves = source.thieves;
+      row.thieves_age = source.received_at;
+    }
+    if (row.free_specialist_credits == null && source.free_specialist_credits != null) {
+      row.free_specialist_credits = source.free_specialist_credits;
+      row.free_specialist_credits_age = source.received_at;
+    }
+    if (row.free_building_credits == null && source.free_building_credits != null) {
+      row.free_building_credits = source.free_building_credits;
+      row.free_building_credits_age = source.received_at;
+    }
+  }
+
+  const statusRows = db.prepare(`
+    SELECT province_id, hit_status, received_at AS status_age
+    FROM (
+      SELECT ps.*,
+             row_number() OVER (PARTITION BY ps.province_id ORDER BY ps.received_at DESC, ps.id DESC) AS rn
+      FROM province_status ps
+      WHERE ps.key_hash = ? AND ps.province_id IN (${idList})
+    )
+    WHERE rn = 1
+  `).all(...params()) as any[];
+  for (const source of statusRows) {
+    Object.assign(byId.get(source.province_id)!, {
+      hit_status: source.hit_status,
+      status_age: source.status_age,
+    });
+  }
+
+  const spellRows = db.prepare(`
     WITH latest_effects AS (
-      -- Restrict to the single most-recent effect snapshot per province, then
-      -- use row_number to de-duplicate multiple rows for the same effect within
-      -- that snapshot (e.g. two Inspire Army entries from the same SoT page).
       SELECT pe.province_id, pe.effect_name, pe.effect_kind, pe.remaining_ticks, pe.received_at,
              row_number() OVER (
                PARTITION BY pe.province_id, pe.effect_name, pe.effect_kind
                ORDER BY pe.id DESC
              ) AS rn
       FROM province_effects pe
-      WHERE pe.key_hash = @keyHash
+      WHERE pe.key_hash = ?
+        AND pe.province_id IN (${idList})
         AND pe.received_at = (
-        SELECT MAX(pe2.received_at) FROM province_effects pe2 WHERE pe2.province_id = pe.province_id
+          SELECT MAX(pe2.received_at)
+          FROM province_effects pe2
+          WHERE pe2.province_id = pe.province_id AND pe2.key_hash = pe.key_hash
+        )
+    )
+    SELECT province_id,
+           MAX(received_at) AS effects_age,
+           group_concat(CASE WHEN effect_kind = 'spell' AND effect_name NOT IN (${BAD_SPELL_SQL_LIST}) THEN effect_name || CASE WHEN remaining_ticks IS NOT NULL THEN ' (' || remaining_ticks || ')' ELSE '' END END, ' | ') AS good_spell_details,
+           group_concat(CASE WHEN effect_kind = 'spell' AND effect_name IN (${BAD_SPELL_SQL_LIST}) THEN effect_name || CASE WHEN remaining_ticks IS NOT NULL THEN ' (' || remaining_ticks || ')' ELSE '' END END, ' | ') AS bad_spell_details,
+           SUM(CASE WHEN effect_kind = 'spell' AND effect_name NOT IN (${BAD_SPELL_SQL_LIST}) THEN 1 ELSE 0 END) AS good_spell_count,
+           SUM(CASE WHEN effect_kind = 'spell' AND effect_name IN (${BAD_SPELL_SQL_LIST}) THEN 1 ELSE 0 END) AS bad_spell_count
+    FROM latest_effects
+    WHERE rn = 1
+    GROUP BY province_id
+  `).all(...params()) as any[];
+  for (const source of spellRows) {
+    Object.assign(byId.get(source.province_id)!, {
+      effects_age: source.effects_age,
+      good_spell_details: source.good_spell_details,
+      bad_spell_details: source.bad_spell_details,
+      good_spell_count: source.good_spell_count,
+      bad_spell_count: source.bad_spell_count,
+    });
+  }
+
+  const scienceRows = db.prepare(`
+    WITH latest_sos AS (
+      SELECT *
+      FROM (
+        SELECT si.id, si.province_id, si.received_at,
+               row_number() OVER (PARTITION BY si.province_id ORDER BY si.received_at DESC, si.id DESC) AS rn
+        FROM sos_intel si
+        WHERE si.key_hash = ? AND si.province_id IN (${idList})
       )
-    ),
-    ${latestSlotCte("AND ki.location = @kingdom")},
-    spell_summary AS (
-      SELECT province_id,
-             MAX(received_at) AS effects_age,
-             group_concat(CASE WHEN effect_kind = 'spell' AND effect_name NOT IN (${BAD_SPELL_SQL_LIST}) THEN effect_name || CASE WHEN remaining_ticks IS NOT NULL THEN ' (' || remaining_ticks || ')' ELSE '' END END, ' | ') AS good_spell_details,
-             group_concat(CASE WHEN effect_kind = 'spell' AND effect_name IN (${BAD_SPELL_SQL_LIST}) THEN effect_name || CASE WHEN remaining_ticks IS NOT NULL THEN ' (' || remaining_ticks || ')' ELSE '' END END, ' | ') AS bad_spell_details,
-             SUM(CASE WHEN effect_kind = 'spell' AND effect_name NOT IN (${BAD_SPELL_SQL_LIST}) THEN 1 ELSE 0 END) AS good_spell_count,
-             SUM(CASE WHEN effect_kind = 'spell' AND effect_name IN (${BAD_SPELL_SQL_LIST}) THEN 1 ELSE 0 END) AS bad_spell_count
-      FROM latest_effects
       WHERE rn = 1
-      GROUP BY province_id
-    ),
-    latest_sos AS (
-      SELECT si.id, si.province_id, si.received_at
-      FROM sos_intel si
-      WHERE si.key_hash = @keyHash
-        AND si.id = (
-          SELECT id FROM sos_intel si2
-          WHERE si2.province_id = si.province_id AND si2.key_hash = si.key_hash
-          ORDER BY si2.received_at DESC
-          LIMIT 1
-        )
-    ),
-    science_summary AS (
-      SELECT si.province_id,
-             si.received_at AS sciences_age,
-             MAX(CASE WHEN ss.science = 'Crime' THEN ss.effect END) AS crime_effect,
-             MAX(CASE WHEN ss.science = 'Siege' THEN ss.effect END) AS siege_effect,
-             MAX(CASE WHEN ss.science = 'Channeling' THEN ss.effect END) AS channeling_effect,
-             MAX(CASE WHEN ss.science = 'Shielding' THEN ss.effect END) AS shielding_effect,
-             MAX(CASE WHEN ss.science = 'Housing' THEN ss.effect END) AS housing_effect,
-             SUM(ss.books) AS science_total_books
-      FROM latest_sos si
-      LEFT JOIN sos_sciences ss ON ss.sos_intel_id = si.id
-      GROUP BY si.province_id, si.received_at
-    ),
-    latest_survey AS (
-      SELECT si.id, si.province_id, si.received_at, si.thief_prevent_chance, si.thievery_effectiveness, si.castles_effect
-      FROM survey_intel si
-      WHERE si.key_hash = @keyHash
-        AND si.id = (
-          SELECT id FROM survey_intel si2
-          WHERE si2.province_id = si.province_id AND si2.key_hash = si.key_hash
-          ORDER BY si2.received_at DESC
-          LIMIT 1
-        )
-    ),
-    survey_summary AS (
-      SELECT si.province_id,
-             si.received_at AS survey_age,
-             si.thief_prevent_chance AS watch_towers_effect,
-             si.thievery_effectiveness AS thieves_dens_effect,
-             si.castles_effect,
-             MAX(CASE WHEN sb.building = 'Barren Land' THEN sb.built END) AS barren_land,
-             MAX(CASE WHEN sb.building = 'Homes' THEN sb.built END) AS homes_built,
-             SUM(CASE WHEN sb.building != 'Barren Land' THEN sb.built ELSE 0 END) AS buildings_built,
-             SUM(sb.in_progress) AS buildings_in_progress
-      FROM latest_survey si
-      LEFT JOIN survey_buildings sb ON sb.survey_intel_id = si.id
-      GROUP BY si.province_id, si.received_at, si.thief_prevent_chance, si.thievery_effectiveness, si.castles_effect
+    )
+    SELECT si.province_id,
+           si.received_at AS sciences_age,
+           MAX(CASE WHEN ss.science = 'Crime' THEN ss.effect END) AS crime_effect,
+           MAX(CASE WHEN ss.science = 'Siege' THEN ss.effect END) AS siege_effect,
+           MAX(CASE WHEN ss.science = 'Channeling' THEN ss.effect END) AS channeling_effect,
+           MAX(CASE WHEN ss.science = 'Shielding' THEN ss.effect END) AS shielding_effect,
+           MAX(CASE WHEN ss.science = 'Housing' THEN ss.effect END) AS housing_effect,
+           SUM(ss.books) AS science_total_books
+    FROM latest_sos si
+    LEFT JOIN sos_sciences ss ON ss.sos_intel_id = si.id
+    GROUP BY si.province_id, si.received_at
+  `).all(...params()) as any[];
+  for (const source of scienceRows) {
+    Object.assign(byId.get(source.province_id)!, {
+      sciences_age: source.sciences_age,
+      crime_effect: source.crime_effect,
+      siege_effect: source.siege_effect,
+      channeling_effect: source.channeling_effect,
+      shielding_effect: source.shielding_effect,
+      housing_effect: source.housing_effect,
+      science_total_books: source.science_total_books,
+    });
+  }
+
+  const surveyRows = db.prepare(`
+    WITH latest_survey AS (
+      SELECT *
+      FROM (
+        SELECT si.id, si.province_id, si.received_at, si.thief_prevent_chance, si.thievery_effectiveness, si.castles_effect,
+               row_number() OVER (PARTITION BY si.province_id ORDER BY si.received_at DESC, si.id DESC) AS rn
+        FROM survey_intel si
+        WHERE si.key_hash = ? AND si.province_id IN (${idList})
+      )
+      WHERE rn = 1
+    )
+    SELECT si.province_id,
+           si.received_at AS survey_age,
+           si.thief_prevent_chance AS watch_towers_effect,
+           si.thievery_effectiveness AS thieves_dens_effect,
+           si.castles_effect,
+           MAX(CASE WHEN sb.building = 'Barren Land' THEN sb.built END) AS barren_land,
+           MAX(CASE WHEN sb.building = 'Homes' THEN sb.built END) AS homes_built,
+           SUM(CASE WHEN sb.building != 'Barren Land' THEN sb.built ELSE 0 END) AS buildings_built,
+           SUM(sb.in_progress) AS buildings_in_progress
+    FROM latest_survey si
+    LEFT JOIN survey_buildings sb ON sb.survey_intel_id = si.id
+    GROUP BY si.province_id, si.received_at, si.thief_prevent_chance, si.thievery_effectiveness, si.castles_effect
+  `).all(...params()) as any[];
+  for (const source of surveyRows) {
+    Object.assign(byId.get(source.province_id)!, {
+      survey_age: source.survey_age,
+      watch_towers_effect: source.watch_towers_effect,
+      thieves_dens_effect: source.thieves_dens_effect,
+      castles_effect: source.castles_effect,
+      barren_land: source.barren_land,
+      homes_built: source.homes_built,
+      buildings_built: source.buildings_built,
+      buildings_in_progress: source.buildings_in_progress,
+    });
+  }
+
+  const homeMilitaryRows = db.prepare(`
+    SELECT province_id, mod_off_at_home AS off_home, mod_def_at_home AS def_home,
+           received_at AS home_mil_age, source AS home_mil_source
+    FROM (
+      SELECT hmp.*,
+             row_number() OVER (PARTITION BY hmp.province_id ORDER BY hmp.received_at DESC, hmp.id DESC) AS rn
+      FROM home_military_points hmp
+      WHERE hmp.key_hash = ? AND hmp.province_id IN (${idList})
+    )
+    WHERE rn = 1
+  `).all(...params()) as any[];
+  for (const source of homeMilitaryRows) {
+    Object.assign(byId.get(source.province_id)!, {
+      off_home: source.off_home,
+      def_home: source.def_home,
+      home_mil_age: source.home_mil_age,
+      home_mil_source: source.home_mil_source,
+    });
+  }
+
+  const militaryRows = db.prepare(`
+    SELECT province_id, source_group, ome, dme, received_at
+    FROM (
+      SELECT mi.*,
+             CASE
+               WHEN mi.source IN ('som', 'council_military') THEN 'som'
+               WHEN mi.source = 'throne' THEN 'throne'
+             END AS source_group,
+             row_number() OVER (
+               PARTITION BY mi.province_id,
+                            CASE
+                              WHEN mi.source IN ('som', 'council_military') THEN 'som'
+                              WHEN mi.source = 'throne' THEN 'throne'
+                            END
+               ORDER BY mi.received_at DESC, mi.id DESC
+             ) AS rn
+      FROM military_intel mi
+      WHERE mi.key_hash = ?
+        AND mi.province_id IN (${idList})
+        AND (mi.source IN ('som', 'council_military') OR mi.source = 'throne')
+    )
+    WHERE rn = 1
+  `).all(...params()) as any[];
+  for (const source of militaryRows) {
+    const row = byId.get(source.province_id)!;
+    if (source.source_group === "som") {
+      row.ome = source.ome;
+      row.dme = source.dme;
+      row.som_age = source.received_at;
+    } else {
+      row.throne_age = source.received_at;
+    }
+  }
+
+  const armyRows = db.prepare(`
+    WITH latest_military AS (
+      SELECT *
+      FROM (
+        SELECT mi.*,
+               CASE
+                 WHEN mi.source IN ('som', 'council_military') THEN 'som'
+                 WHEN mi.source = 'throne' THEN 'throne'
+               END AS source_group,
+               row_number() OVER (
+                 PARTITION BY mi.province_id,
+                              CASE
+                                WHEN mi.source IN ('som', 'council_military') THEN 'som'
+                                WHEN mi.source = 'throne' THEN 'throne'
+                              END
+                 ORDER BY mi.received_at DESC, mi.id DESC
+               ) AS rn
+        FROM military_intel mi
+        WHERE mi.key_hash = ?
+          AND mi.province_id IN (${idList})
+          AND (mi.source IN ('som', 'council_military') OR mi.source = 'throne')
+      )
+      WHERE rn = 1
     ),
     latest_military_som AS (
-      SELECT mi.id, mi.province_id, mi.ome, mi.dme, mi.received_at
-      FROM military_intel mi
-      WHERE mi.key_hash = @keyHash
-        AND mi.source IN ('som', 'council_military')
-        AND mi.id = (
-          SELECT id FROM military_intel mi2
-          WHERE mi2.province_id = mi.province_id
-            AND mi2.key_hash = mi.key_hash
-            AND mi2.source IN ('som', 'council_military')
-          ORDER BY mi2.received_at DESC
-          LIMIT 1
-        )
+      SELECT id, province_id, received_at
+      FROM latest_military
+      WHERE source_group = 'som'
     ),
     latest_military_throne AS (
-      SELECT mi.id, mi.province_id, mi.received_at
-      FROM military_intel mi
-      WHERE mi.key_hash = @keyHash
-        AND mi.source = 'throne'
-        AND mi.id = (
-          SELECT id FROM military_intel mi2
-          WHERE mi2.province_id = mi.province_id
-            AND mi2.key_hash = mi.key_hash
-            AND mi2.source = 'throne'
-          ORDER BY mi2.received_at DESC
-          LIMIT 1
-        )
+      SELECT id, province_id, received_at
+      FROM latest_military
+      WHERE source_group = 'throne'
     ),
     latest_army_intel AS (
       SELECT COALESCE(ms.province_id, mt.province_id) AS province_id,
@@ -1591,114 +1914,23 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
       JOIN som_armies sa ON sa.military_intel_id = mt.id AND sa.return_days IS NOT NULL
       GROUP BY mt.province_id
     )
-    SELECT p.id, p.name, p.kingdom,
-           (SELECT ls.slot FROM latest_slot ls WHERE ls.kingdom = p.kingdom AND ls.name = p.name) AS slot,
-           ${OVERVIEW_RACE_SQL}, ${OVERVIEW_PERS_SQL}, ${OVERVIEW_HONOR_SQL}, po.land, po.networth, po.received_at AS overview_age, po.source AS overview_source,
-           tmp.off_points, tmp.def_points, tmp.received_at AS military_age, tmp.source AS military_source,
-           pt.soldiers, pt.off_specs, pt.def_specs, pt.elites, pt.war_horses, pt.peasants, pt.received_at AS troops_age, pt.source AS troops_source,
-           pt_home.soldiers AS soldiers_home, pt_home.off_specs AS off_specs_home, pt_home.def_specs AS def_specs_home, pt_home.elites AS elites_home, pt_home.received_at AS troops_home_age,
-           pr.money, pr.food, pr.runes, pr.prisoners, pr.trade_balance, pr.building_efficiency, pr.stealth, pr.wizards, pr.mana, pr.received_at AS resources_age, pr.source AS resources_source,
-           (SELECT p2.total_pop FROM province_resources p2 WHERE p2.province_id = p.id AND p2.key_hash = @keyHash AND p2.total_pop IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS total_pop,
-           (SELECT p2.max_pop FROM province_resources p2 WHERE p2.province_id = p.id AND p2.key_hash = @keyHash AND p2.max_pop IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS max_pop,
-           -- Thieves come from the Infiltrate op, not SoT, so they live in a
-           -- separate province_resources row and are fetched independently.
-           (SELECT p2.thieves FROM province_resources p2 WHERE p2.province_id = p.id AND p2.key_hash = @keyHash AND p2.thieves IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS thieves,
-           (SELECT p2.received_at FROM province_resources p2 WHERE p2.province_id = p.id AND p2.key_hash = @keyHash AND p2.thieves IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS thieves_age,
-           (SELECT p2.free_specialist_credits FROM province_resources p2 WHERE p2.province_id = p.id AND p2.key_hash = @keyHash AND p2.free_specialist_credits IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS free_specialist_credits,
-           (SELECT p2.received_at FROM province_resources p2 WHERE p2.province_id = p.id AND p2.key_hash = @keyHash AND p2.free_specialist_credits IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS free_specialist_credits_age,
-           (SELECT p2.free_building_credits FROM province_resources p2 WHERE p2.province_id = p.id AND p2.key_hash = @keyHash AND p2.free_building_credits IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS free_building_credits,
-           (SELECT p2.received_at FROM province_resources p2 WHERE p2.province_id = p.id AND p2.key_hash = @keyHash AND p2.free_building_credits IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS free_building_credits_age,
-           ps.hit_status, ps.received_at AS status_age,
-           ss.effects_age, ss.good_spell_details, ss.bad_spell_details, ss.good_spell_count, ss.bad_spell_count,
-           hmp.mod_off_at_home AS off_home, hmp.mod_def_at_home AS def_home, hmp.received_at AS home_mil_age, hmp.source AS home_mil_source,
-           mi.ome, mi.dme, mi.received_at AS som_age,
-           sci.sciences_age, sci.crime_effect, sci.siege_effect,
-           srv.survey_age, srv.watch_towers_effect, srv.thieves_dens_effect, srv.castles_effect,
-           sci.channeling_effect, sci.shielding_effect, sci.science_total_books, sci.housing_effect,
-           srv.barren_land, srv.homes_built, srv.buildings_built, srv.buildings_in_progress,
-           mi_throne.received_at AS throne_age,
-           army.armies_out_count, army.land_incoming, army.earliest_return,
-           som_armies.som_armies_json, throne_armies.throne_armies_json,
-           p.cached_rtpa, p.cached_rtpa_age,
-           p.cached_mtpa, p.cached_mtpa_age,
-           p.cached_otpa, p.cached_otpa_age,
-           p.cached_dtpa, p.cached_dtpa_age,
-           p.cached_rwpa, p.cached_rwpa_age,
-           p.cached_mwpa, p.cached_mwpa_age
-    FROM provinces p
-    ${OVERVIEW_LAND_JOIN}
-    LEFT JOIN total_military_points tmp ON tmp.id = (
-      SELECT id FROM total_military_points
-      WHERE province_id = p.id AND key_hash = @keyHash ORDER BY received_at DESC LIMIT 1
-    )
-    -- pt = total troops from SoT; pt_home = home troops from SoM (separate rows, separate sources).
-    LEFT JOIN province_troops pt ON pt.id = (
-      SELECT id FROM province_troops
-      WHERE province_id = p.id AND key_hash = @keyHash AND source IN ('sot', 'throne') ORDER BY received_at DESC LIMIT 1
-    )
-    LEFT JOIN province_troops pt_home ON pt_home.id = (
-      SELECT id FROM province_troops
-      WHERE province_id = p.id AND key_hash = @keyHash AND source IN ('som', 'council_military') ORDER BY received_at DESC LIMIT 1
-    )
-    LEFT JOIN province_resources pr ON pr.id = (
-      SELECT id FROM province_resources
-      WHERE province_id = p.id AND key_hash = @keyHash AND source IN ('sot', 'throne') ORDER BY received_at DESC LIMIT 1
-    )
-    LEFT JOIN province_status ps ON ps.id = (
-      SELECT id FROM province_status
-      WHERE province_id = p.id AND key_hash = @keyHash ORDER BY received_at DESC LIMIT 1
-    )
-    LEFT JOIN spell_summary ss ON ss.province_id = p.id
-    LEFT JOIN science_summary sci ON sci.province_id = p.id
-    LEFT JOIN survey_summary srv ON srv.province_id = p.id
-    LEFT JOIN home_military_points hmp ON hmp.id = (
-      SELECT id FROM home_military_points
-      WHERE province_id = p.id AND key_hash = @keyHash ORDER BY received_at DESC LIMIT 1
-    )
-    -- mi = SoM intel (full troop counts); mi_throne = self throne intel (ETA/land only).
-    -- Army aggregate columns use whichever snapshot is newer.
-    LEFT JOIN latest_military_som mi ON mi.province_id = p.id
-    LEFT JOIN latest_military_throne mi_throne ON mi_throne.province_id = p.id
-    LEFT JOIN army_summary army ON army.province_id = p.id
-    LEFT JOIN som_armies_summary som_armies ON som_armies.province_id = p.id
-    LEFT JOIN throne_armies_summary throne_armies ON throne_armies.province_id = p.id
-    WHERE p.kingdom = @kingdom
-      AND po.id IS NOT NULL
-      AND EXISTS (
-        SELECT 1 FROM intel_partitions
-        WHERE key_hash = @keyHash AND province_id = p.id
-      )
-      -- Hide superseded provinces: after a reset, the old name keeps its slot
-      -- in historical snapshots. Show a province only if it is the current
-      -- holder of its slot (in latest_slot), or if it never appeared on any
-      -- kingdom page at all (SoT-only intel, no slot).
-      AND (
-        EXISTS (SELECT 1 FROM latest_slot WHERE kingdom = p.kingdom AND name = p.name)
-        OR NOT EXISTS (
-          SELECT 1 FROM kingdom_provinces kp
-          JOIN kingdom_intel ki ON kp.kingdom_intel_id = ki.id
-          WHERE ki.location = p.kingdom AND ki.key_hash = @keyHash AND kp.name = p.name
-        )
-      )
-    ORDER BY po.networth DESC NULLS LAST
-  `).all({ keyHash, kingdom }) as ProvinceRow[];
-
-  for (const row of rows) {
-    row.armies_out_json = mergeArmiesJson(row.som_armies_json, row.throne_armies_json, row.som_age, row.throne_age);
-    const allArmiesHome = (row.armies_out_count ?? 0) === 0;
-    const homeMilitaryNewer = !!row.home_mil_age && (!row.military_age || row.home_mil_age > row.military_age);
-    const homeMilitaryFromSoM = row.home_mil_source === "som" || row.home_mil_source === "council_military";
-    if (row.som_age && allArmiesHome && homeMilitaryNewer && homeMilitaryFromSoM) {
-      if (row.off_home != null) row.off_points = row.off_home;
-      if (row.def_home != null) row.def_points = row.def_home;
-      if (row.off_home != null || row.def_home != null) {
-        row.military_age = row.home_mil_age;
-        row.military_source = row.home_mil_source;
-      }
-    }
+    SELECT army.province_id, army.armies_out_count, army.land_incoming, army.earliest_return,
+           som_armies.som_armies_json, throne_armies.throne_armies_json
+    FROM army_summary army
+    LEFT JOIN som_armies_summary som_armies ON som_armies.province_id = army.province_id
+    LEFT JOIN throne_armies_summary throne_armies ON throne_armies.province_id = army.province_id
+  `).all(...params()) as any[];
+  for (const source of armyRows) {
+    Object.assign(byId.get(source.province_id)!, {
+      armies_out_count: source.armies_out_count,
+      land_incoming: source.land_incoming,
+      earliest_return: source.earliest_return,
+      som_armies_json: source.som_armies_json,
+      throne_armies_json: source.throne_armies_json,
+    });
   }
-  return rows;
 }
+
 export function getKingdomRitual(kingdom: string, keyHash: string): KingdomRitual | null {
   return createDbApi(getDb()).getKingdomRitual(kingdom, keyHash);
 }

@@ -1793,6 +1793,145 @@ test("getKingdomProvinces: armies_out_json uses throne ETA/land with SoM troop c
   });
 });
 
+test("getKingdomProvinces: batch hydration keeps intel attached to the right province", async () => {
+  await withRealDb(({ getKingdomProvinces }, db) => {
+    const provinceIds = new Map<string, number>();
+    for (const [name, race, land, networth] of [
+      ["Alpha", "Orc", 1200, 300000],
+      ["Beta", "Elf", 900, 200000],
+    ] as const) {
+      db.prepare("INSERT INTO provinces (name, kingdom) VALUES (?, '7:5')").run(name);
+      const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name = ? AND kingdom = '7:5'").get(name) as { id: number };
+      provinceIds.set(name, provId);
+      db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
+      db.prepare(`
+        INSERT INTO province_overview (province_id, key_hash, race, land, networth, source, saved_by, received_at)
+        VALUES (?, ?, ?, ?, ?, 'sot', ?, '2026-04-04 18:00:00')
+      `).run(provId, KEY_A, race, land, networth, name);
+    }
+
+    const alphaId = provinceIds.get("Alpha")!;
+    const betaId = provinceIds.get("Beta")!;
+
+    db.prepare(`
+      INSERT INTO total_military_points (province_id, key_hash, off_points, def_points, source, saved_by, received_at)
+      VALUES (?, ?, 111000, 99000, 'sot', 'Alpha', '2026-04-04 18:01:00')
+    `).run(alphaId, KEY_A);
+    db.prepare(`
+      INSERT INTO total_military_points (province_id, key_hash, off_points, def_points, source, saved_by, received_at)
+      VALUES (?, ?, 222000, 188000, 'sot', 'Beta', '2026-04-04 18:01:00')
+    `).run(betaId, KEY_A);
+
+    db.prepare(`
+      INSERT INTO province_troops (province_id, key_hash, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, saved_by, received_at)
+      VALUES (?, ?, 1000, 2000, 3000, 4000, 50, 9000, 'sot', 'Alpha', '2026-04-04 18:02:00')
+    `).run(alphaId, KEY_A);
+    db.prepare(`
+      INSERT INTO province_troops (province_id, key_hash, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, saved_by, received_at)
+      VALUES (?, ?, 5000, 6000, 7000, 8000, 75, 11000, 'sot', 'Beta', '2026-04-04 18:02:00')
+    `).run(betaId, KEY_A);
+    db.prepare(`
+      INSERT INTO province_troops (province_id, key_hash, soldiers, off_specs, def_specs, elites, source, saved_by, received_at)
+      VALUES (?, ?, 900, 1800, 2700, 3600, 'som', 'Alpha', '2026-04-04 18:03:00')
+    `).run(alphaId, KEY_A);
+    db.prepare(`
+      INSERT INTO province_troops (province_id, key_hash, soldiers, off_specs, def_specs, elites, source, saved_by, received_at)
+      VALUES (?, ?, 4500, 5400, 6300, 7200, 'som', 'Beta', '2026-04-04 18:03:00')
+    `).run(betaId, KEY_A);
+
+    db.prepare(`
+      INSERT INTO province_resources (province_id, key_hash, money, food, runes, prisoners, thieves, source, saved_by, received_at)
+      VALUES (?, ?, 123456, 1111, 2222, 33, 444, 'sot', 'Alpha', '2026-04-04 18:04:00')
+    `).run(alphaId, KEY_A);
+    db.prepare(`
+      INSERT INTO province_resources (province_id, key_hash, money, food, runes, prisoners, thieves, source, saved_by, received_at)
+      VALUES (?, ?, 654321, 3333, 4444, 55, 666, 'sot', 'Beta', '2026-04-04 18:04:00')
+    `).run(betaId, KEY_A);
+
+    db.prepare(`
+      INSERT INTO province_status (province_id, key_hash, hit_status, source, saved_by, received_at)
+      VALUES (?, ?, 'recently hit', 'sot', 'Alpha', '2026-04-04 18:05:00')
+    `).run(alphaId, KEY_A);
+    db.prepare(`
+      INSERT INTO province_status (province_id, key_hash, hit_status, source, saved_by, received_at)
+      VALUES (?, ?, 'protected', 'sot', 'Beta', '2026-04-04 18:05:00')
+    `).run(betaId, KEY_A);
+
+    const alphaSosId = Number(db.prepare(`
+      INSERT INTO sos_intel (province_id, key_hash, source, saved_by, received_at)
+      VALUES (?, ?, 'sos', 'Alpha', '2026-04-04 18:06:00')
+    `).run(alphaId, KEY_A).lastInsertRowid);
+    const betaSosId = Number(db.prepare(`
+      INSERT INTO sos_intel (province_id, key_hash, source, saved_by, received_at)
+      VALUES (?, ?, 'sos', 'Beta', '2026-04-04 18:06:00')
+    `).run(betaId, KEY_A).lastInsertRowid);
+    db.prepare("INSERT INTO sos_sciences (sos_intel_id, science, books, effect) VALUES (?, 'Crime', 100, 11)").run(alphaSosId);
+    db.prepare("INSERT INTO sos_sciences (sos_intel_id, science, books, effect) VALUES (?, 'Crime', 200, 22)").run(betaSosId);
+
+    const alphaSurveyId = Number(db.prepare(`
+      INSERT INTO survey_intel (province_id, key_hash, source, saved_by, received_at, thief_prevent_chance)
+      VALUES (?, ?, 'survey', 'Alpha', '2026-04-04 18:07:00', -5)
+    `).run(alphaId, KEY_A).lastInsertRowid);
+    const betaSurveyId = Number(db.prepare(`
+      INSERT INTO survey_intel (province_id, key_hash, source, saved_by, received_at, thief_prevent_chance)
+      VALUES (?, ?, 'survey', 'Beta', '2026-04-04 18:07:00', -15)
+    `).run(betaId, KEY_A).lastInsertRowid);
+    db.prepare("INSERT INTO survey_buildings (survey_intel_id, building, built, in_progress) VALUES (?, 'Homes', 101, 1)").run(alphaSurveyId);
+    db.prepare("INSERT INTO survey_buildings (survey_intel_id, building, built, in_progress) VALUES (?, 'Homes', 202, 2)").run(betaSurveyId);
+
+    const rowsByName = new Map(getKingdomProvinces("7:5", KEY_A).map((row) => [row.name, row]));
+    const alpha = rowsByName.get("Alpha")!;
+    const beta = rowsByName.get("Beta")!;
+
+    assert.equal(alpha.off_points, 111000);
+    assert.equal(beta.off_points, 222000);
+    assert.equal(alpha.soldiers, 1000);
+    assert.equal(beta.soldiers, 5000);
+    assert.equal(alpha.soldiers_home, 900);
+    assert.equal(beta.soldiers_home, 4500);
+    assert.equal(alpha.money, 123456);
+    assert.equal(beta.money, 654321);
+    assert.equal(alpha.hit_status, "recently hit");
+    assert.equal(beta.hit_status, "protected");
+    assert.equal(alpha.crime_effect, 11);
+    assert.equal(beta.crime_effect, 22);
+    assert.equal(alpha.homes_built, 101);
+    assert.equal(beta.homes_built, 202);
+  });
+});
+
+test("getKingdomProvinces: resource field hydration keeps latest non-null value per field", async () => {
+  await withRealDb(({ getKingdomProvinces }, db) => {
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();
+    const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name = 'Alpha' AND kingdom = '7:5'").get() as { id: number };
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
+    db.prepare(`
+      INSERT INTO province_overview (province_id, key_hash, race, land, networth, source, saved_by, received_at)
+      VALUES (?, ?, 'Elf', 900, 200000, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId, KEY_A);
+
+    db.prepare(`
+      INSERT INTO province_resources (province_id, key_hash, total_pop, max_pop, source, saved_by, received_at)
+      VALUES (?, ?, 12000, 15000, 'state', 'Alpha', '2026-04-04 18:01:00')
+    `).run(provId, KEY_A);
+    db.prepare(`
+      INSERT INTO province_resources (province_id, key_hash, thieves, source, saved_by, received_at)
+      VALUES (?, ?, 3333, 'infiltrate', 'Alpha', '2026-04-04 18:02:00')
+    `).run(provId, KEY_A);
+    db.prepare(`
+      INSERT INTO province_resources (province_id, key_hash, money, source, saved_by, received_at)
+      VALUES (?, ?, 999999, 'sot', 'Alpha', '2026-04-04 18:03:00')
+    `).run(provId, KEY_A);
+
+    const [row] = getKingdomProvinces("7:5", KEY_A);
+    assert.equal(row.money, 999999, "latest SoT resource row still provides normal resources");
+    assert.equal(row.total_pop, 12000, "older state row provides latest non-null total_pop");
+    assert.equal(row.max_pop, 15000, "older state row provides latest non-null max_pop");
+    assert.equal(row.thieves, 3333, "infiltrate row provides latest non-null thieves");
+    assert.equal(row.thieves_age, "2026-04-04 18:02:00");
+  });
+});
+
 test("getKingdomProvinces: newer all-home SoM supplies total offense and defense", async () => {
   await withRealDb(({ getKingdomProvinces }, db) => {
     db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();
