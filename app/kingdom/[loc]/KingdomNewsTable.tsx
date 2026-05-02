@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { KingdomTabs, btnBase, btnActive, btnInactive } from "./KingdomTabs";
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip as ChartTooltip, ReferenceLine, ResponsiveContainer, Legend } from "recharts";
 import { Tooltip as UiTooltip } from "@/app/components/Tooltip";
 import type { KingdomNewsRow, KingdomNewsSummary } from "@/lib/db";
@@ -264,6 +264,12 @@ function buildChartData(events: KingdomNewsRow[], ourKingdom: string) {
 
 function NewsChart({ events, ourKingdom }: { events: KingdomNewsRow[]; ourKingdom: string }) {
   const { chartData, kingdoms } = useMemo(() => buildChartData(events, ourKingdom), [events, ourKingdom]);
+  const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    setHiddenSeries((prev) => new Set([...prev].filter((kd) => kingdoms.includes(kd))));
+  }, [kingdoms]);
+
   if (chartData.length === 0) return <div className="text-xs text-gray-500 py-4">No combat data to chart.</div>;
 
   return (
@@ -279,10 +285,27 @@ function NewsChart({ events, ourKingdom }: { events: KingdomNewsRow[]; ourKingdo
             labelStyle={{ color: "#9ca3af" }}
             formatter={(val, name) => { const n = Number(val); return [`${n > 0 ? "+" : ""}${n.toLocaleString()}a`, String(name)]; }}
           />
-          <Legend wrapperStyle={{ fontSize: 11, color: "#9ca3af" }} />
+          <Legend
+            wrapperStyle={{ fontSize: 11, color: "#9ca3af", cursor: "pointer" }}
+            formatter={(value) => (
+              <span className="transition-colors hover:text-gray-100 hover:underline hover:underline-offset-2">
+                {value}
+              </span>
+            )}
+            onClick={(entry) => {
+              const kd = String(entry.dataKey ?? entry.value);
+              setHiddenSeries((prev) => {
+                const next = new Set(prev);
+                if (next.has(kd)) next.delete(kd);
+                else next.add(kd);
+                return next;
+              });
+            }}
+          />
           {kingdoms.map((kd, i) => (
             <Line key={kd} type="monotone" dataKey={kd} stroke={KD_COLORS[i % KD_COLORS.length]}
               dot={false} strokeWidth={kd === ourKingdom ? 2 : 1.5}
+              hide={hiddenSeries.has(kd)}
               strokeDasharray={kd === ourKingdom ? undefined : "4 2"} />
           ))}
         </LineChart>
