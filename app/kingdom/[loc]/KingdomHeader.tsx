@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { IntelSetupButton } from "@/app/components/IntelSetupButton";
+import { HeaderActions } from "@/app/components/HeaderActions";
 import { KingdomRelations } from "@/app/components/KingdomRelations";
 import { Tooltip, type TooltipLine } from "@/app/components/Tooltip";
 import type { KingdomDragon, KingdomRitual, KingdomSnapshot } from "@/lib/db";
@@ -107,8 +107,8 @@ export function KingdomHeader({
           />
         </div>
         <span className="text-sm text-gray-500">{provinceCount} provinces</span>
-        <div className="ml-auto flex items-center gap-2">
-          <IntelSetupButton endpointUrl={endpointUrl} />
+        <div className="ml-auto flex items-center gap-3">
+          <HeaderActions endpointUrl={endpointUrl} />
           <KingdomJump />
         </div>
       </div>

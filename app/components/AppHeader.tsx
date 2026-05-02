@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { IntelSetupButton } from "./IntelSetupButton";
+import { HeaderActions } from "./HeaderActions";
 import { KingdomJump } from "@/app/kingdom/[loc]/KingdomJump";
 import { logout } from "@/app/logout/action";
 
@@ -19,10 +19,7 @@ export function AppHeader({
           Chaos Intel
         </Link>
         <div className="flex items-center gap-3">
-          <Link href="/ops" className="text-sm text-gray-500 hover:text-gray-300 transition-colors">
-            Recent Ops
-          </Link>
-          <IntelSetupButton endpointUrl={endpointUrl} />
+          <HeaderActions endpointUrl={endpointUrl} />
           <form action={logout}>
             <button type="submit" className="text-sm text-gray-500 hover:text-gray-300 transition-colors">
               Sign out
