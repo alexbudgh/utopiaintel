@@ -1499,6 +1499,97 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
       FROM latest_sos si
       LEFT JOIN sos_sciences ss ON ss.sos_intel_id = si.id
       GROUP BY si.province_id, si.received_at
+    ),
+    latest_survey AS (
+      SELECT si.id, si.province_id, si.received_at, si.thief_prevent_chance, si.thievery_effectiveness, si.castles_effect
+      FROM survey_intel si
+      WHERE si.key_hash = @keyHash
+        AND si.id = (
+          SELECT id FROM survey_intel si2
+          WHERE si2.province_id = si.province_id AND si2.key_hash = si.key_hash
+          ORDER BY si2.received_at DESC
+          LIMIT 1
+        )
+    ),
+    survey_summary AS (
+      SELECT si.province_id,
+             si.received_at AS survey_age,
+             si.thief_prevent_chance AS watch_towers_effect,
+             si.thievery_effectiveness AS thieves_dens_effect,
+             si.castles_effect,
+             MAX(CASE WHEN sb.building = 'Barren Land' THEN sb.built END) AS barren_land,
+             MAX(CASE WHEN sb.building = 'Homes' THEN sb.built END) AS homes_built,
+             SUM(CASE WHEN sb.building != 'Barren Land' THEN sb.built ELSE 0 END) AS buildings_built,
+             SUM(sb.in_progress) AS buildings_in_progress
+      FROM latest_survey si
+      LEFT JOIN survey_buildings sb ON sb.survey_intel_id = si.id
+      GROUP BY si.province_id, si.received_at, si.thief_prevent_chance, si.thievery_effectiveness, si.castles_effect
+    ),
+    latest_military_som AS (
+      SELECT mi.id, mi.province_id, mi.ome, mi.dme, mi.received_at
+      FROM military_intel mi
+      WHERE mi.key_hash = @keyHash
+        AND mi.source IN ('som', 'council_military')
+        AND mi.id = (
+          SELECT id FROM military_intel mi2
+          WHERE mi2.province_id = mi.province_id
+            AND mi2.key_hash = mi.key_hash
+            AND mi2.source IN ('som', 'council_military')
+          ORDER BY mi2.received_at DESC
+          LIMIT 1
+        )
+    ),
+    latest_military_throne AS (
+      SELECT mi.id, mi.province_id, mi.received_at
+      FROM military_intel mi
+      WHERE mi.key_hash = @keyHash
+        AND mi.source = 'throne'
+        AND mi.id = (
+          SELECT id FROM military_intel mi2
+          WHERE mi2.province_id = mi.province_id
+            AND mi2.key_hash = mi.key_hash
+            AND mi2.source = 'throne'
+          ORDER BY mi2.received_at DESC
+          LIMIT 1
+        )
+    ),
+    latest_army_intel AS (
+      SELECT COALESCE(ms.province_id, mt.province_id) AS province_id,
+             CASE
+               WHEN mt.id IS NOT NULL AND (ms.id IS NULL OR mt.received_at > ms.received_at)
+                 THEN mt.id
+               ELSE ms.id
+             END AS military_intel_id
+      FROM latest_military_som ms
+      LEFT JOIN latest_military_throne mt ON mt.province_id = ms.province_id
+      UNION ALL
+      SELECT mt.province_id, mt.id
+      FROM latest_military_throne mt
+      LEFT JOIN latest_military_som ms ON ms.province_id = mt.province_id
+      WHERE ms.id IS NULL
+    ),
+    army_summary AS (
+      SELECT lai.province_id,
+             COUNT(sa.id) AS armies_out_count,
+             SUM(sa.land_gained) AS land_incoming,
+             MIN(sa.return_days) AS earliest_return
+      FROM latest_army_intel lai
+      LEFT JOIN som_armies sa ON sa.military_intel_id = lai.military_intel_id AND sa.return_days IS NOT NULL
+      GROUP BY lai.province_id
+    ),
+    som_armies_summary AS (
+      SELECT ms.province_id,
+             json_group_array(json_object('type', sa.army_type, 'generals', sa.generals, 'soldiers', sa.soldiers, 'offSpecs', sa.off_specs, 'defSpecs', sa.def_specs, 'elites', sa.elites, 'warHorses', sa.war_horses, 'thieves', sa.thieves, 'land', sa.land_gained, 'eta', sa.return_days)) AS som_armies_json
+      FROM latest_military_som ms
+      JOIN som_armies sa ON sa.military_intel_id = ms.id AND sa.return_days IS NOT NULL
+      GROUP BY ms.province_id
+    ),
+    throne_armies_summary AS (
+      SELECT mt.province_id,
+             json_group_array(json_object('type', sa.army_type, 'land', sa.land_gained, 'eta', sa.return_days)) AS throne_armies_json
+      FROM latest_military_throne mt
+      JOIN som_armies sa ON sa.military_intel_id = mt.id AND sa.return_days IS NOT NULL
+      GROUP BY mt.province_id
     )
     SELECT p.id, p.name, p.kingdom,
            (SELECT ls.slot FROM latest_slot ls WHERE ls.kingdom = p.kingdom AND ls.name = p.name) AS slot,
@@ -1522,21 +1613,12 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
            hmp.mod_off_at_home AS off_home, hmp.mod_def_at_home AS def_home, hmp.received_at AS home_mil_age, hmp.source AS home_mil_source,
            mi.ome, mi.dme, mi.received_at AS som_age,
            sci.sciences_age, sci.crime_effect, sci.siege_effect,
-           (SELECT si.received_at FROM survey_intel si WHERE si.province_id = p.id AND si.key_hash = @keyHash ORDER BY si.received_at DESC LIMIT 1) AS survey_age,
-           (SELECT si.thief_prevent_chance FROM survey_intel si WHERE si.province_id = p.id AND si.key_hash = @keyHash ORDER BY si.received_at DESC LIMIT 1) AS watch_towers_effect,
-           (SELECT si.thievery_effectiveness FROM survey_intel si WHERE si.province_id = p.id AND si.key_hash = @keyHash ORDER BY si.received_at DESC LIMIT 1) AS thieves_dens_effect,
-           (SELECT si.castles_effect FROM survey_intel si WHERE si.province_id = p.id AND si.key_hash = @keyHash ORDER BY si.received_at DESC LIMIT 1) AS castles_effect,
+           srv.survey_age, srv.watch_towers_effect, srv.thieves_dens_effect, srv.castles_effect,
            sci.channeling_effect, sci.shielding_effect, sci.science_total_books, sci.housing_effect,
-           (SELECT sb.built FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id AND key_hash = @keyHash ORDER BY received_at DESC LIMIT 1) AND sb.building = 'Barren Land') AS barren_land,
-           (SELECT sb.built FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id AND key_hash = @keyHash ORDER BY received_at DESC LIMIT 1) AND sb.building = 'Homes') AS homes_built,
-           (SELECT SUM(sb.built) FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id AND key_hash = @keyHash ORDER BY received_at DESC LIMIT 1) AND sb.building != 'Barren Land') AS buildings_built,
-           (SELECT SUM(sb.in_progress) FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id AND key_hash = @keyHash ORDER BY received_at DESC LIMIT 1)) AS buildings_in_progress,
+           srv.barren_land, srv.homes_built, srv.buildings_built, srv.buildings_in_progress,
            mi_throne.received_at AS throne_age,
-           (SELECT COUNT(*) FROM som_armies WHERE military_intel_id = (CASE WHEN mi_throne.id IS NOT NULL AND (mi.id IS NULL OR mi_throne.received_at > mi.received_at) THEN mi_throne.id ELSE mi.id END) AND return_days IS NOT NULL) AS armies_out_count,
-           (SELECT SUM(land_gained) FROM som_armies WHERE military_intel_id = (CASE WHEN mi_throne.id IS NOT NULL AND (mi.id IS NULL OR mi_throne.received_at > mi.received_at) THEN mi_throne.id ELSE mi.id END) AND return_days IS NOT NULL) AS land_incoming,
-           (SELECT MIN(return_days) FROM som_armies WHERE military_intel_id = (CASE WHEN mi_throne.id IS NOT NULL AND (mi.id IS NULL OR mi_throne.received_at > mi.received_at) THEN mi_throne.id ELSE mi.id END) AND return_days IS NOT NULL) AS earliest_return,
-           (SELECT json_group_array(json_object('type', army_type, 'generals', generals, 'soldiers', soldiers, 'offSpecs', off_specs, 'defSpecs', def_specs, 'elites', elites, 'warHorses', war_horses, 'thieves', thieves, 'land', land_gained, 'eta', return_days)) FROM som_armies WHERE military_intel_id = mi.id AND return_days IS NOT NULL) AS som_armies_json,
-           (SELECT json_group_array(json_object('type', army_type, 'land', land_gained, 'eta', return_days)) FROM som_armies WHERE military_intel_id = mi_throne.id AND return_days IS NOT NULL) AS throne_armies_json,
+           army.armies_out_count, army.land_incoming, army.earliest_return,
+           som_armies.som_armies_json, throne_armies.throne_armies_json,
            p.cached_rtpa, p.cached_rtpa_age,
            p.cached_mtpa, p.cached_mtpa_age,
            p.cached_otpa, p.cached_otpa_age,
@@ -1568,20 +1650,18 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
     )
     LEFT JOIN spell_summary ss ON ss.province_id = p.id
     LEFT JOIN science_summary sci ON sci.province_id = p.id
+    LEFT JOIN survey_summary srv ON srv.province_id = p.id
     LEFT JOIN home_military_points hmp ON hmp.id = (
       SELECT id FROM home_military_points
       WHERE province_id = p.id AND key_hash = @keyHash ORDER BY received_at DESC LIMIT 1
     )
     -- mi = SoM intel (full troop counts); mi_throne = self throne intel (ETA/land only).
-    -- Army aggregate columns use whichever is newer via the CASE below.
-    LEFT JOIN military_intel mi ON mi.id = (
-      SELECT id FROM military_intel
-      WHERE province_id = p.id AND key_hash = @keyHash AND source IN ('som', 'council_military') ORDER BY received_at DESC LIMIT 1
-    )
-    LEFT JOIN military_intel mi_throne ON mi_throne.id = (
-      SELECT id FROM military_intel
-      WHERE province_id = p.id AND key_hash = @keyHash AND source = 'throne' ORDER BY received_at DESC LIMIT 1
-    )
+    -- Army aggregate columns use whichever snapshot is newer.
+    LEFT JOIN latest_military_som mi ON mi.province_id = p.id
+    LEFT JOIN latest_military_throne mi_throne ON mi_throne.province_id = p.id
+    LEFT JOIN army_summary army ON army.province_id = p.id
+    LEFT JOIN som_armies_summary som_armies ON som_armies.province_id = p.id
+    LEFT JOIN throne_armies_summary throne_armies ON throne_armies.province_id = p.id
     WHERE p.kingdom = @kingdom
       AND po.id IS NOT NULL
       AND EXISTS (
