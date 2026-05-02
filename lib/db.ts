@@ -596,6 +596,8 @@ export function initSchema(db: Database.Database) {
       books INTEGER NOT NULL DEFAULT 0,
       effect REAL NOT NULL DEFAULT 0
     );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_sos_sciences_unique
+      ON sos_sciences(sos_intel_id, science);
 
     -- Auth partitioning: maps key_hash → province_id
     CREATE TABLE IF NOT EXISTS intel_partitions (
@@ -1473,6 +1475,30 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
       FROM latest_effects
       WHERE rn = 1
       GROUP BY province_id
+    ),
+    latest_sos AS (
+      SELECT si.id, si.province_id, si.received_at
+      FROM sos_intel si
+      WHERE si.key_hash = @keyHash
+        AND si.id = (
+          SELECT id FROM sos_intel si2
+          WHERE si2.province_id = si.province_id AND si2.key_hash = si.key_hash
+          ORDER BY si2.received_at DESC
+          LIMIT 1
+        )
+    ),
+    science_summary AS (
+      SELECT si.province_id,
+             si.received_at AS sciences_age,
+             MAX(CASE WHEN ss.science = 'Crime' THEN ss.effect END) AS crime_effect,
+             MAX(CASE WHEN ss.science = 'Siege' THEN ss.effect END) AS siege_effect,
+             MAX(CASE WHEN ss.science = 'Channeling' THEN ss.effect END) AS channeling_effect,
+             MAX(CASE WHEN ss.science = 'Shielding' THEN ss.effect END) AS shielding_effect,
+             MAX(CASE WHEN ss.science = 'Housing' THEN ss.effect END) AS housing_effect,
+             SUM(ss.books) AS science_total_books
+      FROM latest_sos si
+      LEFT JOIN sos_sciences ss ON ss.sos_intel_id = si.id
+      GROUP BY si.province_id, si.received_at
     )
     SELECT p.id, p.name, p.kingdom,
            (SELECT ls.slot FROM latest_slot ls WHERE ls.kingdom = p.kingdom AND ls.name = p.name) AS slot,
@@ -1495,17 +1521,12 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
            ss.effects_age, ss.good_spell_details, ss.bad_spell_details, ss.good_spell_count, ss.bad_spell_count,
            hmp.mod_off_at_home AS off_home, hmp.mod_def_at_home AS def_home, hmp.received_at AS home_mil_age, hmp.source AS home_mil_source,
            mi.ome, mi.dme, mi.received_at AS som_age,
-           (SELECT si.received_at FROM sos_intel si WHERE si.province_id = p.id AND si.key_hash = @keyHash ORDER BY si.received_at DESC LIMIT 1) AS sciences_age,
-           (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND si.key_hash = @keyHash AND ss.science = 'Crime' ORDER BY si.received_at DESC LIMIT 1) AS crime_effect,
-           (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND si.key_hash = @keyHash AND ss.science = 'Siege' ORDER BY si.received_at DESC LIMIT 1) AS siege_effect,
+           sci.sciences_age, sci.crime_effect, sci.siege_effect,
            (SELECT si.received_at FROM survey_intel si WHERE si.province_id = p.id AND si.key_hash = @keyHash ORDER BY si.received_at DESC LIMIT 1) AS survey_age,
            (SELECT si.thief_prevent_chance FROM survey_intel si WHERE si.province_id = p.id AND si.key_hash = @keyHash ORDER BY si.received_at DESC LIMIT 1) AS watch_towers_effect,
            (SELECT si.thievery_effectiveness FROM survey_intel si WHERE si.province_id = p.id AND si.key_hash = @keyHash ORDER BY si.received_at DESC LIMIT 1) AS thieves_dens_effect,
            (SELECT si.castles_effect FROM survey_intel si WHERE si.province_id = p.id AND si.key_hash = @keyHash ORDER BY si.received_at DESC LIMIT 1) AS castles_effect,
-           (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND si.key_hash = @keyHash AND ss.science = 'Channeling' ORDER BY si.received_at DESC LIMIT 1) AS channeling_effect,
-           (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND si.key_hash = @keyHash AND ss.science = 'Shielding' ORDER BY si.received_at DESC LIMIT 1) AS shielding_effect,
-           (SELECT SUM(ss.books) FROM sos_sciences ss WHERE ss.sos_intel_id = (SELECT id FROM sos_intel WHERE province_id = p.id AND key_hash = @keyHash ORDER BY received_at DESC LIMIT 1)) AS science_total_books,
-           (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND si.key_hash = @keyHash AND ss.science = 'Housing' ORDER BY si.received_at DESC LIMIT 1) AS housing_effect,
+           sci.channeling_effect, sci.shielding_effect, sci.science_total_books, sci.housing_effect,
            (SELECT sb.built FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id AND key_hash = @keyHash ORDER BY received_at DESC LIMIT 1) AND sb.building = 'Barren Land') AS barren_land,
            (SELECT sb.built FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id AND key_hash = @keyHash ORDER BY received_at DESC LIMIT 1) AND sb.building = 'Homes') AS homes_built,
            (SELECT SUM(sb.built) FROM survey_buildings sb WHERE sb.survey_intel_id = (SELECT id FROM survey_intel WHERE province_id = p.id AND key_hash = @keyHash ORDER BY received_at DESC LIMIT 1) AND sb.building != 'Barren Land') AS buildings_built,
@@ -1546,6 +1567,7 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
       WHERE province_id = p.id AND key_hash = @keyHash ORDER BY received_at DESC LIMIT 1
     )
     LEFT JOIN spell_summary ss ON ss.province_id = p.id
+    LEFT JOIN science_summary sci ON sci.province_id = p.id
     LEFT JOIN home_military_points hmp ON hmp.id = (
       SELECT id FROM home_military_points
       WHERE province_id = p.id AND key_hash = @keyHash ORDER BY received_at DESC LIMIT 1
