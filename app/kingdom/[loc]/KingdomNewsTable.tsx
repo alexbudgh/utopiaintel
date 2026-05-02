@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { KingdomTabs, btnBase, btnActive, btnInactive } from "./KingdomTabs";
 import { useState, useMemo } from "react";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine, ResponsiveContainer, Legend } from "recharts";
+import { LineChart, Line, XAxis, YAxis, Tooltip as ChartTooltip, ReferenceLine, ResponsiveContainer, Legend } from "recharts";
+import { Tooltip as UiTooltip } from "@/app/components/Tooltip";
 import type { KingdomNewsRow, KingdomNewsSummary } from "@/lib/db";
 import { parseUtopiaDate } from "@/lib/ui";
 
@@ -273,7 +274,7 @@ function NewsChart({ events, ourKingdom }: { events: KingdomNewsRow[]; ourKingdo
           <YAxis tick={{ fill: "#6b7280", fontSize: 10 }} tickLine={false} axisLine={false} width={48}
             tickFormatter={(v) => v === 0 ? "0" : `${v > 0 ? "+" : ""}${(v/1000).toFixed(0)}k`} />
           <ReferenceLine y={0} stroke="#374151" strokeDasharray="3 3" />
-          <Tooltip
+          <ChartTooltip
             contentStyle={{ background: "#111827", border: "1px solid #374151", fontSize: 11, borderRadius: 6 }}
             labelStyle={{ color: "#9ca3af" }}
             formatter={(val, name) => { const n = Number(val); return [`${n > 0 ? "+" : ""}${n.toLocaleString()}a`, String(name)]; }}
@@ -535,15 +536,21 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, effective
                         {warTarget && kd.kingdom === warTarget && <span className="text-orange-400">⚔</span>}
                       </Link>
                       {kdNet !== 0 && (
-                        <span className={`text-lg font-bold ${kdNet > 0 ? "text-green-300" : "text-red-300"}`}>
-                          {kdNet > 0 ? "+" : ""}{kdNet.toLocaleString()}a
-                        </span>
+                        <UiTooltip content="Net land change from attacks involving this kingdom in the selected news range.">
+                          <span className={`text-lg font-bold ${kdNet > 0 ? "text-green-300" : "text-red-300"}`}>
+                            {kdNet > 0 ? "+" : ""}{kdNet.toLocaleString()}a
+                          </span>
+                        </UiTooltip>
                       )}
                       {kd.totalHitsMade > 0 && (
-                        <span className={`text-sm font-medium ${gc}`}>↑ {kd.totalHitsMade}</span>
+                        <UiTooltip content="Outgoing attacks made by this kingdom in the selected news range.">
+                          <span className={`text-sm font-medium ${gc}`}>↑ {kd.totalHitsMade}</span>
+                        </UiTooltip>
                       )}
                       {kd.totalHitsTaken > 0 && (
-                        <span className={`text-sm font-medium ${lc}`}>↓ {kd.totalHitsTaken}</span>
+                        <UiTooltip content="Incoming attacks taken by this kingdom in the selected news range.">
+                          <span className={`text-sm font-medium ${lc}`}>↓ {kd.totalHitsTaken}</span>
+                        </UiTooltip>
                       )}
                     </div>
                     <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500">
