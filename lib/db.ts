@@ -1257,6 +1257,7 @@ export interface ProvinceRow {
   off_points: number | null;
   def_points: number | null;
   military_age: string | null;
+  military_source: string | null;
   soldiers: number | null;
   off_specs: number | null;
   def_specs: number | null;
@@ -1273,6 +1274,7 @@ export interface ProvinceRow {
   off_home: number | null;
   def_home: number | null;
   home_mil_age: string | null;
+  home_mil_source: string | null;
   money: number | null;
   food: number | null;
   runes: number | null;
@@ -1419,7 +1421,7 @@ export interface ScienceRow {
 export interface ProvinceDetail {
   province: { id: number; name: string; kingdom: string; slot: number | null } | null;
   overview: { race: string | null; personality: string | null; honorTitle: string | null; ruler: string | null; land: number | null; networth: number | null; source: string; savedBy: string | null; receivedAt: string } | null;
-  totalMilitary: { offPoints: number | null; defPoints: number | null; receivedAt: string } | null;
+  totalMilitary: { offPoints: number | null; defPoints: number | null; source: string; receivedAt: string } | null;
   homeMilitary: { modOffAtHome: number | null; modDefAtHome: number | null; source: string; receivedAt: string } | null;
   sot: { soldiers: number | null; offSpecs: number | null; defSpecs: number | null; elites: number | null; warHorses: number | null; peasants: number | null; source: string; receivedAt: string } | null;
   resources: { money: number | null; food: number | null; runes: number | null; prisoners: number | null; tradeBalance: number | null; buildingEfficiency: number | null; thieves: number | null; thievesAge: string | null; stealth: number | null; wizards: number | null; mana: number | null; totalPop: number | null; maxPop: number | null; freeSpecialistCredits: number | null; freeSpecialistCreditsAge: string | null; freeBuildingCredits: number | null; freeBuildingCreditsAge: string | null; receivedAt: string } | null;
@@ -1475,7 +1477,7 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
     SELECT p.id, p.name, p.kingdom,
            (SELECT ls.slot FROM latest_slot ls WHERE ls.kingdom = p.kingdom AND ls.name = p.name) AS slot,
            ${OVERVIEW_RACE_SQL}, ${OVERVIEW_PERS_SQL}, ${OVERVIEW_HONOR_SQL}, po.land, po.networth, po.received_at AS overview_age, po.source AS overview_source,
-           tmp.off_points, tmp.def_points, tmp.received_at AS military_age,
+           tmp.off_points, tmp.def_points, tmp.received_at AS military_age, tmp.source AS military_source,
            pt.soldiers, pt.off_specs, pt.def_specs, pt.elites, pt.war_horses, pt.peasants, pt.received_at AS troops_age, pt.source AS troops_source,
            pt_home.soldiers AS soldiers_home, pt_home.off_specs AS off_specs_home, pt_home.def_specs AS def_specs_home, pt_home.elites AS elites_home, pt_home.received_at AS troops_home_age,
            pr.money, pr.food, pr.runes, pr.prisoners, pr.trade_balance, pr.building_efficiency, pr.stealth, pr.wizards, pr.mana, pr.received_at AS resources_age, pr.source AS resources_source,
@@ -1491,7 +1493,7 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
            (SELECT p2.received_at FROM province_resources p2 WHERE p2.province_id = p.id AND p2.key_hash = @keyHash AND p2.free_building_credits IS NOT NULL ORDER BY p2.received_at DESC LIMIT 1) AS free_building_credits_age,
            ps.hit_status, ps.received_at AS status_age,
            ss.effects_age, ss.good_spell_details, ss.bad_spell_details, ss.good_spell_count, ss.bad_spell_count,
-           hmp.mod_off_at_home AS off_home, hmp.mod_def_at_home AS def_home, hmp.received_at AS home_mil_age,
+           hmp.mod_off_at_home AS off_home, hmp.mod_def_at_home AS def_home, hmp.received_at AS home_mil_age, hmp.source AS home_mil_source,
            mi.ome, mi.dme, mi.received_at AS som_age,
            (SELECT si.received_at FROM sos_intel si WHERE si.province_id = p.id AND si.key_hash = @keyHash ORDER BY si.received_at DESC LIMIT 1) AS sciences_age,
            (SELECT ss.effect FROM sos_intel si JOIN sos_sciences ss ON ss.sos_intel_id = si.id WHERE si.province_id = p.id AND si.key_hash = @keyHash AND ss.science = 'Crime' ORDER BY si.received_at DESC LIMIT 1) AS crime_effect,
@@ -1581,6 +1583,17 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
 
   for (const row of rows) {
     row.armies_out_json = mergeArmiesJson(row.som_armies_json, row.throne_armies_json, row.som_age, row.throne_age);
+    const allArmiesHome = (row.armies_out_count ?? 0) === 0;
+    const homeMilitaryNewer = !!row.home_mil_age && (!row.military_age || row.home_mil_age > row.military_age);
+    const homeMilitaryFromSoM = row.home_mil_source === "som" || row.home_mil_source === "council_military";
+    if (row.som_age && allArmiesHome && homeMilitaryNewer && homeMilitaryFromSoM) {
+      if (row.off_home != null) row.off_points = row.off_home;
+      if (row.def_home != null) row.def_points = row.def_home;
+      if (row.off_home != null || row.def_home != null) {
+        row.military_age = row.home_mil_age;
+        row.military_source = row.home_mil_source;
+      }
+    }
   }
   return rows;
 }
@@ -1618,14 +1631,43 @@ function getProvinceDetailForDb(db: Database.Database, name: string, kingdom: st
   const overview = queryOverview(db, id, keyHash);
 
   const tmRaw = db.prepare(
-    "SELECT off_points, def_points, received_at FROM total_military_points WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1"
-  ).get(id, keyHash) as any;
-  const totalMilitary = tmRaw ? { offPoints: tmRaw.off_points, defPoints: tmRaw.def_points, receivedAt: tmRaw.received_at } : null;
-
+    "SELECT off_points, def_points, source, received_at FROM total_military_points WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1"
+  ).get(id, keyHash) as { off_points: number | null; def_points: number | null; source: string; received_at: string } | undefined;
   const hmRaw = db.prepare(
     "SELECT mod_off_at_home, mod_def_at_home, source, received_at FROM home_military_points WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1"
-  ).get(id, keyHash) as any;
+  ).get(id, keyHash) as { mod_off_at_home: number | null; mod_def_at_home: number | null; source: string; received_at: string } | undefined;
   const homeMilitary = hmRaw ? { modOffAtHome: hmRaw.mod_off_at_home, modDefAtHome: hmRaw.mod_def_at_home, source: hmRaw.source, receivedAt: hmRaw.received_at } : null;
+
+  const armySnapshot = db.prepare(`
+    SELECT chosen.id AS military_intel_id, COUNT(sa.id) AS armies_out_count
+    FROM (
+      SELECT CASE
+        WHEN throne.id IS NOT NULL AND (som.id IS NULL OR throne.received_at > som.received_at)
+          THEN throne.id
+        ELSE som.id
+      END AS id
+      FROM (
+        SELECT id, received_at FROM military_intel
+        WHERE province_id = ? AND key_hash = ? AND source IN ('som', 'council_military')
+        ORDER BY received_at DESC LIMIT 1
+      ) som
+      LEFT JOIN (
+        SELECT id, received_at FROM military_intel
+        WHERE province_id = ? AND key_hash = ? AND source = 'throne'
+        ORDER BY received_at DESC LIMIT 1
+      ) throne ON 1 = 1
+    ) chosen
+    LEFT JOIN som_armies sa ON sa.military_intel_id = chosen.id AND sa.return_days IS NOT NULL
+  `).get(id, keyHash, id, keyHash) as { military_intel_id: number | null; armies_out_count: number } | undefined;
+
+  const allArmiesHome = armySnapshot?.military_intel_id != null && (armySnapshot.armies_out_count ?? 0) === 0;
+  const homeMilitaryNewer = !!hmRaw && (!tmRaw || hmRaw.received_at > tmRaw.received_at);
+  const homeMilitaryFromSoM = hmRaw?.source === "som" || hmRaw?.source === "council_military";
+  const totalMilitary = homeMilitaryFromSoM && homeMilitaryNewer && allArmiesHome && (hmRaw.mod_off_at_home != null || hmRaw.mod_def_at_home != null)
+    ? { offPoints: hmRaw.mod_off_at_home, defPoints: hmRaw.mod_def_at_home, source: hmRaw.source, receivedAt: hmRaw.received_at }
+    : tmRaw
+      ? { offPoints: tmRaw.off_points, defPoints: tmRaw.def_points, source: tmRaw.source, receivedAt: tmRaw.received_at }
+      : null;
 
   const troopsRaw = db.prepare(
     "SELECT soldiers, off_specs, def_specs, elites, war_horses, peasants, source, received_at FROM province_troops WHERE province_id = ? AND key_hash = ? AND source IN ('sot', 'throne') ORDER BY received_at DESC LIMIT 1"

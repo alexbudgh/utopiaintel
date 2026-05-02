@@ -31,8 +31,8 @@ const COLUMNS = [
   { key: "hit_status",  label: "MAP",         group: "Overview",  desc: "Multi-Attack Protection warning from SoT\nExamples: a little, moderately, pretty heavily, extremely badly" },
   { key: "building_efficiency", label: "BE",  group: "Overview",  desc: "Building efficiency"                         },
   { key: "armies",      label: "Armies",      group: "Overview",  desc: "Armies currently out (SoM): count · land incoming · soonest return" },
-  { key: "off_points",  label: "Off",         group: "Military",  desc: "Total modified offense (province-wide, SoT)" },
-  { key: "def_points",  label: "Def",         group: "Military",  desc: "Total modified defense (province-wide, SoT)" },
+  { key: "off_points",  label: "Off",         group: "Military",  desc: "Total modified offense\nSoT normally; newer SoM home offense when all armies are home" },
+  { key: "def_points",  label: "Def",         group: "Military",  desc: "Total modified defense\nSoT normally; newer SoM home defense when all armies are home" },
   { key: "soldiers",    label: "Soldiers",    group: "Military",  desc: "Total soldiers (SoT)"                        },
   { key: "off_specs",   label: "Off specs",   group: "Military",  desc: "Total off specs (SoT)"                       },
   { key: "def_specs",   label: "Def specs",   group: "Military",  desc: "Total def specs (SoT)"                       },
@@ -229,7 +229,7 @@ function sourceFor(p: ProvinceRow, key: ColKey): string | null {
   if (["money", "food", "runes", "prisoners", "trade_balance", "building_efficiency", "stealth", "thieves", "wizards", "mana"].includes(key)) return p.resources_source;
   if (key === "hit_status") return p.status_age ? "sot" : null;
   if (["ome", "dme"].includes(key)) return "som";
-  if (["off_points", "def_points"].includes(key)) return "sot";
+  if (["off_points", "def_points"].includes(key)) return p.military_source;
   if (["off_home", "def_home"].includes(key)) return p.home_mil_age ? "som/sod" : null;
   if (key === "age") return p.overview_source ?? (p.military_age ? "sot" : null);
   if (["rtpa", "mtpa", "otpa", "dtpa"].includes(key)) return null;

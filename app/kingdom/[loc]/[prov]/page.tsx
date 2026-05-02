@@ -256,7 +256,9 @@ export default async function ProvincePage({
               {d.totalMilitary && (
                 <>
                   <div className="flex items-center gap-2 mb-1 mt-2">
-                    <span className="text-xs text-gray-600">Total (SoT)</span>
+                    <span className="text-xs text-gray-600">
+                      Total ({d.totalMilitary.source === "som" || d.totalMilitary.source === "council_military" ? "SoM home" : d.totalMilitary.source})
+                    </span>
                     <Age iso={d.totalMilitary.receivedAt} />
                   </div>
                   <KV label="Off" value={d.totalMilitary.offPoints != null ? d.totalMilitary.offPoints.toLocaleString() : "—"} />

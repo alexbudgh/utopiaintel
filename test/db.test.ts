@@ -1793,6 +1793,76 @@ test("getKingdomProvinces: armies_out_json uses throne ETA/land with SoM troop c
   });
 });
 
+test("getKingdomProvinces: newer all-home SoM supplies total offense and defense", async () => {
+  await withRealDb(({ getKingdomProvinces }, db) => {
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();
+    const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name = 'Alpha' AND kingdom = '7:5'").get() as { id: number };
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
+    db.prepare(`
+      INSERT INTO province_overview (province_id, key_hash, race, land, networth, source, saved_by, received_at)
+      VALUES (?, ?, 'Orc', 1200, 300000, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId, KEY_A);
+    db.prepare(`
+      INSERT INTO total_military_points (province_id, key_hash, off_points, def_points, source, saved_by, received_at)
+      VALUES (?, ?, 90000, 80000, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId, KEY_A);
+    db.prepare(`
+      INSERT INTO home_military_points (province_id, key_hash, mod_off_at_home, mod_def_at_home, source, saved_by, received_at)
+      VALUES (?, ?, 123000, 111000, 'som', 'Alpha', '2026-04-04 19:00:00')
+    `).run(provId, KEY_A);
+    const somId = Number(db.prepare(`
+      INSERT INTO military_intel (province_id, key_hash, ome, dme, source, saved_by, received_at)
+      VALUES (?, ?, 110.5, 103.2, 'som', 'Alpha', '2026-04-04 19:00:00')
+    `).run(provId, KEY_A).lastInsertRowid);
+    db.prepare(`
+      INSERT INTO som_armies (military_intel_id, army_type, generals, soldiers, off_specs, def_specs, elites, war_horses, thieves, land_gained, return_days)
+      VALUES (?, 'home', 4, 100, 200, 300, 400, 0, 50, 0, NULL)
+    `).run(somId);
+
+    const provinces = getKingdomProvinces("7:5", KEY_A);
+    assert.equal(provinces.length, 1);
+    assert.equal(provinces[0].off_points, 123000);
+    assert.equal(provinces[0].def_points, 111000);
+    assert.equal(provinces[0].military_age, "2026-04-04 19:00:00");
+    assert.equal(provinces[0].military_source, "som");
+  });
+});
+
+test("getKingdomProvinces: newer SoM with army out does not supply total offense and defense", async () => {
+  await withRealDb(({ getKingdomProvinces }, db) => {
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();
+    const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name = 'Alpha' AND kingdom = '7:5'").get() as { id: number };
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
+    db.prepare(`
+      INSERT INTO province_overview (province_id, key_hash, race, land, networth, source, saved_by, received_at)
+      VALUES (?, ?, 'Orc', 1200, 300000, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId, KEY_A);
+    db.prepare(`
+      INSERT INTO total_military_points (province_id, key_hash, off_points, def_points, source, saved_by, received_at)
+      VALUES (?, ?, 90000, 80000, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId, KEY_A);
+    db.prepare(`
+      INSERT INTO home_military_points (province_id, key_hash, mod_off_at_home, mod_def_at_home, source, saved_by, received_at)
+      VALUES (?, ?, 123000, 111000, 'som', 'Alpha', '2026-04-04 19:00:00')
+    `).run(provId, KEY_A);
+    const somId = Number(db.prepare(`
+      INSERT INTO military_intel (province_id, key_hash, ome, dme, source, saved_by, received_at)
+      VALUES (?, ?, 110.5, 103.2, 'som', 'Alpha', '2026-04-04 19:00:00')
+    `).run(provId, KEY_A).lastInsertRowid);
+    db.prepare(`
+      INSERT INTO som_armies (military_intel_id, army_type, generals, soldiers, off_specs, def_specs, elites, war_horses, thieves, land_gained, return_days)
+      VALUES (?, 'out_1', 1, 100, 200, 300, 400, 0, 50, 12, 5.5)
+    `).run(somId);
+
+    const provinces = getKingdomProvinces("7:5", KEY_A);
+    assert.equal(provinces.length, 1);
+    assert.equal(provinces[0].off_points, 90000);
+    assert.equal(provinces[0].def_points, 80000);
+    assert.equal(provinces[0].military_age, "2026-04-04 18:00:00");
+    assert.equal(provinces[0].military_source, "sot");
+  });
+});
+
 test("metrics cache: TPA values use latest historical same-tick inputs after newer partial overview", async () => {
   await withRealDb(({ getKingdomProvinces }, db) => {
     db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();
@@ -2126,6 +2196,40 @@ test("getProvinceDetail: returns SoT/resources/status detail and enforces key ac
     assert.equal(denied.province, null);
     assert.equal(denied.sot, null);
     assert.deepEqual(denied.effects, []);
+  });
+});
+
+test("getProvinceDetail: newer all-home SoM supplies total offense and defense", async () => {
+  await withRealDb((api, db) => {
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();
+    const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name = 'Alpha' AND kingdom = '7:5'").get() as { id: number };
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
+    db.prepare(`
+      INSERT INTO province_overview (province_id, key_hash, race, land, networth, source, saved_by, received_at)
+      VALUES (?, ?, 'Orc', 1200, 300000, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId, KEY_A);
+    db.prepare(`
+      INSERT INTO total_military_points (province_id, key_hash, off_points, def_points, source, saved_by, received_at)
+      VALUES (?, ?, 90000, 80000, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(provId, KEY_A);
+    db.prepare(`
+      INSERT INTO home_military_points (province_id, key_hash, mod_off_at_home, mod_def_at_home, source, saved_by, received_at)
+      VALUES (?, ?, 123000, 111000, 'som', 'Alpha', '2026-04-04 19:00:00')
+    `).run(provId, KEY_A);
+    const somId = Number(db.prepare(`
+      INSERT INTO military_intel (province_id, key_hash, ome, dme, source, saved_by, received_at)
+      VALUES (?, ?, 110.5, 103.2, 'som', 'Alpha', '2026-04-04 19:00:00')
+    `).run(provId, KEY_A).lastInsertRowid);
+    db.prepare(`
+      INSERT INTO som_armies (military_intel_id, army_type, generals, soldiers, off_specs, def_specs, elites, war_horses, thieves, land_gained, return_days)
+      VALUES (?, 'home', 4, 100, 200, 300, 400, 0, 50, 0, NULL)
+    `).run(somId);
+
+    const detail = api.getProvinceDetail("Alpha", "7:5", KEY_A);
+    assert.equal(detail.totalMilitary?.offPoints, 123000);
+    assert.equal(detail.totalMilitary?.defPoints, 111000);
+    assert.equal(detail.totalMilitary?.source, "som");
+    assert.equal(detail.totalMilitary?.receivedAt, "2026-04-04 19:00:00");
   });
 });
 
