@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
+import { ScreenshotCarousel } from "@/app/components/ScreenshotCarousel";
 import { cookies, headers } from "next/headers";
 import { getBoundKingdom, getKingdoms, getLatestKingdomSnapshot, getKingdomRitual, getKingdomDragon, type KingdomSnapshot } from "@/lib/db";
 import { hashKey } from "@/lib/keys";
@@ -218,6 +219,13 @@ function LoggedOutHome({ endpointUrl }: { endpointUrl: string }) {
               ))}
             </dl>
           </div>
+        </section>
+
+        <section className="mt-16 space-y-6">
+          <div className="text-sm font-semibold uppercase tracking-[0.28em] text-amber-300/85">
+            Screenshots
+          </div>
+          <ScreenshotCarousel />
         </section>
 
         <section id="setup" className="mt-16 space-y-4">
