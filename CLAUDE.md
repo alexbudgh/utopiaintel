@@ -104,6 +104,7 @@ npm test
 npm run build
 rsync -avz --exclude=intel.db --exclude=node_modules/better-sqlite3 .next/standalone/ utopiaintel:~/utopiaintel/
 rsync -avz .next/static/ utopiaintel:~/utopiaintel/.next/static/
+rsync -avz public/ utopiaintel:~/utopiaintel/public/
 scp ecosystem.config.js utopiaintel:~/utopiaintel/
 ssh utopiaintel "pm2 reload ~/utopiaintel/ecosystem.config.js"
 ```
@@ -113,6 +114,7 @@ For the test instance (same SSH host, different directory and PM2 process):
 ```bash
 rsync -avz --exclude=intel.db --exclude=node_modules/better-sqlite3 .next/standalone/ utopiaintel:~/utopiaintel-test/
 rsync -avz .next/static/ utopiaintel:~/utopiaintel-test/.next/static/
+rsync -avz public/ utopiaintel:~/utopiaintel-test/public/
 scp ecosystem.test.config.js utopiaintel:~/utopiaintel-test/ecosystem.config.js
 ssh utopiaintel "pm2 reload ~/utopiaintel-test/ecosystem.config.js"
 ```
