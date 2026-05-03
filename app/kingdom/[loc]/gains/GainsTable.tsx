@@ -767,8 +767,8 @@ export function GainsTable({
 
   const targetLatestByName = new Map(targetLatest.map((p) => [p.name, p] as const));
 
-  const renderTargetHeader = (defender: KingdomSnapshotProvince) => (
-    <Tooltip content={`${defender.slot != null ? `Slot ${defender.slot}\n` : ""}${defender.name}\nNW ${defender.networth.toLocaleString()}\nLand ${defender.land.toLocaleString()}`}>
+  const renderTargetHeader = (defender: KingdomSnapshotProvince, defHome: number | null) => (
+    <Tooltip content={`${defender.slot != null ? `Slot ${defender.slot}\n` : ""}${defender.name}\nNW ${defender.networth.toLocaleString()}\nLand ${defender.land.toLocaleString()}${defHome != null ? `\nDef Home ${defHome.toLocaleString()}` : ""}`}>
       <Link href={`/kingdom/${encodeURIComponent(targetKingdom)}/${encodeURIComponent(defender.name)}`} className="hover:text-blue-300 transition-colors">
         <div>
           {defender.slot != null && (
@@ -777,7 +777,7 @@ export function GainsTable({
           {defender.name}
         </div>
         <div className="mt-1 text-[10px] font-normal text-gray-500">
-          {formatNum(defender.networth)} / {defender.land.toLocaleString()}a
+          {formatNum(defender.networth)} / {defender.land.toLocaleString()}a{defHome != null && <> / <span className="text-sky-600">{formatNum(defHome)} def</span></>}
         </div>
       </Link>
     </Tooltip>
@@ -803,7 +803,7 @@ export function GainsTable({
                   key={defender.name}
                   className={`${TARGET_COL_WIDTH} border-r border-gray-800 bg-gray-950 px-3 py-2 text-right font-medium text-gray-300`}
                 >
-                  {renderTargetHeader(defender)}
+                  {renderTargetHeader(defender, targetLatestByName.get(defender.name)?.def_home ?? null)}
                 </th>
               ))}
             </tr>
