@@ -258,7 +258,26 @@ function rknwBreakdown(rknw: number): { branch: string; calc: string; tone: Tool
   };
 }
 
-function estimateTitle(
+function toneClass(tone: TooltipLine["tone"] | undefined): string {
+  if (tone === "bad" || tone === "strong") return tone === "bad" ? "text-red-300" : "text-gray-100";
+  if (tone === "warn") return "text-amber-300";
+  if (tone === "good") return "text-green-300";
+  if (tone === "muted") return "text-gray-500";
+  return "text-gray-300";
+}
+
+function EstimateCell({
+  attacker,
+  defender,
+  selfAvgNetworth,
+  targetAvgNetworth,
+  defenderLatest,
+  relationState,
+  ourAttitudeToThem,
+  theirAttitudeToUs,
+  defenderBarrierEffect,
+  defenderEnemyBattleGainsEffect,
+}: {
   attacker: ProvinceRow,
   defender: KingdomSnapshotProvince,
   selfAvgNetworth: number,
@@ -269,7 +288,8 @@ function estimateTitle(
   theirAttitudeToUs: string | null,
   defenderBarrierEffect: number | null,
   defenderEnemyBattleGainsEffect: number | null,
-): ReactNode {
+}) {
+  const [mathOpen, setMathOpen] = useState(false);
   const estimate = estimateTraditionalMarchAcres({
     attackerLand: attacker.land,
     attackerNetworth: attacker.networth,
@@ -387,7 +407,7 @@ function estimateTitle(
   const summaryHighlights = [...highlights].sort((a, b) => b.impact - a.impact);
 
   return (
-    <div className="flex w-[30rem] max-w-[calc(100vw-2rem)] flex-col gap-2">
+    <div className={`flex max-w-[calc(100vw-2rem)] flex-col gap-2 ${mathOpen ? "w-[44rem]" : "w-[30rem]"}`}>
       <div className="rounded border border-gray-700 bg-gray-950/80 px-3 py-2">
         <div className="text-sm font-medium text-gray-100">
           {attacker.slot != null && (
@@ -446,84 +466,127 @@ function estimateTitle(
         </Section>
       </div>
 
-      <details className="rounded border border-gray-800 bg-gray-950/60 p-2.5">
+      <details className="rounded border border-gray-800 bg-gray-950/60 p-2.5" onToggle={(e) => setMathOpen((e.currentTarget as HTMLDetailsElement).open)}>
         <summary className="cursor-pointer select-none text-[10px] font-semibold uppercase tracking-wide text-gray-500">
           Detailed math
         </summary>
 
         <div className="mt-2 grid gap-2 md:grid-cols-2">
           <Section title="Relative NW">
-            <Row label="RPNW" value={`${fmt(defender.networth)} / ${fmt(attacker.networth ?? 0)} = ${estimate.rpnw.toFixed(3)} (${(estimate.rpnw * 100).toFixed(1)}%)`} tone="text-gray-100" />
-            <div className={factorClass(estimate.rpnwFactor)}>
-              {rpnwInfo.branch}
-            </div>
-            <div className={factorClass(estimate.rpnwFactor)}>
-              {rpnwInfo.calc}
-            </div>
-            <Row label="RKNW" value={`${fmt(targetAvgNetworth)} / ${fmt(selfAvgNetworth)} = ${estimate.rknw.toFixed(3)} (${(estimate.rknw * 100).toFixed(1)}%)`} tone="text-gray-100" />
-            <div className={factorClass(estimate.rknwFactor)}>
-              {rknwInfo.branch}
-            </div>
-            <div className={factorClass(estimate.rknwFactor)}>
-              {rknwInfo.calc}
-            </div>
+            <table className="w-full border-separate border-spacing-0">
+              <thead>
+                <tr className="text-gray-600">
+                  <th className="pb-1 pr-3 text-left font-normal">Factor</th>
+                  <th className="pb-1 pr-3 text-right font-normal">Value</th>
+                  <th className="pb-1 text-left font-normal">Detail</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="align-top">
+                  <td className="py-0.5 pr-3 text-gray-500">RPNW</td>
+                  <td className="py-0.5 pr-3 text-right tabular-nums">
+                    <span className={factorClass(estimate.rpnwFactor)}>{estimate.rpnwFactor.toFixed(3)}</span>
+                  </td>
+                  <td className="py-0.5 text-gray-100">
+                    {fmt(defender.networth)} / {fmt(attacker.networth ?? 0)} = {estimate.rpnw.toFixed(3)} ({(estimate.rpnw * 100).toFixed(1)}%)
+                    <div className={factorClass(estimate.rpnwFactor)}>{rpnwInfo.branch}</div>
+                    <div className={factorClass(estimate.rpnwFactor)}>{rpnwInfo.calc}</div>
+                  </td>
+                </tr>
+                <tr className="align-top">
+                  <td className="py-0.5 pr-3 text-gray-500">RKNW</td>
+                  <td className="py-0.5 pr-3 text-right tabular-nums">
+                    <span className={factorClass(estimate.rknwFactor)}>{estimate.rknwFactor.toFixed(3)}</span>
+                  </td>
+                  <td className="py-0.5 text-gray-100">
+                    {fmt(targetAvgNetworth)} / {fmt(selfAvgNetworth)} = {estimate.rknw.toFixed(3)} ({(estimate.rknw * 100).toFixed(1)}%)
+                    <div className={factorClass(estimate.rknwFactor)}>{rknwInfo.branch}</div>
+                    <div className={factorClass(estimate.rknwFactor)}>{rknwInfo.calc}</div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </Section>
 
-          <Section title="Relations, MAP, Castles, And Siege">
-            <Row label="Relation" value={relationState === "war" ? "War" : "Out of war"} tone={relationState === "war" ? "text-green-300" : "text-gray-300"} />
-            {relationInfo.map((line, i) => (
-              <div
-                key={i}
-                className={
-                  line.tone === "bad" ? "text-red-300"
-                  : line.tone === "warn" ? "text-amber-300"
-                  : line.tone === "good" ? "text-green-300"
-                  : line.tone === "strong" ? "text-gray-100"
-                  : line.tone === "muted" ? "text-gray-500"
-                  : "text-gray-300"
-                }
-              >
-                {line.text}
-              </div>
-            ))}
-            <Row label="MAP status" value={defenderLatest?.hit_status ?? "unknown"} tone={defenderLatest?.hit_status ? "text-gray-100" : "text-gray-500"} />
-            <div className={mapInfo.tone === "bad" ? "text-red-300" : mapInfo.tone === "warn" ? "text-amber-300" : mapInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
-              {mapInfo.branch}
-            </div>
-            <div className={mapInfo.tone === "bad" ? "text-red-300" : mapInfo.tone === "warn" ? "text-amber-300" : mapInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
-              {mapInfo.calc}
-            </div>
-            <Row label="Castles" value={estimate.castlesEffect != null ? `${estimate.castlesEffect.toFixed(2)}% protection` : "unknown"} tone={estimate.castlesEffect != null ? "text-gray-100" : "text-gray-500"} />
-            <div className={castlesInfo.tone === "bad" ? "text-red-300" : castlesInfo.tone === "warn" ? "text-amber-300" : castlesInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
-              {castlesInfo.branch}
-            </div>
-            <div className={castlesInfo.tone === "bad" ? "text-red-300" : castlesInfo.tone === "warn" ? "text-amber-300" : castlesInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
-              {castlesInfo.calc}
-            </div>
-            <Row label="Barrier ritual" value={estimate.barrierEffect != null ? `${estimate.barrierEffect.toFixed(2)}% battle loss reduction` : "not active"} tone={estimate.barrierEffect != null ? "text-gray-100" : "text-gray-500"} />
-            <div className={barrierInfo.tone === "bad" ? "text-red-300" : barrierInfo.tone === "warn" ? "text-amber-300" : barrierInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
-              {barrierInfo.branch}
-            </div>
-            <div className={barrierInfo.tone === "bad" ? "text-red-300" : barrierInfo.tone === "warn" ? "text-amber-300" : barrierInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
-              {barrierInfo.calc}
-            </div>
-            <Row label="Siege" value={estimate.siegeEffect != null ? `${estimate.siegeEffect.toFixed(2)}% battle gains` : "unknown"} tone={estimate.siegeEffect != null ? "text-gray-100" : "text-gray-500"} />
-            <div className={siegeInfo.tone === "bad" ? "text-red-300" : siegeInfo.tone === "warn" ? "text-amber-300" : siegeInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
-              {siegeInfo.branch}
-            </div>
-            <div className={siegeInfo.tone === "bad" ? "text-red-300" : siegeInfo.tone === "warn" ? "text-amber-300" : siegeInfo.tone === "muted" ? "text-gray-500" : "text-green-300"}>
-              {siegeInfo.calc}
-            </div>
-            <Row
-              label="Enemy Battle Gains doctrine"
-              value={estimate.enemyBattleGainsEffect != null ? `${estimate.enemyBattleGainsEffect > 0 ? "+" : ""}${estimate.enemyBattleGainsEffect.toFixed(1)}%` : "none"}
-              tone={estimate.enemyBattleGainsEffect != null ? "text-gray-100" : "text-gray-500"}
-            />
-            <div className={factorClass(estimate.enemyBattleGainsFactor)}>
-              {estimate.enemyBattleGainsEffect != null
-                ? `factor = 1 + ${estimate.enemyBattleGainsEffect.toFixed(1)}% = ${estimate.enemyBattleGainsFactor.toFixed(3)}`
-                : "factor = 1.000 (no doctrine data)"}
-            </div>
+          <Section title="Relations, MAP, Castles, and Siege">
+            <table className="w-full border-separate border-spacing-0">
+              <thead>
+                <tr className="text-gray-600">
+                  <th className="pb-1 pr-3 text-left font-normal">Factor</th>
+                  <th className="pb-1 pr-3 text-right font-normal">Value</th>
+                  <th className="pb-1 text-left font-normal">Detail</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="align-top">
+                  <td className="py-0.5 pr-3 text-gray-500">Relations</td>
+                  <td className="py-0.5 pr-3 text-right tabular-nums">
+                    <span className={factorClass(estimate.combinedRelationFactor)}>{estimate.combinedRelationFactor.toFixed(3)}</span>
+                  </td>
+                  <td className="py-0.5">
+                    <span className={relationState === "war" ? "text-green-300" : "text-gray-300"}>{relationState === "war" ? "War" : "Out of war"}</span>
+                    {relationInfo.map((line, i) => (
+                      <div key={i} className={toneClass(line.tone)}>{line.text}</div>
+                    ))}
+                  </td>
+                </tr>
+                <tr className="align-top">
+                  <td className="py-0.5 pr-3 text-gray-500">MAP</td>
+                  <td className="py-0.5 pr-3 text-right tabular-nums">
+                    <span className={factorClass(estimate.mapFactor)}>{estimate.mapFactor.toFixed(3)}</span>
+                  </td>
+                  <td className="py-0.5">
+                    <span className={defenderLatest?.hit_status ? "text-gray-100" : "text-gray-500"}>{defenderLatest?.hit_status ?? "unknown"}</span>
+                    <div className={toneClass(mapInfo.tone)}>{mapInfo.branch}</div>
+                    <div className={toneClass(mapInfo.tone)}>{mapInfo.calc}</div>
+                  </td>
+                </tr>
+                <tr className="align-top">
+                  <td className="py-0.5 pr-3 text-gray-500">Castles</td>
+                  <td className="py-0.5 pr-3 text-right tabular-nums">
+                    <span className={factorClass(estimate.castlesFactor)}>{estimate.castlesFactor.toFixed(3)}</span>
+                  </td>
+                  <td className="py-0.5">
+                    <span className={estimate.castlesEffect != null ? "text-gray-100" : "text-gray-500"}>{estimate.castlesEffect != null ? `${estimate.castlesEffect.toFixed(2)}% protection` : "unknown"}</span>
+                    <div className={toneClass(castlesInfo.tone)}>{castlesInfo.branch}</div>
+                    <div className={toneClass(castlesInfo.tone)}>{castlesInfo.calc}</div>
+                  </td>
+                </tr>
+                <tr className="align-top">
+                  <td className="py-0.5 pr-3 text-gray-500">Barrier</td>
+                  <td className="py-0.5 pr-3 text-right tabular-nums">
+                    <span className={factorClass(estimate.barrierFactor)}>{estimate.barrierFactor.toFixed(3)}</span>
+                  </td>
+                  <td className="py-0.5">
+                    <span className={estimate.barrierEffect != null ? "text-gray-100" : "text-gray-500"}>{estimate.barrierEffect != null ? `${estimate.barrierEffect.toFixed(2)}% battle loss reduction` : "not active"}</span>
+                    <div className={toneClass(barrierInfo.tone)}>{barrierInfo.branch}</div>
+                    <div className={toneClass(barrierInfo.tone)}>{barrierInfo.calc}</div>
+                  </td>
+                </tr>
+                <tr className="align-top">
+                  <td className="py-0.5 pr-3 text-gray-500">Siege</td>
+                  <td className="py-0.5 pr-3 text-right tabular-nums">
+                    <span className={factorClass(estimate.siegeFactor)}>{estimate.siegeFactor.toFixed(3)}</span>
+                  </td>
+                  <td className="py-0.5">
+                    <span className={estimate.siegeEffect != null ? "text-gray-100" : "text-gray-500"}>{estimate.siegeEffect != null ? `${estimate.siegeEffect.toFixed(2)}% battle gains` : "unknown"}</span>
+                    <div className={toneClass(siegeInfo.tone)}>{siegeInfo.branch}</div>
+                    <div className={toneClass(siegeInfo.tone)}>{siegeInfo.calc}</div>
+                  </td>
+                </tr>
+                <tr className="align-top">
+                  <td className="py-0.5 pr-3 text-gray-500">Doctrine</td>
+                  <td className="py-0.5 pr-3 text-right tabular-nums">
+                    <span className={factorClass(estimate.enemyBattleGainsFactor)}>{estimate.enemyBattleGainsFactor.toFixed(3)}</span>
+                  </td>
+                  <td className="py-0.5">
+                    <span className={estimate.enemyBattleGainsEffect != null ? "text-gray-100" : "text-gray-500"}>
+                      {estimate.enemyBattleGainsEffect != null ? `${estimate.enemyBattleGainsEffect > 0 ? "+" : ""}${estimate.enemyBattleGainsEffect.toFixed(1)}% battle gains` : "none"}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </Section>
         </div>
 
@@ -879,7 +942,7 @@ export function GainsTable({
                         selectedRowId === attacker.id ? "shadow-[inset_0_1px_0_rgba(59,130,246,0.45),inset_0_-1px_0_rgba(59,130,246,0.45)]" : ""
                       } ${tone.cell}`}
                     >
-                      <Tooltip content={estimateTitle(attacker, defender, selfAvgNetworth, targetAvgNetworth, defenderLatest, relationState, targetSnapshot.ourAttitudeToThem, targetSnapshot.theirAttitudeToUs, defenderBarrierEffect, enemyBattleGainsEffect)}>
+                      <Tooltip content={<EstimateCell attacker={attacker} defender={defender} selfAvgNetworth={selfAvgNetworth} targetAvgNetworth={targetAvgNetworth} defenderLatest={defenderLatest} relationState={relationState} ourAttitudeToThem={targetSnapshot.ourAttitudeToThem} theirAttitudeToUs={targetSnapshot.theirAttitudeToUs} defenderBarrierEffect={defenderBarrierEffect} defenderEnemyBattleGainsEffect={enemyBattleGainsEffect} />}>
                         <div className={tone.value}>
                           {estimate ? `${estimate.roundedAcres.toLocaleString()}a` : "—"}
                         </div>
