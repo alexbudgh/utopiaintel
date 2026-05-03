@@ -18,6 +18,13 @@ const SLIDES = [
     alt: "Kingdom history charts",
     caption: "Snapshot history — compare NW, land, and honor trends across kingdoms over time to track war progress and growth.",
   },
+  {
+    src: "/static/screenshot-gains.png",
+    width: 2796,
+    height: 1518,
+    alt: "Gains matrix view",
+    caption: "Gains matrix — Traditional March gain estimates for every attacker vs. target pairing, factoring in relative NW, MAP status, castles, and siege.",
+  },
 ];
 
 export function ScreenshotCarousel() {
