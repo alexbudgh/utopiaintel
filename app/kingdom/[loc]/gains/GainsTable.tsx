@@ -293,7 +293,6 @@ function EstimateCell({
   attackTimeOffset?: number,
   baseAttackTime?: number,
 }) {
-  const [mathOpen, setMathOpen] = useState(false);
   const estimate = estimateTraditionalMarchAcres({
     attackerLand: attacker.land,
     attackerNetworth: attacker.networth,
@@ -417,7 +416,7 @@ function EstimateCell({
   const summaryHighlights = [...highlights].sort((a, b) => b.impact - a.impact);
 
   return (
-    <div className={`flex max-w-[calc(100vw-2rem)] flex-col gap-2 ${mathOpen ? "w-[44rem]" : "w-[30rem]"}`}>
+    <div className="flex max-w-[calc(100vw-2rem)] w-[30rem] flex-col gap-2">
       <div className="rounded border border-gray-700 bg-gray-950/80 px-3 py-2">
         <div className="text-sm font-medium text-gray-100">
           {attacker.slot != null && (
@@ -476,7 +475,7 @@ function EstimateCell({
         </Section>
       </div>
 
-      <details className="rounded border border-gray-800 bg-gray-950/60 p-2.5" onToggle={(e) => setMathOpen((e.currentTarget as HTMLDetailsElement).open)}>
+      <details className="rounded border border-gray-800 bg-gray-950/60 p-2.5">
         <summary className="cursor-pointer select-none text-[10px] font-semibold uppercase tracking-wide text-gray-500">
           Detailed math
         </summary>
@@ -487,31 +486,36 @@ function EstimateCell({
               <thead>
                 <tr className="text-gray-600">
                   <th className="pb-1 pr-3 text-left font-normal">Factor</th>
-                  <th className="pb-1 pr-3 text-right font-normal">Value</th>
-                  <th className="pb-1 text-left font-normal">Detail</th>
+                  <th className="pb-1 text-right font-normal">Value</th>
                 </tr>
               </thead>
               <tbody>
                 <tr className="align-top">
-                  <td className="py-0.5 pr-3 text-gray-500">RPNW</td>
-                  <td className="py-0.5 pr-3 text-right tabular-nums">
-                    <span className={factorClass(estimate.rpnwFactor)}>{estimate.rpnwFactor.toFixed(3)}</span>
+                  <td className="py-0.5 pr-3 text-gray-500">
+                    <Tooltip content={[
+                      { text: `${fmt(defender.networth)} / ${fmt(attacker.networth ?? 0)} = ${estimate.rpnw.toFixed(3)} (${(estimate.rpnw * 100).toFixed(1)}%)` },
+                      { text: rpnwInfo.branch, tone: rpnwInfo.tone },
+                      { text: rpnwInfo.calc, tone: rpnwInfo.tone },
+                    ]}>
+                      <span className="cursor-help underline decoration-dotted decoration-gray-600">RPNW</span>
+                    </Tooltip>
                   </td>
-                  <td className="py-0.5 text-gray-100">
-                    {fmt(defender.networth)} / {fmt(attacker.networth ?? 0)} = {estimate.rpnw.toFixed(3)} ({(estimate.rpnw * 100).toFixed(1)}%)
-                    <div className={factorClass(estimate.rpnwFactor)}>{rpnwInfo.branch}</div>
-                    <div className={factorClass(estimate.rpnwFactor)}>{rpnwInfo.calc}</div>
+                  <td className="py-0.5 text-right tabular-nums">
+                    <span className={factorClass(estimate.rpnwFactor)}>{estimate.rpnwFactor.toFixed(3)}</span>
                   </td>
                 </tr>
                 <tr className="align-top">
-                  <td className="py-0.5 pr-3 text-gray-500">RKNW</td>
-                  <td className="py-0.5 pr-3 text-right tabular-nums">
-                    <span className={factorClass(estimate.rknwFactor)}>{estimate.rknwFactor.toFixed(3)}</span>
+                  <td className="py-0.5 pr-3 text-gray-500">
+                    <Tooltip content={[
+                      { text: `${fmt(targetAvgNetworth)} / ${fmt(selfAvgNetworth)} = ${estimate.rknw.toFixed(3)} (${(estimate.rknw * 100).toFixed(1)}%)` },
+                      { text: rknwInfo.branch, tone: rknwInfo.tone },
+                      { text: rknwInfo.calc, tone: rknwInfo.tone },
+                    ]}>
+                      <span className="cursor-help underline decoration-dotted decoration-gray-600">RKNW</span>
+                    </Tooltip>
                   </td>
-                  <td className="py-0.5 text-gray-100">
-                    {fmt(targetAvgNetworth)} / {fmt(selfAvgNetworth)} = {estimate.rknw.toFixed(3)} ({(estimate.rknw * 100).toFixed(1)}%)
-                    <div className={factorClass(estimate.rknwFactor)}>{rknwInfo.branch}</div>
-                    <div className={factorClass(estimate.rknwFactor)}>{rknwInfo.calc}</div>
+                  <td className="py-0.5 text-right tabular-nums">
+                    <span className={factorClass(estimate.rknwFactor)}>{estimate.rknwFactor.toFixed(3)}</span>
                   </td>
                 </tr>
               </tbody>
@@ -523,91 +527,103 @@ function EstimateCell({
               <thead>
                 <tr className="text-gray-600">
                   <th className="pb-1 pr-3 text-left font-normal">Factor</th>
-                  <th className="pb-1 pr-3 text-right font-normal">Value</th>
-                  <th className="pb-1 text-left font-normal">Detail</th>
+                  <th className="pb-1 text-right font-normal">Value</th>
                 </tr>
               </thead>
               <tbody>
                 <tr className="align-top">
-                  <td className="py-0.5 pr-3 text-gray-500">Relations</td>
-                  <td className="py-0.5 pr-3 text-right tabular-nums">
+                  <td className="py-0.5 pr-3 text-gray-500">
+                    <Tooltip content={[
+                      { text: relationState === "war" ? "War" : "Out of war", tone: relationState === "war" ? "good" : "default" },
+                      ...relationInfo,
+                    ]}>
+                      <span className="cursor-help underline decoration-dotted decoration-gray-600">Relations</span>
+                    </Tooltip>
+                  </td>
+                  <td className="py-0.5 text-right tabular-nums">
                     <span className={factorClass(estimate.combinedRelationFactor)}>{estimate.combinedRelationFactor.toFixed(3)}</span>
                   </td>
-                  <td className="py-0.5">
-                    <span className={relationState === "war" ? "text-green-300" : "text-gray-300"}>{relationState === "war" ? "War" : "Out of war"}</span>
-                    {relationInfo.map((line, i) => (
-                      <div key={i} className={toneClass(line.tone)}>{line.text}</div>
-                    ))}
-                  </td>
                 </tr>
                 <tr className="align-top">
-                  <td className="py-0.5 pr-3 text-gray-500">MAP</td>
-                  <td className="py-0.5 pr-3 text-right tabular-nums">
+                  <td className="py-0.5 pr-3 text-gray-500">
+                    <Tooltip content={[
+                      { text: defenderLatest?.hit_status ?? "unknown", tone: defenderLatest?.hit_status ? "default" : "muted" },
+                      { text: mapInfo.branch, tone: mapInfo.tone },
+                      { text: mapInfo.calc, tone: mapInfo.tone },
+                    ]}>
+                      <span className="cursor-help underline decoration-dotted decoration-gray-600">MAP</span>
+                    </Tooltip>
+                  </td>
+                  <td className="py-0.5 text-right tabular-nums">
                     <span className={factorClass(estimate.mapFactor)}>{estimate.mapFactor.toFixed(3)}</span>
                   </td>
-                  <td className="py-0.5">
-                    <span className={defenderLatest?.hit_status ? "text-gray-100" : "text-gray-500"}>{defenderLatest?.hit_status ?? "unknown"}</span>
-                    <div className={toneClass(mapInfo.tone)}>{mapInfo.branch}</div>
-                    <div className={toneClass(mapInfo.tone)}>{mapInfo.calc}</div>
-                  </td>
                 </tr>
                 <tr className="align-top">
-                  <td className="py-0.5 pr-3 text-gray-500">Castles</td>
-                  <td className="py-0.5 pr-3 text-right tabular-nums">
+                  <td className="py-0.5 pr-3 text-gray-500">
+                    <Tooltip content={[
+                      { text: estimate.castlesEffect != null ? `${estimate.castlesEffect.toFixed(2)}% protection` : "unknown", tone: estimate.castlesEffect != null ? "default" : "muted" },
+                      { text: castlesInfo.branch, tone: castlesInfo.tone },
+                      { text: castlesInfo.calc, tone: castlesInfo.tone },
+                    ]}>
+                      <span className="cursor-help underline decoration-dotted decoration-gray-600">Castles</span>
+                    </Tooltip>
+                  </td>
+                  <td className="py-0.5 text-right tabular-nums">
                     <span className={factorClass(estimate.castlesFactor)}>{estimate.castlesFactor.toFixed(3)}</span>
                   </td>
-                  <td className="py-0.5">
-                    <span className={estimate.castlesEffect != null ? "text-gray-100" : "text-gray-500"}>{estimate.castlesEffect != null ? `${estimate.castlesEffect.toFixed(2)}% protection` : "unknown"}</span>
-                    <div className={toneClass(castlesInfo.tone)}>{castlesInfo.branch}</div>
-                    <div className={toneClass(castlesInfo.tone)}>{castlesInfo.calc}</div>
-                  </td>
                 </tr>
                 <tr className="align-top">
-                  <td className="py-0.5 pr-3 text-gray-500">Barrier</td>
-                  <td className="py-0.5 pr-3 text-right tabular-nums">
+                  <td className="py-0.5 pr-3 text-gray-500">
+                    <Tooltip content={[
+                      { text: estimate.barrierEffect != null ? `${estimate.barrierEffect.toFixed(2)}% battle loss reduction` : "not active", tone: estimate.barrierEffect != null ? "default" : "muted" },
+                      { text: barrierInfo.branch, tone: barrierInfo.tone },
+                      { text: barrierInfo.calc, tone: barrierInfo.tone },
+                    ]}>
+                      <span className="cursor-help underline decoration-dotted decoration-gray-600">Barrier</span>
+                    </Tooltip>
+                  </td>
+                  <td className="py-0.5 text-right tabular-nums">
                     <span className={factorClass(estimate.barrierFactor)}>{estimate.barrierFactor.toFixed(3)}</span>
                   </td>
-                  <td className="py-0.5">
-                    <span className={estimate.barrierEffect != null ? "text-gray-100" : "text-gray-500"}>{estimate.barrierEffect != null ? `${estimate.barrierEffect.toFixed(2)}% battle loss reduction` : "not active"}</span>
-                    <div className={toneClass(barrierInfo.tone)}>{barrierInfo.branch}</div>
-                    <div className={toneClass(barrierInfo.tone)}>{barrierInfo.calc}</div>
-                  </td>
                 </tr>
                 <tr className="align-top">
-                  <td className="py-0.5 pr-3 text-gray-500">Siege</td>
-                  <td className="py-0.5 pr-3 text-right tabular-nums">
+                  <td className="py-0.5 pr-3 text-gray-500">
+                    <Tooltip content={[
+                      { text: estimate.siegeEffect != null ? `${estimate.siegeEffect.toFixed(2)}% battle gains` : "unknown", tone: estimate.siegeEffect != null ? "default" : "muted" },
+                      { text: siegeInfo.branch, tone: siegeInfo.tone },
+                      { text: siegeInfo.calc, tone: siegeInfo.tone },
+                    ]}>
+                      <span className="cursor-help underline decoration-dotted decoration-gray-600">Siege</span>
+                    </Tooltip>
+                  </td>
+                  <td className="py-0.5 text-right tabular-nums">
                     <span className={factorClass(estimate.siegeFactor)}>{estimate.siegeFactor.toFixed(3)}</span>
                   </td>
-                  <td className="py-0.5">
-                    <span className={estimate.siegeEffect != null ? "text-gray-100" : "text-gray-500"}>{estimate.siegeEffect != null ? `${estimate.siegeEffect.toFixed(2)}% battle gains` : "unknown"}</span>
-                    <div className={toneClass(siegeInfo.tone)}>{siegeInfo.branch}</div>
-                    <div className={toneClass(siegeInfo.tone)}>{siegeInfo.calc}</div>
-                  </td>
                 </tr>
                 <tr className="align-top">
-                  <td className="py-0.5 pr-3 text-gray-500">Doctrine</td>
-                  <td className="py-0.5 pr-3 text-right tabular-nums">
-                    <span className={factorClass(estimate.enemyBattleGainsFactor)}>{estimate.enemyBattleGainsFactor.toFixed(3)}</span>
+                  <td className="py-0.5 pr-3 text-gray-500">
+                    <Tooltip content={[
+                      { text: estimate.enemyBattleGainsEffect != null ? `${estimate.enemyBattleGainsEffect > 0 ? "+" : ""}${estimate.enemyBattleGainsEffect.toFixed(1)}% battle gains` : "none", tone: estimate.enemyBattleGainsEffect != null ? "default" : "muted" },
+                    ]}>
+                      <span className="cursor-help underline decoration-dotted decoration-gray-600">Doctrine</span>
+                    </Tooltip>
                   </td>
-                  <td className="py-0.5">
-                    <span className={estimate.enemyBattleGainsEffect != null ? "text-gray-100" : "text-gray-500"}>
-                      {estimate.enemyBattleGainsEffect != null ? `${estimate.enemyBattleGainsEffect > 0 ? "+" : ""}${estimate.enemyBattleGainsEffect.toFixed(1)}% battle gains` : "none"}
-                    </span>
+                  <td className="py-0.5 text-right tabular-nums">
+                    <span className={factorClass(estimate.enemyBattleGainsFactor)}>{estimate.enemyBattleGainsFactor.toFixed(3)}</span>
                   </td>
                 </tr>
                 {estimate.attackTimeOffset !== 0 && (
                   <tr className="align-top">
-                    <td className="py-0.5 pr-3 text-gray-500">Atk Time</td>
-                    <td className="py-0.5 pr-3 text-right tabular-nums">
-                      <span className={factorClass(estimate.attackTimeFactor)}>{estimate.attackTimeFactor.toFixed(3)}</span>
+                    <td className="py-0.5 pr-3 text-gray-500">
+                      <Tooltip content={[
+                        { text: `${estimate.attackTimeOffset > 0 ? "+" : ""}${estimate.attackTimeOffset}h / base ${estimate.baseAttackTime}h` },
+                        { text: `1 + (${estimate.attackTimeOffset}/${estimate.baseAttackTime}) × ${((ATTACK_TIME_SCALING[estimate.attackTimeOffset] ?? 0) * 100).toFixed(0)}% = ${estimate.attackTimeFactor.toFixed(3)}`, tone: "muted" },
+                      ]}>
+                        <span className="cursor-help underline decoration-dotted decoration-gray-600">Atk Time</span>
+                      </Tooltip>
                     </td>
-                    <td className="py-0.5">
-                      <span className={factorClass(estimate.attackTimeFactor)}>
-                        {estimate.attackTimeOffset > 0 ? "+" : ""}{estimate.attackTimeOffset}h / base {estimate.baseAttackTime}h
-                      </span>
-                      <div className="text-gray-500">
-                        1 + ({estimate.attackTimeOffset}/{estimate.baseAttackTime}) × {((ATTACK_TIME_SCALING[estimate.attackTimeOffset] ?? 0) * 100).toFixed(0)}% = {estimate.attackTimeFactor.toFixed(3)}
-                      </div>
+                    <td className="py-0.5 text-right tabular-nums">
+                      <span className={factorClass(estimate.attackTimeFactor)}>{estimate.attackTimeFactor.toFixed(3)}</span>
                     </td>
                   </tr>
                 )}

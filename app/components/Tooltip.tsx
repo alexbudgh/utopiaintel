@@ -1,6 +1,8 @@
 "use client";
 
-import { type CSSProperties, type ReactNode, useLayoutEffect, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, createContext, useContext, useLayoutEffect, useRef, useState } from "react";
+
+const TooltipKeepAliveContext = createContext<(() => void) | null>(null);
 import { createPortal } from "react-dom";
 
 export interface TooltipLine {
@@ -32,6 +34,7 @@ function isTooltipLines(content: ReactNode | string | TooltipLine[]): content is
 }
 
 export function Tooltip({ content, children }: { content: ReactNode | string | TooltipLine[]; children: ReactNode }) {
+  const keepParentAlive = useContext(TooltipKeepAliveContext);
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
   const [style, setStyle] = useState<CSSProperties | null>(null);
   const [open, setOpen] = useState(false);
@@ -113,6 +116,7 @@ export function Tooltip({ content, children }: { content: ReactNode | string | T
   const customContent: ReactNode | null = lines ? null : (content as ReactNode);
 
   return (
+    <TooltipKeepAliveContext.Provider value={clearCloseTimer}>
     <span
       className="inline-block"
       onMouseEnter={(e) => {
@@ -140,6 +144,7 @@ export function Tooltip({ content, children }: { content: ReactNode | string | T
           style={style ?? { left: anchor.left, top: anchor.top - 8 }}
           onMouseEnter={() => {
             clearCloseTimer();
+            keepParentAlive?.();
             setOpen(true);
           }}
           onMouseLeave={scheduleClose}
@@ -155,5 +160,6 @@ export function Tooltip({ content, children }: { content: ReactNode | string | T
         document.body,
       )}
     </span>
+    </TooltipKeepAliveContext.Provider>
   );
 }
