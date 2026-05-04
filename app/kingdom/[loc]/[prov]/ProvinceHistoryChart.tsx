@@ -7,7 +7,7 @@ import type { Payload } from "recharts/types/component/DefaultTooltipContent";
 import type { ProvinceHistoryPoint } from "@/lib/db";
 import { formatNum } from "@/lib/ui";
 
-type MetricKey = keyof Omit<ProvinceHistoryPoint, "receivedAt" | "sources" | "savedBy">;
+type MetricKey = keyof Omit<ProvinceHistoryPoint, "receivedAt" | "meta">;
 
 interface MetricConfig {
   key: MetricKey;
@@ -43,24 +43,26 @@ const NICE_BUCKETS_MS = [
   60 * 60_000, 120 * 60_000, 240 * 60_000,
 ];
 
-function chartLabel(isoStr: string): string {
+function chartLabel(isoStr: string, tz: "UTC" | "local"): string {
   const d = new Date(isoStr.replace(" ", "T") + "Z");
   return d.toLocaleString("en-US", {
     month: "short", day: "numeric",
     hour: "2-digit", minute: "2-digit",
-    hour12: false, timeZone: "UTC",
+    hour12: false,
+    timeZone: tz === "UTC" ? "UTC" : undefined,
   });
 }
+
+type MetaMap = Partial<Record<string, { sources: string[]; savedBy: string[] }>>;
 
 type ChartRow = {
   iso: string;
   label: string;
-  sources: string[];
-  savedBy: string[];
+  meta: MetaMap;
   bucketed: boolean;
 } & Partial<Record<MetricKey, number>>;
 
-function buildRows(history: ProvinceHistoryPoint[]): ChartRow[] {
+function buildRows(history: ProvinceHistoryPoint[], tz: "UTC" | "local"): ChartRow[] {
   if (history.length === 0) return [];
 
   const toMs = (iso: string) => new Date(iso.replace(" ", "T") + "Z").getTime();
@@ -76,9 +78,8 @@ function buildRows(history: ProvinceHistoryPoint[]): ChartRow[] {
     return history.map((point) => {
       const row: ChartRow = {
         iso: point.receivedAt,
-        label: chartLabel(point.receivedAt),
-        sources: point.sources,
-        savedBy: point.savedBy,
+        label: chartLabel(point.receivedAt, tz),
+        meta: point.meta,
         bucketed: false,
       };
       for (const m of METRICS) {
@@ -98,13 +99,15 @@ function buildRows(history: ProvinceHistoryPoint[]): ChartRow[] {
 
   return [...groups.entries()].sort(([a], [b]) => a - b).map(([bucketStart, points]) => {
     const iso = new Date(bucketStart).toISOString().replace("T", " ").replace(".000Z", "");
-    const row: ChartRow = {
-      iso,
-      label: chartLabel(iso),
-      sources: [...new Set(points.flatMap((p) => p.sources))],
-      savedBy: [...new Set(points.flatMap((p) => p.savedBy))],
-      bucketed: true,
-    };
+    const meta: MetaMap = {};
+    for (const p of points) {
+      for (const [key, m] of Object.entries(p.meta)) {
+        const existing = meta[key] ?? (meta[key] = { sources: [], savedBy: [] });
+        for (const s of m!.sources) if (!existing.sources.includes(s)) existing.sources.push(s);
+        for (const s of m!.savedBy) if (!existing.savedBy.includes(s)) existing.savedBy.push(s);
+      }
+    }
+    const row: ChartRow = { iso, label: chartLabel(iso, tz), meta, bucketed: true };
     for (const m of METRICS) {
       const vals = points.map((p) => p[m.key]).filter((v): v is number => v != null);
       if (vals.length > 0) row[m.key] = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
@@ -113,7 +116,7 @@ function buildRows(history: ProvinceHistoryPoint[]): ChartRow[] {
   });
 }
 
-function ChartTooltip({ active, payload }: TooltipContentProps<number, string>) {
+function ChartTooltip({ active, payload, tz }: TooltipContentProps<number, string> & { tz: "UTC" | "local" }) {
   if (!active || !payload?.length) return null;
   const point = (payload[0] as Payload<number, string> | undefined)?.payload as ChartRow | undefined;
   if (!point) return null;
@@ -123,25 +126,33 @@ function ChartTooltip({ active, payload }: TooltipContentProps<number, string>) 
   return (
     <div className="rounded border border-gray-700 bg-gray-900 p-2 text-xs shadow-lg" style={{ minWidth: 160 }}>
       <div className="mb-1 font-medium text-gray-200">
-        {point.label}{point.bucketed && <span className="ml-1 text-gray-500">(avg)</span>}
+        {point.label}
+        <span className="ml-1 text-gray-500">
+          {tz === "UTC" ? "UTC" : Intl.DateTimeFormat().resolvedOptions().timeZone}
+          {point.bucketed && " · avg"}
+        </span>
       </div>
-      <div className="mb-1.5 space-y-0.5">
+      <div className="space-y-0.5">
         {visible.map((p: Payload<number, string>) => {
           const cfg = METRIC_BY_KEY.get(p.dataKey as MetricKey);
+          const m = point.meta[p.dataKey as string];
           return (
-            <div key={String(p.dataKey)} className="flex items-center justify-between gap-3">
-              <span style={{ color: cfg?.color ?? "#9ca3af" }}>{p.name}</span>
-              <span className="tabular-nums text-gray-200">{Number(p.value).toLocaleString()}</span>
+            <div key={String(p.dataKey)}>
+              <div className="flex items-center justify-between gap-3">
+                <span style={{ color: cfg?.color ?? "#9ca3af" }}>{p.name}</span>
+                <span className="tabular-nums text-gray-200">{Number(p.value).toLocaleString()}</span>
+              </div>
+              {m && (m.sources.length > 0 || m.savedBy.length > 0) && (
+                <div className="pl-1 text-gray-600">
+                  {m.sources.length > 0 && <span>{m.sources.join(", ")}</span>}
+                  {m.sources.length > 0 && m.savedBy.length > 0 && <span> · </span>}
+                  {m.savedBy.length > 0 && <span>{m.savedBy.join(", ")}</span>}
+                </div>
+              )}
             </div>
           );
         })}
       </div>
-      {(point.sources.length > 0 || point.savedBy.length > 0) && (
-        <div className="border-t border-gray-700 pt-1 text-gray-500">
-          {point.sources.length > 0 && <div>via {point.sources.join(", ")}</div>}
-          {point.savedBy.length > 0 && <div>by {point.savedBy.join(", ")}</div>}
-        </div>
-      )}
     </div>
   );
 }
@@ -152,16 +163,17 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
   );
   const [open, setOpen] = useState(false);
   const [hoveredLine, setHoveredLine] = useState<MetricKey | null>(null);
+  const [tz, setTz] = useState<"UTC" | "local">("UTC");
 
   if (history.length < 2) return null;
 
-  const data = useMemo(() => buildRows(history), [history]);
+  const data = useMemo(() => buildRows(history, tz), [history, tz]);
   const visibleMetrics = METRICS.filter((m) => !hidden.has(m.key));
   const hasLarge = visibleMetrics.some((m) => m.axis === "large");
   const hasSmall = visibleMetrics.some((m) => m.axis === "small");
   const bucketed = data.some((r) => r.bucketed);
 
-  const summary = `${history.length} snapshot${history.length === 1 ? "" : "s"} from ${chartLabel(history[0].receivedAt)} to ${chartLabel(history[history.length - 1].receivedAt)}`;
+  const summary = `${history.length} snapshot${history.length === 1 ? "" : "s"} from ${chartLabel(history[0].receivedAt, tz)} to ${chartLabel(history[history.length - 1].receivedAt, tz)}`;
 
   const axisStyle = { fill: "#6b7280", fontSize: 10 };
 
@@ -174,13 +186,23 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
             {summary}{bucketed && ` · averaged into ${data.length} buckets`}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="inline-flex items-center rounded border border-gray-700 bg-gray-900 px-2.5 py-1 text-xs text-gray-300 transition-colors hover:border-gray-500 hover:text-gray-100"
-        >
-          {open ? "Hide chart" : "Show chart"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setTz((v) => v === "UTC" ? "local" : "UTC")}
+            className="inline-flex items-center rounded border border-gray-700 bg-gray-900 px-2.5 py-1 text-xs text-gray-400 transition-colors hover:border-gray-500 hover:text-gray-100"
+            title={tz === "UTC" ? "Switch to local time" : "Switch to UTC"}
+          >
+            {tz === "UTC" ? "UTC" : "Local"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="inline-flex items-center rounded border border-gray-700 bg-gray-900 px-2.5 py-1 text-xs text-gray-300 transition-colors hover:border-gray-500 hover:text-gray-100"
+          >
+            {open ? "Hide chart" : "Show chart"}
+          </button>
+        </div>
       </div>
       {open && (
         <div className="mt-3">
@@ -191,7 +213,7 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
                 tickFormatter={(v) => formatNum(Number(v))} hide={!hasLarge} />
               <YAxis yAxisId="small" orientation="right" tick={axisStyle} tickLine={false} axisLine={false} width={56}
                 tickFormatter={(v) => formatNum(Number(v))} hide={!hasSmall} />
-              <Tooltip content={(props) => <ChartTooltip {...(props as TooltipContentProps<number, string>)} />} />
+              <Tooltip content={(props) => <ChartTooltip {...(props as TooltipContentProps<number, string>)} tz={tz} />} />
               <Legend
                 wrapperStyle={{ fontSize: 11, color: "#9ca3af", cursor: "pointer" }}
                 formatter={(value) => (

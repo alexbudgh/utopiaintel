@@ -2292,8 +2292,7 @@ export interface ProvinceHistoryPoint {
   food: number | null;
   thieves: number | null;
   wizards: number | null;
-  sources: string[];
-  savedBy: string[];
+  meta: Partial<Record<string, { sources: string[]; savedBy: string[] }>>;
 }
 
 export function getProvinceHistory(name: string, kingdom: string, keyHash: string): ProvinceHistoryPoint[] {
@@ -2909,45 +2908,42 @@ export function createDbApi(db: Database.Database): DbApi {
             soldiers: null, offSpecs: null, defSpecs: null, elites: null, warHorses: null,
             offPoints: null, defPoints: null,
             money: null, food: null, thieves: null, wizards: null,
-            sources: [], savedBy: [],
+            meta: {},
           });
         }
         return buckets.get(key)!;
       }
-      function mergeProvenance(b: ProvinceHistoryPoint, source: string | null, savedBy: string | null) {
-        if (source && !b.sources.includes(source)) b.sources.push(source);
-        if (savedBy && !b.savedBy.includes(savedBy)) b.savedBy.push(savedBy);
+      function mergeMetric(b: ProvinceHistoryPoint, metricKey: string, source: string | null, savedBy: string | null) {
+        const m = b.meta[metricKey] ?? (b.meta[metricKey] = { sources: [], savedBy: [] });
+        if (source && !m.sources.includes(source)) m.sources.push(source);
+        if (savedBy && !m.savedBy.includes(savedBy)) m.savedBy.push(savedBy);
       }
 
       for (const row of overviews) {
         const b = ensureBucket(bucketKey(row.received_at));
-        if (row.land != null) b.land = row.land;
-        if (row.networth != null) b.networth = row.networth;
-        mergeProvenance(b, row.source, row.saved_by);
+        if (row.land != null) { b.land = row.land; mergeMetric(b, "land", row.source, row.saved_by); }
+        if (row.networth != null) { b.networth = row.networth; mergeMetric(b, "networth", row.source, row.saved_by); }
       }
       for (const row of troops) {
         const b = ensureBucket(bucketKey(row.received_at));
-        if (row.soldiers != null) b.soldiers = row.soldiers;
-        if (row.off_specs != null) b.offSpecs = row.off_specs;
-        if (row.def_specs != null) b.defSpecs = row.def_specs;
-        if (row.elites != null) b.elites = row.elites;
-        if (row.war_horses != null) b.warHorses = row.war_horses;
-        if (row.peasants != null) b.peasants = row.peasants;
-        mergeProvenance(b, row.source, row.saved_by);
+        if (row.soldiers != null) { b.soldiers = row.soldiers; mergeMetric(b, "soldiers", row.source, row.saved_by); }
+        if (row.off_specs != null) { b.offSpecs = row.off_specs; mergeMetric(b, "offSpecs", row.source, row.saved_by); }
+        if (row.def_specs != null) { b.defSpecs = row.def_specs; mergeMetric(b, "defSpecs", row.source, row.saved_by); }
+        if (row.elites != null) { b.elites = row.elites; mergeMetric(b, "elites", row.source, row.saved_by); }
+        if (row.war_horses != null) { b.warHorses = row.war_horses; mergeMetric(b, "warHorses", row.source, row.saved_by); }
+        if (row.peasants != null) { b.peasants = row.peasants; mergeMetric(b, "peasants", row.source, row.saved_by); }
       }
       for (const row of resources) {
         const b = ensureBucket(bucketKey(row.received_at));
-        if (row.money != null) b.money = row.money;
-        if (row.food != null) b.food = row.food;
-        if (row.thieves != null) b.thieves = row.thieves;
-        if (row.wizards != null) b.wizards = row.wizards;
-        mergeProvenance(b, row.source, row.saved_by);
+        if (row.money != null) { b.money = row.money; mergeMetric(b, "money", row.source, row.saved_by); }
+        if (row.food != null) { b.food = row.food; mergeMetric(b, "food", row.source, row.saved_by); }
+        if (row.thieves != null) { b.thieves = row.thieves; mergeMetric(b, "thieves", row.source, row.saved_by); }
+        if (row.wizards != null) { b.wizards = row.wizards; mergeMetric(b, "wizards", row.source, row.saved_by); }
       }
       for (const row of milPoints) {
         const b = ensureBucket(bucketKey(row.received_at));
-        if (row.off_points != null) b.offPoints = row.off_points;
-        if (row.def_points != null) b.defPoints = row.def_points;
-        mergeProvenance(b, row.source, row.saved_by);
+        if (row.off_points != null) { b.offPoints = row.off_points; mergeMetric(b, "offPoints", row.source, row.saved_by); }
+        if (row.def_points != null) { b.defPoints = row.def_points; mergeMetric(b, "defPoints", row.source, row.saved_by); }
       }
 
       return [...buckets.values()].sort((a, b) => a.receivedAt.localeCompare(b.receivedAt));
