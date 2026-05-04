@@ -36,6 +36,11 @@ const METRICS: MetricConfig[] = [
 
 const METRIC_BY_KEY = new Map(METRICS.map((m) => [m.key, m]));
 
+function truncateList(items: string[], max = 3): string {
+  if (items.length <= max) return items.join(", ");
+  return `${items.slice(0, max).join(", ")} … (${items.length - max} more)`;
+}
+
 const LOCAL_TZ_LABEL =
   new Intl.DateTimeFormat("en", { timeZoneName: "shortOffset" })
     .formatToParts(new Date())
@@ -146,9 +151,9 @@ function ChartTooltip({ active, payload, tz }: TooltipContentProps<number, strin
               </div>
               {m && (m.sources.length > 0 || m.savedBy.length > 0) && (
                 <div className="pl-1 text-gray-600">
-                  {m.sources.length > 0 && <span>{m.sources.join(", ")}</span>}
+                  {m.sources.length > 0 && <span>{truncateList(m.sources)}</span>}
                   {m.sources.length > 0 && m.savedBy.length > 0 && <span> · </span>}
-                  {m.savedBy.length > 0 && <span>{m.savedBy.join(", ")}</span>}
+                  {m.savedBy.length > 0 && <span>{truncateList(m.savedBy)}</span>}
                 </div>
               )}
             </div>
