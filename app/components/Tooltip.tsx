@@ -40,6 +40,8 @@ export function Tooltip({ content, children }: { content: ReactNode | string | T
   const [open, setOpen] = useState(false);
   const tipRef = useRef<HTMLDivElement>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isSelectingRef = useRef(false);
+  const scheduleCloseRef = useRef<(delay?: number) => void>(() => {});
 
   const updatePosition = () => {
     if (!tipRef.current || !anchor || !open) return;
@@ -74,13 +76,15 @@ export function Tooltip({ content, children }: { content: ReactNode | string | T
     }
   };
 
-  const scheduleClose = () => {
+  const scheduleClose = (delay = 120) => {
+    if (isSelectingRef.current) return;
     clearCloseTimer();
     closeTimerRef.current = setTimeout(() => {
       setOpen(false);
       closeTimerRef.current = null;
-    }, 120);
+    }, delay);
   };
+  scheduleCloseRef.current = scheduleClose;
 
   useLayoutEffect(() => {
     updatePosition();
@@ -94,6 +98,18 @@ export function Tooltip({ content, children }: { content: ReactNode | string | T
 
   useLayoutEffect(() => {
     return () => clearCloseTimer();
+  }, []);
+
+  useLayoutEffect(() => {
+    const handleMouseUp = (e: MouseEvent) => {
+      if (!isSelectingRef.current) return;
+      isSelectingRef.current = false;
+      if (tipRef.current?.contains(e.target as Node)) return;
+      const hasSelection = !!window.getSelection()?.toString();
+      scheduleCloseRef.current(hasSelection ? 2000 : 120);
+    };
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => document.removeEventListener("mouseup", handleMouseUp);
   }, []);
 
   useLayoutEffect(() => {
@@ -124,30 +140,31 @@ export function Tooltip({ content, children }: { content: ReactNode | string | T
         setAnchor(e.currentTarget.getBoundingClientRect());
         setOpen(true);
       }}
-      onMouseLeave={scheduleClose}
+      onMouseLeave={() => scheduleClose()}
       onFocus={(e) => {
         clearCloseTimer();
         setAnchor(e.currentTarget.getBoundingClientRect());
         setOpen(true);
       }}
-      onBlur={scheduleClose}
+      onBlur={() => scheduleClose()}
     >
       {children}
       {anchor && open && createPortal(
         <div
           ref={tipRef}
-          className={`fixed z-50 max-w-[calc(100vw-16px)] overflow-auto rounded border border-gray-700 bg-gray-900 shadow-lg ${
+          className={`fixed z-50 max-w-[calc(100vw-16px)] select-text overflow-auto rounded border border-gray-700 bg-gray-900 shadow-lg ${
             lines
               ? "flex max-h-[calc(100vh-16px)] flex-col gap-0.5 w-max max-w-xs px-2 py-1.5 text-xs"
               : "max-h-[calc(100vh-16px)] w-max p-2"
           }`}
           style={style ?? { left: anchor.left, top: anchor.top - 8 }}
+          onMouseDown={() => { isSelectingRef.current = true; clearCloseTimer(); }}
           onMouseEnter={() => {
             clearCloseTimer();
             keepParentAlive?.();
             setOpen(true);
           }}
-          onMouseLeave={scheduleClose}
+          onMouseLeave={() => scheduleClose()}
         >
           {lines
             ? lines.map((line, i) => (
