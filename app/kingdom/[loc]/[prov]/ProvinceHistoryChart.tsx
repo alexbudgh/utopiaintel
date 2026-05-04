@@ -72,8 +72,13 @@ type ChartRow = {
   bucketed: boolean;
 } & Partial<Record<MetricKey, number>>;
 
-function buildRows(history: ProvinceHistoryPoint[], tz: "UTC" | "local"): ChartRow[] {
-  if (history.length === 0) return [];
+function formatBucketWidth(ms: number): string {
+  const mins = ms / 60_000;
+  return mins < 60 ? `${mins}m` : `${mins / 60}h`;
+}
+
+function buildRows(history: ProvinceHistoryPoint[], tz: "UTC" | "local"): { rows: ChartRow[]; bucketMs: number } {
+  if (history.length === 0) return { rows: [], bucketMs: 0 };
 
   const toMs = (iso: string) => new Date(iso.replace(" ", "T") + "Z").getTime();
 
@@ -85,7 +90,7 @@ function buildRows(history: ProvinceHistoryPoint[], tz: "UTC" | "local"): ChartR
     : NICE_BUCKETS_MS.find((b) => b >= rawBucketMs) ?? NICE_BUCKETS_MS[NICE_BUCKETS_MS.length - 1];
 
   if (!bucketMs) {
-    return history.map((point) => {
+    return { bucketMs: 0, rows: history.map((point) => {
       const row: ChartRow = {
         iso: point.receivedAt,
         label: chartLabel(point.receivedAt, tz),
@@ -97,7 +102,7 @@ function buildRows(history: ProvinceHistoryPoint[], tz: "UTC" | "local"): ChartR
         if (v != null) row[m.key] = v as number;
       }
       return row;
-    });
+    }) };
   }
 
   // Group into buckets, LWW per metric (history is sorted ascending so last wins)
@@ -107,7 +112,7 @@ function buildRows(history: ProvinceHistoryPoint[], tz: "UTC" | "local"): ChartR
     (groups.get(bucket) ?? (groups.set(bucket, []), groups.get(bucket)!)).push(point);
   }
 
-  return [...groups.entries()].sort(([a], [b]) => a - b).map(([bucketStart, points]) => {
+  const rows = [...groups.entries()].sort(([a], [b]) => a - b).map(([bucketStart, points]) => {
     const iso = new Date(bucketStart).toISOString().replace("T", " ").replace(".000Z", "");
     const meta: MetaMap = {};
     for (const p of points) {
@@ -124,6 +129,8 @@ function buildRows(history: ProvinceHistoryPoint[], tz: "UTC" | "local"): ChartR
     }
     return row;
   });
+
+  return { bucketMs, rows };
 }
 
 function ChartTooltip({ active, payload, tz }: TooltipContentProps<number, string> & { tz: "UTC" | "local" }) {
@@ -174,7 +181,7 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
 
   if (history.length < 2) return null;
 
-  const data = useMemo(() => buildRows(history, tz), [history, tz]);
+  const { rows: data, bucketMs } = useMemo(() => buildRows(history, tz), [history, tz]);
   const visibleMetrics = METRICS.filter((m) => !hidden.has(m.key));
   const hasLarge = visibleMetrics.some((m) => m.axis === "large");
   const hasSmall = visibleMetrics.some((m) => m.axis === "small");
@@ -191,7 +198,7 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
         <div>
           <h2 className="text-sm font-semibold text-gray-100">Province History</h2>
           <div className="text-xs text-gray-500">
-            {summary}{bucketed && ` · bucketed into ${data.length} points (most recent per window)`}
+            {summary}{bucketed && ` · bucketed into ${data.length} × ${formatBucketWidth(bucketMs)} windows (most recent per window)`}
           </div>
         </div>
         <div className="flex items-center gap-2">
