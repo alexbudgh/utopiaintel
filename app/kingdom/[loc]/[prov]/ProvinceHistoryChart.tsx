@@ -2,10 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import type { TooltipContentProps } from "recharts/types/component/Tooltip";
+import type { Payload } from "recharts/types/component/DefaultTooltipContent";
 import type { ProvinceHistoryPoint } from "@/lib/db";
 import { formatNum } from "@/lib/ui";
 
-type MetricKey = keyof Omit<ProvinceHistoryPoint, "receivedAt">;
+type MetricKey = keyof Omit<ProvinceHistoryPoint, "receivedAt" | "sources" | "savedBy">;
 
 interface MetricConfig {
   key: MetricKey;
@@ -32,6 +34,8 @@ const METRICS: MetricConfig[] = [
   { key: "wizards",   label: "Wizards",     color: "#818cf8", axis: "small" },
 ];
 
+const METRIC_BY_KEY = new Map(METRICS.map((m) => [m.key, m]));
+
 function chartLabel(isoStr: string): string {
   const d = new Date(isoStr.replace(" ", "T") + "Z");
   return d.toLocaleString("en-US", {
@@ -44,17 +48,64 @@ function chartLabel(isoStr: string): string {
   });
 }
 
-type ChartRow = { iso: string; label: string } & Partial<Record<MetricKey, number>>;
+type ChartRow = {
+  iso: string;
+  label: string;
+  sources: string[];
+  savedBy: string[];
+} & Partial<Record<MetricKey, number>>;
 
 function buildRows(history: ProvinceHistoryPoint[]): ChartRow[] {
   return history.map((point) => {
-    const row: ChartRow = { iso: point.receivedAt, label: chartLabel(point.receivedAt) };
+    const row: ChartRow = {
+      iso: point.receivedAt,
+      label: chartLabel(point.receivedAt),
+      sources: point.sources,
+      savedBy: point.savedBy,
+    };
     for (const m of METRICS) {
       const v = point[m.key];
       if (v != null) row[m.key] = v as number;
     }
     return row;
   });
+}
+
+function ChartTooltip({ active, payload }: TooltipContentProps<number, string>) {
+  if (!active || !payload?.length) return null;
+  const point = (payload[0] as Payload<number, string> | undefined)?.payload as ChartRow | undefined;
+  if (!point) return null;
+
+  const visible = (payload as Payload<number, string>[]).filter((p) => p.value != null);
+
+  return (
+    <div className="rounded border border-gray-700 bg-gray-900 p-2 text-xs shadow-lg" style={{ minWidth: 160 }}>
+      <div className="mb-1 font-medium text-gray-200">{point.label}</div>
+      <div className="mb-1.5 space-y-0.5">
+        {visible.map((p: Payload<number, string>) => {
+          const cfg = METRIC_BY_KEY.get(p.dataKey as MetricKey);
+          return (
+            <div key={String(p.dataKey)} className="flex items-center justify-between gap-3">
+              <span className="flex items-center gap-1" style={{ color: cfg?.color ?? "#9ca3af" }}>
+                {p.name}
+              </span>
+              <span className="tabular-nums text-gray-200">{Number(p.value).toLocaleString()}</span>
+            </div>
+          );
+        })}
+      </div>
+      {(point.sources.length > 0 || point.savedBy.length > 0) && (
+        <div className="border-t border-gray-700 pt-1 text-gray-500">
+          {point.sources.length > 0 && (
+            <div>via {point.sources.join(", ")}</div>
+          )}
+          {point.savedBy.length > 0 && (
+            <div>by {point.savedBy.join(", ")}</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoint[] }) {
@@ -120,14 +171,7 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
                 tickFormatter={tickFormatter}
                 hide={!hasSmall}
               />
-              <Tooltip
-                contentStyle={{ background: "#111827", border: "1px solid #374151", borderRadius: 6, fontSize: 11 }}
-                labelFormatter={(_, payload) => {
-                  const point = payload?.[0]?.payload as ChartRow | undefined;
-                  return point ? point.label : "";
-                }}
-                formatter={(value, name) => [Number(value).toLocaleString(), String(name)]}
-              />
+              <Tooltip content={(props) => <ChartTooltip {...(props as TooltipContentProps<number, string>)} />} />
               <Legend
                 wrapperStyle={{ fontSize: 11, color: "#9ca3af", cursor: "pointer" }}
                 formatter={(value) => (

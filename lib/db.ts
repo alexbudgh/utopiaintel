@@ -2292,6 +2292,8 @@ export interface ProvinceHistoryPoint {
   food: number | null;
   thieves: number | null;
   wizards: number | null;
+  sources: string[];
+  savedBy: string[];
 }
 
 export function getProvinceHistory(name: string, kingdom: string, keyHash: string): ProvinceHistoryPoint[] {
@@ -2872,22 +2874,22 @@ export function createDbApi(db: Database.Database): DbApi {
 
       const id = prov.id;
 
-      type OverviewRaw = { received_at: string; land: number | null; networth: number | null };
-      type TroopsRaw = { received_at: string; soldiers: number | null; off_specs: number | null; def_specs: number | null; elites: number | null; war_horses: number | null; peasants: number | null };
-      type ResourcesRaw = { received_at: string; money: number | null; food: number | null; thieves: number | null; wizards: number | null };
-      type MilPointsRaw = { received_at: string; off_points: number | null; def_points: number | null };
+      type OverviewRaw = { received_at: string; land: number | null; networth: number | null; source: string | null; saved_by: string | null };
+      type TroopsRaw = { received_at: string; soldiers: number | null; off_specs: number | null; def_specs: number | null; elites: number | null; war_horses: number | null; peasants: number | null; source: string | null; saved_by: string | null };
+      type ResourcesRaw = { received_at: string; money: number | null; food: number | null; thieves: number | null; wizards: number | null; source: string | null; saved_by: string | null };
+      type MilPointsRaw = { received_at: string; off_points: number | null; def_points: number | null; source: string | null; saved_by: string | null };
 
       const overviews = db.prepare(
-        "SELECT received_at, land, networth FROM province_overview WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC"
+        "SELECT received_at, land, networth, source, saved_by FROM province_overview WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC"
       ).all(id, keyHash) as OverviewRaw[];
       const troops = db.prepare(
-        "SELECT received_at, soldiers, off_specs, def_specs, elites, war_horses, peasants FROM province_troops WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC"
+        "SELECT received_at, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, saved_by FROM province_troops WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC"
       ).all(id, keyHash) as TroopsRaw[];
       const resources = db.prepare(
-        "SELECT received_at, money, food, thieves, wizards FROM province_resources WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC"
+        "SELECT received_at, money, food, thieves, wizards, source, saved_by FROM province_resources WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC"
       ).all(id, keyHash) as ResourcesRaw[];
       const milPoints = db.prepare(
-        "SELECT received_at, off_points, def_points FROM total_military_points WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC"
+        "SELECT received_at, off_points, def_points, source, saved_by FROM total_military_points WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC"
       ).all(id, keyHash) as MilPointsRaw[];
 
       // Bucket all rows into 5-minute windows
@@ -2907,15 +2909,21 @@ export function createDbApi(db: Database.Database): DbApi {
             soldiers: null, offSpecs: null, defSpecs: null, elites: null, warHorses: null,
             offPoints: null, defPoints: null,
             money: null, food: null, thieves: null, wizards: null,
+            sources: [], savedBy: [],
           });
         }
         return buckets.get(key)!;
+      }
+      function mergeProvenance(b: ProvinceHistoryPoint, source: string | null, savedBy: string | null) {
+        if (source && !b.sources.includes(source)) b.sources.push(source);
+        if (savedBy && !b.savedBy.includes(savedBy)) b.savedBy.push(savedBy);
       }
 
       for (const row of overviews) {
         const b = ensureBucket(bucketKey(row.received_at));
         if (row.land != null) b.land = row.land;
         if (row.networth != null) b.networth = row.networth;
+        mergeProvenance(b, row.source, row.saved_by);
       }
       for (const row of troops) {
         const b = ensureBucket(bucketKey(row.received_at));
@@ -2925,6 +2933,7 @@ export function createDbApi(db: Database.Database): DbApi {
         if (row.elites != null) b.elites = row.elites;
         if (row.war_horses != null) b.warHorses = row.war_horses;
         if (row.peasants != null) b.peasants = row.peasants;
+        mergeProvenance(b, row.source, row.saved_by);
       }
       for (const row of resources) {
         const b = ensureBucket(bucketKey(row.received_at));
@@ -2932,11 +2941,13 @@ export function createDbApi(db: Database.Database): DbApi {
         if (row.food != null) b.food = row.food;
         if (row.thieves != null) b.thieves = row.thieves;
         if (row.wizards != null) b.wizards = row.wizards;
+        mergeProvenance(b, row.source, row.saved_by);
       }
       for (const row of milPoints) {
         const b = ensureBucket(bucketKey(row.received_at));
         if (row.off_points != null) b.offPoints = row.off_points;
         if (row.def_points != null) b.defPoints = row.def_points;
+        mergeProvenance(b, row.source, row.saved_by);
       }
 
       return [...buckets.values()].sort((a, b) => a.receivedAt.localeCompare(b.receivedAt));
