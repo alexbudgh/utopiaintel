@@ -766,8 +766,6 @@ export function initSchema(db: Database.Database) {
     );
     CREATE INDEX IF NOT EXISTS idx_attack_ops_prov
       ON attack_ops(province_id, key_hash, received_at DESC);
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_attack_ops_unique_submission
-      ON attack_ops(province_id, key_hash, received_at);
   `);
 
   // Additive migrations
@@ -846,6 +844,80 @@ export function initSchema(db: Database.Database) {
       }
     })();
   }
+
+  const hasIndex = (name: string) =>
+    (db.prepare("SELECT COUNT(*) as n FROM sqlite_master WHERE type = 'index' AND name = ?").get(name) as { n: number }).n > 0;
+  const ensureUniqueSubmissionIndex = (name: string, table: string, columns: string) => {
+    if (hasIndex(name)) return;
+    db.exec(`
+      DELETE FROM ${table}
+      WHERE key_hash IS NOT NULL
+        AND id NOT IN (
+        SELECT MIN(id)
+        FROM ${table}
+        WHERE key_hash IS NOT NULL
+        GROUP BY ${columns}
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS ${name}
+        ON ${table}(${columns});
+    `);
+  };
+
+  ensureUniqueSubmissionIndex(
+    "idx_overview_unique_submission",
+    "province_overview",
+    "province_id, key_hash, source, saved_by, received_at"
+  );
+  ensureUniqueSubmissionIndex(
+    "idx_totmil_unique_submission",
+    "total_military_points",
+    "province_id, key_hash, source, saved_by, received_at"
+  );
+  ensureUniqueSubmissionIndex(
+    "idx_homemil_unique_submission",
+    "home_military_points",
+    "province_id, key_hash, source, saved_by, received_at"
+  );
+  ensureUniqueSubmissionIndex(
+    "idx_troops_unique_submission",
+    "province_troops",
+    "province_id, key_hash, source, saved_by, received_at"
+  );
+  ensureUniqueSubmissionIndex(
+    "idx_resources_unique_submission",
+    "province_resources",
+    "province_id, key_hash, source, saved_by, received_at"
+  );
+  ensureUniqueSubmissionIndex(
+    "idx_status_unique_submission",
+    "province_status",
+    "province_id, key_hash, source, saved_by, received_at"
+  );
+  ensureUniqueSubmissionIndex(
+    "idx_effects_unique_submission",
+    "province_effects",
+    "province_id, key_hash, source, saved_by, received_at, effect_name, effect_kind"
+  );
+  ensureUniqueSubmissionIndex(
+    "idx_milintel_unique_submission",
+    "military_intel",
+    "province_id, key_hash, source, saved_by, received_at"
+  );
+  ensureUniqueSubmissionIndex(
+    "idx_survey_unique_submission",
+    "survey_intel",
+    "province_id, key_hash, source, saved_by, received_at"
+  );
+  ensureUniqueSubmissionIndex(
+    "idx_kingdom_unique_submission",
+    "kingdom_intel",
+    "key_hash, location, source, saved_by, received_at"
+  );
+  ensureUniqueSubmissionIndex(
+    "idx_attack_ops_unique_submission",
+    "attack_ops",
+    "province_id, key_hash, received_at"
+  );
 }
 
 // SQL fragments for province_overview — used in both the list query and detail query.
@@ -932,36 +1004,36 @@ export function storeSoT(data: SoTData, savedBy: string, keyHash: string, isSelf
 
     // 1. Overview
     db.prepare(`
-      INSERT INTO province_overview (province_id, key_hash, race, personality, honor_title, ruler, land, networth, source, saved_by, accuracy, received_at)
+      INSERT OR IGNORE INTO province_overview (province_id, key_hash, race, personality, honor_title, ruler, land, networth, source, saved_by, accuracy, received_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
     `).run(provId, keyHash, data.race, data.personality ?? null, data.honorTitle ?? null, data.ruler ?? null, data.land, data.networth, src, savedBy, data.accuracy, receivedAt ?? null);
 
     // 2. Total military points (province-wide)
     db.prepare(`
-      INSERT INTO total_military_points (province_id, key_hash, off_points, def_points, source, saved_by, accuracy, received_at)
+      INSERT OR IGNORE INTO total_military_points (province_id, key_hash, off_points, def_points, source, saved_by, accuracy, received_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
     `).run(provId, keyHash, data.offPoints, data.defPoints, src, savedBy, data.accuracy, receivedAt ?? null);
 
     // 3. Troops at home
     db.prepare(`
-      INSERT INTO province_troops (province_id, key_hash, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, saved_by, accuracy, received_at)
+      INSERT OR IGNORE INTO province_troops (province_id, key_hash, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, saved_by, accuracy, received_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
     `).run(provId, keyHash, data.soldiers, data.offSpecs, data.defSpecs, data.elites, data.warHorses, data.peasants, src, savedBy, data.accuracy, receivedAt ?? null);
 
     // 4. Resources
     db.prepare(`
-      INSERT INTO province_resources (province_id, key_hash, money, food, runes, prisoners, trade_balance, building_efficiency, thieves, stealth, wizards, mana, source, saved_by, accuracy, received_at)
+      INSERT OR IGNORE INTO province_resources (province_id, key_hash, money, food, runes, prisoners, trade_balance, building_efficiency, thieves, stealth, wizards, mana, source, saved_by, accuracy, received_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
     `).run(provId, keyHash, data.money, data.food, data.runes, data.prisoners, data.tradeBalance, data.buildingEfficiency, data.thieves, data.stealth, data.wizards, data.mana, src, savedBy, data.accuracy, receivedAt ?? null);
 
     // 5. Status
     db.prepare(`
-      INSERT INTO province_status (province_id, key_hash, plagued, overpopulated, overpop_deserters, dragon_type, dragon_name, hit_status, war, source, saved_by, received_at)
+      INSERT OR IGNORE INTO province_status (province_id, key_hash, plagued, overpopulated, overpop_deserters, dragon_type, dragon_name, hit_status, war, source, saved_by, received_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
     `).run(provId, keyHash, data.plagued ? 1 : 0, data.overpopulated ? 1 : 0, data.overpopDeserters ?? null, data.dragonType ?? null, data.dragonName ?? null, data.hitStatus, data.war ? 1 : 0, src, savedBy, receivedAt ?? null);
 
     const insertEffect = db.prepare(`
-      INSERT INTO province_effects (province_id, key_hash, effect_name, effect_kind, duration_text, remaining_ticks, effectiveness_percent, source, saved_by, received_at)
+      INSERT OR IGNORE INTO province_effects (province_id, key_hash, effect_name, effect_kind, duration_text, remaining_ticks, effectiveness_percent, source, saved_by, received_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
     `);
     for (const effect of data.activeEffects) {
@@ -982,9 +1054,10 @@ export function storeSoT(data: SoTData, savedBy: string, keyHash: string, isSelf
     // 6. Armies out (self-throne only)
     if (isSelfThrone && data.armiesOut?.length) {
       const milResult = db.prepare(`
-        INSERT INTO military_intel (province_id, key_hash, ome, dme, source, saved_by, accuracy, received_at)
+        INSERT OR IGNORE INTO military_intel (province_id, key_hash, ome, dme, source, saved_by, accuracy, received_at)
         VALUES (?, ?, NULL, NULL, 'throne', ?, ?, COALESCE(?, datetime('now')))
       `).run(provId, keyHash, savedBy, data.accuracy, receivedAt ?? null);
+      if (milResult.changes === 0) return;
       const milId = milResult.lastInsertRowid;
       const insArmy = db.prepare(`
         INSERT INTO som_armies (military_intel_id, army_type, land_gained, return_days)
@@ -1036,22 +1109,23 @@ export function storeSoM(data: SoMData, savedBy: string, keyHash: string, isSelf
     const homeArmy = data.armies.find((a) => a.armyType === "home");
     if (homeArmy) {
       db.prepare(`
-        INSERT INTO province_troops (province_id, key_hash, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, saved_by, accuracy, received_at)
+        INSERT OR IGNORE INTO province_troops (province_id, key_hash, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, saved_by, accuracy, received_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, COALESCE(?, datetime('now')))
       `).run(provId, keyHash, homeArmy.soldiers, homeArmy.offSpecs, homeArmy.defSpecs, homeArmy.elites, homeArmy.warHorses, src, savedBy, data.accuracy, receivedAt ?? null);
     }
 
     // Net modified off/def at home
     db.prepare(`
-      INSERT INTO home_military_points (province_id, key_hash, mod_off_at_home, mod_def_at_home, source, saved_by, accuracy, received_at)
+      INSERT OR IGNORE INTO home_military_points (province_id, key_hash, mod_off_at_home, mod_def_at_home, source, saved_by, accuracy, received_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
     `).run(provId, keyHash, data.netOffense, data.netDefense, src, savedBy, data.accuracy, receivedAt ?? null);
 
     // Military effectiveness + army detail
     const result = db.prepare(`
-      INSERT INTO military_intel (province_id, key_hash, ome, dme, source, saved_by, accuracy, received_at)
+      INSERT OR IGNORE INTO military_intel (province_id, key_hash, ome, dme, source, saved_by, accuracy, received_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
     `).run(provId, keyHash, data.ome, data.dme, src, savedBy, data.accuracy, receivedAt ?? null);
+    if (result.changes === 0) return;
 
     const milIntelId = result.lastInsertRowid;
 
@@ -1073,7 +1147,7 @@ export function storeTrainArmy(data: TrainArmyData, savedBy: string, keyHash: st
     const provId = ensureProvince(db, data.name, data.kingdom);
     recordSubmission(db, keyHash, provId);
     db.prepare(`
-      INSERT INTO province_resources (province_id, key_hash, free_specialist_credits, source, saved_by, accuracy, received_at)
+      INSERT OR IGNORE INTO province_resources (province_id, key_hash, free_specialist_credits, source, saved_by, accuracy, received_at)
       VALUES (?, ?, ?, 'train_army', ?, 100, COALESCE(?, datetime('now')))
     `).run(provId, keyHash, data.freeSpecialistCredits, savedBy, receivedAt ?? null);
   })();
@@ -1085,7 +1159,7 @@ export function storeBuild(data: BuildData, savedBy: string, keyHash: string, re
     const provId = ensureProvince(db, data.name, data.kingdom);
     recordSubmission(db, keyHash, provId);
     db.prepare(`
-      INSERT INTO province_resources (province_id, key_hash, free_building_credits, source, saved_by, accuracy, received_at)
+      INSERT OR IGNORE INTO province_resources (province_id, key_hash, free_building_credits, source, saved_by, accuracy, received_at)
       VALUES (?, ?, ?, 'build', ?, 100, COALESCE(?, datetime('now')))
     `).run(provId, keyHash, data.freeBuildingCredits, savedBy, receivedAt ?? null);
   })();
@@ -1191,7 +1265,7 @@ export function storeSurvey(data: SurveyData, savedBy: string, keyHash: string, 
     recordSubmission(db, keyHash, provId);
 
     const result = db.prepare(`
-      INSERT INTO survey_intel (province_id, key_hash, source, saved_by, accuracy, thievery_effectiveness, thief_prevent_chance, castles_effect, received_at)
+      INSERT OR IGNORE INTO survey_intel (province_id, key_hash, source, saved_by, accuracy, thievery_effectiveness, thief_prevent_chance, castles_effect, received_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
     `).run(
       provId,
@@ -1204,6 +1278,7 @@ export function storeSurvey(data: SurveyData, savedBy: string, keyHash: string, 
       data.castlesEffect ?? null,
       receivedAt ?? null,
     );
+    if (result.changes === 0) return;
 
     const surveyId = result.lastInsertRowid;
     const ins = db.prepare("INSERT INTO survey_buildings (survey_intel_id, building, built, in_progress) VALUES (?, ?, ?, ?)");
@@ -1218,7 +1293,7 @@ export function storeKingdom(data: KingdomData, savedBy: string, keyHash: string
   const db = getDb();
   db.transaction(() => {
     const result = db.prepare(`
-      INSERT INTO kingdom_intel (
+      INSERT OR IGNORE INTO kingdom_intel (
         key_hash, name, location, kingdom_title, total_networth, total_land, total_honor, wars_won, war_losses, networth_rank, land_rank, honor_rank, war_target,
         their_attitude_to_us, their_attitude_points,
         our_attitude_to_them, our_attitude_points,
@@ -1249,6 +1324,7 @@ export function storeKingdom(data: KingdomData, savedBy: string, keyHash: string
       savedBy,
       receivedAt ?? null,
     );
+    if (result.changes === 0) return;
 
     const kdId = result.lastInsertRowid;
     const ins = db.prepare("INSERT INTO kingdom_provinces (kingdom_intel_id, slot, name, race, land, networth, honor_title) VALUES (?, ?, ?, ?, ?, ?, ?)");
@@ -1260,7 +1336,7 @@ export function storeKingdom(data: KingdomData, savedBy: string, keyHash: string
 
       // Also write to province_overview
       db.prepare(`
-        INSERT INTO province_overview (province_id, key_hash, race, personality, honor_title, land, networth, source, saved_by, received_at)
+        INSERT OR IGNORE INTO province_overview (province_id, key_hash, race, personality, honor_title, land, networth, source, saved_by, received_at)
         VALUES (?, ?, ?, NULL, ?, ?, ?, 'kingdom', ?, COALESCE(?, datetime('now')))
       `).run(provId, keyHash, p.race, p.honorTitle, p.land, p.networth, savedBy, receivedAt ?? null);
     }
@@ -1275,19 +1351,19 @@ export function storeState(data: StateData, savedBy: string, keyHash: string, re
 
     // Overview: land and networth (no race/personality from council_state)
     db.prepare(`
-      INSERT INTO province_overview (province_id, key_hash, land, networth, source, saved_by, accuracy, received_at)
+      INSERT OR IGNORE INTO province_overview (province_id, key_hash, land, networth, source, saved_by, accuracy, received_at)
       VALUES (?, ?, ?, ?, 'state', ?, 100, COALESCE(?, datetime('now')))
     `).run(provId, keyHash, data.land, data.networth, savedBy, receivedAt ?? null);
 
     // Resources: thieves, wizards, and direct population counts (self-intel is always 100% accurate)
     db.prepare(`
-      INSERT INTO province_resources (province_id, key_hash, thieves, wizards, total_pop, max_pop, source, saved_by, accuracy, received_at)
+      INSERT OR IGNORE INTO province_resources (province_id, key_hash, thieves, wizards, total_pop, max_pop, source, saved_by, accuracy, received_at)
       VALUES (?, ?, ?, ?, ?, ?, 'state', ?, 100, COALESCE(?, datetime('now')))
     `).run(provId, keyHash, data.thieves, data.wizards, data.totalPop ?? null, data.maxPop ?? null, savedBy, receivedAt ?? null);
 
     // Peasants live in province_troops
     db.prepare(`
-      INSERT INTO province_troops (province_id, key_hash, peasants, source, saved_by, accuracy, received_at)
+      INSERT OR IGNORE INTO province_troops (province_id, key_hash, peasants, source, saved_by, accuracy, received_at)
       VALUES (?, ?, ?, 'state', ?, 100, COALESCE(?, datetime('now')))
     `).run(provId, keyHash, data.peasants, savedBy, receivedAt ?? null);
     updateMetricsCache(db, provId, keyHash);
