@@ -5,7 +5,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { KingdomTabs } from "../KingdomTabs";
 import { Tooltip, type TooltipLine } from "@/app/components/Tooltip";
 import type { KingdomSnapshotProvince, ProvinceRow } from "@/lib/db";
-import { estimateBreakability, estimateTraditionalMarchAcres } from "@/lib/gains";
+import { ATTACK_TIME_SCALING, estimateBreakability, estimateTraditionalMarchAcres } from "@/lib/gains";
 import type { GainsPageData } from "@/lib/gains-page";
 import { formatNum, formatTimestamp } from "@/lib/ui";
 
@@ -277,6 +277,8 @@ function EstimateCell({
   theirAttitudeToUs,
   defenderBarrierEffect,
   defenderEnemyBattleGainsEffect,
+  attackTimeOffset = 0,
+  baseAttackTime = 14,
 }: {
   attacker: ProvinceRow,
   defender: KingdomSnapshotProvince,
@@ -288,6 +290,8 @@ function EstimateCell({
   theirAttitudeToUs: string | null,
   defenderBarrierEffect: number | null,
   defenderEnemyBattleGainsEffect: number | null,
+  attackTimeOffset?: number,
+  baseAttackTime?: number,
 }) {
   const [mathOpen, setMathOpen] = useState(false);
   const estimate = estimateTraditionalMarchAcres({
@@ -305,6 +309,8 @@ function EstimateCell({
     relationState,
     ourAttitudeToThem,
     theirAttitudeToUs,
+    attackTimeOffset,
+    baseAttackTime,
   });
   if (!estimate) {
     return (
@@ -328,7 +334,8 @@ function EstimateCell({
     estimate.barrierFactor *
     estimate.siegeFactor *
     estimate.combinedRelationFactor *
-    estimate.enemyBattleGainsFactor;
+    estimate.enemyBattleGainsFactor *
+    estimate.attackTimeFactor;
   const rpnwInfo = rpnwBreakdown(estimate.rpnw);
   const rknwInfo = rknwBreakdown(estimate.rknw);
   const mapInfo = mapBreakdown(defenderLatest?.hit_status ?? null, relationState, estimate.mapFactor);
@@ -403,6 +410,9 @@ function EstimateCell({
   }
   if (estimate.enemyBattleGainsFactor !== 1) {
     highlights.push({ label: "Doctrine", value: estimate.enemyBattleGainsFactor.toFixed(3), className: factorClass(estimate.enemyBattleGainsFactor), impact: Math.abs(1 - estimate.enemyBattleGainsFactor) });
+  }
+  if (estimate.attackTimeFactor !== 1) {
+    highlights.push({ label: "Atk Time", value: estimate.attackTimeFactor.toFixed(3), className: factorClass(estimate.attackTimeFactor), impact: Math.abs(1 - estimate.attackTimeFactor) });
   }
   const summaryHighlights = [...highlights].sort((a, b) => b.impact - a.impact);
 
@@ -585,6 +595,22 @@ function EstimateCell({
                     </span>
                   </td>
                 </tr>
+                {estimate.attackTimeOffset !== 0 && (
+                  <tr className="align-top">
+                    <td className="py-0.5 pr-3 text-gray-500">Atk Time</td>
+                    <td className="py-0.5 pr-3 text-right tabular-nums">
+                      <span className={factorClass(estimate.attackTimeFactor)}>{estimate.attackTimeFactor.toFixed(3)}</span>
+                    </td>
+                    <td className="py-0.5">
+                      <span className={factorClass(estimate.attackTimeFactor)}>
+                        {estimate.attackTimeOffset > 0 ? "+" : ""}{estimate.attackTimeOffset}h / base {estimate.baseAttackTime}h
+                      </span>
+                      <div className="text-gray-500">
+                        1 + ({estimate.attackTimeOffset}/{estimate.baseAttackTime}) × {((ATTACK_TIME_SCALING[estimate.attackTimeOffset] ?? 0) * 100).toFixed(0)}% = {estimate.attackTimeFactor.toFixed(3)}
+                      </div>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </Section>
@@ -614,6 +640,10 @@ function EstimateCell({
           {estimate.enemyBattleGainsFactor !== 1 && (<>
             <span className="text-gray-500"> * </span>
             <span className={factorClass(estimate.enemyBattleGainsFactor)}>{estimate.enemyBattleGainsFactor.toFixed(3)}</span>
+          </>)}
+          {estimate.attackTimeFactor !== 1 && (<>
+            <span className="text-gray-500"> * </span>
+            <span className={factorClass(estimate.attackTimeFactor)}>{estimate.attackTimeFactor.toFixed(3)}</span>
           </>)}
           <span className="text-gray-500"> = </span>
           <span className="text-gray-100">{fmt(baseAcres)}</span>
@@ -745,6 +775,7 @@ export function GainsTable({
 }) {
   const [data, setData] = useState(initial);
   const [selectedRowId, setSelectedRowId] = useState<number | null>(null);
+  const [attackTimeOffset, setAttackTimeOffset] = useState(0);
   const headerScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -760,6 +791,7 @@ export function GainsTable({
     ? (targetRitual.effectivenessPercent / 100) * 10
     : null;
   const enemyBattleGainsEffect = targetSnapshot?.warDoctrines.find((d) => d.effect === "Enemy Battle Gains")?.bonusPercent ?? null;
+  const baseAttackTime = selfKingdom === targetKingdom ? 7 : 14;
   const kingdomHref = `/kingdom/${encodeURIComponent(targetKingdom)}`;
   const gainsHref = `${kingdomHref}?view=gains`;
   const btnBase = "px-2.5 py-1 rounded text-xs border transition-colors";
@@ -778,11 +810,27 @@ export function GainsTable({
           { text: "Siege uses the direct Battle Gains percentage shown on the latest SoS." },
           { text: "Relations use the current directional Unfriendly and Hostile gains modifiers from the target snapshot." },
           { text: "Barrier ritual uses effectivenessPercent × 10% as the battle loss reduction applied to defender." },
-          { text: "Still assumes neutral race/personality gains mods, dragons, attack-time adjustment, anonymity, and mist.", tone: "muted" },
+          { text: "Still assumes neutral race/personality gains mods, dragons, anonymity, and mist.", tone: "muted" },
         ]}
       >
         <span className={`${btnBase} ${btnInactive}`}>Assumptions</span>
       </Tooltip>
+      <div className="flex items-center gap-1.5">
+        <label className="text-xs text-gray-500">Attack Time</label>
+        <select
+          value={attackTimeOffset}
+          onChange={(e) => setAttackTimeOffset(Number(e.target.value))}
+          className="rounded border border-gray-700 bg-gray-900 px-2 py-1 text-xs text-gray-300 focus:outline-none"
+        >
+          <option value={-2}>−2h</option>
+          <option value={-1}>−1h</option>
+          <option value={0}>Base ({baseAttackTime}h)</option>
+          <option value={1}>+1h</option>
+          <option value={2}>+2h</option>
+          <option value={3}>+3h</option>
+          <option value={4}>+4h</option>
+        </select>
+      </div>
       <div className="ml-auto text-xs text-gray-500">
         Self snapshot: <span className="text-gray-300">{formatTimestamp(selfSnapshot?.receivedAt ?? null)}</span>
         {" · "}
@@ -930,6 +978,8 @@ export function GainsTable({
                     relationState,
                     ourAttitudeToThem: targetSnapshot.ourAttitudeToThem,
                     theirAttitudeToUs: targetSnapshot.theirAttitudeToUs,
+                    attackTimeOffset,
+                    baseAttackTime,
                   });
                   const breakability = estimateBreakability(attacker, defenderLatest);
                   const tone = gainsTone(estimate, defender.land);
@@ -942,7 +992,7 @@ export function GainsTable({
                         selectedRowId === attacker.id ? "shadow-[inset_0_1px_0_rgba(59,130,246,0.45),inset_0_-1px_0_rgba(59,130,246,0.45)]" : ""
                       } ${tone.cell}`}
                     >
-                      <Tooltip content={<EstimateCell attacker={attacker} defender={defender} selfAvgNetworth={selfAvgNetworth} targetAvgNetworth={targetAvgNetworth} defenderLatest={defenderLatest} relationState={relationState} ourAttitudeToThem={targetSnapshot.ourAttitudeToThem} theirAttitudeToUs={targetSnapshot.theirAttitudeToUs} defenderBarrierEffect={defenderBarrierEffect} defenderEnemyBattleGainsEffect={enemyBattleGainsEffect} />}>
+                      <Tooltip content={<EstimateCell attacker={attacker} defender={defender} selfAvgNetworth={selfAvgNetworth} targetAvgNetworth={targetAvgNetworth} defenderLatest={defenderLatest} relationState={relationState} ourAttitudeToThem={targetSnapshot.ourAttitudeToThem} theirAttitudeToUs={targetSnapshot.theirAttitudeToUs} defenderBarrierEffect={defenderBarrierEffect} defenderEnemyBattleGainsEffect={enemyBattleGainsEffect} attackTimeOffset={attackTimeOffset} baseAttackTime={baseAttackTime} />}>
                         <div className={tone.value}>
                           {estimate ? `${estimate.roundedAcres.toLocaleString()}a` : "—"}
                         </div>

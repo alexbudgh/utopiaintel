@@ -27,7 +27,14 @@ export interface TraditionalMarchEstimate {
   combinedRelationFactor: number;
   enemyBattleGainsEffect: number | null;
   enemyBattleGainsFactor: number;
+  attackTimeFactor: number;
+  attackTimeOffset: number;
+  baseAttackTime: number;
 }
+
+export const ATTACK_TIME_SCALING: { [offset: number]: number } = {
+  [-2]: 1.6, [-1]: 1.5, 1: 0.8, 2: 0.7, 3: 0.6, 4: 0.5,
+};
 
 export interface BreakabilityEstimate {
   status: "breakable" | "not_breakable" | "unknown";
@@ -123,6 +130,8 @@ export function estimateTraditionalMarchAcres(input: {
   relationState?: "war" | "oow";
   ourAttitudeToThem?: string | null;
   theirAttitudeToUs?: string | null;
+  attackTimeOffset?: number;
+  baseAttackTime?: number;
 }): TraditionalMarchEstimate | null {
   const {
     attackerLand,
@@ -139,6 +148,8 @@ export function estimateTraditionalMarchAcres(input: {
     relationState = "oow",
     ourAttitudeToThem = null,
     theirAttitudeToUs = null,
+    attackTimeOffset = 0,
+    baseAttackTime = 14,
   } = input;
 
   if (
@@ -163,8 +174,11 @@ export function estimateTraditionalMarchAcres(input: {
   const enemyBattleGainsFactor = defenderEnemyBattleGainsEffect != null
     ? 1 + defenderEnemyBattleGainsEffect / 100
     : 1;
+  const attackTimeFactor = attackTimeOffset === 0
+    ? 1
+    : 1 + (attackTimeOffset / baseAttackTime) * (ATTACK_TIME_SCALING[attackTimeOffset] ?? 0);
   const baseAcres =
-    defenderLand * 0.12 * rpnwFactor * rknwFactor * mapFactor * castlesFactor * barrierFactor * siegeFactor * combinedRelationFactor * enemyBattleGainsFactor;
+    defenderLand * 0.12 * rpnwFactor * rknwFactor * mapFactor * castlesFactor * barrierFactor * siegeFactor * combinedRelationFactor * enemyBattleGainsFactor * attackTimeFactor;
   const warFloor = warMinimumGainsFloor(defenderLand, relationState);
   const flooredAcres = Math.max(baseAcres, warFloor);
   const cap = Math.min(attackerLand, defenderLand) * 0.2;
@@ -197,6 +211,9 @@ export function estimateTraditionalMarchAcres(input: {
     combinedRelationFactor,
     enemyBattleGainsEffect: defenderEnemyBattleGainsEffect,
     enemyBattleGainsFactor,
+    attackTimeFactor,
+    attackTimeOffset,
+    baseAttackTime,
   };
 }
 
