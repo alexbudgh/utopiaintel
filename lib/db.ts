@@ -766,6 +766,8 @@ export function initSchema(db: Database.Database) {
     );
     CREATE INDEX IF NOT EXISTS idx_attack_ops_prov
       ON attack_ops(province_id, key_hash, received_at DESC);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_attack_ops_unique_submission
+      ON attack_ops(province_id, key_hash, received_at);
   `);
 
   // Additive migrations
@@ -1146,7 +1148,7 @@ export function storeAttack(data: AttackData, savedBy: string, keyHash: string, 
     const provId = ensureProvince(db, data.name, "");
     recordSubmission(db, keyHash, provId);
     db.prepare(`
-      INSERT INTO attack_ops
+      INSERT OR IGNORE INTO attack_ops
         (province_id, key_hash, attack_type, outcome, target_name, target_kingdom,
          acres_taken, buildings_survived, specialist_credits, peasants_settled,
          massacred, enemy_killed, enemy_imprisoned, return_days, saved_by, received_at)
