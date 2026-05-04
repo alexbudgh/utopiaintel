@@ -2,7 +2,7 @@ import { getReplayTypes, hashReplayKey, replayDebugLogs } from "../lib/replay-de
 
 function usage() {
   throw new Error(
-    "Usage: tsx scripts/replay-debug-log.ts <jsonl...> [--types=kingdom,survey,sot,kingdom_news,state,som,train_army,build,attack] [--key-hash=<sha256>] [--assume-key-hash=<sha256> | --assume-key=<raw key>] [--dry-run] [--refresh-metrics]",
+    "Usage: tsx scripts/replay-debug-log.ts <jsonl...> [--types=kingdom,survey,sot,kingdom_news,state,som,train_army,build,rob,sorcery,attack] [--key-hash=<sha256>] [--assume-key-hash=<sha256> | --assume-key=<raw key>] [--dry-run] [--refresh-metrics]",
   );
 }
 

@@ -918,6 +918,16 @@ export function initSchema(db: Database.Database) {
     "attack_ops",
     "province_id, key_hash, received_at"
   );
+  ensureUniqueSubmissionIndex(
+    "idx_rob_ops_unique_submission",
+    "rob_ops",
+    "province_id, key_hash, received_at"
+  );
+  ensureUniqueSubmissionIndex(
+    "idx_sorcery_ops_unique_submission",
+    "sorcery_ops",
+    "province_id, key_hash, received_at"
+  );
 }
 
 // SQL fragments for province_overview — used in both the list query and detail query.
@@ -1165,53 +1175,55 @@ export function storeBuild(data: BuildData, savedBy: string, keyHash: string, re
   })();
 }
 
-export function storeRob(data: RobData, savedBy: string, keyHash: string) {
+export function storeRob(data: RobData, savedBy: string, keyHash: string, receivedAt?: string) {
   const db = getDb();
   db.transaction(() => {
     const provId = ensureProvince(db, data.name, "");
     recordSubmission(db, keyHash, provId);
-    db.prepare(`
-      INSERT INTO rob_ops
+    const result = db.prepare(`
+      INSERT OR IGNORE INTO rob_ops
         (province_id, key_hash, op, target_name, target_slot, target_kingdom,
-         outcome, amount_stolen, thieves_lost, thieves, stealth, saved_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         outcome, amount_stolen, thieves_lost, thieves, stealth, saved_by, received_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
     `).run(
       provId, keyHash, data.op,
       data.targetName, data.targetSlot, data.targetKingdom,
       data.outcome, data.amountStolen, data.thievesLost,
-      data.thieves, data.stealth, savedBy,
+      data.thieves, data.stealth, savedBy, receivedAt ?? null,
     );
+    if (result.changes === 0) return;
     if (data.thieves != null) {
       db.prepare(`
-        INSERT INTO province_resources (province_id, key_hash, thieves, source, saved_by, accuracy)
-        VALUES (?, ?, ?, 'rob', ?, 100)
-      `).run(provId, keyHash, data.thieves, savedBy);
+        INSERT OR IGNORE INTO province_resources (province_id, key_hash, thieves, source, saved_by, accuracy, received_at)
+        VALUES (?, ?, ?, 'rob', ?, 100, COALESCE(?, datetime('now')))
+      `).run(provId, keyHash, data.thieves, savedBy, receivedAt ?? null);
     }
   })();
 }
 
-export function storeSorcery(data: SorceryData, savedBy: string, keyHash: string) {
+export function storeSorcery(data: SorceryData, savedBy: string, keyHash: string, receivedAt?: string) {
   const db = getDb();
   db.transaction(() => {
     const provId = ensureProvince(db, data.name, "");
     recordSubmission(db, keyHash, provId);
-    db.prepare(`
-      INSERT INTO sorcery_ops
+    const result = db.prepare(`
+      INSERT OR IGNORE INTO sorcery_ops
         (province_id, key_hash, spell, outcome, runes_spent, wizards_lost,
          duration_days, target_name, target_slot, target_kingdom,
-         wizards, runes, mana, saved_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         wizards, runes, mana, saved_by, received_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
     `).run(
       provId, keyHash, data.spell, data.outcome, data.runesSpent, data.wizardsLost,
       data.durationDays, data.targetName, data.targetSlot, data.targetKingdom,
-      data.wizards, data.runes, data.mana, savedBy,
+      data.wizards, data.runes, data.mana, savedBy, receivedAt ?? null,
     );
+    if (result.changes === 0) return;
     if (data.wizards != null || data.runes != null) {
       db.prepare(`
-        INSERT INTO province_resources
-          (province_id, key_hash, wizards, runes, mana, source, saved_by, accuracy)
-        VALUES (?, ?, ?, ?, ?, 'sorcery', ?, 100)
-      `).run(provId, keyHash, data.wizards, data.runes, data.mana, savedBy);
+        INSERT OR IGNORE INTO province_resources
+          (province_id, key_hash, wizards, runes, mana, source, saved_by, accuracy, received_at)
+        VALUES (?, ?, ?, ?, ?, 'sorcery', ?, 100, COALESCE(?, datetime('now')))
+      `).run(provId, keyHash, data.wizards, data.runes, data.mana, savedBy, receivedAt ?? null);
     }
   })();
 }

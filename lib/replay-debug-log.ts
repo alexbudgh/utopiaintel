@@ -14,11 +14,13 @@ import {
   storeSoM,
   storeTrainArmy,
   storeBuild,
+  storeRob,
+  storeSorcery,
   storeAttack,
   setMetricsCacheRefreshEnabled,
 } from "./db";
 
-export type ReplayType = "kingdom" | "survey" | "sot" | "kingdom_news" | "state" | "som" | "train_army" | "build" | "attack";
+export type ReplayType = "kingdom" | "survey" | "sot" | "kingdom_news" | "state" | "som" | "train_army" | "build" | "rob" | "sorcery" | "attack";
 
 export interface DebugEntry {
   url: string;
@@ -43,7 +45,7 @@ export interface ReplaySummary {
   byType: Map<string, number>;
 }
 
-export const allowedReplayTypes = new Set<ReplayType>(["kingdom", "survey", "sot", "kingdom_news", "state", "som", "train_army", "build", "attack"]);
+export const allowedReplayTypes = new Set<ReplayType>(["kingdom", "survey", "sot", "kingdom_news", "state", "som", "train_army", "build", "rob", "sorcery", "attack"]);
 
 export function normalizeReceivedAt(receivedAt: string): string {
   const date = new Date(receivedAt);
@@ -142,6 +144,16 @@ export function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options
   if (parsed.type === "build") {
     storeBuild(parsed.data, savedBy, keyHash, normalizedReceivedAt ?? undefined);
     return "build";
+  }
+
+  if (parsed.type === "rob") {
+    storeRob(parsed.data, savedBy, keyHash, normalizedReceivedAt ?? undefined);
+    return "rob";
+  }
+
+  if (parsed.type === "sorcery") {
+    storeSorcery(parsed.data, savedBy, keyHash, normalizedReceivedAt ?? undefined);
+    return "sorcery";
   }
 
   if (parsed.type === "attack") {
