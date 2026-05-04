@@ -53,7 +53,6 @@ const COLUMNS = [
   { key: "money",         label: "Gold",          group: "Resources", desc: "Gold on hand"                            },
   { key: "food",          label: "Food",          group: "Resources", desc: "Food on hand"                            },
   { key: "runes",         label: "Runes",         group: "Resources", desc: "Runes on hand"                           },
-  { key: "ritual_cost",   label: "Ritual",        group: "Resources", desc: "Rune cost per ritual cast\n= ⌊(0.6 × Land + 200) × 9⌋\n(Cost Multiplier 6 × 1.5)"           },
   { key: "peasants",    label: "Peasants",    group: "Resources", desc: "Peasants"                                    },
   { key: "prisoners",     label: "Prisoners",     group: "Military",  desc: "Prisoners"                               },
   { key: "trade_balance", label: "Trade bal.",    group: "Resources", desc: "Trade balance"                           },
@@ -68,6 +67,8 @@ const COLUMNS = [
   { key: "dtpa",        label: "dTPA",        group: "T/M",       desc: "Defensive TPA = mTPA × Watch Tower prevent\nNeeds: mTPA sources + Survey (same tick)"   },
   { key: "rwpa",        label: "rWPA",        group: "T/M",       desc: "Raw WPA = wizards ÷ land\nSelf: direct from throne (needs same tick as land)\nEnemy: back-calc from NW residual (needs SoT+SoS+Survey+Infiltrate same tick)" },
   { key: "mwpa",        label: "mWPA",        group: "T/M",       desc: "Modified WPA = rWPA × Channeling × Race × Honor × Personality\nAlso needs SoS same tick as other sources" },
+  { key: "guild_pct",   label: "Guilds%",     group: "T/M",       desc: "Guild percentage = Guilds built ÷ Land\nAffects self spell / ritual success rate and spell duration\nFrom Survey" },
+  { key: "ritual_cost", label: "Ritual",      group: "T/M",       desc: "Rune cost per ritual cast\n= ⌊(0.6 × Land + 200) × 9⌋\n(Cost Multiplier 6 × 1.5)"                          },
 ] as const;
 
 type ColKey = (typeof COLUMNS)[number]["key"];
@@ -78,8 +79,8 @@ const DEFAULT_SORT: { key: SortKey; dir: SortDir } = { key: "slot", dir: "asc" }
 const VIEWS: Record<string, ColKey[]> = {
   Overview:  ["race", "personality", "honor_title", "land", "networth", "pop_pct", "armies", "off_points", "def_points", "def_home", "good_spells", "bad_spells", "hit_status", "peasants", "building_efficiency", "age"],
   Military:  ["land", "armies", "off_points", "def_points", "off_home", "def_home", "ome", "dme", "free_specialist_credits", "soldiers_home", "off_specs_home", "def_specs_home", "elites_home", "age"],
-  Resources: ["land", "networth", "pop_pct", "money", "food", "runes", "ritual_cost", "prisoners", "trade_balance", "war_horses", "peasants", "thieves", "wizards", "free_building_credits", "age"],
-  "T/M":     ["land", "stealth", "mana", "rtpa", "mtpa", "otpa", "dtpa", "rwpa", "mwpa", "age"],
+  Resources: ["land", "networth", "pop_pct", "money", "food", "runes", "prisoners", "trade_balance", "war_horses", "peasants", "thieves", "wizards", "free_building_credits", "age"],
+  "T/M":     ["land", "stealth", "mana", "rtpa", "mtpa", "otpa", "dtpa", "rwpa", "mwpa", "guild_pct", "ritual_cost", "age"],
 };
 const VIEW_NAMES = Object.keys(VIEWS);
 
@@ -142,6 +143,7 @@ function sortValueFor(p: ProvinceRow, key: SortKey): number | string | null {
     case "rwpa": return displayedMetricValue(p, "rwpa");
     case "mwpa": return displayedMetricValue(p, "mwpa");
     case "pop_pct": return computePopPct(p)?.pct ?? null;
+    case "guild_pct": return (p.guilds_built != null && p.land) ? p.guilds_built / p.land : null;
     case "ritual_cost": return ritualRuneCost(p.land);
   }
 }
@@ -215,7 +217,7 @@ function ageFor(p: ProvinceRow, key: ColKey): string | null {
   if (["off_home", "def_home"].includes(key)) return p.home_mil_age;
   if (key === "rtpa") return p.thieves_age ?? p.overview_age;
   if (key === "mtpa") return p.sciences_age;
-  if (key === "otpa" || key === "dtpa") return p.survey_age;
+  if (key === "otpa" || key === "dtpa" || key === "guild_pct") return p.survey_age;
   if (key === "rwpa") {
     if (p.wizards != null) return oldest(p.resources_age, p.overview_age);
     return oldest(p.thieves_age, p.overview_age, p.troops_age, p.resources_age, p.sciences_age, p.survey_age);
@@ -743,6 +745,11 @@ function roundedValueTipFor(p: ProvinceRow, key: ColKey): string | null {
       const value = sortValueFor(p, key);
       return typeof value === "number" ? fullValueTooltip(formatNum(value), value) : null;
     }
+    case "guild_pct": {
+      if (p.guilds_built == null || !p.land) return null;
+      const pct = (p.guilds_built / p.land) * 100;
+      return fullValueTooltip(`${pct.toFixed(1)}%`, pct, { suffix: "%" });
+    }
     case "ritual_cost": {
       const v = ritualRuneCost(p.land);
       return v != null ? fullValueTooltip(formatNum(v), v) : null;
@@ -861,6 +868,11 @@ function cellValue(p: ProvinceRow, key: ColKey): React.ReactNode {
     case "dtpa": { const v = computeDtpa(p); return v != null ? v.toFixed(2) : metricFallbackCell(p, "dtpa"); }
     case "rwpa": { const v = computeRwpa(p); return v != null ? v.toFixed(2) : metricFallbackCell(p, "rwpa"); }
     case "mwpa": { const v = computeMwpa(p); return v != null ? v.toFixed(2) : metricFallbackCell(p, "mwpa"); }
+    case "guild_pct": {
+      if (p.guilds_built == null || !p.land) return "—";
+      const pct = (p.guilds_built / p.land) * 100;
+      return <span className={pct >= 20 ? "text-green-400" : pct >= 10 ? "text-amber-300" : ""}>{pct.toFixed(1)}%</span>;
+    }
     case "pop_pct": {
       const r = computePopPct(p);
       if (!r) return "—";

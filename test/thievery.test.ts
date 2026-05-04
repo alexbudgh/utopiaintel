@@ -68,6 +68,7 @@ function makeProvince(overrides: Partial<ProvinceRow>): ProvinceRow {
     housing_effect: null,
     barren_land: null,
     homes_built: null,
+    guilds_built: null,
     total_pop: null,
     max_pop: null,
     buildings_built: null,

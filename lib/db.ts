@@ -1316,6 +1316,7 @@ export interface ProvinceRow {
   housing_effect: number | null;
   barren_land: number | null;
   homes_built: number | null;
+  guilds_built: number | null;
   buildings_built: number | null;
   buildings_in_progress: number | null;
   armies_out_count: number | null;
@@ -1504,7 +1505,7 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
     ome: null, dme: null, som_age: null, throne_age: null, sciences_age: null, crime_effect: null,
     channeling_effect: null, siege_effect: null, shielding_effect: null, science_total_books: null,
     survey_age: null, watch_towers_effect: null, thieves_dens_effect: null, castles_effect: null, housing_effect: null,
-    barren_land: null, homes_built: null, buildings_built: null, buildings_in_progress: null,
+    barren_land: null, homes_built: null, guilds_built: null, buildings_built: null, buildings_in_progress: null,
     armies_out_count: null, land_incoming: null, earliest_return: null,
     som_armies_json: null, throne_armies_json: null, armies_out_json: null,
   })) as ProvinceRow[];
@@ -1769,6 +1770,7 @@ function hydrateKingdomProvinceRows(db: Database.Database, rows: ProvinceRow[], 
            si.castles_effect,
            MAX(CASE WHEN sb.building = 'Barren Land' THEN sb.built END) AS barren_land,
            MAX(CASE WHEN sb.building = 'Homes' THEN sb.built END) AS homes_built,
+           MAX(CASE WHEN sb.building = 'Guilds' THEN sb.built END) AS guilds_built,
            SUM(CASE WHEN sb.building != 'Barren Land' THEN sb.built ELSE 0 END) AS buildings_built,
            SUM(sb.in_progress) AS buildings_in_progress
     FROM latest_survey si
@@ -1783,6 +1785,7 @@ function hydrateKingdomProvinceRows(db: Database.Database, rows: ProvinceRow[], 
       castles_effect: source.castles_effect,
       barren_land: source.barren_land,
       homes_built: source.homes_built,
+      guilds_built: source.guilds_built,
       buildings_built: source.buildings_built,
       buildings_in_progress: source.buildings_in_progress,
     });
