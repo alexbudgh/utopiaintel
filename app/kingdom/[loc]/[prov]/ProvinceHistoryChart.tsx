@@ -11,23 +11,25 @@ interface MetricConfig {
   key: MetricKey;
   label: string;
   color: string;
+  axis: "large" | "small";
 }
 
+// "large" axis (left): metrics with NW-scale values; "small" axis (right): land/troop/count-scale values
 const METRICS: MetricConfig[] = [
-  { key: "networth", label: "NW", color: "#60a5fa" },
-  { key: "land", label: "Land", color: "#34d399" },
-  { key: "peasants", label: "Peasants", color: "#a78bfa" },
-  { key: "soldiers", label: "Soldiers", color: "#fbbf24" },
-  { key: "offSpecs", label: "Off Specs", color: "#f87171" },
-  { key: "defSpecs", label: "Def Specs", color: "#6ee7b7" },
-  { key: "elites", label: "Elites", color: "#fb923c" },
-  { key: "warHorses", label: "War Horses", color: "#c084fc" },
-  { key: "offPoints", label: "Off Points", color: "#f43f5e" },
-  { key: "defPoints", label: "Def Points", color: "#38bdf8" },
-  { key: "money", label: "Money", color: "#d1fae5" },
-  { key: "food", label: "Food", color: "#bbf7d0" },
-  { key: "thieves", label: "Thieves", color: "#e879f9" },
-  { key: "wizards", label: "Wizards", color: "#818cf8" },
+  { key: "networth",  label: "NW",         color: "#60a5fa", axis: "large" },
+  { key: "money",     label: "Money",       color: "#d1fae5", axis: "large" },
+  { key: "food",      label: "Food",        color: "#bbf7d0", axis: "large" },
+  { key: "land",      label: "Land",        color: "#34d399", axis: "small" },
+  { key: "peasants",  label: "Peasants",    color: "#a78bfa", axis: "small" },
+  { key: "soldiers",  label: "Soldiers",    color: "#fbbf24", axis: "small" },
+  { key: "offSpecs",  label: "Off Specs",   color: "#f87171", axis: "small" },
+  { key: "defSpecs",  label: "Def Specs",   color: "#6ee7b7", axis: "small" },
+  { key: "elites",    label: "Elites",      color: "#fb923c", axis: "small" },
+  { key: "warHorses", label: "War Horses",  color: "#c084fc", axis: "small" },
+  { key: "offPoints", label: "Off Points",  color: "#f43f5e", axis: "small" },
+  { key: "defPoints", label: "Def Points",  color: "#38bdf8", axis: "small" },
+  { key: "thieves",   label: "Thieves",     color: "#e879f9", axis: "small" },
+  { key: "wizards",   label: "Wizards",     color: "#818cf8", axis: "small" },
 ];
 
 function chartLabel(isoStr: string): string {
@@ -65,8 +67,13 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
 
   const data = useMemo(() => buildRows(history), [history]);
   const visibleMetrics = METRICS.filter((m) => !hidden.has(m.key));
+  const hasLarge = visibleMetrics.some((m) => m.axis === "large");
+  const hasSmall = visibleMetrics.some((m) => m.axis === "small");
 
   const summary = `${history.length} snapshot${history.length === 1 ? "" : "s"} from ${chartLabel(history[0].receivedAt)} to ${chartLabel(history[history.length - 1].receivedAt)}`;
+
+  const axisStyle = { fill: "#6b7280", fontSize: 10 };
+  const tickFormatter = (value: number) => formatNum(value);
 
   return (
     <section className="mt-6 rounded-lg border border-gray-800 bg-gray-900/50 p-4">
@@ -86,20 +93,32 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
       {open && (
         <div className="mt-3">
           <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+            <LineChart data={data} margin={{ top: 4, right: hasSmall ? 60 : 8, bottom: 0, left: 0 }}>
               <XAxis
                 dataKey="label"
-                tick={{ fill: "#6b7280", fontSize: 10 }}
+                tick={axisStyle}
                 tickLine={false}
                 axisLine={false}
                 minTickGap={40}
               />
               <YAxis
-                tick={{ fill: "#6b7280", fontSize: 10 }}
+                yAxisId="large"
+                tick={axisStyle}
                 tickLine={false}
                 axisLine={false}
                 width={56}
-                tickFormatter={(value) => formatNum(Number(value))}
+                tickFormatter={tickFormatter}
+                hide={!hasLarge}
+              />
+              <YAxis
+                yAxisId="small"
+                orientation="right"
+                tick={axisStyle}
+                tickLine={false}
+                axisLine={false}
+                width={56}
+                tickFormatter={tickFormatter}
+                hide={!hasSmall}
               />
               <Tooltip
                 contentStyle={{ background: "#111827", border: "1px solid #374151", borderRadius: 6, fontSize: 11 }}
@@ -129,6 +148,7 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
               {METRICS.map((m) => (
                 <Line
                   key={m.key}
+                  yAxisId={m.axis}
                   type="monotone"
                   dataKey={m.key}
                   name={m.label}
@@ -145,6 +165,7 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
           {visibleMetrics.length === 0 && (
             <p className="mt-2 text-center text-xs text-gray-500">Click legend entries to show metrics.</p>
           )}
+          <p className="mt-1 text-right text-xs text-gray-600">Left axis: NW/Money/Food · Right axis: Land/Troops/Counts</p>
         </div>
       )}
     </section>
