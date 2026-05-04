@@ -850,7 +850,7 @@ function cellValue(p: ProvinceRow, key: ColKey): React.ReactNode {
     case "money":         return formatNum(p.money);
     case "food":          return formatNum(p.food);
     case "runes":         return formatNum(p.runes);
-    case "ritual_cost":   return p.land != null ? formatNum(ritualRuneCost(p.land)) : "—";
+    case "ritual_cost":   return p.land != null ? ritualRuneCost(p.land)!.toLocaleString() : "—";
     case "prisoners":     return formatNum(p.prisoners);
     case "trade_balance": return p.trade_balance != null ? (p.trade_balance >= 0 ? "+" : "") + formatNum(p.trade_balance) : "—";
     case "building_efficiency": return p.building_efficiency != null ? p.building_efficiency + "%" : "—";
