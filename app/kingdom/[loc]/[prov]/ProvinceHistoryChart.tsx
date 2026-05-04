@@ -36,15 +36,19 @@ const METRICS: MetricConfig[] = [
 
 const METRIC_BY_KEY = new Map(METRICS.map((m) => [m.key, m]));
 
+// Target ~60 display points; snap bucket size to a nice interval
+const TARGET_POINTS = 60;
+const NICE_BUCKETS_MS = [
+  5 * 60_000, 10 * 60_000, 15 * 60_000, 30 * 60_000,
+  60 * 60_000, 120 * 60_000, 240 * 60_000,
+];
+
 function chartLabel(isoStr: string): string {
   const d = new Date(isoStr.replace(" ", "T") + "Z");
   return d.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: "UTC",
+    month: "short", day: "numeric",
+    hour: "2-digit", minute: "2-digit",
+    hour12: false, timeZone: "UTC",
   });
 }
 
@@ -53,19 +57,57 @@ type ChartRow = {
   label: string;
   sources: string[];
   savedBy: string[];
+  bucketed: boolean;
 } & Partial<Record<MetricKey, number>>;
 
 function buildRows(history: ProvinceHistoryPoint[]): ChartRow[] {
-  return history.map((point) => {
+  if (history.length === 0) return [];
+
+  const toMs = (iso: string) => new Date(iso.replace(" ", "T") + "Z").getTime();
+
+  // Pick a bucket size: if few points, use raw; otherwise snap up to a nice interval
+  const spanMs = toMs(history[history.length - 1].receivedAt) - toMs(history[0].receivedAt);
+  const rawBucketMs = spanMs / TARGET_POINTS;
+  const bucketMs = history.length <= TARGET_POINTS
+    ? 0  // no bucketing
+    : NICE_BUCKETS_MS.find((b) => b >= rawBucketMs) ?? NICE_BUCKETS_MS[NICE_BUCKETS_MS.length - 1];
+
+  if (!bucketMs) {
+    return history.map((point) => {
+      const row: ChartRow = {
+        iso: point.receivedAt,
+        label: chartLabel(point.receivedAt),
+        sources: point.sources,
+        savedBy: point.savedBy,
+        bucketed: false,
+      };
+      for (const m of METRICS) {
+        const v = point[m.key];
+        if (v != null) row[m.key] = v as number;
+      }
+      return row;
+    });
+  }
+
+  // Group into buckets, average per metric
+  const groups = new Map<number, ProvinceHistoryPoint[]>();
+  for (const point of history) {
+    const bucket = Math.floor(toMs(point.receivedAt) / bucketMs) * bucketMs;
+    (groups.get(bucket) ?? (groups.set(bucket, []), groups.get(bucket)!)).push(point);
+  }
+
+  return [...groups.entries()].sort(([a], [b]) => a - b).map(([bucketStart, points]) => {
+    const iso = new Date(bucketStart).toISOString().replace("T", " ").replace(".000Z", "");
     const row: ChartRow = {
-      iso: point.receivedAt,
-      label: chartLabel(point.receivedAt),
-      sources: point.sources,
-      savedBy: point.savedBy,
+      iso,
+      label: chartLabel(iso),
+      sources: [...new Set(points.flatMap((p) => p.sources))],
+      savedBy: [...new Set(points.flatMap((p) => p.savedBy))],
+      bucketed: true,
     };
     for (const m of METRICS) {
-      const v = point[m.key];
-      if (v != null) row[m.key] = v as number;
+      const vals = points.map((p) => p[m.key]).filter((v): v is number => v != null);
+      if (vals.length > 0) row[m.key] = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
     }
     return row;
   });
@@ -80,15 +122,15 @@ function ChartTooltip({ active, payload }: TooltipContentProps<number, string>) 
 
   return (
     <div className="rounded border border-gray-700 bg-gray-900 p-2 text-xs shadow-lg" style={{ minWidth: 160 }}>
-      <div className="mb-1 font-medium text-gray-200">{point.label}</div>
+      <div className="mb-1 font-medium text-gray-200">
+        {point.label}{point.bucketed && <span className="ml-1 text-gray-500">(avg)</span>}
+      </div>
       <div className="mb-1.5 space-y-0.5">
         {visible.map((p: Payload<number, string>) => {
           const cfg = METRIC_BY_KEY.get(p.dataKey as MetricKey);
           return (
             <div key={String(p.dataKey)} className="flex items-center justify-between gap-3">
-              <span className="flex items-center gap-1" style={{ color: cfg?.color ?? "#9ca3af" }}>
-                {p.name}
-              </span>
+              <span style={{ color: cfg?.color ?? "#9ca3af" }}>{p.name}</span>
               <span className="tabular-nums text-gray-200">{Number(p.value).toLocaleString()}</span>
             </div>
           );
@@ -96,12 +138,8 @@ function ChartTooltip({ active, payload }: TooltipContentProps<number, string>) 
       </div>
       {(point.sources.length > 0 || point.savedBy.length > 0) && (
         <div className="border-t border-gray-700 pt-1 text-gray-500">
-          {point.sources.length > 0 && (
-            <div>via {point.sources.join(", ")}</div>
-          )}
-          {point.savedBy.length > 0 && (
-            <div>by {point.savedBy.join(", ")}</div>
-          )}
+          {point.sources.length > 0 && <div>via {point.sources.join(", ")}</div>}
+          {point.savedBy.length > 0 && <div>by {point.savedBy.join(", ")}</div>}
         </div>
       )}
     </div>
@@ -113,6 +151,7 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
     new Set(METRICS.filter((m) => !["networth", "land"].includes(m.key)).map((m) => m.key))
   );
   const [open, setOpen] = useState(false);
+  const [hoveredLine, setHoveredLine] = useState<MetricKey | null>(null);
 
   if (history.length < 2) return null;
 
@@ -120,18 +159,20 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
   const visibleMetrics = METRICS.filter((m) => !hidden.has(m.key));
   const hasLarge = visibleMetrics.some((m) => m.axis === "large");
   const hasSmall = visibleMetrics.some((m) => m.axis === "small");
+  const bucketed = data.some((r) => r.bucketed);
 
   const summary = `${history.length} snapshot${history.length === 1 ? "" : "s"} from ${chartLabel(history[0].receivedAt)} to ${chartLabel(history[history.length - 1].receivedAt)}`;
 
   const axisStyle = { fill: "#6b7280", fontSize: 10 };
-  const tickFormatter = (value: number) => formatNum(value);
 
   return (
     <section className="mt-6 rounded-lg border border-gray-800 bg-gray-900/50 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-sm font-semibold text-gray-100">Province History</h2>
-          <div className="text-xs text-gray-500">{summary}</div>
+          <div className="text-xs text-gray-500">
+            {summary}{bucketed && ` · averaged into ${data.length} buckets`}
+          </div>
         </div>
         <button
           type="button"
@@ -145,32 +186,11 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
         <div className="mt-3">
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={data} margin={{ top: 4, right: hasSmall ? 60 : 8, bottom: 0, left: 0 }}>
-              <XAxis
-                dataKey="label"
-                tick={axisStyle}
-                tickLine={false}
-                axisLine={false}
-                minTickGap={40}
-              />
-              <YAxis
-                yAxisId="large"
-                tick={axisStyle}
-                tickLine={false}
-                axisLine={false}
-                width={56}
-                tickFormatter={tickFormatter}
-                hide={!hasLarge}
-              />
-              <YAxis
-                yAxisId="small"
-                orientation="right"
-                tick={axisStyle}
-                tickLine={false}
-                axisLine={false}
-                width={56}
-                tickFormatter={tickFormatter}
-                hide={!hasSmall}
-              />
+              <XAxis dataKey="label" tick={axisStyle} tickLine={false} axisLine={false} minTickGap={40} />
+              <YAxis yAxisId="large" tick={axisStyle} tickLine={false} axisLine={false} width={56}
+                tickFormatter={(v) => formatNum(Number(v))} hide={!hasLarge} />
+              <YAxis yAxisId="small" orientation="right" tick={axisStyle} tickLine={false} axisLine={false} width={56}
+                tickFormatter={(v) => formatNum(Number(v))} hide={!hasSmall} />
               <Tooltip content={(props) => <ChartTooltip {...(props as TooltipContentProps<number, string>)} />} />
               <Legend
                 wrapperStyle={{ fontSize: 11, color: "#9ca3af", cursor: "pointer" }}
@@ -183,8 +203,7 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
                   const key = String(entry.dataKey) as MetricKey;
                   setHidden((prev) => {
                     const next = new Set(prev);
-                    if (next.has(key)) next.delete(key);
-                    else next.add(key);
+                    if (next.has(key)) next.delete(key); else next.add(key);
                     return next;
                   });
                 }}
@@ -198,10 +217,12 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
                   name={m.label}
                   stroke={m.color}
                   strokeWidth={["networth", "land"].includes(m.key) ? 2 : 1.5}
-                  dot={data.length <= 20}
-                  activeDot={{ r: 4 }}
+                  dot={hoveredLine === m.key ? { r: 3, fill: m.color, strokeWidth: 0 } : false}
+                  activeDot={{ r: 5, strokeWidth: 2, stroke: "#111827" }}
                   connectNulls
                   hide={hidden.has(m.key)}
+                  onMouseEnter={() => setHoveredLine(m.key)}
+                  onMouseLeave={() => setHoveredLine(null)}
                 />
               ))}
             </LineChart>
