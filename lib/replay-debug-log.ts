@@ -14,10 +14,11 @@ import {
   storeSoM,
   storeTrainArmy,
   storeBuild,
+  storeAttack,
   setMetricsCacheRefreshEnabled,
 } from "./db";
 
-export type ReplayType = "kingdom" | "survey" | "sot" | "kingdom_news" | "state" | "som" | "train_army" | "build";
+export type ReplayType = "kingdom" | "survey" | "sot" | "kingdom_news" | "state" | "som" | "train_army" | "build" | "attack";
 
 export interface DebugEntry {
   url: string;
@@ -42,7 +43,7 @@ export interface ReplaySummary {
   byType: Map<string, number>;
 }
 
-export const allowedReplayTypes = new Set<ReplayType>(["kingdom", "survey", "sot", "kingdom_news", "state", "som", "train_army", "build"]);
+export const allowedReplayTypes = new Set<ReplayType>(["kingdom", "survey", "sot", "kingdom_news", "state", "som", "train_army", "build", "attack"]);
 
 export function normalizeReceivedAt(receivedAt: string): string {
   const date = new Date(receivedAt);
@@ -154,6 +155,22 @@ function setLatestSoTTimestamps(provinceName: string, kingdom: string, savedBy: 
   `).run(receivedAt, provinceId, keyHash, savedBy);
 }
 
+function setLatestAttackTimestamp(provinceName: string, savedBy: string, keyHash: string, receivedAt: string) {
+  const db = getDb();
+  db.prepare(`
+    UPDATE attack_ops
+    SET received_at = ?
+    WHERE id = (
+      SELECT ao.id
+      FROM attack_ops ao
+      JOIN provinces p ON p.id = ao.province_id
+      WHERE p.name = ? AND ao.key_hash = ? AND ao.saved_by = ?
+      ORDER BY ao.id DESC
+      LIMIT 1
+    )
+  `).run(receivedAt, provinceName, keyHash, savedBy);
+}
+
 export function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options: { keyHash?: string; assumeKeyHash?: string; dryRun?: boolean } = {}) {
   if (!shouldReplayEntry(entry, options.keyHash)) return null;
   const parsed = parseIntel(entry.url, entry.data_simple, entry.prov);
@@ -216,6 +233,14 @@ export function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options
   if (parsed.type === "build") {
     storeBuild(parsed.data, savedBy, keyHash);
     return "build";
+  }
+
+  if (parsed.type === "attack") {
+    storeAttack(parsed.data, savedBy, keyHash);
+    if (normalizedReceivedAt) {
+      setLatestAttackTimestamp(parsed.data.name, savedBy, keyHash, normalizedReceivedAt);
+    }
+    return "attack";
   }
 
   return null;

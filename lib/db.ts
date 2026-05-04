@@ -20,6 +20,7 @@ import type {
   BuildData,
   RobData,
   SorceryData,
+  AttackData,
 } from "./parsers/types";
 import type { KingdomNewsData, KingdomNewsEvent } from "./parsers/kingdom_news";
 
@@ -743,6 +744,28 @@ export function initSchema(db: Database.Database) {
     );
     CREATE INDEX IF NOT EXISTS idx_sorcery_ops_prov
       ON sorcery_ops(province_id, key_hash, received_at DESC);
+
+    CREATE TABLE IF NOT EXISTS attack_ops (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      province_id INTEGER NOT NULL REFERENCES provinces(id),
+      key_hash TEXT NOT NULL,
+      attack_type TEXT NOT NULL,
+      outcome TEXT NOT NULL,
+      target_name TEXT,
+      target_kingdom TEXT,
+      acres_taken INTEGER,
+      buildings_survived INTEGER,
+      specialist_credits INTEGER,
+      peasants_settled INTEGER,
+      massacred INTEGER,
+      enemy_killed INTEGER,
+      enemy_imprisoned INTEGER,
+      return_days REAL,
+      saved_by TEXT,
+      received_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_attack_ops_prov
+      ON attack_ops(province_id, key_hash, received_at DESC);
   `);
 
   // Additive migrations
@@ -1113,6 +1136,26 @@ export function storeSorcery(data: SorceryData, savedBy: string, keyHash: string
         VALUES (?, ?, ?, ?, ?, 'sorcery', ?, 100)
       `).run(provId, keyHash, data.wizards, data.runes, data.mana, savedBy);
     }
+  })();
+}
+
+export function storeAttack(data: AttackData, savedBy: string, keyHash: string) {
+  const db = getDb();
+  db.transaction(() => {
+    const provId = ensureProvince(db, data.name, "");
+    recordSubmission(db, keyHash, provId);
+    db.prepare(`
+      INSERT INTO attack_ops
+        (province_id, key_hash, attack_type, outcome, target_name, target_kingdom,
+         acres_taken, buildings_survived, specialist_credits, peasants_settled,
+         massacred, enemy_killed, enemy_imprisoned, return_days, saved_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      provId, keyHash, data.attackType, data.outcome,
+      data.targetName, data.targetKingdom,
+      data.acresTaken, data.buildingsSurvived, data.specialistCredits, data.peasantsSettled,
+      data.massacred, data.enemyKilled, data.enemyImprisoned, data.returnDays, savedBy,
+    );
   })();
 }
 
@@ -3059,6 +3102,7 @@ export function createDbApi(db: Database.Database): DbApi {
         DELETE FROM kingdom_news_sharded WHERE received_at < ${cutoff};
         DELETE FROM rob_ops WHERE received_at < ${cutoff};
         DELETE FROM sorcery_ops WHERE received_at < ${cutoff};
+        DELETE FROM attack_ops WHERE received_at < ${cutoff};
       `);
     },
   };

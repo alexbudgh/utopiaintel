@@ -82,6 +82,8 @@ export function detectIntelType(url: string): IntelType | null {
     } catch { /* ignore */ }
   }
 
+  if (matchesGamePath(pathname, "send_armies")) return "attack";
+
   if (pathname === "/wol/game/kingdom" || pathname.startsWith("/wol/game/kingdom_details")) return "kingdom";
   if (pathname === "/wol/game/kingdom_news" || pathname.startsWith("/wol/game/kingdom_news/")) return "kingdom_news";
 

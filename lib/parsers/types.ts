@@ -1,6 +1,6 @@
 // Shared types for all parsers
 
-export type IntelType = "sot" | "survey" | "som" | "sos" | "sod" | "infiltrate" | "kingdom" | "state" | "kingdom_news" | "train_army" | "build" | "rob" | "sorcery";
+export type IntelType = "sot" | "survey" | "som" | "sos" | "sod" | "infiltrate" | "kingdom" | "state" | "kingdom_news" | "train_army" | "build" | "rob" | "sorcery" | "attack";
 
 export interface ProvinceId {
   name: string;
@@ -200,6 +200,31 @@ export interface RobData extends ProvinceId {
   stealth: number | null;
 }
 
+export type AttackType =
+  | "traditional_march"
+  | "conquest"
+  | "ambush"
+  | "plunder"
+  | "learn"
+  | "massacre"
+  | "raze"
+  | "unknown";
+
+export interface AttackData extends ProvinceId {
+  attackType: AttackType;
+  outcome: "success" | "failure";
+  targetName: string | null;
+  targetKingdom: string | null;
+  acresTaken: number | null;
+  buildingsSurvived: number | null;
+  specialistCredits: number | null;
+  peasantsSettled: number | null;
+  massacred: number | null;
+  enemyKilled: number | null;
+  enemyImprisoned: number | null;
+  returnDays: number | null;
+}
+
 export type ParseResult =
   | { type: "sot"; data: SoTData }
   | { type: "survey"; data: SurveyData }
@@ -213,4 +238,5 @@ export type ParseResult =
   | { type: "train_army"; data: TrainArmyData }
   | { type: "build"; data: BuildData }
   | { type: "rob"; data: RobData }
-  | { type: "sorcery"; data: SorceryData };
+  | { type: "sorcery"; data: SorceryData }
+  | { type: "attack"; data: AttackData };
