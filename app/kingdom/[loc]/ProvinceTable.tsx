@@ -53,6 +53,7 @@ const COLUMNS = [
   { key: "money",         label: "Gold",          group: "Resources", desc: "Gold on hand"                            },
   { key: "food",          label: "Food",          group: "Resources", desc: "Food on hand"                            },
   { key: "runes",         label: "Runes",         group: "Resources", desc: "Runes on hand"                           },
+  { key: "ritual_cost",   label: "Ritual",        group: "Resources", desc: "Rune cost per ritual cast\n= ⌊(0.6 × Land + 200) × 9⌋\n(Cost Multiplier 6 × 1.5)"           },
   { key: "peasants",    label: "Peasants",    group: "Resources", desc: "Peasants"                                    },
   { key: "prisoners",     label: "Prisoners",     group: "Military",  desc: "Prisoners"                               },
   { key: "trade_balance", label: "Trade bal.",    group: "Resources", desc: "Trade balance"                           },
@@ -77,7 +78,7 @@ const DEFAULT_SORT: { key: SortKey; dir: SortDir } = { key: "slot", dir: "asc" }
 const VIEWS: Record<string, ColKey[]> = {
   Overview:  ["race", "personality", "honor_title", "land", "networth", "pop_pct", "armies", "off_points", "def_points", "def_home", "good_spells", "bad_spells", "hit_status", "peasants", "building_efficiency", "age"],
   Military:  ["land", "armies", "off_points", "def_points", "off_home", "def_home", "ome", "dme", "free_specialist_credits", "soldiers_home", "off_specs_home", "def_specs_home", "elites_home", "age"],
-  Resources: ["land", "networth", "pop_pct", "money", "food", "runes", "prisoners", "trade_balance", "war_horses", "peasants", "thieves", "wizards", "free_building_credits", "age"],
+  Resources: ["land", "networth", "pop_pct", "money", "food", "runes", "ritual_cost", "prisoners", "trade_balance", "war_horses", "peasants", "thieves", "wizards", "free_building_credits", "age"],
   "T/M":     ["land", "stealth", "mana", "rtpa", "mtpa", "otpa", "dtpa", "rwpa", "mwpa", "age"],
 };
 const VIEW_NAMES = Object.keys(VIEWS);
@@ -141,6 +142,7 @@ function sortValueFor(p: ProvinceRow, key: SortKey): number | string | null {
     case "rwpa": return displayedMetricValue(p, "rwpa");
     case "mwpa": return displayedMetricValue(p, "mwpa");
     case "pop_pct": return computePopPct(p)?.pct ?? null;
+    case "ritual_cost": return ritualRuneCost(p.land);
   }
 }
 
@@ -150,6 +152,11 @@ function compareSortValues(a: number | string | null, b: number | string | null)
   if (b == null) return -1;
   if (typeof a === "number" && typeof b === "number") return a - b;
   return String(a).localeCompare(String(b), undefined, { sensitivity: "base" });
+}
+
+function ritualRuneCost(land: number | null | undefined): number | null {
+  if (land == null) return null;
+  return Math.floor((0.6 * land + 200) * 9);
 }
 
 function effectFactorLabel(effect: number, label: string): string {
@@ -736,6 +743,10 @@ function roundedValueTipFor(p: ProvinceRow, key: ColKey): string | null {
       const value = sortValueFor(p, key);
       return typeof value === "number" ? fullValueTooltip(formatNum(value), value) : null;
     }
+    case "ritual_cost": {
+      const v = ritualRuneCost(p.land);
+      return v != null ? fullValueTooltip(formatNum(v), v) : null;
+    }
     case "trade_balance":
       return p.trade_balance != null
         ? fullValueTooltip(
@@ -832,6 +843,7 @@ function cellValue(p: ProvinceRow, key: ColKey): React.ReactNode {
     case "money":         return formatNum(p.money);
     case "food":          return formatNum(p.food);
     case "runes":         return formatNum(p.runes);
+    case "ritual_cost":   return p.land != null ? formatNum(ritualRuneCost(p.land)) : "—";
     case "prisoners":     return formatNum(p.prisoners);
     case "trade_balance": return p.trade_balance != null ? (p.trade_balance >= 0 ? "+" : "") + formatNum(p.trade_balance) : "—";
     case "building_efficiency": return p.building_efficiency != null ? p.building_efficiency + "%" : "—";
