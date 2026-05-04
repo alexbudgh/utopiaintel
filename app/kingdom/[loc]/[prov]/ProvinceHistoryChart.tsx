@@ -128,7 +128,11 @@ function ChartTooltip({ active, payload, tz }: TooltipContentProps<number, strin
       <div className="mb-1 font-medium text-gray-200">
         {point.label}
         <span className="ml-1 text-gray-500">
-          {tz === "UTC" ? "UTC" : Intl.DateTimeFormat().resolvedOptions().timeZone}
+          {tz === "UTC" ? "UTC" : (
+            new Intl.DateTimeFormat("en", { timeZoneName: "shortOffset" })
+              .formatToParts(new Date())
+              .find((p) => p.type === "timeZoneName")?.value ?? "Local"
+          )}
           {point.bucketed && " · avg"}
         </span>
       </div>
