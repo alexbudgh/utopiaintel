@@ -4,7 +4,8 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { hashKey } from "@/lib/keys";
 import { Tooltip, type TooltipLine } from "@/app/components/Tooltip";
-import { getProvinceDetail } from "@/lib/db";
+import { getProvinceDetail, getProvinceHistory } from "@/lib/db";
+import { ProvinceHistoryChart } from "./ProvinceHistoryChart";
 import { freshnessColor, timeAgo, fullValueTooltip } from "@/lib/ui";
 import { BAD_SPELL_NAMES } from "@/lib/effects";
 import { computeAmbushRawOff } from "@/lib/ambush";
@@ -106,6 +107,7 @@ export default async function ProvincePage({
   const key = (await cookies()).get("auth")?.value ?? "";
   const keyHash = hashKey(key);
   const d = getProvinceDetail(name, kingdom, keyHash);
+  const history = getProvinceHistory(name, kingdom, keyHash);
   // Use direct council_state values when available (self-intel); otherwise estimate from unit counts + survey
   const directPop = d.resources?.totalPop != null || d.resources?.maxPop != null
     ? { currentPop: d.resources.totalPop, maxPop: d.resources.maxPop, wizardsEstimated: false, needsForMax: [], needsForCurrent: [] }
@@ -441,6 +443,7 @@ export default async function ProvincePage({
           ) : <NoData />}
         </Card>
       </div>
+      <ProvinceHistoryChart history={history} />
     </main>
   );
 }

@@ -2273,6 +2273,28 @@ export function cleanupExpired() {
   return createDbApi(getDb()).cleanupExpired();
 }
 
+export interface ProvinceHistoryPoint {
+  receivedAt: string;
+  networth: number | null;
+  land: number | null;
+  peasants: number | null;
+  soldiers: number | null;
+  offSpecs: number | null;
+  defSpecs: number | null;
+  elites: number | null;
+  warHorses: number | null;
+  offPoints: number | null;
+  defPoints: number | null;
+  money: number | null;
+  food: number | null;
+  thieves: number | null;
+  wizards: number | null;
+}
+
+export function getProvinceHistory(name: string, kingdom: string, keyHash: string): ProvinceHistoryPoint[] {
+  return createDbApi(getDb()).getProvinceHistory(name, kingdom, keyHash);
+}
+
 export interface DbApi {
   getBoundKingdom(keyHash: string): string | null;
   getKingdoms(keyHash: string): KingdomRow[];
@@ -2286,6 +2308,7 @@ export interface DbApi {
   getKingdomNews(kingdom: string, keyHash: string, from?: string, to?: string): { events: KingdomNewsRow[]; effectiveFrom: string | null };
   getLatestWarDate(kingdom: string, keyHash: string): string | null;
   getKingdomNewsSummary(kingdom: string, keyHash: string, from?: string, to?: string): KingdomNewsSummary;
+  getProvinceHistory(name: string, kingdom: string, keyHash: string): ProvinceHistoryPoint[];
   cleanupExpired(): void;
 }
 
@@ -2831,6 +2854,89 @@ export function createDbApi(db: Database.Database): DbApi {
       const uniqueAttackers = asAttacker.filter(r => r.attacker_kingdom !== kingdom).length;
 
       return { ourKingdom: kingdom, totalMarchAcresIn, totalRazeAcresIn, totalMarchAcresOut, totalRazeAcresOut, uniqueAttackers, byKingdom };
+    },
+
+    getProvinceHistory(name, kingdom, keyHash) {
+      const prov = db.prepare(
+        "SELECT id FROM provinces WHERE name = ? AND kingdom = ?"
+      ).get(name, kingdom) as { id: number } | undefined;
+      if (!prov) return [];
+
+      const allowed = db.prepare(
+        "SELECT 1 FROM intel_partitions WHERE key_hash = ? AND province_id = ?"
+      ).get(keyHash, prov.id);
+      if (!allowed) return [];
+
+      const id = prov.id;
+
+      type OverviewRaw = { received_at: string; land: number | null; networth: number | null };
+      type TroopsRaw = { received_at: string; soldiers: number | null; off_specs: number | null; def_specs: number | null; elites: number | null; war_horses: number | null; peasants: number | null };
+      type ResourcesRaw = { received_at: string; money: number | null; food: number | null; thieves: number | null; wizards: number | null };
+      type MilPointsRaw = { received_at: string; off_points: number | null; def_points: number | null };
+
+      const overviews = db.prepare(
+        "SELECT received_at, land, networth FROM province_overview WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC"
+      ).all(id, keyHash) as OverviewRaw[];
+      const troops = db.prepare(
+        "SELECT received_at, soldiers, off_specs, def_specs, elites, war_horses, peasants FROM province_troops WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC"
+      ).all(id, keyHash) as TroopsRaw[];
+      const resources = db.prepare(
+        "SELECT received_at, money, food, thieves, wizards FROM province_resources WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC"
+      ).all(id, keyHash) as ResourcesRaw[];
+      const milPoints = db.prepare(
+        "SELECT received_at, off_points, def_points FROM total_military_points WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC"
+      ).all(id, keyHash) as MilPointsRaw[];
+
+      // Bucket all rows into 5-minute windows
+      const BUCKET_MS = 5 * 60 * 1000;
+      function bucketKey(isoStr: string): string {
+        const ms = new Date(isoStr.replace(" ", "T") + "Z").getTime();
+        const bucketMs = Math.floor(ms / BUCKET_MS) * BUCKET_MS;
+        return new Date(bucketMs).toISOString().replace("T", " ").replace(".000Z", "");
+      }
+
+      const buckets = new Map<string, ProvinceHistoryPoint>();
+      function ensureBucket(key: string): ProvinceHistoryPoint {
+        if (!buckets.has(key)) {
+          buckets.set(key, {
+            receivedAt: key,
+            networth: null, land: null, peasants: null,
+            soldiers: null, offSpecs: null, defSpecs: null, elites: null, warHorses: null,
+            offPoints: null, defPoints: null,
+            money: null, food: null, thieves: null, wizards: null,
+          });
+        }
+        return buckets.get(key)!;
+      }
+
+      for (const row of overviews) {
+        const b = ensureBucket(bucketKey(row.received_at));
+        if (row.land != null) b.land = row.land;
+        if (row.networth != null) b.networth = row.networth;
+      }
+      for (const row of troops) {
+        const b = ensureBucket(bucketKey(row.received_at));
+        if (row.soldiers != null) b.soldiers = row.soldiers;
+        if (row.off_specs != null) b.offSpecs = row.off_specs;
+        if (row.def_specs != null) b.defSpecs = row.def_specs;
+        if (row.elites != null) b.elites = row.elites;
+        if (row.war_horses != null) b.warHorses = row.war_horses;
+        if (row.peasants != null) b.peasants = row.peasants;
+      }
+      for (const row of resources) {
+        const b = ensureBucket(bucketKey(row.received_at));
+        if (row.money != null) b.money = row.money;
+        if (row.food != null) b.food = row.food;
+        if (row.thieves != null) b.thieves = row.thieves;
+        if (row.wizards != null) b.wizards = row.wizards;
+      }
+      for (const row of milPoints) {
+        const b = ensureBucket(bucketKey(row.received_at));
+        if (row.off_points != null) b.offPoints = row.off_points;
+        if (row.def_points != null) b.defPoints = row.def_points;
+      }
+
+      return [...buckets.values()].sort((a, b) => a.receivedAt.localeCompare(b.receivedAt));
     },
 
     cleanupExpired() {
