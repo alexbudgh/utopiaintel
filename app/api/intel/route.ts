@@ -16,6 +16,7 @@ import {
   storeKingdomNews,
   storeTrainArmy,
   storeBuild,
+  storeRob,
   cleanupExpired,
 } from "@/lib/db";
 
@@ -153,6 +154,9 @@ export const POST = withAxiom(async (request: AxiomRequest) => {
       break;
     case "build":
       storeBuild(result.data, savedBy, keyHash);
+      break;
+    case "rob":
+      storeRob(result.data, savedBy, keyHash);
       break;
   }
 

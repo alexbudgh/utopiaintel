@@ -18,6 +18,7 @@ import type {
   WarDoctrine,
   TrainArmyData,
   BuildData,
+  RobData,
 } from "./parsers/types";
 import type { KingdomNewsData, KingdomNewsEvent } from "./parsers/kingdom_news";
 
@@ -701,6 +702,25 @@ export function initSchema(db: Database.Database) {
     );
     CREATE INDEX IF NOT EXISTS idx_kingdom_news_sharded_kd_ord
       ON kingdom_news_sharded(key_hash, kingdom, game_date_ord DESC);
+
+    CREATE TABLE IF NOT EXISTS rob_ops (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      province_id INTEGER NOT NULL REFERENCES provinces(id),
+      key_hash TEXT NOT NULL,
+      op TEXT NOT NULL,
+      target_name TEXT,
+      target_slot INTEGER,
+      target_kingdom TEXT,
+      outcome TEXT NOT NULL,
+      amount_stolen INTEGER,
+      thieves_lost INTEGER NOT NULL DEFAULT 0,
+      thieves INTEGER,
+      stealth INTEGER,
+      saved_by TEXT,
+      received_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_rob_ops_prov
+      ON rob_ops(province_id, key_hash, received_at DESC);
   `);
 
   // Additive migrations
@@ -1020,6 +1040,31 @@ export function storeBuild(data: BuildData, savedBy: string, keyHash: string) {
       INSERT INTO province_resources (province_id, key_hash, free_building_credits, source, saved_by, accuracy)
       VALUES (?, ?, ?, 'build', ?, 100)
     `).run(provId, keyHash, data.freeBuildingCredits, savedBy);
+  })();
+}
+
+export function storeRob(data: RobData, savedBy: string, keyHash: string) {
+  const db = getDb();
+  db.transaction(() => {
+    const provId = ensureProvince(db, data.name, "");
+    recordSubmission(db, keyHash, provId);
+    db.prepare(`
+      INSERT INTO rob_ops
+        (province_id, key_hash, op, target_name, target_slot, target_kingdom,
+         outcome, amount_stolen, thieves_lost, thieves, stealth, saved_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      provId, keyHash, data.op,
+      data.targetName, data.targetSlot, data.targetKingdom,
+      data.outcome, data.amountStolen, data.thievesLost,
+      data.thieves, data.stealth, savedBy,
+    );
+    if (data.thieves != null) {
+      db.prepare(`
+        INSERT INTO province_resources (province_id, key_hash, thieves, source, saved_by, accuracy)
+        VALUES (?, ?, ?, 'rob', ?, 100)
+      `).run(provId, keyHash, data.thieves, savedBy);
+    }
   })();
 }
 
@@ -2964,6 +3009,7 @@ export function createDbApi(db: Database.Database): DbApi {
         DELETE FROM kingdom_intel WHERE received_at < ${cutoff};
         DELETE FROM kingdom_news WHERE received_at < ${cutoff};
         DELETE FROM kingdom_news_sharded WHERE received_at < ${cutoff};
+        DELETE FROM rob_ops WHERE received_at < ${cutoff};
       `);
     },
   };

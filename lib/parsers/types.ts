@@ -1,6 +1,6 @@
 // Shared types for all parsers
 
-export type IntelType = "sot" | "survey" | "som" | "sos" | "sod" | "infiltrate" | "kingdom" | "state" | "kingdom_news" | "train_army" | "build";
+export type IntelType = "sot" | "survey" | "som" | "sos" | "sod" | "infiltrate" | "kingdom" | "state" | "kingdom_news" | "train_army" | "build" | "rob";
 
 export interface ProvinceId {
   name: string;
@@ -172,6 +172,20 @@ export interface BuildData extends ProvinceId {
   freeBuildingCredits: number;
 }
 
+export type RobOp = "towers" | "vaults" | "granaries";
+
+export interface RobData extends ProvinceId {
+  op: RobOp;
+  targetName: string | null;
+  targetSlot: number | null;
+  targetKingdom: string | null;
+  outcome: "success" | "failure";
+  amountStolen: number | null;
+  thievesLost: number;
+  thieves: number | null;
+  stealth: number | null;
+}
+
 export type ParseResult =
   | { type: "sot"; data: SoTData }
   | { type: "survey"; data: SurveyData }
@@ -183,4 +197,5 @@ export type ParseResult =
   | { type: "state"; data: StateData }
   | { type: "kingdom_news"; data: import("./kingdom_news").KingdomNewsData }
   | { type: "train_army"; data: TrainArmyData }
-  | { type: "build"; data: BuildData };
+  | { type: "build"; data: BuildData }
+  | { type: "rob"; data: RobData };

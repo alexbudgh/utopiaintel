@@ -10,6 +10,7 @@ import { parseState } from "./state";
 import { parseKingdomNews } from "./kingdom_news";
 import { parseTrainArmy } from "./train_army";
 import { parseBuild } from "./build";
+import { parseRob } from "./rob";
 import type { ParseResult } from "./types";
 import { getIntelPathname, matchesGamePath } from "./detect";
 
@@ -67,6 +68,11 @@ export function parseIntel(url: string, dataSimple: string, selfProv?: string): 
     case "build": {
       const data = parseBuild(dataSimple, selfProv);
       return data ? { type: "build", data } : null;
+    }
+    case "rob": {
+      if (!selfProv) return null;
+      const data = parseRob(dataSimple, url, selfProv);
+      return data ? { type: "rob", data } : null;
     }
   }
 }
