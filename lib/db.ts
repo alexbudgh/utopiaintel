@@ -914,7 +914,7 @@ function bindKeyToKingdom(db: Database.Database, keyHash: string, kingdom: strin
   `).run(keyHash, kingdom, source);
 }
 
-export function storeSoT(data: SoTData, savedBy: string, keyHash: string, isSelfThrone = false) {
+export function storeSoT(data: SoTData, savedBy: string, keyHash: string, isSelfThrone = false, receivedAt?: string) {
   const db = getDb();
   const src = isSelfThrone ? "throne" : "sot";
   db.transaction(() => {
@@ -930,37 +930,37 @@ export function storeSoT(data: SoTData, savedBy: string, keyHash: string, isSelf
 
     // 1. Overview
     db.prepare(`
-      INSERT INTO province_overview (province_id, key_hash, race, personality, honor_title, ruler, land, networth, source, saved_by, accuracy)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(provId, keyHash, data.race, data.personality ?? null, data.honorTitle ?? null, data.ruler ?? null, data.land, data.networth, src, savedBy, data.accuracy);
+      INSERT INTO province_overview (province_id, key_hash, race, personality, honor_title, ruler, land, networth, source, saved_by, accuracy, received_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
+    `).run(provId, keyHash, data.race, data.personality ?? null, data.honorTitle ?? null, data.ruler ?? null, data.land, data.networth, src, savedBy, data.accuracy, receivedAt ?? null);
 
     // 2. Total military points (province-wide)
     db.prepare(`
-      INSERT INTO total_military_points (province_id, key_hash, off_points, def_points, source, saved_by, accuracy)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(provId, keyHash, data.offPoints, data.defPoints, src, savedBy, data.accuracy);
+      INSERT INTO total_military_points (province_id, key_hash, off_points, def_points, source, saved_by, accuracy, received_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
+    `).run(provId, keyHash, data.offPoints, data.defPoints, src, savedBy, data.accuracy, receivedAt ?? null);
 
     // 3. Troops at home
     db.prepare(`
-      INSERT INTO province_troops (province_id, key_hash, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, saved_by, accuracy)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(provId, keyHash, data.soldiers, data.offSpecs, data.defSpecs, data.elites, data.warHorses, data.peasants, src, savedBy, data.accuracy);
+      INSERT INTO province_troops (province_id, key_hash, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, saved_by, accuracy, received_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
+    `).run(provId, keyHash, data.soldiers, data.offSpecs, data.defSpecs, data.elites, data.warHorses, data.peasants, src, savedBy, data.accuracy, receivedAt ?? null);
 
     // 4. Resources
     db.prepare(`
-      INSERT INTO province_resources (province_id, key_hash, money, food, runes, prisoners, trade_balance, building_efficiency, thieves, stealth, wizards, mana, source, saved_by, accuracy)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(provId, keyHash, data.money, data.food, data.runes, data.prisoners, data.tradeBalance, data.buildingEfficiency, data.thieves, data.stealth, data.wizards, data.mana, src, savedBy, data.accuracy);
+      INSERT INTO province_resources (province_id, key_hash, money, food, runes, prisoners, trade_balance, building_efficiency, thieves, stealth, wizards, mana, source, saved_by, accuracy, received_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
+    `).run(provId, keyHash, data.money, data.food, data.runes, data.prisoners, data.tradeBalance, data.buildingEfficiency, data.thieves, data.stealth, data.wizards, data.mana, src, savedBy, data.accuracy, receivedAt ?? null);
 
     // 5. Status
     db.prepare(`
-      INSERT INTO province_status (province_id, key_hash, plagued, overpopulated, overpop_deserters, dragon_type, dragon_name, hit_status, war, source, saved_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(provId, keyHash, data.plagued ? 1 : 0, data.overpopulated ? 1 : 0, data.overpopDeserters ?? null, data.dragonType ?? null, data.dragonName ?? null, data.hitStatus, data.war ? 1 : 0, src, savedBy);
+      INSERT INTO province_status (province_id, key_hash, plagued, overpopulated, overpop_deserters, dragon_type, dragon_name, hit_status, war, source, saved_by, received_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
+    `).run(provId, keyHash, data.plagued ? 1 : 0, data.overpopulated ? 1 : 0, data.overpopDeserters ?? null, data.dragonType ?? null, data.dragonName ?? null, data.hitStatus, data.war ? 1 : 0, src, savedBy, receivedAt ?? null);
 
     const insertEffect = db.prepare(`
-      INSERT INTO province_effects (province_id, key_hash, effect_name, effect_kind, duration_text, remaining_ticks, effectiveness_percent, source, saved_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO province_effects (province_id, key_hash, effect_name, effect_kind, duration_text, remaining_ticks, effectiveness_percent, source, saved_by, received_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
     `);
     for (const effect of data.activeEffects) {
       insertEffect.run(
@@ -973,15 +973,16 @@ export function storeSoT(data: SoTData, savedBy: string, keyHash: string, isSelf
         effect.effectivenessPercent,
         src,
         savedBy,
+        receivedAt ?? null,
       );
     }
 
     // 6. Armies out (self-throne only)
     if (isSelfThrone && data.armiesOut?.length) {
       const milResult = db.prepare(`
-        INSERT INTO military_intel (province_id, key_hash, ome, dme, source, saved_by, accuracy)
-        VALUES (?, ?, NULL, NULL, 'throne', ?, ?)
-      `).run(provId, keyHash, savedBy, data.accuracy);
+        INSERT INTO military_intel (province_id, key_hash, ome, dme, source, saved_by, accuracy, received_at)
+        VALUES (?, ?, NULL, NULL, 'throne', ?, ?, COALESCE(?, datetime('now')))
+      `).run(provId, keyHash, savedBy, data.accuracy, receivedAt ?? null);
       const milId = milResult.lastInsertRowid;
       const insArmy = db.prepare(`
         INSERT INTO som_armies (military_intel_id, army_type, land_gained, return_days)
@@ -1022,7 +1023,7 @@ export function storeInfiltrate(data: InfiltrateData, savedBy: string, keyHash: 
   })();
 }
 
-export function storeSoM(data: SoMData, savedBy: string, keyHash: string, isSelf = false) {
+export function storeSoM(data: SoMData, savedBy: string, keyHash: string, isSelf = false, receivedAt?: string) {
   const db = getDb();
   const src = isSelf ? "council_military" : "som";
   db.transaction(() => {
@@ -1033,22 +1034,22 @@ export function storeSoM(data: SoMData, savedBy: string, keyHash: string, isSelf
     const homeArmy = data.armies.find((a) => a.armyType === "home");
     if (homeArmy) {
       db.prepare(`
-        INSERT INTO province_troops (province_id, key_hash, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, saved_by, accuracy)
-        VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)
-      `).run(provId, keyHash, homeArmy.soldiers, homeArmy.offSpecs, homeArmy.defSpecs, homeArmy.elites, homeArmy.warHorses, src, savedBy, data.accuracy);
+        INSERT INTO province_troops (province_id, key_hash, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, saved_by, accuracy, received_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, COALESCE(?, datetime('now')))
+      `).run(provId, keyHash, homeArmy.soldiers, homeArmy.offSpecs, homeArmy.defSpecs, homeArmy.elites, homeArmy.warHorses, src, savedBy, data.accuracy, receivedAt ?? null);
     }
 
     // Net modified off/def at home
     db.prepare(`
-      INSERT INTO home_military_points (province_id, key_hash, mod_off_at_home, mod_def_at_home, source, saved_by, accuracy)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(provId, keyHash, data.netOffense, data.netDefense, src, savedBy, data.accuracy);
+      INSERT INTO home_military_points (province_id, key_hash, mod_off_at_home, mod_def_at_home, source, saved_by, accuracy, received_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
+    `).run(provId, keyHash, data.netOffense, data.netDefense, src, savedBy, data.accuracy, receivedAt ?? null);
 
     // Military effectiveness + army detail
     const result = db.prepare(`
-      INSERT INTO military_intel (province_id, key_hash, ome, dme, source, saved_by, accuracy)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(provId, keyHash, data.ome, data.dme, src, savedBy, data.accuracy);
+      INSERT INTO military_intel (province_id, key_hash, ome, dme, source, saved_by, accuracy, received_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
+    `).run(provId, keyHash, data.ome, data.dme, src, savedBy, data.accuracy, receivedAt ?? null);
 
     const milIntelId = result.lastInsertRowid;
 
@@ -1064,27 +1065,27 @@ export function storeSoM(data: SoMData, savedBy: string, keyHash: string, isSelf
   })();
 }
 
-export function storeTrainArmy(data: TrainArmyData, savedBy: string, keyHash: string) {
+export function storeTrainArmy(data: TrainArmyData, savedBy: string, keyHash: string, receivedAt?: string) {
   const db = getDb();
   db.transaction(() => {
     const provId = ensureProvince(db, data.name, data.kingdom);
     recordSubmission(db, keyHash, provId);
     db.prepare(`
-      INSERT INTO province_resources (province_id, key_hash, free_specialist_credits, source, saved_by, accuracy)
-      VALUES (?, ?, ?, 'train_army', ?, 100)
-    `).run(provId, keyHash, data.freeSpecialistCredits, savedBy);
+      INSERT INTO province_resources (province_id, key_hash, free_specialist_credits, source, saved_by, accuracy, received_at)
+      VALUES (?, ?, ?, 'train_army', ?, 100, COALESCE(?, datetime('now')))
+    `).run(provId, keyHash, data.freeSpecialistCredits, savedBy, receivedAt ?? null);
   })();
 }
 
-export function storeBuild(data: BuildData, savedBy: string, keyHash: string) {
+export function storeBuild(data: BuildData, savedBy: string, keyHash: string, receivedAt?: string) {
   const db = getDb();
   db.transaction(() => {
     const provId = ensureProvince(db, data.name, data.kingdom);
     recordSubmission(db, keyHash, provId);
     db.prepare(`
-      INSERT INTO province_resources (province_id, key_hash, free_building_credits, source, saved_by, accuracy)
-      VALUES (?, ?, ?, 'build', ?, 100)
-    `).run(provId, keyHash, data.freeBuildingCredits, savedBy);
+      INSERT INTO province_resources (province_id, key_hash, free_building_credits, source, saved_by, accuracy, received_at)
+      VALUES (?, ?, ?, 'build', ?, 100, COALESCE(?, datetime('now')))
+    `).run(provId, keyHash, data.freeBuildingCredits, savedBy, receivedAt ?? null);
   })();
 }
 
@@ -1139,7 +1140,7 @@ export function storeSorcery(data: SorceryData, savedBy: string, keyHash: string
   })();
 }
 
-export function storeAttack(data: AttackData, savedBy: string, keyHash: string) {
+export function storeAttack(data: AttackData, savedBy: string, keyHash: string, receivedAt?: string) {
   const db = getDb();
   db.transaction(() => {
     const provId = ensureProvince(db, data.name, "");
@@ -1148,13 +1149,13 @@ export function storeAttack(data: AttackData, savedBy: string, keyHash: string) 
       INSERT INTO attack_ops
         (province_id, key_hash, attack_type, outcome, target_name, target_kingdom,
          acres_taken, buildings_survived, specialist_credits, peasants_settled,
-         massacred, enemy_killed, enemy_imprisoned, return_days, saved_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         massacred, enemy_killed, enemy_imprisoned, return_days, saved_by, received_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
     `).run(
       provId, keyHash, data.attackType, data.outcome,
       data.targetName, data.targetKingdom,
       data.acresTaken, data.buildingsSurvived, data.specialistCredits, data.peasantsSettled,
-      data.massacred, data.enemyKilled, data.enemyImprisoned, data.returnDays, savedBy,
+      data.massacred, data.enemyKilled, data.enemyImprisoned, data.returnDays, savedBy, receivedAt ?? null,
     );
   })();
 }
@@ -1180,7 +1181,7 @@ export function storeSoS(data: SoSData, savedBy: string, keyHash: string, isSelf
   })();
 }
 
-export function storeSurvey(data: SurveyData, savedBy: string, keyHash: string, isSelf = false) {
+export function storeSurvey(data: SurveyData, savedBy: string, keyHash: string, isSelf = false, receivedAt?: string) {
   const db = getDb();
   const src = isSelf ? "council_internal" : "survey";
   db.transaction(() => {
@@ -1188,8 +1189,8 @@ export function storeSurvey(data: SurveyData, savedBy: string, keyHash: string, 
     recordSubmission(db, keyHash, provId);
 
     const result = db.prepare(`
-      INSERT INTO survey_intel (province_id, key_hash, source, saved_by, accuracy, thievery_effectiveness, thief_prevent_chance, castles_effect)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO survey_intel (province_id, key_hash, source, saved_by, accuracy, thievery_effectiveness, thief_prevent_chance, castles_effect, received_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
     `).run(
       provId,
       keyHash,
@@ -1199,6 +1200,7 @@ export function storeSurvey(data: SurveyData, savedBy: string, keyHash: string, 
       data.thieveryEffectiveness ?? null,
       data.thiefPreventChance ?? null,
       data.castlesEffect ?? null,
+      receivedAt ?? null,
     );
 
     const surveyId = result.lastInsertRowid;
@@ -1210,7 +1212,7 @@ export function storeSurvey(data: SurveyData, savedBy: string, keyHash: string, 
   })();
 }
 
-export function storeKingdom(data: KingdomData, savedBy: string, keyHash: string) {
+export function storeKingdom(data: KingdomData, savedBy: string, keyHash: string, receivedAt?: string) {
   const db = getDb();
   db.transaction(() => {
     const result = db.prepare(`
@@ -1218,9 +1220,9 @@ export function storeKingdom(data: KingdomData, savedBy: string, keyHash: string
         key_hash, name, location, kingdom_title, total_networth, total_land, total_honor, wars_won, war_losses, networth_rank, land_rank, honor_rank, war_target,
         their_attitude_to_us, their_attitude_points,
         our_attitude_to_them, our_attitude_points,
-        hostility_meter_visible_until, open_relations_json, war_doctrines_json, saved_by
+        hostility_meter_visible_until, open_relations_json, war_doctrines_json, saved_by, received_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
     `).run(
       keyHash,
       data.name,
@@ -1243,6 +1245,7 @@ export function storeKingdom(data: KingdomData, savedBy: string, keyHash: string
       JSON.stringify(data.openRelations),
       data.warDoctrines.length > 0 ? JSON.stringify(data.warDoctrines) : null,
       savedBy,
+      receivedAt ?? null,
     );
 
     const kdId = result.lastInsertRowid;
@@ -1255,14 +1258,14 @@ export function storeKingdom(data: KingdomData, savedBy: string, keyHash: string
 
       // Also write to province_overview
       db.prepare(`
-        INSERT INTO province_overview (province_id, key_hash, race, personality, honor_title, land, networth, source, saved_by)
-        VALUES (?, ?, ?, NULL, ?, ?, ?, 'kingdom', ?)
-      `).run(provId, keyHash, p.race, p.honorTitle, p.land, p.networth, savedBy);
+        INSERT INTO province_overview (province_id, key_hash, race, personality, honor_title, land, networth, source, saved_by, received_at)
+        VALUES (?, ?, ?, NULL, ?, ?, ?, 'kingdom', ?, COALESCE(?, datetime('now')))
+      `).run(provId, keyHash, p.race, p.honorTitle, p.land, p.networth, savedBy, receivedAt ?? null);
     }
   })();
 }
 
-export function storeState(data: StateData, savedBy: string, keyHash: string) {
+export function storeState(data: StateData, savedBy: string, keyHash: string, receivedAt?: string) {
   const db = getDb();
   db.transaction(() => {
     const provId = ensureProvince(db, data.name, data.kingdom);
@@ -1270,21 +1273,21 @@ export function storeState(data: StateData, savedBy: string, keyHash: string) {
 
     // Overview: land and networth (no race/personality from council_state)
     db.prepare(`
-      INSERT INTO province_overview (province_id, key_hash, land, networth, source, saved_by, accuracy)
-      VALUES (?, ?, ?, ?, 'state', ?, 100)
-    `).run(provId, keyHash, data.land, data.networth, savedBy);
+      INSERT INTO province_overview (province_id, key_hash, land, networth, source, saved_by, accuracy, received_at)
+      VALUES (?, ?, ?, ?, 'state', ?, 100, COALESCE(?, datetime('now')))
+    `).run(provId, keyHash, data.land, data.networth, savedBy, receivedAt ?? null);
 
     // Resources: thieves, wizards, and direct population counts (self-intel is always 100% accurate)
     db.prepare(`
-      INSERT INTO province_resources (province_id, key_hash, thieves, wizards, total_pop, max_pop, source, saved_by, accuracy)
-      VALUES (?, ?, ?, ?, ?, ?, 'state', ?, 100)
-    `).run(provId, keyHash, data.thieves, data.wizards, data.totalPop ?? null, data.maxPop ?? null, savedBy);
+      INSERT INTO province_resources (province_id, key_hash, thieves, wizards, total_pop, max_pop, source, saved_by, accuracy, received_at)
+      VALUES (?, ?, ?, ?, ?, ?, 'state', ?, 100, COALESCE(?, datetime('now')))
+    `).run(provId, keyHash, data.thieves, data.wizards, data.totalPop ?? null, data.maxPop ?? null, savedBy, receivedAt ?? null);
 
     // Peasants live in province_troops
     db.prepare(`
-      INSERT INTO province_troops (province_id, key_hash, peasants, source, saved_by, accuracy)
-      VALUES (?, ?, ?, 'state', ?, 100)
-    `).run(provId, keyHash, data.peasants, savedBy);
+      INSERT INTO province_troops (province_id, key_hash, peasants, source, saved_by, accuracy, received_at)
+      VALUES (?, ?, ?, 'state', ?, 100, COALESCE(?, datetime('now')))
+    `).run(provId, keyHash, data.peasants, savedBy, receivedAt ?? null);
     updateMetricsCache(db, provId, keyHash);
   })();
 }
@@ -2259,7 +2262,7 @@ function getProvinceDetailForDb(db: Database.Database, name: string, kingdom: st
   };
 }
 
-export function storeKingdomNews(data: KingdomNewsData, keyHash: string, isSnatched = false) {
+export function storeKingdomNews(data: KingdomNewsData, keyHash: string, isSnatched = false, receivedAt?: string) {
   const db = getDb();
   let kingdom: string | null;
   if (isSnatched) {
@@ -2283,8 +2286,9 @@ export function storeKingdomNews(data: KingdomNewsData, keyHash: string, isSnatc
       acres, books,
       sender_name, receiver_name,
       relation_kingdom,
-      dragon_type, dragon_name
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      dragon_type, dragon_name,
+      received_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
   `);
 
   const insertMany = db.transaction((events: KingdomNewsEvent[]) => {
@@ -2298,6 +2302,7 @@ export function storeKingdomNews(data: KingdomNewsData, keyHash: string, isSnatc
         e.senderName, e.receiverName,
         e.relationKingdom,
         e.dragonType, e.dragonName,
+        receivedAt ?? null,
       );
     }
   });

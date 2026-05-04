@@ -89,88 +89,6 @@ export function resolveReplayKeyHash(entry: DebugEntry, assumeKeyHash?: string):
   return getSingleKeyHash();
 }
 
-function setLatestKingdomTimestamp(location: string, savedBy: string, keyHash: string, receivedAt: string) {
-  const db = getDb();
-  db.prepare(`
-    UPDATE kingdom_intel
-    SET received_at = ?
-    WHERE id = (
-      SELECT id
-      FROM kingdom_intel
-      WHERE location = ? AND key_hash = ? AND saved_by = ?
-      ORDER BY id DESC
-      LIMIT 1
-    )
-  `).run(receivedAt, location, keyHash, savedBy);
-}
-
-function setLatestSurveyTimestamp(provinceName: string, kingdom: string, savedBy: string, keyHash: string, receivedAt: string) {
-  const db = getDb();
-  db.prepare(`
-    UPDATE survey_intel
-    SET received_at = ?
-    WHERE id = (
-      SELECT si.id
-      FROM survey_intel si
-      JOIN provinces p ON p.id = si.province_id
-      WHERE p.name = ? AND p.kingdom = ? AND si.key_hash = ? AND si.saved_by = ?
-      ORDER BY si.id DESC
-      LIMIT 1
-    )
-  `).run(receivedAt, provinceName, kingdom, keyHash, savedBy);
-}
-
-function setLatestSoTTimestamps(provinceName: string, kingdom: string, savedBy: string, keyHash: string, receivedAt: string) {
-  const db = getDb();
-  const provinceIdRow = db.prepare(
-    "SELECT id FROM provinces WHERE name = ? AND kingdom = ?"
-  ).get(provinceName, kingdom) as { id: number } | undefined;
-  if (!provinceIdRow) return;
-
-  const provinceId = provinceIdRow.id;
-  const stamp = (table: string) => {
-    db.prepare(`
-      UPDATE ${table}
-      SET received_at = ?
-      WHERE id = (
-        SELECT id
-        FROM ${table}
-        WHERE province_id = ? AND key_hash = ? AND saved_by = ?
-        ORDER BY id DESC
-        LIMIT 1
-      )
-    `).run(receivedAt, provinceId, keyHash, savedBy);
-  };
-
-  stamp("province_overview");
-  stamp("total_military_points");
-  stamp("province_troops");
-  stamp("province_resources");
-  stamp("province_status");
-  stamp("military_intel");
-  db.prepare(`
-    UPDATE province_effects
-    SET received_at = ?
-    WHERE province_id = ? AND key_hash = ? AND saved_by = ?
-  `).run(receivedAt, provinceId, keyHash, savedBy);
-}
-
-function setLatestAttackTimestamp(provinceName: string, savedBy: string, keyHash: string, receivedAt: string) {
-  const db = getDb();
-  db.prepare(`
-    UPDATE attack_ops
-    SET received_at = ?
-    WHERE id = (
-      SELECT ao.id
-      FROM attack_ops ao
-      JOIN provinces p ON p.id = ao.province_id
-      WHERE p.name = ? AND ao.key_hash = ? AND ao.saved_by = ?
-      ORDER BY ao.id DESC
-      LIMIT 1
-    )
-  `).run(receivedAt, provinceName, keyHash, savedBy);
-}
-
 export function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options: { keyHash?: string; assumeKeyHash?: string; dryRun?: boolean } = {}) {
   if (!shouldReplayEntry(entry, options.keyHash)) return null;
   const parsed = parseIntel(entry.url, entry.data_simple, entry.prov);
@@ -183,63 +101,51 @@ export function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options
   if (options.dryRun) return parsed.type;
 
   if (parsed.type === "kingdom") {
-    storeKingdom(parsed.data, savedBy, keyHash);
-    if (normalizedReceivedAt) {
-      setLatestKingdomTimestamp(parsed.data.location, savedBy, keyHash, normalizedReceivedAt);
-    }
+    storeKingdom(parsed.data, savedBy, keyHash, normalizedReceivedAt ?? undefined);
     return "kingdom";
   }
 
   if (parsed.type === "survey") {
     const isSelfInternal = matchesGamePath(getIntelPathname(entry.url), "council_internal");
-    storeSurvey(parsed.data, savedBy, keyHash, isSelfInternal);
-    if (normalizedReceivedAt) {
-      setLatestSurveyTimestamp(parsed.data.name, parsed.data.kingdom, savedBy, keyHash, normalizedReceivedAt);
-    }
+    storeSurvey(parsed.data, savedBy, keyHash, isSelfInternal, normalizedReceivedAt ?? undefined);
     return "survey";
   }
 
   if (parsed.type === "sot") {
     const pathname = getIntelPathname(entry.url);
     const isSelfThrone = matchesGamePath(pathname, "throne");
-    storeSoT(parsed.data, savedBy, keyHash, isSelfThrone);
-    if (normalizedReceivedAt) {
-      setLatestSoTTimestamps(parsed.data.name, parsed.data.kingdom, savedBy, keyHash, normalizedReceivedAt);
-    }
+    storeSoT(parsed.data, savedBy, keyHash, isSelfThrone, normalizedReceivedAt ?? undefined);
     return "sot";
   }
 
   if (parsed.type === "kingdom_news") {
-    storeKingdomNews(parsed.data, keyHash, new URL(entry.url).searchParams.get("o") === "SNATCH_NEWS");
+    storeKingdomNews(parsed.data, keyHash, new URL(entry.url).searchParams.get("o") === "SNATCH_NEWS", normalizedReceivedAt ?? undefined);
     return "kingdom_news";
   }
 
   if (parsed.type === "state") {
-    storeState(parsed.data, savedBy, keyHash);
+    storeState(parsed.data, savedBy, keyHash, normalizedReceivedAt ?? undefined);
     return "state";
   }
 
   if (parsed.type === "som") {
     const isSelfMilitary = matchesGamePath(getIntelPathname(entry.url), "council_military");
-    storeSoM(parsed.data, savedBy, keyHash, isSelfMilitary);
+    storeSoM(parsed.data, savedBy, keyHash, isSelfMilitary, normalizedReceivedAt ?? undefined);
     return "som";
   }
 
   if (parsed.type === "train_army") {
-    storeTrainArmy(parsed.data, savedBy, keyHash);
+    storeTrainArmy(parsed.data, savedBy, keyHash, normalizedReceivedAt ?? undefined);
     return "train_army";
   }
 
   if (parsed.type === "build") {
-    storeBuild(parsed.data, savedBy, keyHash);
+    storeBuild(parsed.data, savedBy, keyHash, normalizedReceivedAt ?? undefined);
     return "build";
   }
 
   if (parsed.type === "attack") {
-    storeAttack(parsed.data, savedBy, keyHash);
-    if (normalizedReceivedAt) {
-      setLatestAttackTimestamp(parsed.data.name, savedBy, keyHash, normalizedReceivedAt);
-    }
+    storeAttack(parsed.data, savedBy, keyHash, normalizedReceivedAt ?? undefined);
     return "attack";
   }
 
