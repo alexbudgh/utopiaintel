@@ -19,6 +19,7 @@ import type {
   TrainArmyData,
   BuildData,
   RobData,
+  SorceryData,
 } from "./parsers/types";
 import type { KingdomNewsData, KingdomNewsEvent } from "./parsers/kingdom_news";
 
@@ -721,6 +722,27 @@ export function initSchema(db: Database.Database) {
     );
     CREATE INDEX IF NOT EXISTS idx_rob_ops_prov
       ON rob_ops(province_id, key_hash, received_at DESC);
+
+    CREATE TABLE IF NOT EXISTS sorcery_ops (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      province_id INTEGER NOT NULL REFERENCES provinces(id),
+      key_hash TEXT NOT NULL,
+      spell TEXT NOT NULL,
+      outcome TEXT NOT NULL,
+      runes_spent INTEGER,
+      wizards_lost INTEGER NOT NULL DEFAULT 0,
+      duration_days INTEGER,
+      target_name TEXT,
+      target_slot INTEGER,
+      target_kingdom TEXT,
+      wizards INTEGER,
+      runes INTEGER,
+      mana INTEGER,
+      saved_by TEXT,
+      received_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_sorcery_ops_prov
+      ON sorcery_ops(province_id, key_hash, received_at DESC);
   `);
 
   // Additive migrations
@@ -1064,6 +1086,32 @@ export function storeRob(data: RobData, savedBy: string, keyHash: string) {
         INSERT INTO province_resources (province_id, key_hash, thieves, source, saved_by, accuracy)
         VALUES (?, ?, ?, 'rob', ?, 100)
       `).run(provId, keyHash, data.thieves, savedBy);
+    }
+  })();
+}
+
+export function storeSorcery(data: SorceryData, savedBy: string, keyHash: string) {
+  const db = getDb();
+  db.transaction(() => {
+    const provId = ensureProvince(db, data.name, "");
+    recordSubmission(db, keyHash, provId);
+    db.prepare(`
+      INSERT INTO sorcery_ops
+        (province_id, key_hash, spell, outcome, runes_spent, wizards_lost,
+         duration_days, target_name, target_slot, target_kingdom,
+         wizards, runes, mana, saved_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      provId, keyHash, data.spell, data.outcome, data.runesSpent, data.wizardsLost,
+      data.durationDays, data.targetName, data.targetSlot, data.targetKingdom,
+      data.wizards, data.runes, data.mana, savedBy,
+    );
+    if (data.wizards != null || data.runes != null) {
+      db.prepare(`
+        INSERT INTO province_resources
+          (province_id, key_hash, wizards, runes, mana, source, saved_by, accuracy)
+        VALUES (?, ?, ?, ?, ?, 'sorcery', ?, 100)
+      `).run(provId, keyHash, data.wizards, data.runes, data.mana, savedBy);
     }
   })();
 }
@@ -3010,6 +3058,7 @@ export function createDbApi(db: Database.Database): DbApi {
         DELETE FROM kingdom_news WHERE received_at < ${cutoff};
         DELETE FROM kingdom_news_sharded WHERE received_at < ${cutoff};
         DELETE FROM rob_ops WHERE received_at < ${cutoff};
+        DELETE FROM sorcery_ops WHERE received_at < ${cutoff};
       `);
     },
   };

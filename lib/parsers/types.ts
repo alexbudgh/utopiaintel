@@ -1,6 +1,6 @@
 // Shared types for all parsers
 
-export type IntelType = "sot" | "survey" | "som" | "sos" | "sod" | "infiltrate" | "kingdom" | "state" | "kingdom_news" | "train_army" | "build" | "rob";
+export type IntelType = "sot" | "survey" | "som" | "sos" | "sod" | "infiltrate" | "kingdom" | "state" | "kingdom_news" | "train_army" | "build" | "rob" | "sorcery";
 
 export interface ProvinceId {
   name: string;
@@ -172,6 +172,20 @@ export interface BuildData extends ProvinceId {
   freeBuildingCredits: number;
 }
 
+export interface SorceryData extends ProvinceId {
+  spell: string;
+  outcome: "success" | "failure";
+  runesSpent: number | null;
+  wizardsLost: number;
+  durationDays: number | null;
+  targetName: string | null;
+  targetSlot: number | null;
+  targetKingdom: string | null;
+  wizards: number | null;
+  runes: number | null;
+  mana: number | null;
+}
+
 export type RobOp = "towers" | "vaults" | "granaries";
 
 export interface RobData extends ProvinceId {
@@ -198,4 +212,5 @@ export type ParseResult =
   | { type: "kingdom_news"; data: import("./kingdom_news").KingdomNewsData }
   | { type: "train_army"; data: TrainArmyData }
   | { type: "build"; data: BuildData }
-  | { type: "rob"; data: RobData };
+  | { type: "rob"; data: RobData }
+  | { type: "sorcery"; data: SorceryData };

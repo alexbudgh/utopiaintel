@@ -17,6 +17,7 @@ import {
   storeTrainArmy,
   storeBuild,
   storeRob,
+  storeSorcery,
   cleanupExpired,
 } from "@/lib/db";
 
@@ -48,6 +49,8 @@ const TABLES: Record<string, string[]> = {
   kingdom_news: ["kingdom_news"],
   train_army:   ["province_resources"],
   build:        ["province_resources"],
+  rob:          ["rob_ops"],
+  sorcery:      ["sorcery_ops"],
 };
 
 // Run TTL cleanup roughly once per 100 requests
@@ -157,6 +160,9 @@ export const POST = withAxiom(async (request: AxiomRequest) => {
       break;
     case "rob":
       storeRob(result.data, savedBy, keyHash);
+      break;
+    case "sorcery":
+      storeSorcery(result.data, savedBy, keyHash);
       break;
   }
 

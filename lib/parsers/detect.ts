@@ -43,11 +43,11 @@ export function detectIntelType(url: string): IntelType | null {
   const pathname = normalizeGamePath(raw);
 
   // Self-intel pages (use prov field as province name, kingdom="")
-  if (pathname.endsWith("/council_science")) return "sos";
-  if (pathname.endsWith("/council_military")) return "som";
-  if (pathname.endsWith("/council_state")) return "state";
-  if (pathname.endsWith("/council_internal")) return "survey";
-  if (pathname.endsWith("/throne")) return "sot";
+  if (matchesGamePath(pathname, "council_science")) return "sos";
+  if (matchesGamePath(pathname, "council_military")) return "som";
+  if (matchesGamePath(pathname, "council_state")) return "state";
+  if (matchesGamePath(pathname, "council_internal")) return "survey";
+  if (matchesGamePath(pathname, "throne")) return "sot";
   // council_spells, council_history — no structured data
 
   // Spy/thievery operations
@@ -65,16 +65,23 @@ export function detectIntelType(url: string): IntelType | null {
   // TODO: Add parsers/storage for other thievery ops we see in production,
   // such as SPY_ON_EXPLORATION.
 
-  if (pathname.endsWith("/spy_on_throne")) return "sot";
-  if (pathname.endsWith("/spy_on_military")) return "som";
-  if (pathname.endsWith("/train_army") || pathname.endsWith("/army_training")) return "train_army";
-  if (pathname.endsWith("/build")) return "build";
-  if (pathname.endsWith("/spy_on_sciences")) return "sos";
-  if (pathname.endsWith("/spy_on_defense")) return "sod";
-  if (pathname.endsWith("/infiltrate")) return "infiltrate";
+  if (matchesGamePath(pathname, "spy_on_throne")) return "sot";
+  if (matchesGamePath(pathname, "spy_on_military")) return "som";
+  if (matchesGamePath(pathname, "train_army") || matchesGamePath(pathname, "army_training")) return "train_army";
+  if (matchesGamePath(pathname, "build")) return "build";
+  if (matchesGamePath(pathname, "spy_on_sciences")) return "sos";
+  if (matchesGamePath(pathname, "spy_on_defense")) return "sod";
+  if (matchesGamePath(pathname, "infiltrate")) return "infiltrate";
 
   // Non-thievery pages
-  if (pathname.endsWith("/survey")) return "survey";
+  if (matchesGamePath(pathname, "survey")) return "survey";
+  // Sorcery ops use ?s= param; only route when a spell is specified
+  if (matchesGamePath(pathname, "sorcery")) {
+    try {
+      if (new URL(url).searchParams.has("s")) return "sorcery";
+    } catch { /* ignore */ }
+  }
+
   if (pathname === "/wol/game/kingdom" || pathname.startsWith("/wol/game/kingdom_details")) return "kingdom";
   if (pathname === "/wol/game/kingdom_news" || pathname.startsWith("/wol/game/kingdom_news/")) return "kingdom_news";
 
