@@ -36,6 +36,11 @@ const METRICS: MetricConfig[] = [
 
 const METRIC_BY_KEY = new Map(METRICS.map((m) => [m.key, m]));
 
+const LOCAL_TZ_LABEL =
+  new Intl.DateTimeFormat("en", { timeZoneName: "shortOffset" })
+    .formatToParts(new Date())
+    .find((p) => p.type === "timeZoneName")?.value ?? "Local";
+
 // Target ~60 display points; snap bucket size to a nice interval
 const TARGET_POINTS = 60;
 const NICE_BUCKETS_MS = [
@@ -90,7 +95,7 @@ function buildRows(history: ProvinceHistoryPoint[], tz: "UTC" | "local"): ChartR
     });
   }
 
-  // Group into buckets, average per metric
+  // Group into buckets, LWW per metric (history is sorted ascending so last wins)
   const groups = new Map<number, ProvinceHistoryPoint[]>();
   for (const point of history) {
     const bucket = Math.floor(toMs(point.receivedAt) / bucketMs) * bucketMs;
@@ -109,8 +114,8 @@ function buildRows(history: ProvinceHistoryPoint[], tz: "UTC" | "local"): ChartR
     }
     const row: ChartRow = { iso, label: chartLabel(iso, tz), meta, bucketed: true };
     for (const m of METRICS) {
-      const vals = points.map((p) => p[m.key]).filter((v): v is number => v != null);
-      if (vals.length > 0) row[m.key] = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+      const last = [...points].reverse().find((p) => p[m.key] != null);
+      if (last) row[m.key] = last[m.key] as number;
     }
     return row;
   });
@@ -127,14 +132,7 @@ function ChartTooltip({ active, payload, tz }: TooltipContentProps<number, strin
     <div className="rounded border border-gray-700 bg-gray-900 p-2 text-xs shadow-lg" style={{ minWidth: 160 }}>
       <div className="mb-1 font-medium text-gray-200">
         {point.label}
-        <span className="ml-1 text-gray-500">
-          {tz === "UTC" ? "UTC" : (
-            new Intl.DateTimeFormat("en", { timeZoneName: "shortOffset" })
-              .formatToParts(new Date())
-              .find((p) => p.type === "timeZoneName")?.value ?? "Local"
-          )}
-          {point.bucketed && " · avg"}
-        </span>
+        <span className="ml-1 text-gray-500">{tz === "UTC" ? "UTC" : LOCAL_TZ_LABEL}</span>
       </div>
       <div className="space-y-0.5">
         {visible.map((p: Payload<number, string>) => {
@@ -177,7 +175,8 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
   const hasSmall = visibleMetrics.some((m) => m.axis === "small");
   const bucketed = data.some((r) => r.bucketed);
 
-  const summary = `${history.length} snapshot${history.length === 1 ? "" : "s"} from ${chartLabel(history[0].receivedAt, tz)} to ${chartLabel(history[history.length - 1].receivedAt, tz)}`;
+  const tzLabel = tz === "UTC" ? "UTC" : LOCAL_TZ_LABEL;
+  const summary = `${history.length} snapshot${history.length === 1 ? "" : "s"} from ${chartLabel(history[0].receivedAt, tz)} to ${chartLabel(history[history.length - 1].receivedAt, tz)} ${tzLabel}`;
 
   const axisStyle = { fill: "#6b7280", fontSize: 10 };
 
@@ -187,7 +186,7 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
         <div>
           <h2 className="text-sm font-semibold text-gray-100">Province History</h2>
           <div className="text-xs text-gray-500">
-            {summary}{bucketed && ` · averaged into ${data.length} buckets`}
+            {summary}{bucketed && ` · bucketed into ${data.length} points (most recent per window)`}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -197,7 +196,7 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
             className="inline-flex items-center rounded border border-gray-700 bg-gray-900 px-2.5 py-1 text-xs text-gray-400 transition-colors hover:border-gray-500 hover:text-gray-100"
             title={tz === "UTC" ? "Switch to local time" : "Switch to UTC"}
           >
-            {tz === "UTC" ? "UTC" : "Local"}
+            {tz === "UTC" ? "UTC" : `Local (${LOCAL_TZ_LABEL})`}
           </button>
           <button
             type="button"
