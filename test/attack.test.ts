@@ -110,6 +110,25 @@ Modify Attack Time\t0 hours`;
   assert.equal(r.attackType, "conquest");
 });
 
+test("parseAttack — massacre result wins over trailing form selection", () => {
+  const text = `${PREAMBLE}
+Your forces arrive at Blacktongue Thief (3:9). A tough battle took place, but we have managed a victory! Your army massacred 434 peasants, thieves, and wizards!
+We lost 12 soldiers, 103 Swordsmen and 13 Knights in this battle.
+We killed about 46 enemy troops. We also imprisoned 98 additional troops in our Dungeons.
+Our forces will be available again in 13.34 days (on March 24 of YR0).
+Deployable Generals\t3
+Target kingdom is Time For A Book (3:9)
+Target Province\t3 Blacktongue Thief --- ( 37% )
+Select Attack Type\tTraditional March
+Modify Attack Time\t0 hours`;
+  const r = parseAttack(text, "TestProvince");
+  assert.ok(r);
+  assert.equal(r.attackType, "massacre");
+  assert.equal(r.massacred, 434);
+  assert.equal(r.acresTaken, null);
+  assert.ok(Math.abs((r.returnDays ?? 0) - 13.34) < 0.001);
+});
+
 // Failure
 test("parseAttack — failure suffered defeat", () => {
   const text = `${PREAMBLE}
