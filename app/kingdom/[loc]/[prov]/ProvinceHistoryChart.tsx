@@ -155,7 +155,7 @@ function ChartTooltip({ active, payload, tz }: TooltipContentProps<number, strin
   const point = (payload[0] as Payload<number, string> | undefined)?.payload as ChartRow | undefined;
   if (!point) return null;
 
-  const visible = (payload as Payload<number, string>[]).filter((p) => p.value != null && p.dataKey !== "attackLosses");
+  const visible = (payload as Payload<number, string>[]).filter((p) => METRIC_BY_KEY.has(p.dataKey as MetricKey) && p.value != null);
   const attacks = point.attacksTaken;
   const totalKilled = attacks.reduce((sum, attack) => sum + (attack.killed ?? 0), 0);
   const totalImprisoned = attacks.reduce((sum, attack) => sum + (attack.imprisoned ?? 0), 0);
