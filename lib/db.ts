@@ -933,6 +933,21 @@ export function initSchema(db: Database.Database) {
     "sorcery_ops",
     "province_id, key_hash, received_at"
   );
+
+  // Performance indexes: key_hash-first compound indexes so per-shard queries
+  // avoid full table scans on large history tables.
+  if (!hasIndex("idx_overview_keyhash_prov_time")) {
+    db.exec("CREATE INDEX IF NOT EXISTS idx_overview_keyhash_prov_time ON province_overview(key_hash, province_id, received_at DESC, id DESC)");
+  }
+  if (!hasIndex("idx_kingdom_intel_keyhash_loc")) {
+    db.exec("CREATE INDEX IF NOT EXISTS idx_kingdom_intel_keyhash_loc ON kingdom_intel(key_hash, location)");
+  }
+  if (!hasIndex("idx_kingdom_provinces_intel_slot")) {
+    db.exec("CREATE INDEX IF NOT EXISTS idx_kingdom_provinces_intel_slot ON kingdom_provinces(kingdom_intel_id, slot)");
+  }
+  if (!hasIndex("idx_kingdom_provinces_intel_name")) {
+    db.exec("CREATE INDEX IF NOT EXISTS idx_kingdom_provinces_intel_name ON kingdom_provinces(kingdom_intel_id, name)");
+  }
 }
 
 // SQL fragments for province_overview — used in both the list query and detail query.
