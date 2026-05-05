@@ -489,7 +489,7 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
               <YAxis yAxisId="small" orientation="right" tick={axisStyle} tickLine={false} axisLine={false}
                 width={hasSmallAxis ? axisWidth : 0}
                 tickFormatter={(v) => formatNum(Number(v))} hide={!hasSmallAxis} />
-              <Tooltip content={(props) => <ChartTooltip {...(props as TooltipContentProps<number, string>)} tz={tz} hideAttacks={hideAttacks} hideThievery={hideThievery} hideSabotageOps={hideSabotageOps} hideSorcery={hideSorcery} maxWidth={tooltipMaxWidth} />} />
+              <Tooltip wrapperStyle={{ zIndex: 10 }} content={(props) => <ChartTooltip {...(props as TooltipContentProps<number, string>)} tz={tz} hideAttacks={hideAttacks} hideThievery={hideThievery} hideSabotageOps={hideSabotageOps} hideSorcery={hideSorcery} maxWidth={tooltipMaxWidth} />} />
               {METRICS.map((m) => (
                 <Line
                   key={m.key}
