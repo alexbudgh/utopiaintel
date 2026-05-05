@@ -1699,20 +1699,7 @@ export interface KingdomDragon {
 
 function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHash: string): ProvinceRow[] {
   const baseRows = db.prepare(`
-    WITH ${latestSlotCte("AND ki.location = @kingdom")},
-    latest_overview AS (
-      SELECT *
-      FROM (
-        SELECT po.*,
-               row_number() OVER (
-                 PARTITION BY po.province_id
-                 ORDER BY po.received_at DESC, po.id DESC
-               ) AS rn
-        FROM province_overview po
-        WHERE po.key_hash = @keyHash
-      )
-      WHERE rn = 1
-    )
+    WITH ${latestSlotCte("AND ki.location = @kingdom")}
     SELECT p.id, p.name, p.kingdom,
            (SELECT ls.slot FROM latest_slot ls WHERE ls.kingdom = p.kingdom AND ls.name = p.name) AS slot,
            ${OVERVIEW_RACE_SQL}, ${OVERVIEW_PERS_SQL}, ${OVERVIEW_HONOR_SQL}, po.land, po.networth, po.received_at AS overview_age, po.source AS overview_source,
@@ -1723,7 +1710,12 @@ function getKingdomProvincesForDb(db: Database.Database, kingdom: string, keyHas
            p.cached_rwpa, p.cached_rwpa_age,
            p.cached_mwpa, p.cached_mwpa_age
     FROM provinces p
-    JOIN latest_overview po ON po.province_id = p.id
+    JOIN province_overview po ON po.id = (
+      SELECT po2.id FROM province_overview po2
+      WHERE po2.province_id = p.id AND po2.key_hash = @keyHash
+      ORDER BY po2.received_at DESC, po2.id DESC
+      LIMIT 1
+    )
     WHERE p.kingdom = @kingdom
       AND EXISTS (
         SELECT 1 FROM intel_partitions
