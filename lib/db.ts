@@ -399,6 +399,7 @@ export function initSchema(db: Database.Database) {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(name, kingdom)
     );
+    CREATE INDEX IF NOT EXISTS idx_provinces_kingdom ON provinces(kingdom);
 
     -- Dimension: overview (race, personality, land, nw, honor)
     -- Sources: sot, kingdom
@@ -936,6 +937,9 @@ export function initSchema(db: Database.Database) {
 
   // Performance indexes: key_hash-first compound indexes so per-shard queries
   // avoid full table scans on large history tables.
+  if (!hasIndex("idx_provinces_kingdom")) {
+    db.exec("CREATE INDEX IF NOT EXISTS idx_provinces_kingdom ON provinces(kingdom)");
+  }
   if (!hasIndex("idx_overview_keyhash_prov_time")) {
     db.exec("CREATE INDEX IF NOT EXISTS idx_overview_keyhash_prov_time ON province_overview(key_hash, province_id, received_at DESC, id DESC)");
   }
