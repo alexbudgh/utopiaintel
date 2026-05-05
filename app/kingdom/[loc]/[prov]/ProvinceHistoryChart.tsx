@@ -392,7 +392,8 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
   const hasAttackMarkers = data.some((r) => r.attackLosses != null);
   const hasThieveryMarkers = data.some((r) => r.thieveryAmountStolen != null);
   const hasSabotageOpsMarkers = data.some((r) => r.thieveryOpsCount != null);
-  const hasSmallAxis = hasSmall || (hasAttackMarkers && !hideAttacks) || (hasThieveryMarkers && !hideThievery) || (hasSabotageOpsMarkers && !hideSabotageOps);
+  const hasLargeAxis = hasLarge || (hasThieveryMarkers && !hideThievery);
+  const hasSmallAxis = hasSmall || (hasAttackMarkers && !hideAttacks) || (hasSabotageOpsMarkers && !hideSabotageOps);
   const bucketed = data.some((r) => r.bucketed);
 
   const tzLabel = tz === "UTC" ? "UTC" : LOCAL_TZ_LABEL;
@@ -433,7 +434,7 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
             <ComposedChart data={data} margin={{ top: 4, right: hasSmallAxis ? 60 : 8, bottom: 0, left: 0 }}>
               <XAxis dataKey="label" tick={axisStyle} tickLine={false} axisLine={false} minTickGap={40} />
               <YAxis yAxisId="large" tick={axisStyle} tickLine={false} axisLine={false} width={56}
-                tickFormatter={(v) => formatNum(Number(v))} hide={!hasLarge} />
+                tickFormatter={(v) => formatNum(Number(v))} hide={!hasLargeAxis} />
               <YAxis yAxisId="small" orientation="right" tick={axisStyle} tickLine={false} axisLine={false} width={56}
                 tickFormatter={(v) => formatNum(Number(v))} hide={!hasSmallAxis} />
               <Tooltip content={(props) => <ChartTooltip {...(props as TooltipContentProps<number, string>)} tz={tz} hideAttacks={hideAttacks} hideThievery={hideThievery} hideSabotageOps={hideSabotageOps} />} />
@@ -484,7 +485,7 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
                 hide={hideAttacks}
               />
               <Scatter
-                yAxisId="small"
+                yAxisId="large"
                 dataKey="thieveryAmountStolen"
                 name="Thievery ops"
                 fill="#fbbf24"
