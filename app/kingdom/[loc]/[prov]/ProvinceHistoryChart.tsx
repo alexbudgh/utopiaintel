@@ -86,15 +86,16 @@ function attackTypeLabel(type: string): string {
 
 const ATTACK_TYPE_SHORT: Record<string, string> = {
   TRADITIONAL_MARCH: "TM",
+  CONQUEST: "Conquest",
   AMBUSH: "Ambush",
-  RAZE: "Raze",
-  PILLAGE: "Pillage",
-  LOOT: "Loot",
+  PLUNDER: "Plunder",
+  LEARN: "Learn",
   MASSACRE: "Massacre",
-  NIGHT_STRIKE: "NS",
+  RAZE: "Raze",
+  UNKNOWN: "?",
 };
 function attackTypeShort(type: string): string {
-  return ATTACK_TYPE_SHORT[type] ?? attackTypeLabel(type);
+  return ATTACK_TYPE_SHORT[type.toUpperCase()] ?? attackTypeLabel(type);
 }
 
 function attackLosses(attacks: ProvinceHistoryPoint["attacksTaken"]): number {
