@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { ComposedChart, Legend, Line, ResponsiveContainer, Scatter, Tooltip, XAxis, YAxis } from "recharts";
 import type { TooltipContentProps } from "recharts/types/component/Tooltip";
 import type { Payload } from "recharts/types/component/DefaultTooltipContent";
@@ -190,7 +190,7 @@ function buildRows(history: ProvinceHistoryPoint[], tz: "UTC" | "local"): { rows
   return { bucketMs, rows };
 }
 
-function ChartTooltip({ active, payload, tz, hideAttacks, hideThievery, hideSabotageOps }: TooltipContentProps<number, string> & { tz: "UTC" | "local"; hideAttacks: boolean; hideThievery: boolean; hideSabotageOps: boolean }) {
+function ChartTooltip({ active, payload, tz, hideAttacks, hideThievery, hideSabotageOps, maxWidth }: TooltipContentProps<number, string> & { tz: "UTC" | "local"; hideAttacks: boolean; hideThievery: boolean; hideSabotageOps: boolean; maxWidth: number }) {
   if (!active || !payload?.length) return null;
   const point = (payload[0] as Payload<number, string> | undefined)?.payload as ChartRow | undefined;
   if (!point) return null;
@@ -216,7 +216,7 @@ function ChartTooltip({ active, payload, tz, hideAttacks, hideThievery, hideSabo
   const thieveryFailures = robOps.length - thieverySuccesses;
 
   return (
-    <div className="rounded border border-gray-700 bg-gray-900 p-2 text-xs shadow-lg" style={{ minWidth: 240 }}>
+    <div className="rounded border border-gray-700 bg-gray-900 p-2 text-xs shadow-lg" style={{ minWidth: 220, maxWidth }}>
       <div className="mb-1 font-medium text-gray-200">
         {point.label}
         <span className="ml-1 text-gray-500">{tz === "UTC" ? "UTC" : LOCAL_TZ_LABEL}</span>
@@ -382,6 +382,16 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
   const [open, setOpen] = useState(false);
   const [hoveredLine, setHoveredLine] = useState<MetricKey | null>(null);
   const [tz, setTz] = useState<"UTC" | "local">("UTC");
+  const [containerWidth, setContainerWidth] = useState(800);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => setContainerWidth(entry.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   if (history.length < 2) return null;
 
@@ -399,10 +409,14 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
   const tzLabel = tz === "UTC" ? "UTC" : LOCAL_TZ_LABEL;
   const summary = `${history.length} snapshot${history.length === 1 ? "" : "s"} from ${chartLabel(history[0].receivedAt, tz)} to ${chartLabel(history[history.length - 1].receivedAt, tz)} ${tzLabel}`;
 
+  const narrow = containerWidth < 480;
+  const axisWidth = narrow ? 38 : 52;
+  const chartHeight = narrow ? 320 : 280;
+  const tooltipMaxWidth = Math.max(220, containerWidth - 32);
   const axisStyle = { fill: "#6b7280", fontSize: 10 };
 
   return (
-    <section className="mt-6 rounded-lg border border-gray-800 bg-gray-900/50 p-4">
+    <section ref={containerRef} className="mt-6 rounded-lg border border-gray-800 bg-gray-900/50 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-sm font-semibold text-gray-100">Province History</h2>
@@ -430,14 +444,16 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
       </div>
       {open && (
         <div className="mt-3">
-          <ResponsiveContainer width="100%" height={280}>
-            <ComposedChart data={data} margin={{ top: 4, right: hasSmallAxis ? 60 : 8, bottom: 0, left: 0 }}>
+          <ResponsiveContainer width="100%" height={chartHeight}>
+            <ComposedChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
               <XAxis dataKey="label" tick={axisStyle} tickLine={false} axisLine={false} minTickGap={40} />
-              <YAxis yAxisId="large" tick={axisStyle} tickLine={false} axisLine={false} width={56}
+              <YAxis yAxisId="large" tick={axisStyle} tickLine={false} axisLine={false}
+                width={hasLargeAxis ? axisWidth : 0}
                 tickFormatter={(v) => formatNum(Number(v))} hide={!hasLargeAxis} />
-              <YAxis yAxisId="small" orientation="right" tick={axisStyle} tickLine={false} axisLine={false} width={56}
+              <YAxis yAxisId="small" orientation="right" tick={axisStyle} tickLine={false} axisLine={false}
+                width={hasSmallAxis ? axisWidth : 0}
                 tickFormatter={(v) => formatNum(Number(v))} hide={!hasSmallAxis} />
-              <Tooltip content={(props) => <ChartTooltip {...(props as TooltipContentProps<number, string>)} tz={tz} hideAttacks={hideAttacks} hideThievery={hideThievery} hideSabotageOps={hideSabotageOps} />} />
+              <Tooltip content={(props) => <ChartTooltip {...(props as TooltipContentProps<number, string>)} tz={tz} hideAttacks={hideAttacks} hideThievery={hideThievery} hideSabotageOps={hideSabotageOps} maxWidth={tooltipMaxWidth} />} />
               <Legend
                 wrapperStyle={{ fontSize: 11, color: "#9ca3af", cursor: "pointer" }}
                 formatter={(value) => (
