@@ -2524,6 +2524,7 @@ export interface ProvinceHistoryPoint {
   thieves: number | null;
   wizards: number | null;
   attacksTaken: ProvinceHistoryAttack[];
+  thieveryOpsTaken: ProvinceHistoryThieveryOp[];
   meta: Partial<Record<string, { sources: string[]; savedBy: string[] }>>;
 }
 
@@ -2535,6 +2536,16 @@ export interface ProvinceHistoryAttack {
   killed: number | null;
   imprisoned: number | null;
   massacred: number | null;
+}
+
+export interface ProvinceHistoryThieveryOp {
+  receivedAt: string;
+  op: string;
+  outcome: "success" | "failure";
+  amountStolen: number | null;
+  thievesLost: number;
+  attackerName: string;
+  attackerKingdom: string;
 }
 
 export function getProvinceHistory(name: string, kingdom: string, keyHash: string): ProvinceHistoryPoint[] {
@@ -3120,6 +3131,7 @@ export function createDbApi(db: Database.Database): DbApi {
       type ResourcesRaw = { received_at: string; money: number | null; food: number | null; thieves: number | null; wizards: number | null; source: string | null; saved_by: string | null };
       type MilPointsRaw = { received_at: string; off_points: number | null; def_points: number | null; source: string | null; saved_by: string | null };
       type AttackRaw = { received_at: string; attack_type: string; attacker_name: string; attacker_kingdom: string; enemy_killed: number | null; enemy_imprisoned: number | null; massacred: number | null };
+      type RobRaw = { received_at: string; op: string; outcome: string; amount_stolen: number | null; thieves_lost: number; attacker_name: string; attacker_kingdom: string };
 
       const overviews = db.prepare(
         "SELECT received_at, land, networth, source, saved_by FROM province_overview WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC"
@@ -3144,6 +3156,16 @@ export function createDbApi(db: Database.Database): DbApi {
           AND ao.outcome = 'success'
         ORDER BY ao.received_at ASC
       `).all(keyHash, name, kingdom) as AttackRaw[];
+      const thieveryOpsTaken = db.prepare(`
+        SELECT ro.received_at, ro.op, ro.outcome, ro.amount_stolen, ro.thieves_lost,
+               p.name AS attacker_name, p.kingdom AS attacker_kingdom
+        FROM rob_ops ro
+        JOIN provinces p ON p.id = ro.province_id
+        WHERE ro.key_hash = ?
+          AND ro.target_name = ?
+          AND ro.target_kingdom = ?
+        ORDER BY ro.received_at ASC
+      `).all(keyHash, name, kingdom) as RobRaw[];
 
       // Bucket all rows into 5-minute windows
       const BUCKET_MS = 5 * 60 * 1000;
@@ -3163,6 +3185,7 @@ export function createDbApi(db: Database.Database): DbApi {
             offPoints: null, defPoints: null,
             money: null, food: null, thieves: null, wizards: null,
             attacksTaken: [],
+            thieveryOpsTaken: [],
             meta: {},
           });
         }
@@ -3210,6 +3233,18 @@ export function createDbApi(db: Database.Database): DbApi {
           killed: row.enemy_killed,
           imprisoned: row.enemy_imprisoned,
           massacred: row.massacred,
+        });
+      }
+      for (const row of thieveryOpsTaken) {
+        const b = ensureBucket(bucketKey(row.received_at));
+        b.thieveryOpsTaken.push({
+          receivedAt: row.received_at,
+          op: row.op,
+          outcome: row.outcome as "success" | "failure",
+          amountStolen: row.amount_stolen,
+          thievesLost: row.thieves_lost,
+          attackerName: row.attacker_name,
+          attackerKingdom: row.attacker_kingdom,
         });
       }
 
