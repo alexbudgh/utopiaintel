@@ -2521,6 +2521,7 @@ export interface ProvinceHistoryPoint {
   defPoints: number | null;
   money: number | null;
   food: number | null;
+  runes: number | null;
   thieves: number | null;
   wizards: number | null;
   attacksTaken: ProvinceHistoryAttack[];
@@ -3129,7 +3130,7 @@ export function createDbApi(db: Database.Database): DbApi {
 
       type OverviewRaw = { received_at: string; land: number | null; networth: number | null; source: string | null; saved_by: string | null };
       type TroopsRaw = { received_at: string; soldiers: number | null; off_specs: number | null; def_specs: number | null; elites: number | null; war_horses: number | null; peasants: number | null; source: string | null; saved_by: string | null };
-      type ResourcesRaw = { received_at: string; money: number | null; food: number | null; thieves: number | null; wizards: number | null; source: string | null; saved_by: string | null };
+      type ResourcesRaw = { received_at: string; money: number | null; food: number | null; runes: number | null; thieves: number | null; wizards: number | null; source: string | null; saved_by: string | null };
       type MilPointsRaw = { received_at: string; off_points: number | null; def_points: number | null; source: string | null; saved_by: string | null };
       type AttackRaw = { received_at: string; attack_type: string; attacker_name: string; attacker_kingdom: string; acres_taken: number | null; enemy_killed: number | null; enemy_imprisoned: number | null; massacred: number | null };
       type RobRaw = { received_at: string; op: string; outcome: string; amount_stolen: number | null; thieves_lost: number; attacker_name: string; attacker_kingdom: string };
@@ -3141,7 +3142,7 @@ export function createDbApi(db: Database.Database): DbApi {
         "SELECT received_at, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, saved_by FROM province_troops WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC"
       ).all(id, keyHash) as TroopsRaw[];
       const resources = db.prepare(
-        "SELECT received_at, money, food, thieves, wizards, source, saved_by FROM province_resources WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC"
+        "SELECT received_at, money, food, runes, thieves, wizards, source, saved_by FROM province_resources WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC"
       ).all(id, keyHash) as ResourcesRaw[];
       const milPoints = db.prepare(
         "SELECT received_at, off_points, def_points, source, saved_by FROM total_military_points WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC"
@@ -3184,7 +3185,7 @@ export function createDbApi(db: Database.Database): DbApi {
             networth: null, land: null, peasants: null,
             soldiers: null, offSpecs: null, defSpecs: null, elites: null, warHorses: null,
             offPoints: null, defPoints: null,
-            money: null, food: null, thieves: null, wizards: null,
+            money: null, food: null, runes: null, thieves: null, wizards: null,
             attacksTaken: [],
             thieveryOpsTaken: [],
             meta: {},
@@ -3216,6 +3217,7 @@ export function createDbApi(db: Database.Database): DbApi {
         const b = ensureBucket(bucketKey(row.received_at));
         if (row.money != null) { b.money = row.money; mergeMetric(b, "money", row.source, row.saved_by); }
         if (row.food != null) { b.food = row.food; mergeMetric(b, "food", row.source, row.saved_by); }
+        if (row.runes != null) { b.runes = row.runes; mergeMetric(b, "runes", row.source, row.saved_by); }
         if (row.thieves != null) { b.thieves = row.thieves; mergeMetric(b, "thieves", row.source, row.saved_by); }
         if (row.wizards != null) { b.wizards = row.wizards; mergeMetric(b, "wizards", row.source, row.saved_by); }
       }

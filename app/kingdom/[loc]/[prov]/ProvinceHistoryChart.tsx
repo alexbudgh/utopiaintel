@@ -30,6 +30,7 @@ const METRICS: MetricConfig[] = [
   { key: "warHorses", label: "War Horses",  color: "#c084fc", axis: "small" },
   { key: "offPoints", label: "Off Points",  color: "#f43f5e", axis: "small" },
   { key: "defPoints", label: "Def Points",  color: "#38bdf8", axis: "small" },
+  { key: "runes",     label: "Runes",       color: "#f59e0b", axis: "small" },
   { key: "thieves",   label: "Thieves",     color: "#e879f9", axis: "small" },
   { key: "wizards",   label: "Wizards",     color: "#818cf8", axis: "small" },
 ];
