@@ -2535,6 +2535,7 @@ export interface ProvinceHistoryPoint {
   wizards: number | null;
   attacksTaken: ProvinceHistoryAttack[];
   thieveryOpsTaken: ProvinceHistoryThieveryOp[];
+  sorceryOpsTaken: ProvinceHistorySorceryOp[];
   meta: Partial<Record<string, { sources: string[]; savedBy: string[] }>>;
 }
 
@@ -2561,6 +2562,16 @@ export interface ProvinceHistoryThieveryOp {
   kidnapped: number | null;
   acresBurned: number | null;
   effectDuration: number | null;
+}
+
+export interface ProvinceHistorySorceryOp {
+  receivedAt: string;
+  spell: string;
+  outcome: "success" | "failure";
+  durationDays: number | null;
+  wizardsLost: number;
+  casterName: string;
+  casterKingdom: string;
 }
 
 export function getProvinceHistory(name: string, kingdom: string, keyHash: string): ProvinceHistoryPoint[] {
@@ -3147,6 +3158,7 @@ export function createDbApi(db: Database.Database): DbApi {
       type MilPointsRaw = { received_at: string; off_points: number | null; def_points: number | null; source: string | null; saved_by: string | null };
       type AttackRaw = { received_at: string; attack_type: string; attacker_name: string; attacker_kingdom: string; acres_taken: number | null; enemy_killed: number | null; enemy_imprisoned: number | null; massacred: number | null };
       type RobRaw = { received_at: string; op: string; outcome: string; amount_stolen: number | null; thieves_lost: number; attacker_name: string; attacker_kingdom: string; troops_assassinated: number | null; kidnapped: number | null; acres_burned: number | null; effect_duration: number | null };
+      type SorceryRaw = { received_at: string; spell: string; outcome: string; duration_days: number | null; wizards_lost: number; caster_name: string; caster_kingdom: string };
 
       const overviews = db.prepare(
         "SELECT received_at, land, networth, source, saved_by FROM province_overview WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC"
@@ -3182,6 +3194,16 @@ export function createDbApi(db: Database.Database): DbApi {
           AND ro.target_kingdom = ?
         ORDER BY ro.received_at ASC
       `).all(keyHash, name, kingdom) as RobRaw[];
+      const sorceryOpsTaken = db.prepare(`
+        SELECT so.received_at, so.spell, so.outcome, so.duration_days, so.wizards_lost,
+               p.name AS caster_name, p.kingdom AS caster_kingdom
+        FROM sorcery_ops so
+        JOIN provinces p ON p.id = so.province_id
+        WHERE so.key_hash = ?
+          AND so.target_name = ?
+          AND so.target_kingdom = ?
+        ORDER BY so.received_at ASC
+      `).all(keyHash, name, kingdom) as SorceryRaw[];
 
       // Bucket all rows into 5-minute windows
       const BUCKET_MS = 5 * 60 * 1000;
@@ -3202,6 +3224,7 @@ export function createDbApi(db: Database.Database): DbApi {
             money: null, food: null, runes: null, thieves: null, wizards: null,
             attacksTaken: [],
             thieveryOpsTaken: [],
+            sorceryOpsTaken: [],
             meta: {},
           });
         }
@@ -3267,6 +3290,18 @@ export function createDbApi(db: Database.Database): DbApi {
           kidnapped: row.kidnapped,
           acresBurned: row.acres_burned,
           effectDuration: row.effect_duration,
+        });
+      }
+      for (const row of sorceryOpsTaken) {
+        const b = ensureBucket(bucketKey(row.received_at));
+        b.sorceryOpsTaken.push({
+          receivedAt: row.received_at,
+          spell: row.spell,
+          outcome: row.outcome as "success" | "failure",
+          durationDays: row.duration_days,
+          wizardsLost: row.wizards_lost,
+          casterName: row.caster_name,
+          casterKingdom: row.caster_kingdom,
         });
       }
 

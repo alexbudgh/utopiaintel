@@ -7,7 +7,7 @@ import type { Payload } from "recharts/types/component/DefaultTooltipContent";
 import type { ProvinceHistoryPoint } from "@/lib/db";
 import { formatNum } from "@/lib/ui";
 
-type MetricKey = keyof Omit<ProvinceHistoryPoint, "receivedAt" | "meta" | "attacksTaken" | "thieveryOpsTaken">;
+type MetricKey = keyof Omit<ProvinceHistoryPoint, "receivedAt" | "meta" | "attacksTaken" | "thieveryOpsTaken" | "sorceryOpsTaken">;
 
 interface MetricConfig {
   key: MetricKey;
@@ -76,6 +76,8 @@ type ChartRow = {
   thieveryOpsTaken: ProvinceHistoryPoint["thieveryOpsTaken"];
   thieveryAmountStolen?: number;
   thieveryOpsCount?: number;
+  sorceryOpsTaken: ProvinceHistoryPoint["sorceryOpsTaken"];
+  sorceryOpsCount?: number;
 } & Partial<Record<MetricKey, number>>;
 
 function attackTypeLabel(type: string): string {
@@ -139,6 +141,7 @@ function buildRows(history: ProvinceHistoryPoint[], tz: "UTC" | "local"): { rows
         bucketed: false,
         attacksTaken: point.attacksTaken,
         thieveryOpsTaken: point.thieveryOpsTaken,
+        sorceryOpsTaken: point.sorceryOpsTaken,
       };
       for (const m of METRICS) {
         const v = point[m.key];
@@ -150,6 +153,7 @@ function buildRows(history: ProvinceHistoryPoint[], tz: "UTC" | "local"): { rows
       if (stolen > 0) row.thieveryAmountStolen = stolen;
       const otherOpsCount = point.thieveryOpsTaken.filter((op) => !ROB_OPS.has(op.op)).length;
       if (otherOpsCount > 0) row.thieveryOpsCount = otherOpsCount;
+      if (point.sorceryOpsTaken.length > 0) row.sorceryOpsCount = point.sorceryOpsTaken.length;
       return row;
     }) };
   }
@@ -173,7 +177,8 @@ function buildRows(history: ProvinceHistoryPoint[], tz: "UTC" | "local"): { rows
     }
     const attacksTaken = points.flatMap((p) => p.attacksTaken);
     const thieveryOpsTaken = points.flatMap((p) => p.thieveryOpsTaken);
-    const row: ChartRow = { iso, label: chartLabel(iso, tz), meta, bucketed: true, attacksTaken, thieveryOpsTaken };
+    const sorceryOpsTaken = points.flatMap((p) => p.sorceryOpsTaken);
+    const row: ChartRow = { iso, label: chartLabel(iso, tz), meta, bucketed: true, attacksTaken, thieveryOpsTaken, sorceryOpsTaken };
     for (const m of METRICS) {
       const last = [...points].reverse().find((p) => p[m.key] != null);
       if (last) row[m.key] = last[m.key] as number;
@@ -184,13 +189,14 @@ function buildRows(history: ProvinceHistoryPoint[], tz: "UTC" | "local"): { rows
     if (stolen > 0) row.thieveryAmountStolen = stolen;
     const otherOpsCount = thieveryOpsTaken.filter((op) => !ROB_OPS.has(op.op)).length;
     if (otherOpsCount > 0) row.thieveryOpsCount = otherOpsCount;
+    if (sorceryOpsTaken.length > 0) row.sorceryOpsCount = sorceryOpsTaken.length;
     return row;
   });
 
   return { bucketMs, rows };
 }
 
-function ChartTooltip({ active, payload, tz, hideAttacks, hideThievery, hideSabotageOps, maxWidth }: TooltipContentProps<number, string> & { tz: "UTC" | "local"; hideAttacks: boolean; hideThievery: boolean; hideSabotageOps: boolean; maxWidth: number }) {
+function ChartTooltip({ active, payload, tz, hideAttacks, hideThievery, hideSabotageOps, hideSorcery, maxWidth }: TooltipContentProps<number, string> & { tz: "UTC" | "local"; hideAttacks: boolean; hideThievery: boolean; hideSabotageOps: boolean; hideSorcery: boolean; maxWidth: number }) {
   if (!active || !payload?.length) return null;
   const point = (payload[0] as Payload<number, string> | undefined)?.payload as ChartRow | undefined;
   if (!point) return null;
@@ -202,6 +208,7 @@ function ChartTooltip({ active, payload, tz, hideAttacks, hideThievery, hideSabo
   const allThieveryOps = point.thieveryOpsTaken;
   const robOps = hideThievery ? [] : allThieveryOps.filter((op) => ROB_OPS.has(op.op));
   const sabotageOps = hideSabotageOps ? [] : allThieveryOps.filter((op) => !ROB_OPS.has(op.op));
+  const sorceryOps = hideSorcery ? [] : point.sorceryOpsTaken;
   const totalStolen = robOps.reduce((sum, op) => sum + (op.amountStolen ?? 0), 0);
   const stolenByType = new Map<string, { stolen: number; thievesLost: number; successes: number; failures: number }>();
   for (const op of robOps) {
@@ -348,6 +355,33 @@ function ChartTooltip({ active, payload, tz, hideAttacks, hideThievery, hideSabo
             })()}
           </div>
         )}
+        {sorceryOps.length > 0 && (
+          <div className="mb-1 rounded border border-teal-900/70 bg-teal-950/30 p-1.5">
+            <div className="text-teal-200">
+              {sorceryOps.length} sorcery op{sorceryOps.length === 1 ? "" : "s"}
+            </div>
+            <div className="mt-1 grid grid-cols-[1fr_auto_auto] gap-x-2 gap-y-0.5 text-gray-600">
+              <span>Spell</span><span>✓/✗</span><span>Dur.</span>
+              {sorceryOps.slice(0, 8).map((op, i) => (
+                <Fragment key={`${op.receivedAt}:${i}`}>
+                  <span className="truncate text-gray-400">{op.spell}</span>
+                  <span className="tabular-nums text-gray-500">{op.outcome === "success" ? "✓" : "✗"}</span>
+                  <span className="tabular-nums text-gray-500">{op.durationDays != null ? `${op.durationDays}d` : "—"}</span>
+                </Fragment>
+              ))}
+            </div>
+            {sorceryOps.length > 8 && <div className="mt-0.5 text-gray-600">+{sorceryOps.length - 8} more</div>}
+            {(() => {
+              const contributors = [...new Set(sorceryOps.map((op) => op.casterName))];
+              return (
+                <div className="mt-0.5 text-gray-500">
+                  <span className="text-gray-600">By: </span>
+                  {contributors.slice(0, 3).join(", ")}{contributors.length > 3 ? ` +${contributors.length - 3} more` : ""}
+                </div>
+              );
+            })()}
+          </div>
+        )}
         {visible.map((p: Payload<number, string>) => {
           const cfg = METRIC_BY_KEY.get(p.dataKey as MetricKey);
           const m = point.meta[p.dataKey as string];
@@ -379,6 +413,7 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
   const [hideAttacks, setHideAttacks] = useState(false);
   const [hideThievery, setHideThievery] = useState(false);
   const [hideSabotageOps, setHideOtherOps] = useState(false);
+  const [hideSorcery, setHideSorcery] = useState(false);
   const [open, setOpen] = useState(false);
   const [hoveredLine, setHoveredLine] = useState<MetricKey | null>(null);
   const [tz, setTz] = useState<"UTC" | "local">("UTC");
@@ -402,8 +437,9 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
   const hasAttackMarkers = data.some((r) => r.attackLosses != null);
   const hasThieveryMarkers = data.some((r) => r.thieveryAmountStolen != null);
   const hasSabotageOpsMarkers = data.some((r) => r.thieveryOpsCount != null);
+  const hasSorceryMarkers = data.some((r) => r.sorceryOpsCount != null);
   const hasLargeAxis = hasLarge || (hasThieveryMarkers && !hideThievery);
-  const hasSmallAxis = hasSmall || (hasAttackMarkers && !hideAttacks) || (hasSabotageOpsMarkers && !hideSabotageOps);
+  const hasSmallAxis = hasSmall || (hasAttackMarkers && !hideAttacks) || (hasSabotageOpsMarkers && !hideSabotageOps) || (hasSorceryMarkers && !hideSorcery);
   const bucketed = data.some((r) => r.bucketed);
 
   const tzLabel = tz === "UTC" ? "UTC" : LOCAL_TZ_LABEL;
@@ -453,7 +489,7 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
               <YAxis yAxisId="small" orientation="right" tick={axisStyle} tickLine={false} axisLine={false}
                 width={hasSmallAxis ? axisWidth : 0}
                 tickFormatter={(v) => formatNum(Number(v))} hide={!hasSmallAxis} />
-              <Tooltip content={(props) => <ChartTooltip {...(props as TooltipContentProps<number, string>)} tz={tz} hideAttacks={hideAttacks} hideThievery={hideThievery} hideSabotageOps={hideSabotageOps} maxWidth={tooltipMaxWidth} />} />
+              <Tooltip content={(props) => <ChartTooltip {...(props as TooltipContentProps<number, string>)} tz={tz} hideAttacks={hideAttacks} hideThievery={hideThievery} hideSabotageOps={hideSabotageOps} hideSorcery={hideSorcery} maxWidth={tooltipMaxWidth} />} />
               {METRICS.map((m) => (
                 <Line
                   key={m.key}
@@ -497,6 +533,15 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
                 shape="circle"
                 legendType="circle"
                 hide={hideSabotageOps}
+              />
+              <Scatter
+                yAxisId="small"
+                dataKey="sorceryOpsCount"
+                name="Sorcery ops"
+                fill="#2dd4bf"
+                shape="star"
+                legendType="star"
+                hide={hideSorcery}
               />
             </ComposedChart>
           </ResponsiveContainer>
@@ -542,6 +587,15 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
             >
               <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: "#a78bfa" }} />
               <span style={{ color: hideSabotageOps ? "#6b7280" : "#d1d5db" }}>Sabotage</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setHideSorcery((prev) => !prev)}
+              className="flex items-center gap-1.5 text-xs transition-opacity"
+              style={{ opacity: hideSorcery ? 0.5 : 1 }}
+            >
+              <span className="inline-block h-2.5 w-2.5 shrink-0" style={{ background: "#2dd4bf", clipPath: "polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)" }} />
+              <span style={{ color: hideSorcery ? "#6b7280" : "#d1d5db" }}>Sorcery</span>
             </button>
           </div>
         </div>
