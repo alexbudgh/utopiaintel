@@ -337,6 +337,15 @@ function ChartTooltip({ active, payload, tz, hideAttacks, hideThievery, hideOthe
                 );
               })}
             </div>
+            {(() => {
+              const contributors = [...new Set(otherOps.map((op) => op.attackerName))];
+              return (
+                <div className="mt-0.5 text-gray-500">
+                  <span className="text-gray-600">By: </span>
+                  {contributors.slice(0, 3).join(", ")}{contributors.length > 3 ? ` +${contributors.length - 3} more` : ""}
+                </div>
+              );
+            })()}
           </div>
         )}
         {visible.map((p: Payload<number, string>) => {
