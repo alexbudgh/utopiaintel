@@ -1,10 +1,8 @@
-import type { Profiler } from 'node:inspector';
-
 export function register() {
   console.log('Registering instrumentation. Pid:', process.pid);
   if (process.env.NEXT_RUNTIME === 'nodejs') {
-    const inspector = require('node:inspector');
-    const fs = require('node:fs');
+    const inspector = require('node:inspector') as typeof import('node:inspector');
+    const fs = require('node:fs') as typeof import('node:fs');
     process.on('SIGUSR2', () => {
       const session = new inspector.Session();
       session.connect();
@@ -12,7 +10,7 @@ export function register() {
         session.post('Profiler.start', () => {
           console.log('CPU Profile started via SIGUSR2...');
           setTimeout(() => {
-            session.post('Profiler.stop', (err: Error | null, { profile }: { profile: Profiler.Profile }) => {
+            session.post('Profiler.stop', (err, { profile }) => {
               if (!err) {
                 const filename = `./profile-${Date.now()}.cpuprofile`;
                 fs.writeFileSync(filename, JSON.stringify(profile));
