@@ -190,7 +190,7 @@ function buildRows(history: ProvinceHistoryPoint[], tz: "UTC" | "local"): { rows
   return { bucketMs, rows };
 }
 
-function ChartTooltip({ active, payload, tz, hideAttacks, hideThievery, hideOtherOps }: TooltipContentProps<number, string> & { tz: "UTC" | "local"; hideAttacks: boolean; hideThievery: boolean; hideOtherOps: boolean }) {
+function ChartTooltip({ active, payload, tz, hideAttacks, hideThievery, hideSabotageOps }: TooltipContentProps<number, string> & { tz: "UTC" | "local"; hideAttacks: boolean; hideThievery: boolean; hideSabotageOps: boolean }) {
   if (!active || !payload?.length) return null;
   const point = (payload[0] as Payload<number, string> | undefined)?.payload as ChartRow | undefined;
   if (!point) return null;
@@ -201,7 +201,7 @@ function ChartTooltip({ active, payload, tz, hideAttacks, hideThievery, hideOthe
   const totalLosses = attacks.reduce((sum, a) => sum + (a.killed ?? 0) + (a.imprisoned ?? 0) + (a.massacred ?? 0), 0);
   const allThieveryOps = point.thieveryOpsTaken;
   const robOps = hideThievery ? [] : allThieveryOps.filter((op) => ROB_OPS.has(op.op));
-  const otherOps = hideOtherOps ? [] : allThieveryOps.filter((op) => !ROB_OPS.has(op.op));
+  const sabotageOps = hideSabotageOps ? [] : allThieveryOps.filter((op) => !ROB_OPS.has(op.op));
   const totalStolen = robOps.reduce((sum, op) => sum + (op.amountStolen ?? 0), 0);
   const stolenByType = new Map<string, { stolen: number; thievesLost: number; successes: number; failures: number }>();
   for (const op of robOps) {
@@ -284,14 +284,14 @@ function ChartTooltip({ active, payload, tz, hideAttacks, hideThievery, hideOthe
             </div>
           </div>
         )}
-        {otherOps.length > 0 && (
+        {sabotageOps.length > 0 && (
           <div className="mb-1 rounded border border-violet-900/70 bg-violet-950/30 p-1.5">
             <div className="text-violet-200">
-              {otherOps.length} other op{otherOps.length === 1 ? "" : "s"}
+              {sabotageOps.length} sabotage op{sabotageOps.length === 1 ? "" : "s"}
             </div>
             <div className="mt-1 grid grid-cols-[auto_1fr_auto_auto] gap-x-2 gap-y-0.5 text-gray-600">
               <span>Op</span><span>Result</span><span>✓/✗</span><span>Thieves Lost</span>
-              {otherOps.map((op, i) => {
+              {sabotageOps.map((op, i) => {
                 let result: string;
                 if (op.outcome === "failure") {
                   result = "failed";
@@ -338,7 +338,7 @@ function ChartTooltip({ active, payload, tz, hideAttacks, hideThievery, hideOthe
               })}
             </div>
             {(() => {
-              const contributors = [...new Set(otherOps.map((op) => op.attackerName))];
+              const contributors = [...new Set(sabotageOps.map((op) => op.attackerName))];
               return (
                 <div className="mt-0.5 text-gray-500">
                   <span className="text-gray-600">By: </span>
@@ -378,7 +378,7 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
   );
   const [hideAttacks, setHideAttacks] = useState(false);
   const [hideThievery, setHideThievery] = useState(false);
-  const [hideOtherOps, setHideOtherOps] = useState(false);
+  const [hideSabotageOps, setHideOtherOps] = useState(false);
   const [open, setOpen] = useState(false);
   const [hoveredLine, setHoveredLine] = useState<MetricKey | null>(null);
   const [tz, setTz] = useState<"UTC" | "local">("UTC");
@@ -391,8 +391,8 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
   const hasSmall = visibleMetrics.some((m) => m.axis === "small");
   const hasAttackMarkers = data.some((r) => r.attackLosses != null);
   const hasThieveryMarkers = data.some((r) => r.thieveryAmountStolen != null);
-  const hasOtherOpsMarkers = data.some((r) => r.thieveryOpsCount != null);
-  const hasSmallAxis = hasSmall || (hasAttackMarkers && !hideAttacks) || (hasThieveryMarkers && !hideThievery) || (hasOtherOpsMarkers && !hideOtherOps);
+  const hasSabotageOpsMarkers = data.some((r) => r.thieveryOpsCount != null);
+  const hasSmallAxis = hasSmall || (hasAttackMarkers && !hideAttacks) || (hasThieveryMarkers && !hideThievery) || (hasSabotageOpsMarkers && !hideSabotageOps);
   const bucketed = data.some((r) => r.bucketed);
 
   const tzLabel = tz === "UTC" ? "UTC" : LOCAL_TZ_LABEL;
@@ -436,7 +436,7 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
                 tickFormatter={(v) => formatNum(Number(v))} hide={!hasLarge} />
               <YAxis yAxisId="small" orientation="right" tick={axisStyle} tickLine={false} axisLine={false} width={56}
                 tickFormatter={(v) => formatNum(Number(v))} hide={!hasSmallAxis} />
-              <Tooltip content={(props) => <ChartTooltip {...(props as TooltipContentProps<number, string>)} tz={tz} hideAttacks={hideAttacks} hideThievery={hideThievery} hideOtherOps={hideOtherOps} />} />
+              <Tooltip content={(props) => <ChartTooltip {...(props as TooltipContentProps<number, string>)} tz={tz} hideAttacks={hideAttacks} hideThievery={hideThievery} hideSabotageOps={hideSabotageOps} />} />
               <Legend
                 wrapperStyle={{ fontSize: 11, color: "#9ca3af", cursor: "pointer" }}
                 formatter={(value) => (
@@ -495,11 +495,11 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
               <Scatter
                 yAxisId="small"
                 dataKey="thieveryOpsCount"
-                name="Other ops"
+                name="Sabotage ops"
                 fill="#a78bfa"
                 shape="circle"
                 legendType="circle"
-                hide={hideOtherOps}
+                hide={hideSabotageOps}
               />
             </ComposedChart>
           </ResponsiveContainer>
