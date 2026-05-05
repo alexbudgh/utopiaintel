@@ -12,7 +12,7 @@ const TARGET_KD_RE = new RegExp(`Target kingdom is [^(]+${KDLOC}`);
 const TARGET_PROV_RE = /Select province:\t(\d+) (.+?) ---/;
 const ASSASSINATED_RE = new RegExp(`assassinated (${INT}) enemy troops`);
 const KIDNAPPED_RE    = new RegExp(`return with (${INT}) of them`);
-const EFFECT_DAYS_RE  = /expected to last (\d+) days/;
+const EFFECT_DAYS_RE  = /expected to last (\d+) days?/;
 const ACRES_BURNED_RE = new RegExp(`burned down (${INT}) acres? of buildings`);
 
 export function getRobOp(url: string): RobOp | null {
