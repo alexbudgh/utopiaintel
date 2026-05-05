@@ -46,7 +46,13 @@ export function getDb(): Database.Database {
 const SAME_TICK_EXPR = (a: string, b: string) =>
   `(strftime('%s', ${a}) / 3600) = (strftime('%s', ${b}) / 3600)`;
 
-const latestSlotCte = (extraWhere = "") => `
+const latestSlotCte = (extraWhere = "") => {
+  // When a kingdom filter is present, group only by slot (one kingdom).
+  // Otherwise group by (location, slot) across all kingdoms.
+  const kingdomKnown = extraWhere.includes("@kingdom");
+  const innerWhere  = kingdomKnown ? "AND ki2.location = @kingdom" : "";
+  const groupBy     = kingdomKnown ? "kp2.slot" : "ki2.location, kp2.slot";
+  return `
   latest_slot AS (
     -- For each slot number, find the province name most recently seen in a
     -- kingdom snapshot for this shard. This avoids showing stale slot numbers
@@ -57,16 +63,17 @@ const latestSlotCte = (extraWhere = "") => `
     WHERE ki.key_hash = @keyHash
       AND kp.slot IS NOT NULL
       ${extraWhere}
-      AND kp.id = (
+      AND kp.id IN (
         SELECT MAX(kp2.id)
         FROM kingdom_provinces kp2
         JOIN kingdom_intel ki2 ON ki2.id = kp2.kingdom_intel_id
         WHERE ki2.key_hash = @keyHash
-          AND ki2.location = ki.location
-          AND kp2.slot = kp.slot
+          ${innerWhere}
+          AND kp2.slot IS NOT NULL
+        GROUP BY ${groupBy}
       )
   )
-`;
+`;};
 
 export function updateMetricsCache(db: Database.Database, provinceId: number, keyHash: string): void {
   if (!metricsCacheRefreshEnabled) return;
