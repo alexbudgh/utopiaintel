@@ -12,6 +12,7 @@
   "dependencies": {
     "@tailwindcss/postcss": "^4.2.2",
     "better-sqlite3": "^12.8.0",
+    "mysql2": "^3.22.3",
     "next": "^16.2.3",
     "next-axiom": "^1.10.0",
     "postcss": "^8.5.8",
