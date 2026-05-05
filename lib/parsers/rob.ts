@@ -10,6 +10,10 @@ const THIEVES_LOST_SUCCESS_RE = new RegExp(`We lost (${INT}) thie(?:f|ves) in th
 const THIEVES_LOST_FAILURE_RE = new RegExp(`mission was foiled\\. We lost (${INT}) thie`);
 const TARGET_KD_RE = new RegExp(`Target kingdom is [^(]+${KDLOC}`);
 const TARGET_PROV_RE = /Select province:\t(\d+) (.+?) ---/;
+const ASSASSINATED_RE = new RegExp(`assassinated (${INT}) enemy troops`);
+const KIDNAPPED_RE    = new RegExp(`return with (${INT}) of them`);
+const EFFECT_DAYS_RE  = /expected to last (\d+) days/;
+const ACRES_BURNED_RE = new RegExp(`burned down (${INT}) acres? of buildings`);
 
 export function getRobOp(url: string): RobOp | null {
   try {
@@ -17,6 +21,15 @@ export function getRobOp(url: string): RobOp | null {
     if (o === "ROB_THE_TOWERS") return "towers";
     if (o === "ROB_THE_VAULTS") return "vaults";
     if (o === "ROB_THE_GRANARIES") return "granaries";
+    if (o === "NIGHT_STRIKE") return "night_strike";
+    if (o === "KIDNAP") return "kidnap";
+    if (o === "BRIBE_GENERALS") return "bribe_generals";
+    if (o === "INCITE_RIOTS") return "incite_riots";
+    if (o === "SABOTAGE_WIZARDS") return "sabotage_wizards";
+    if (o === "ARSON") return "arson";
+    if (o === "GREATER_ARSON") return "greater_arson";
+    if (o === "DESTABILIZE_GUILDS") return "destabilize_guilds";
+    if (o === "BRIBE_THIEVES") return "bribe_thieves";
     return null;
   } catch {
     return null;
@@ -39,13 +52,42 @@ export function parseRob(text: string, url: string, selfProv: string): RobData |
 
   let amountStolen: number | null = null;
   let thievesLost = 0;
+  let troopsAssassinated: number | null = null;
+  let kidnapped: number | null = null;
+  let acresBurned: number | null = null;
+  let effectDuration: number | null = null;
 
   if (isSuccess) {
-    const re = op === "towers" ? SUCCESS_TOWERS_RE
-             : op === "vaults" ? SUCCESS_VAULTS_RE
-             : SUCCESS_GRANARIES_RE;
-    const m = re.exec(text);
-    if (m) amountStolen = parseNum(m[1]);
+    if (op === "towers" || op === "vaults" || op === "granaries") {
+      const re = op === "towers" ? SUCCESS_TOWERS_RE
+               : op === "vaults" ? SUCCESS_VAULTS_RE
+               : SUCCESS_GRANARIES_RE;
+      const m = re.exec(text);
+      if (m) amountStolen = parseNum(m[1]);
+    } else if (op === "night_strike") {
+      const m = ASSASSINATED_RE.exec(text);
+      if (m) troopsAssassinated = parseNum(m[1]);
+    } else if (op === "kidnap") {
+      const m = KIDNAPPED_RE.exec(text);
+      if (m) kidnapped = parseNum(m[1]);
+    } else if (op === "arson" || op === "greater_arson") {
+      if (/too few in number to find any buildings to burn/.test(text)) {
+        acresBurned = 0;
+      } else {
+        const m = ACRES_BURNED_RE.exec(text);
+        if (m) acresBurned = parseNum(m[1]);
+      }
+    } else if (op === "incite_riots" || op === "destabilize_guilds") {
+      const m = EFFECT_DAYS_RE.exec(text);
+      if (m) effectDuration = parseInt(m[1], 10);
+    } else if (op === "sabotage_wizards") {
+      if (/no lasting effect/.test(text)) {
+        effectDuration = 0;
+      } else {
+        const m = EFFECT_DAYS_RE.exec(text);
+        if (m) effectDuration = parseInt(m[1], 10);
+      }
+    }
     const lostMatch = THIEVES_LOST_SUCCESS_RE.exec(text);
     if (lostMatch) thievesLost = parseNum(lostMatch[1]);
   } else {
@@ -65,5 +107,9 @@ export function parseRob(text: string, url: string, selfProv: string): RobData |
     thievesLost,
     thieves: thievesMatch ? parseNum(thievesMatch[1]) : null,
     stealth: stealthMatch ? parseInt(stealthMatch[1], 10) : null,
+    troopsAssassinated,
+    kidnapped,
+    acresBurned,
+    effectDuration,
   };
 }

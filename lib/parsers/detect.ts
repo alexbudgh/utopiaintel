@@ -62,6 +62,15 @@ export function detectIntelType(url: string): IntelType | null {
   if (thieveryOp === "ROB_THE_TOWERS") return "rob";
   if (thieveryOp === "ROB_THE_VAULTS") return "rob";
   if (thieveryOp === "ROB_THE_GRANARIES") return "rob";
+  if (thieveryOp === "NIGHT_STRIKE") return "rob";
+  if (thieveryOp === "KIDNAP") return "rob";
+  if (thieveryOp === "BRIBE_GENERALS") return "rob";
+  if (thieveryOp === "INCITE_RIOTS") return "rob";
+  if (thieveryOp === "SABOTAGE_WIZARDS") return "rob";
+  if (thieveryOp === "ARSON") return "rob";
+  if (thieveryOp === "GREATER_ARSON") return "rob";
+  if (thieveryOp === "DESTABILIZE_GUILDS") return "rob";
+  if (thieveryOp === "BRIBE_THIEVES") return "rob";
   // TODO: Add parsers/storage for other thievery ops we see in production,
   // such as SPY_ON_EXPLORATION.
 

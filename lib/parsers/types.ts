@@ -186,7 +186,11 @@ export interface SorceryData extends ProvinceId {
   mana: number | null;
 }
 
-export type RobOp = "towers" | "vaults" | "granaries";
+export type RobOp =
+  | "towers" | "vaults" | "granaries"
+  | "night_strike" | "kidnap" | "bribe_generals" | "incite_riots"
+  | "sabotage_wizards" | "arson" | "greater_arson" | "destabilize_guilds"
+  | "bribe_thieves";
 
 export interface RobData extends ProvinceId {
   op: RobOp;
@@ -198,6 +202,10 @@ export interface RobData extends ProvinceId {
   thievesLost: number;
   thieves: number | null;
   stealth: number | null;
+  troopsAssassinated: number | null;  // night_strike
+  kidnapped: number | null;           // kidnap
+  acresBurned: number | null;         // arson, greater_arson
+  effectDuration: number | null;      // incite_riots, sabotage_wizards, destabilize_guilds
 }
 
 export type AttackType =

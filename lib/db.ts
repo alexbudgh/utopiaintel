@@ -821,6 +821,11 @@ export function initSchema(db: Database.Database) {
     db.transaction(() => { for (const r of allRows) upd.run(parseUtopiaDate(r.game_date), r.id); })();
     db.exec("CREATE INDEX IF NOT EXISTS idx_kingdom_news_kd_ord ON kingdom_news(kingdom, game_date_ord DESC)");
   }
+  if (!hasCol("rob_ops", "troops_assassinated")) db.exec("ALTER TABLE rob_ops ADD COLUMN troops_assassinated INTEGER");
+  if (!hasCol("rob_ops", "kidnapped"))           db.exec("ALTER TABLE rob_ops ADD COLUMN kidnapped INTEGER");
+  if (!hasCol("rob_ops", "acres_burned"))        db.exec("ALTER TABLE rob_ops ADD COLUMN acres_burned INTEGER");
+  if (!hasCol("rob_ops", "effect_duration"))     db.exec("ALTER TABLE rob_ops ADD COLUMN effect_duration INTEGER");
+
   if (!hasCol("provinces", "cached_rtpa")) {
     db.exec("ALTER TABLE provinces ADD COLUMN cached_rtpa REAL");
     db.exec("ALTER TABLE provinces ADD COLUMN cached_rtpa_age TEXT");
@@ -1183,13 +1188,17 @@ export function storeRob(data: RobData, savedBy: string, keyHash: string, receiv
     const result = db.prepare(`
       INSERT OR IGNORE INTO rob_ops
         (province_id, key_hash, op, target_name, target_slot, target_kingdom,
-         outcome, amount_stolen, thieves_lost, thieves, stealth, saved_by, received_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
+         outcome, amount_stolen, thieves_lost, thieves, stealth,
+         troops_assassinated, kidnapped, acres_burned, effect_duration,
+         saved_by, received_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
     `).run(
       provId, keyHash, data.op,
       data.targetName, data.targetSlot, data.targetKingdom,
       data.outcome, data.amountStolen, data.thievesLost,
-      data.thieves, data.stealth, savedBy, receivedAt ?? null,
+      data.thieves, data.stealth,
+      data.troopsAssassinated, data.kidnapped, data.acresBurned, data.effectDuration,
+      savedBy, receivedAt ?? null,
     );
     if (result.changes === 0) return;
     if (data.thieves != null) {
@@ -2548,6 +2557,10 @@ export interface ProvinceHistoryThieveryOp {
   thievesLost: number;
   attackerName: string;
   attackerKingdom: string;
+  troopsAssassinated: number | null;
+  kidnapped: number | null;
+  acresBurned: number | null;
+  effectDuration: number | null;
 }
 
 export function getProvinceHistory(name: string, kingdom: string, keyHash: string): ProvinceHistoryPoint[] {
@@ -3133,7 +3146,7 @@ export function createDbApi(db: Database.Database): DbApi {
       type ResourcesRaw = { received_at: string; money: number | null; food: number | null; runes: number | null; thieves: number | null; wizards: number | null; source: string | null; saved_by: string | null };
       type MilPointsRaw = { received_at: string; off_points: number | null; def_points: number | null; source: string | null; saved_by: string | null };
       type AttackRaw = { received_at: string; attack_type: string; attacker_name: string; attacker_kingdom: string; acres_taken: number | null; enemy_killed: number | null; enemy_imprisoned: number | null; massacred: number | null };
-      type RobRaw = { received_at: string; op: string; outcome: string; amount_stolen: number | null; thieves_lost: number; attacker_name: string; attacker_kingdom: string };
+      type RobRaw = { received_at: string; op: string; outcome: string; amount_stolen: number | null; thieves_lost: number; attacker_name: string; attacker_kingdom: string; troops_assassinated: number | null; kidnapped: number | null; acres_burned: number | null; effect_duration: number | null };
 
       const overviews = db.prepare(
         "SELECT received_at, land, networth, source, saved_by FROM province_overview WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC"
@@ -3160,7 +3173,8 @@ export function createDbApi(db: Database.Database): DbApi {
       `).all(keyHash, name, kingdom) as AttackRaw[];
       const thieveryOpsTaken = db.prepare(`
         SELECT ro.received_at, ro.op, ro.outcome, ro.amount_stolen, ro.thieves_lost,
-               p.name AS attacker_name, p.kingdom AS attacker_kingdom
+               p.name AS attacker_name, p.kingdom AS attacker_kingdom,
+               ro.troops_assassinated, ro.kidnapped, ro.acres_burned, ro.effect_duration
         FROM rob_ops ro
         JOIN provinces p ON p.id = ro.province_id
         WHERE ro.key_hash = ?
@@ -3249,6 +3263,10 @@ export function createDbApi(db: Database.Database): DbApi {
           thievesLost: row.thieves_lost,
           attackerName: row.attacker_name,
           attackerKingdom: row.attacker_kingdom,
+          troopsAssassinated: row.troops_assassinated,
+          kidnapped: row.kidnapped,
+          acresBurned: row.acres_burned,
+          effectDuration: row.effect_duration,
         });
       }
 

@@ -75,6 +75,7 @@ type ChartRow = {
   attackLosses?: number;
   thieveryOpsTaken: ProvinceHistoryPoint["thieveryOpsTaken"];
   thieveryAmountStolen?: number;
+  thieveryOpsCount?: number;
 } & Partial<Record<MetricKey, number>>;
 
 function attackTypeLabel(type: string): string {
@@ -99,8 +100,10 @@ function attackLosses(attacks: ProvinceHistoryPoint["attacksTaken"]): number {
     sum + (attack.killed ?? 0) + (attack.imprisoned ?? 0) + (attack.massacred ?? 0), 0);
 }
 
+const ROB_OPS = new Set(["towers", "vaults", "granaries"]);
+
 function sumAmountStolen(ops: ProvinceHistoryPoint["thieveryOpsTaken"]): number {
-  return ops.reduce((sum, op) => sum + (op.amountStolen ?? 0), 0);
+  return ops.filter((op) => ROB_OPS.has(op.op)).reduce((sum, op) => sum + (op.amountStolen ?? 0), 0);
 }
 
 function robOpLabel(op: string): string {
@@ -145,6 +148,8 @@ function buildRows(history: ProvinceHistoryPoint[], tz: "UTC" | "local"): { rows
       if (losses > 0) row.attackLosses = losses;
       const stolen = sumAmountStolen(point.thieveryOpsTaken);
       if (stolen > 0) row.thieveryAmountStolen = stolen;
+      const otherOpsCount = point.thieveryOpsTaken.filter((op) => !ROB_OPS.has(op.op)).length;
+      if (otherOpsCount > 0) row.thieveryOpsCount = otherOpsCount;
       return row;
     }) };
   }
@@ -177,13 +182,15 @@ function buildRows(history: ProvinceHistoryPoint[], tz: "UTC" | "local"): { rows
     if (losses > 0) row.attackLosses = losses;
     const stolen = sumAmountStolen(thieveryOpsTaken);
     if (stolen > 0) row.thieveryAmountStolen = stolen;
+    const otherOpsCount = thieveryOpsTaken.filter((op) => !ROB_OPS.has(op.op)).length;
+    if (otherOpsCount > 0) row.thieveryOpsCount = otherOpsCount;
     return row;
   });
 
   return { bucketMs, rows };
 }
 
-function ChartTooltip({ active, payload, tz, hideAttacks, hideThievery }: TooltipContentProps<number, string> & { tz: "UTC" | "local"; hideAttacks: boolean; hideThievery: boolean }) {
+function ChartTooltip({ active, payload, tz, hideAttacks, hideThievery, hideOtherOps }: TooltipContentProps<number, string> & { tz: "UTC" | "local"; hideAttacks: boolean; hideThievery: boolean; hideOtherOps: boolean }) {
   if (!active || !payload?.length) return null;
   const point = (payload[0] as Payload<number, string> | undefined)?.payload as ChartRow | undefined;
   if (!point) return null;
@@ -192,19 +199,21 @@ function ChartTooltip({ active, payload, tz, hideAttacks, hideThievery }: Toolti
   const attacks = hideAttacks ? [] : point.attacksTaken;
   const totalAcresTaken = attacks.reduce((sum, a) => sum + (a.acresTaken ?? 0), 0);
   const totalLosses = attacks.reduce((sum, a) => sum + (a.killed ?? 0) + (a.imprisoned ?? 0) + (a.massacred ?? 0), 0);
-  const thieveryOps = hideThievery ? [] : point.thieveryOpsTaken;
-  const totalStolen = thieveryOps.reduce((sum, op) => sum + (op.amountStolen ?? 0), 0);
+  const allThieveryOps = point.thieveryOpsTaken;
+  const robOps = hideThievery ? [] : allThieveryOps.filter((op) => ROB_OPS.has(op.op));
+  const otherOps = hideOtherOps ? [] : allThieveryOps.filter((op) => !ROB_OPS.has(op.op));
+  const totalStolen = robOps.reduce((sum, op) => sum + (op.amountStolen ?? 0), 0);
   const stolenByType = new Map<string, { stolen: number; thievesLost: number; successes: number; failures: number }>();
-  for (const op of thieveryOps) {
+  for (const op of robOps) {
     const e = stolenByType.get(op.op) ?? { stolen: 0, thievesLost: 0, successes: 0, failures: 0 };
     e.stolen += op.amountStolen ?? 0;
     e.thievesLost += op.thievesLost;
     if (op.outcome === "success") e.successes++; else e.failures++;
     stolenByType.set(op.op, e);
   }
-  const thieveryContributors = [...new Set(thieveryOps.map((op) => op.attackerName))];
-  const thieverySuccesses = thieveryOps.filter((op) => op.outcome === "success").length;
-  const thieveryFailures = thieveryOps.length - thieverySuccesses;
+  const thieveryContributors = [...new Set(robOps.map((op) => op.attackerName))];
+  const thieverySuccesses = robOps.filter((op) => op.outcome === "success").length;
+  const thieveryFailures = robOps.length - thieverySuccesses;
 
   return (
     <div className="rounded border border-gray-700 bg-gray-900 p-2 text-xs shadow-lg" style={{ minWidth: 240 }}>
@@ -242,11 +251,11 @@ function ChartTooltip({ active, payload, tz, hideAttacks, hideThievery }: Toolti
             {attacks.length > 5 && <div className="mt-0.5 text-gray-600">+{attacks.length - 5} more</div>}
           </div>
         )}
-        {thieveryOps.length > 0 && (
+        {robOps.length > 0 && (
           <div className="mb-1 rounded border border-amber-900/70 bg-amber-950/30 p-1.5">
             <div className="flex items-center justify-between gap-3 text-amber-200">
               <span>
-                {thieveryOps.length} thievery op{thieveryOps.length === 1 ? "" : "s"}
+                {robOps.length} rob op{robOps.length === 1 ? "" : "s"}
                 <span className="ml-1.5 text-gray-500">
                   {thieverySuccesses}✓{thieveryFailures > 0 && <> {thieveryFailures}✗</>}
                 </span>
@@ -272,6 +281,61 @@ function ChartTooltip({ active, payload, tz, hideAttacks, hideThievery }: Toolti
             </div>
             <div className="mt-0.5 text-gray-500">
               <span className="text-gray-600">By: </span>{thieveryContributors.slice(0, 3).join(", ")}{thieveryContributors.length > 3 ? ` +${thieveryContributors.length - 3} more` : ""}
+            </div>
+          </div>
+        )}
+        {otherOps.length > 0 && (
+          <div className="mb-1 rounded border border-violet-900/70 bg-violet-950/30 p-1.5">
+            <div className="text-violet-200">
+              {otherOps.length} other op{otherOps.length === 1 ? "" : "s"}
+            </div>
+            <div className="mt-1 grid grid-cols-[auto_1fr_auto_auto] gap-x-2 gap-y-0.5 text-gray-600">
+              <span>Op</span><span>Result</span><span>✓/✗</span><span>Thieves Lost</span>
+              {otherOps.map((op, i) => {
+                let result: string;
+                if (op.outcome === "failure") {
+                  result = "failed";
+                } else {
+                  switch (op.op) {
+                    case "night_strike":
+                      result = op.troopsAssassinated != null ? `Assassinated ${formatNum(op.troopsAssassinated)} troops` : "Night Strike";
+                      break;
+                    case "kidnap":
+                      result = op.kidnapped != null ? `Kidnapped ${formatNum(op.kidnapped)}` : "Kidnap";
+                      break;
+                    case "bribe_generals":
+                      result = "Bribed a general";
+                      break;
+                    case "incite_riots":
+                      result = op.effectDuration != null ? `Rioting ${op.effectDuration} days` : "Incite Riots";
+                      break;
+                    case "sabotage_wizards":
+                      result = op.effectDuration === 0 ? "No lasting effect" : op.effectDuration != null ? `Sabotage ${op.effectDuration} days` : "Sabotage Wizards";
+                      break;
+                    case "arson":
+                    case "greater_arson":
+                      result = op.acresBurned === 0 ? "No buildings found" : op.acresBurned != null ? `Burned ${formatNum(op.acresBurned)} acres` : "Arson";
+                      break;
+                    case "destabilize_guilds":
+                      result = op.effectDuration != null ? `Disrupted ${op.effectDuration} days` : "Destabilize Guilds";
+                      break;
+                    case "bribe_thieves":
+                      result = "Bribed thieves";
+                      break;
+                    default:
+                      result = op.op.replace(/_/g, " ");
+                  }
+                }
+                const opLabel = op.op.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+                return (
+                  <Fragment key={`${op.receivedAt}:${i}`}>
+                    <span className="text-gray-400">{opLabel}</span>
+                    <span className="truncate text-gray-500">{result}</span>
+                    <span className="tabular-nums text-gray-500">{op.outcome === "success" ? "✓" : "✗"}</span>
+                    <span className="tabular-nums text-gray-500">{op.thievesLost > 0 ? formatNum(op.thievesLost) : "—"}</span>
+                  </Fragment>
+                );
+              })}
             </div>
           </div>
         )}
@@ -305,6 +369,7 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
   );
   const [hideAttacks, setHideAttacks] = useState(false);
   const [hideThievery, setHideThievery] = useState(false);
+  const [hideOtherOps, setHideOtherOps] = useState(false);
   const [open, setOpen] = useState(false);
   const [hoveredLine, setHoveredLine] = useState<MetricKey | null>(null);
   const [tz, setTz] = useState<"UTC" | "local">("UTC");
@@ -317,7 +382,8 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
   const hasSmall = visibleMetrics.some((m) => m.axis === "small");
   const hasAttackMarkers = data.some((r) => r.attackLosses != null);
   const hasThieveryMarkers = data.some((r) => r.thieveryAmountStolen != null);
-  const hasSmallAxis = hasSmall || (hasAttackMarkers && !hideAttacks) || (hasThieveryMarkers && !hideThievery);
+  const hasOtherOpsMarkers = data.some((r) => r.thieveryOpsCount != null);
+  const hasSmallAxis = hasSmall || (hasAttackMarkers && !hideAttacks) || (hasThieveryMarkers && !hideThievery) || (hasOtherOpsMarkers && !hideOtherOps);
   const bucketed = data.some((r) => r.bucketed);
 
   const tzLabel = tz === "UTC" ? "UTC" : LOCAL_TZ_LABEL;
@@ -361,7 +427,7 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
                 tickFormatter={(v) => formatNum(Number(v))} hide={!hasLarge} />
               <YAxis yAxisId="small" orientation="right" tick={axisStyle} tickLine={false} axisLine={false} width={56}
                 tickFormatter={(v) => formatNum(Number(v))} hide={!hasSmallAxis} />
-              <Tooltip content={(props) => <ChartTooltip {...(props as TooltipContentProps<number, string>)} tz={tz} hideAttacks={hideAttacks} hideThievery={hideThievery} />} />
+              <Tooltip content={(props) => <ChartTooltip {...(props as TooltipContentProps<number, string>)} tz={tz} hideAttacks={hideAttacks} hideThievery={hideThievery} hideOtherOps={hideOtherOps} />} />
               <Legend
                 wrapperStyle={{ fontSize: 11, color: "#9ca3af", cursor: "pointer" }}
                 formatter={(value) => (
@@ -373,6 +439,7 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
                   const key = String(entry.dataKey);
                   if (key === "attackLosses") { setHideAttacks((prev) => !prev); return; }
                   if (key === "thieveryAmountStolen") { setHideThievery((prev) => !prev); return; }
+                  if (key === "thieveryOpsCount") { setHideOtherOps((prev) => !prev); return; }
                   if (!METRIC_BY_KEY.has(key as MetricKey)) return;
                   setHidden((prev) => {
                     const next = new Set(prev);
@@ -415,6 +482,15 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
                 shape="triangle"
                 legendType="triangle"
                 hide={hideThievery}
+              />
+              <Scatter
+                yAxisId="small"
+                dataKey="thieveryOpsCount"
+                name="Other ops"
+                fill="#a78bfa"
+                shape="circle"
+                legendType="circle"
+                hide={hideOtherOps}
               />
             </ComposedChart>
           </ResponsiveContainer>
