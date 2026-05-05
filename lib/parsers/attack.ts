@@ -28,9 +28,6 @@ function attackTypeFromLabel(label: string): AttackType {
 function detectAttackType(text: string, isSuccess: boolean): AttackType {
   if (!isSuccess) return "unknown";
   if (/massacred/i.test(text))       return "massacre";
-  // TODO: Replace plunder/learn heuristics with captured send_armies result fixtures.
-  if (/plundered/i.test(text))       return "plunder";
-  if (/learn attack|books of knowledge|science/i.test(text)) return "learn";
   if (/razed/i.test(text))           return "raze";
   if (/ambush|from the shadows/i.test(text)) return "ambush";
   if (RECAPTURED_RE.test(text))      return "ambush";
