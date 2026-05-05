@@ -53,7 +53,7 @@ const latestSlotCte = (extraWhere = "") => {
   const innerWhere  = kingdomKnown ? "AND ki2.location = @kingdom" : "";
   const groupBy     = kingdomKnown ? "kp2.slot" : "ki2.location, kp2.slot";
   return `
-  latest_slot AS (
+  latest_slot AS MATERIALIZED (
     -- For each slot number, find the province name most recently seen in a
     -- kingdom snapshot for this shard. This avoids showing stale slot numbers
     -- for old province names after resets/renames.
