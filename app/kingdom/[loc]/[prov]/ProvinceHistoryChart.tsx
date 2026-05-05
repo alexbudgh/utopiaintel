@@ -150,13 +150,13 @@ function buildRows(history: ProvinceHistoryPoint[], tz: "UTC" | "local"): { rows
   return { bucketMs, rows };
 }
 
-function ChartTooltip({ active, payload, tz }: TooltipContentProps<number, string> & { tz: "UTC" | "local" }) {
+function ChartTooltip({ active, payload, tz, hideAttacks }: TooltipContentProps<number, string> & { tz: "UTC" | "local"; hideAttacks: boolean }) {
   if (!active || !payload?.length) return null;
   const point = (payload[0] as Payload<number, string> | undefined)?.payload as ChartRow | undefined;
   if (!point) return null;
 
   const visible = (payload as Payload<number, string>[]).filter((p) => METRIC_BY_KEY.has(p.dataKey as MetricKey) && p.value != null);
-  const attacks = point.attacksTaken;
+  const attacks = hideAttacks ? [] : point.attacksTaken;
   const totalKilled = attacks.reduce((sum, attack) => sum + (attack.killed ?? 0), 0);
   const totalImprisoned = attacks.reduce((sum, attack) => sum + (attack.imprisoned ?? 0), 0);
   const totalMassacred = attacks.reduce((sum, attack) => sum + (attack.massacred ?? 0), 0);
@@ -219,6 +219,7 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
   const [hidden, setHidden] = useState<Set<MetricKey>>(
     new Set(METRICS.filter((m) => !["networth", "land"].includes(m.key)).map((m) => m.key))
   );
+  const [hideAttacks, setHideAttacks] = useState(false);
   const [open, setOpen] = useState(false);
   const [hoveredLine, setHoveredLine] = useState<MetricKey | null>(null);
   const [tz, setTz] = useState<"UTC" | "local">("UTC");
@@ -230,7 +231,7 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
   const hasLarge = visibleMetrics.some((m) => m.axis === "large");
   const hasSmall = visibleMetrics.some((m) => m.axis === "small");
   const hasAttackMarkers = data.some((r) => r.attackLosses != null);
-  const hasSmallAxis = hasSmall || hasAttackMarkers;
+  const hasSmallAxis = hasSmall || (hasAttackMarkers && !hideAttacks);
   const bucketed = data.some((r) => r.bucketed);
 
   const tzLabel = tz === "UTC" ? "UTC" : LOCAL_TZ_LABEL;
@@ -274,7 +275,7 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
                 tickFormatter={(v) => formatNum(Number(v))} hide={!hasLarge} />
               <YAxis yAxisId="small" orientation="right" tick={axisStyle} tickLine={false} axisLine={false} width={56}
                 tickFormatter={(v) => formatNum(Number(v))} hide={!hasSmallAxis} />
-              <Tooltip content={(props) => <ChartTooltip {...(props as TooltipContentProps<number, string>)} tz={tz} />} />
+              <Tooltip content={(props) => <ChartTooltip {...(props as TooltipContentProps<number, string>)} tz={tz} hideAttacks={hideAttacks} />} />
               <Legend
                 wrapperStyle={{ fontSize: 11, color: "#9ca3af", cursor: "pointer" }}
                 formatter={(value) => (
@@ -283,11 +284,12 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
                   </span>
                 )}
                 onClick={(entry) => {
-                  if (!METRIC_BY_KEY.has(String(entry.dataKey) as MetricKey)) return;
-                  const key = String(entry.dataKey) as MetricKey;
+                  const key = String(entry.dataKey);
+                  if (key === "attackLosses") { setHideAttacks((prev) => !prev); return; }
+                  if (!METRIC_BY_KEY.has(key as MetricKey)) return;
                   setHidden((prev) => {
                     const next = new Set(prev);
-                    if (next.has(key)) next.delete(key); else next.add(key);
+                    if (next.has(key as MetricKey)) next.delete(key as MetricKey); else next.add(key as MetricKey);
                     return next;
                   });
                 }}
@@ -316,6 +318,7 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
                 fill="#fb7185"
                 shape="diamond"
                 legendType="diamond"
+                hide={hideAttacks}
               />
             </ComposedChart>
           </ResponsiveContainer>
