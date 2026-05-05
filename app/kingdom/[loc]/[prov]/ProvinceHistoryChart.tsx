@@ -1,13 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { ComposedChart, Legend, Line, ResponsiveContainer, Scatter, Tooltip, XAxis, YAxis } from "recharts";
 import type { TooltipContentProps } from "recharts/types/component/Tooltip";
 import type { Payload } from "recharts/types/component/DefaultTooltipContent";
 import type { ProvinceHistoryPoint } from "@/lib/db";
 import { formatNum } from "@/lib/ui";
 
-type MetricKey = keyof Omit<ProvinceHistoryPoint, "receivedAt" | "meta">;
+type MetricKey = keyof Omit<ProvinceHistoryPoint, "receivedAt" | "meta" | "attacksTaken">;
 
 interface MetricConfig {
   key: MetricKey;
@@ -70,7 +70,18 @@ type ChartRow = {
   label: string;
   meta: MetaMap;
   bucketed: boolean;
+  attacksTaken: ProvinceHistoryPoint["attacksTaken"];
+  attackLosses?: number;
 } & Partial<Record<MetricKey, number>>;
+
+function attackTypeLabel(type: string): string {
+  return type.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function attackLosses(attacks: ProvinceHistoryPoint["attacksTaken"]): number {
+  return attacks.reduce((sum, attack) =>
+    sum + (attack.killed ?? 0) + (attack.imprisoned ?? 0) + (attack.massacred ?? 0), 0);
+}
 
 function formatBucketWidth(ms: number): string {
   const mins = ms / 60_000;
@@ -96,11 +107,14 @@ function buildRows(history: ProvinceHistoryPoint[], tz: "UTC" | "local"): { rows
         label: chartLabel(point.receivedAt, tz),
         meta: point.meta,
         bucketed: false,
+        attacksTaken: point.attacksTaken,
       };
       for (const m of METRICS) {
         const v = point[m.key];
         if (v != null) row[m.key] = v as number;
       }
+      const losses = attackLosses(point.attacksTaken);
+      if (losses > 0) row.attackLosses = losses;
       return row;
     }) };
   }
@@ -122,11 +136,14 @@ function buildRows(history: ProvinceHistoryPoint[], tz: "UTC" | "local"): { rows
         for (const s of m!.savedBy) if (!existing.savedBy.includes(s)) existing.savedBy.push(s);
       }
     }
-    const row: ChartRow = { iso, label: chartLabel(iso, tz), meta, bucketed: true };
+    const attacksTaken = points.flatMap((p) => p.attacksTaken);
+    const row: ChartRow = { iso, label: chartLabel(iso, tz), meta, bucketed: true, attacksTaken };
     for (const m of METRICS) {
       const last = [...points].reverse().find((p) => p[m.key] != null);
       if (last) row[m.key] = last[m.key] as number;
     }
+    const losses = attackLosses(attacksTaken);
+    if (losses > 0) row.attackLosses = losses;
     return row;
   });
 
@@ -138,7 +155,11 @@ function ChartTooltip({ active, payload, tz }: TooltipContentProps<number, strin
   const point = (payload[0] as Payload<number, string> | undefined)?.payload as ChartRow | undefined;
   if (!point) return null;
 
-  const visible = (payload as Payload<number, string>[]).filter((p) => p.value != null);
+  const visible = (payload as Payload<number, string>[]).filter((p) => p.value != null && p.dataKey !== "attackLosses");
+  const attacks = point.attacksTaken;
+  const totalKilled = attacks.reduce((sum, attack) => sum + (attack.killed ?? 0), 0);
+  const totalImprisoned = attacks.reduce((sum, attack) => sum + (attack.imprisoned ?? 0), 0);
+  const totalMassacred = attacks.reduce((sum, attack) => sum + (attack.massacred ?? 0), 0);
 
   return (
     <div className="rounded border border-gray-700 bg-gray-900 p-2 text-xs shadow-lg" style={{ minWidth: 160 }}>
@@ -147,6 +168,29 @@ function ChartTooltip({ active, payload, tz }: TooltipContentProps<number, strin
         <span className="ml-1 text-gray-500">{tz === "UTC" ? "UTC" : LOCAL_TZ_LABEL}</span>
       </div>
       <div className="space-y-0.5">
+        {attacks.length > 0 && (
+          <div className="mb-1 rounded border border-rose-900/70 bg-rose-950/30 p-1.5">
+            <div className="flex items-center justify-between gap-3 text-rose-200">
+              <span>{attacks.length} attack{attacks.length === 1 ? "" : "s"} taken</span>
+              <span className="tabular-nums">{formatNum(totalKilled + totalImprisoned + totalMassacred)} losses</span>
+            </div>
+            <div className="mt-0.5 text-gray-400">
+              {totalKilled > 0 && <span>{formatNum(totalKilled)} killed</span>}
+              {totalKilled > 0 && totalImprisoned > 0 && <span> · </span>}
+              {totalImprisoned > 0 && <span>{formatNum(totalImprisoned)} imprisoned</span>}
+              {(totalKilled > 0 || totalImprisoned > 0) && totalMassacred > 0 && <span> · </span>}
+              {totalMassacred > 0 && <span>{formatNum(totalMassacred)} massacred</span>}
+            </div>
+            <div className="mt-1 space-y-0.5 text-gray-500">
+              {attacks.slice(0, 4).map((attack, index) => (
+                <div key={`${attack.receivedAt}:${index}`}>
+                  {attackTypeLabel(attack.attackType)} by {attack.attackerName} ({attack.attackerKingdom})
+                </div>
+              ))}
+              {attacks.length > 4 && <div>{attacks.length - 4} more</div>}
+            </div>
+          </div>
+        )}
         {visible.map((p: Payload<number, string>) => {
           const cfg = METRIC_BY_KEY.get(p.dataKey as MetricKey);
           const m = point.meta[p.dataKey as string];
@@ -185,6 +229,8 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
   const visibleMetrics = METRICS.filter((m) => !hidden.has(m.key));
   const hasLarge = visibleMetrics.some((m) => m.axis === "large");
   const hasSmall = visibleMetrics.some((m) => m.axis === "small");
+  const hasAttackMarkers = data.some((r) => r.attackLosses != null);
+  const hasSmallAxis = hasSmall || hasAttackMarkers;
   const bucketed = data.some((r) => r.bucketed);
 
   const tzLabel = tz === "UTC" ? "UTC" : LOCAL_TZ_LABEL;
@@ -222,12 +268,12 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
       {open && (
         <div className="mt-3">
           <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={data} margin={{ top: 4, right: hasSmall ? 60 : 8, bottom: 0, left: 0 }}>
+            <ComposedChart data={data} margin={{ top: 4, right: hasSmallAxis ? 60 : 8, bottom: 0, left: 0 }}>
               <XAxis dataKey="label" tick={axisStyle} tickLine={false} axisLine={false} minTickGap={40} />
               <YAxis yAxisId="large" tick={axisStyle} tickLine={false} axisLine={false} width={56}
                 tickFormatter={(v) => formatNum(Number(v))} hide={!hasLarge} />
               <YAxis yAxisId="small" orientation="right" tick={axisStyle} tickLine={false} axisLine={false} width={56}
-                tickFormatter={(v) => formatNum(Number(v))} hide={!hasSmall} />
+                tickFormatter={(v) => formatNum(Number(v))} hide={!hasSmallAxis} />
               <Tooltip content={(props) => <ChartTooltip {...(props as TooltipContentProps<number, string>)} tz={tz} />} />
               <Legend
                 wrapperStyle={{ fontSize: 11, color: "#9ca3af", cursor: "pointer" }}
@@ -237,6 +283,7 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
                   </span>
                 )}
                 onClick={(entry) => {
+                  if (!METRIC_BY_KEY.has(String(entry.dataKey) as MetricKey)) return;
                   const key = String(entry.dataKey) as MetricKey;
                   setHidden((prev) => {
                     const next = new Set(prev);
@@ -262,7 +309,15 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
                   onMouseLeave={() => setHoveredLine(null)}
                 />
               ))}
-            </LineChart>
+              <Scatter
+                yAxisId="small"
+                dataKey="attackLosses"
+                name="Attacks taken"
+                fill="#fb7185"
+                shape="diamond"
+                legendType="diamond"
+              />
+            </ComposedChart>
           </ResponsiveContainer>
           {visibleMetrics.length === 0 && (
             <p className="mt-2 text-center text-xs text-gray-500">Click legend entries to show metrics.</p>

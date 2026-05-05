@@ -2372,6 +2372,40 @@ test("getProvinceDetail: newer all-home SoM supplies total offense and defense",
   });
 });
 
+test("getProvinceHistory: includes attacks taken by target province", async () => {
+  await withRealDb((api, db) => {
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Raider', '8:3')").run();
+    const { id: victimId } = db.prepare("SELECT id FROM provinces WHERE name = 'Alpha' AND kingdom = '7:5'").get() as { id: number };
+    const { id: attackerId } = db.prepare("SELECT id FROM provinces WHERE name = 'Raider' AND kingdom = '8:3'").get() as { id: number };
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, victimId);
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, attackerId);
+    db.prepare(`
+      INSERT INTO province_troops (province_id, key_hash, soldiers, off_specs, def_specs, elites, source, saved_by, received_at)
+      VALUES (?, ?, 1000, 2000, 3000, 4000, 'sot', 'Alpha', '2026-04-04 18:00:00')
+    `).run(victimId, KEY_A);
+    db.prepare(`
+      INSERT INTO attack_ops (
+        province_id, key_hash, attack_type, outcome, target_name, target_kingdom,
+        enemy_killed, enemy_imprisoned, saved_by, received_at
+      ) VALUES (?, ?, 'traditional_march', 'success', 'Alpha', '7:5', 321, 45, 'Raider', '2026-04-04 18:06:00')
+    `).run(attackerId, KEY_A);
+
+    const history = api.getProvinceHistory("Alpha", "7:5", KEY_A);
+    const attackPoint = history.find((point) => point.attacksTaken.length > 0);
+    assert.equal(attackPoint?.receivedAt, "2026-04-04 18:05:00");
+    assert.deepEqual(attackPoint?.attacksTaken, [{
+      receivedAt: "2026-04-04 18:06:00",
+      attackType: "traditional_march",
+      attackerName: "Raider",
+      attackerKingdom: "8:3",
+      killed: 321,
+      imprisoned: 45,
+      massacred: null,
+    }]);
+  });
+});
+
 test("getKingdomProvinces: summarizes good and bad spells from the latest effect snapshot only", async () => {
   await withRealDb(({ getKingdomProvinces }, db) => {
     db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();

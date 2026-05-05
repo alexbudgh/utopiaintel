@@ -2523,7 +2523,18 @@ export interface ProvinceHistoryPoint {
   food: number | null;
   thieves: number | null;
   wizards: number | null;
+  attacksTaken: ProvinceHistoryAttack[];
   meta: Partial<Record<string, { sources: string[]; savedBy: string[] }>>;
+}
+
+export interface ProvinceHistoryAttack {
+  receivedAt: string;
+  attackType: string;
+  attackerName: string;
+  attackerKingdom: string;
+  killed: number | null;
+  imprisoned: number | null;
+  massacred: number | null;
 }
 
 export function getProvinceHistory(name: string, kingdom: string, keyHash: string): ProvinceHistoryPoint[] {
@@ -3108,6 +3119,7 @@ export function createDbApi(db: Database.Database): DbApi {
       type TroopsRaw = { received_at: string; soldiers: number | null; off_specs: number | null; def_specs: number | null; elites: number | null; war_horses: number | null; peasants: number | null; source: string | null; saved_by: string | null };
       type ResourcesRaw = { received_at: string; money: number | null; food: number | null; thieves: number | null; wizards: number | null; source: string | null; saved_by: string | null };
       type MilPointsRaw = { received_at: string; off_points: number | null; def_points: number | null; source: string | null; saved_by: string | null };
+      type AttackRaw = { received_at: string; attack_type: string; attacker_name: string; attacker_kingdom: string; enemy_killed: number | null; enemy_imprisoned: number | null; massacred: number | null };
 
       const overviews = db.prepare(
         "SELECT received_at, land, networth, source, saved_by FROM province_overview WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC"
@@ -3121,6 +3133,17 @@ export function createDbApi(db: Database.Database): DbApi {
       const milPoints = db.prepare(
         "SELECT received_at, off_points, def_points, source, saved_by FROM total_military_points WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC"
       ).all(id, keyHash) as MilPointsRaw[];
+      const attacksTaken = db.prepare(`
+        SELECT ao.received_at, ao.attack_type, p.name AS attacker_name, p.kingdom AS attacker_kingdom,
+               ao.enemy_killed, ao.enemy_imprisoned, ao.massacred
+        FROM attack_ops ao
+        JOIN provinces p ON p.id = ao.province_id
+        WHERE ao.key_hash = ?
+          AND ao.target_name = ?
+          AND ao.target_kingdom = ?
+          AND ao.outcome = 'success'
+        ORDER BY ao.received_at ASC
+      `).all(keyHash, name, kingdom) as AttackRaw[];
 
       // Bucket all rows into 5-minute windows
       const BUCKET_MS = 5 * 60 * 1000;
@@ -3139,6 +3162,7 @@ export function createDbApi(db: Database.Database): DbApi {
             soldiers: null, offSpecs: null, defSpecs: null, elites: null, warHorses: null,
             offPoints: null, defPoints: null,
             money: null, food: null, thieves: null, wizards: null,
+            attacksTaken: [],
             meta: {},
           });
         }
@@ -3175,6 +3199,18 @@ export function createDbApi(db: Database.Database): DbApi {
         const b = ensureBucket(bucketKey(row.received_at));
         if (row.off_points != null) { b.offPoints = row.off_points; mergeMetric(b, "offPoints", row.source, row.saved_by); }
         if (row.def_points != null) { b.defPoints = row.def_points; mergeMetric(b, "defPoints", row.source, row.saved_by); }
+      }
+      for (const row of attacksTaken) {
+        const b = ensureBucket(bucketKey(row.received_at));
+        b.attacksTaken.push({
+          receivedAt: row.received_at,
+          attackType: row.attack_type,
+          attackerName: row.attacker_name,
+          attackerKingdom: row.attacker_kingdom,
+          killed: row.enemy_killed,
+          imprisoned: row.enemy_imprisoned,
+          massacred: row.massacred,
+        });
       }
 
       return [...buckets.values()].sort((a, b) => a.receivedAt.localeCompare(b.receivedAt));
