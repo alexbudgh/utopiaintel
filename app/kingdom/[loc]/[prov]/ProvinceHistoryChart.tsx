@@ -454,26 +454,6 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
                 width={hasSmallAxis ? axisWidth : 0}
                 tickFormatter={(v) => formatNum(Number(v))} hide={!hasSmallAxis} />
               <Tooltip content={(props) => <ChartTooltip {...(props as TooltipContentProps<number, string>)} tz={tz} hideAttacks={hideAttacks} hideThievery={hideThievery} hideSabotageOps={hideSabotageOps} maxWidth={tooltipMaxWidth} />} />
-              <Legend
-                wrapperStyle={{ fontSize: 11, color: "#9ca3af", cursor: "pointer" }}
-                formatter={(value) => (
-                  <span className="transition-colors hover:text-gray-100 hover:underline hover:underline-offset-2">
-                    {value}
-                  </span>
-                )}
-                onClick={(entry) => {
-                  const key = String(entry.dataKey);
-                  if (key === "attackLosses") { setHideAttacks((prev) => !prev); return; }
-                  if (key === "thieveryAmountStolen") { setHideThievery((prev) => !prev); return; }
-                  if (key === "thieveryOpsCount") { setHideOtherOps((prev) => !prev); return; }
-                  if (!METRIC_BY_KEY.has(key as MetricKey)) return;
-                  setHidden((prev) => {
-                    const next = new Set(prev);
-                    if (next.has(key as MetricKey)) next.delete(key as MetricKey); else next.add(key as MetricKey);
-                    return next;
-                  });
-                }}
-              />
               {METRICS.map((m) => (
                 <Line
                   key={m.key}
@@ -520,10 +500,50 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
               />
             </ComposedChart>
           </ResponsiveContainer>
-          {visibleMetrics.length === 0 && (
-            <p className="mt-2 text-center text-xs text-gray-500">Click legend entries to show metrics.</p>
-          )}
-          <p className="mt-1 text-right text-xs text-gray-600">Left axis: NW/Money/Food · Right axis: Land/Troops/Counts</p>
+          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1.5">
+            {METRICS.map((m) => {
+              const isHidden = hidden.has(m.key);
+              return (
+                <button
+                  key={m.key}
+                  type="button"
+                  onClick={() => setHidden((prev) => { const next = new Set(prev); if (next.has(m.key)) next.delete(m.key); else next.add(m.key); return next; })}
+                  className="flex items-center gap-1.5 text-xs transition-opacity"
+                  style={{ opacity: isHidden ? 0.5 : 1 }}
+                >
+                  <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: m.color }} />
+                  <span style={{ color: isHidden ? "#6b7280" : "#d1d5db" }}>{m.label}</span>
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setHideAttacks((prev) => !prev)}
+              className="flex items-center gap-1.5 text-xs transition-opacity"
+              style={{ opacity: hideAttacks ? 0.5 : 1 }}
+            >
+              <span className="inline-block h-2.5 w-2.5 shrink-0 rotate-45 rounded-sm" style={{ background: "#fb7185" }} />
+              <span style={{ color: hideAttacks ? "#6b7280" : "#d1d5db" }}>Attacks</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setHideThievery((prev) => !prev)}
+              className="flex items-center gap-1.5 text-xs transition-opacity"
+              style={{ opacity: hideThievery ? 0.5 : 1 }}
+            >
+              <span className="inline-block h-0 w-0 shrink-0 border-x-[5px] border-b-[9px] border-x-transparent" style={{ borderBottomColor: "#fbbf24" }} />
+              <span style={{ color: hideThievery ? "#6b7280" : "#d1d5db" }}>Thievery</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setHideOtherOps((prev) => !prev)}
+              className="flex items-center gap-1.5 text-xs transition-opacity"
+              style={{ opacity: hideSabotageOps ? 0.5 : 1 }}
+            >
+              <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: "#a78bfa" }} />
+              <span style={{ color: hideSabotageOps ? "#6b7280" : "#d1d5db" }}>Sabotage</span>
+            </button>
+          </div>
         </div>
       )}
     </section>
