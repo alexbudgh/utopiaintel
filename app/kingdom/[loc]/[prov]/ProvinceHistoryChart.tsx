@@ -194,11 +194,12 @@ function ChartTooltip({ active, payload, tz, hideAttacks, hideThievery }: Toolti
   const totalLosses = attacks.reduce((sum, a) => sum + (a.killed ?? 0) + (a.imprisoned ?? 0) + (a.massacred ?? 0), 0);
   const thieveryOps = hideThievery ? [] : point.thieveryOpsTaken;
   const totalStolen = thieveryOps.reduce((sum, op) => sum + (op.amountStolen ?? 0), 0);
-  const stolenByType = new Map<string, { stolen: number; thievesLost: number }>();
+  const stolenByType = new Map<string, { stolen: number; thievesLost: number; successes: number; failures: number }>();
   for (const op of thieveryOps) {
-    const e = stolenByType.get(op.op) ?? { stolen: 0, thievesLost: 0 };
+    const e = stolenByType.get(op.op) ?? { stolen: 0, thievesLost: 0, successes: 0, failures: 0 };
     e.stolen += op.amountStolen ?? 0;
     e.thievesLost += op.thievesLost;
+    if (op.outcome === "success") e.successes++; else e.failures++;
     stolenByType.set(op.op, e);
   }
   const thieveryContributors = [...new Set(thieveryOps.map((op) => op.attackerName))];
@@ -252,22 +253,25 @@ function ChartTooltip({ active, payload, tz, hideAttacks, hideThievery }: Toolti
               </span>
               {totalStolen > 0 && <span className="tabular-nums">{formatNum(totalStolen)} stolen</span>}
             </div>
-            <div className="mt-0.5 space-y-0.5 text-gray-400">
+            <div className="mt-1 grid grid-cols-[auto_1fr_auto_auto] gap-x-2 gap-y-0.5 text-gray-600">
+              <span>Type</span><span>Stolen</span><span>✓/✗</span><span>Thieves Lost</span>
               {(["vaults", "granaries", "towers"] as const)
                 .filter((op) => stolenByType.has(op))
                 .map((op) => {
-                  const { stolen, thievesLost } = stolenByType.get(op)!;
+                  const { stolen, thievesLost, successes, failures } = stolenByType.get(op)!;
                   const resource = op === "vaults" ? "gold" : op === "granaries" ? "food" : "runes";
                   return (
-                    <div key={op}>
-                      {robOpLabel(op)}: {stolen > 0 ? `${formatNum(stolen)} ${resource}` : "—"}
-                      {thievesLost > 0 && <span className="ml-1 text-gray-600">({formatNum(thievesLost)} lost)</span>}
-                    </div>
+                    <Fragment key={op}>
+                      <span className="text-gray-400">{robOpLabel(op)}</span>
+                      <span className="tabular-nums text-gray-500">{stolen > 0 ? `${formatNum(stolen)} ${resource}` : "—"}</span>
+                      <span className="tabular-nums text-gray-500">{successes}✓{failures > 0 ? ` ${failures}✗` : ""}</span>
+                      <span className="tabular-nums text-gray-500">{thievesLost > 0 ? formatNum(thievesLost) : "—"}</span>
+                    </Fragment>
                   );
                 })}
             </div>
             <div className="mt-0.5 text-gray-500">
-              {thieveryContributors.slice(0, 3).join(", ")}{thieveryContributors.length > 3 ? ` +${thieveryContributors.length - 3} more` : ""}
+              <span className="text-gray-600">By: </span>{thieveryContributors.slice(0, 3).join(", ")}{thieveryContributors.length > 3 ? ` +${thieveryContributors.length - 3} more` : ""}
             </div>
           </div>
         )}
