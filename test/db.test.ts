@@ -2399,6 +2399,7 @@ test("getProvinceHistory: includes attacks taken by target province", async () =
       attackType: "traditional_march",
       attackerName: "Raider",
       attackerKingdom: "8:3",
+      acresTaken: null,
       killed: 321,
       imprisoned: 45,
       massacred: null,
