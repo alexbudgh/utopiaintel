@@ -2533,6 +2533,7 @@ export interface ProvinceHistoryAttack {
   attackType: string;
   attackerName: string;
   attackerKingdom: string;
+  acresTaken: number | null;
   killed: number | null;
   imprisoned: number | null;
   massacred: number | null;
@@ -3130,7 +3131,7 @@ export function createDbApi(db: Database.Database): DbApi {
       type TroopsRaw = { received_at: string; soldiers: number | null; off_specs: number | null; def_specs: number | null; elites: number | null; war_horses: number | null; peasants: number | null; source: string | null; saved_by: string | null };
       type ResourcesRaw = { received_at: string; money: number | null; food: number | null; thieves: number | null; wizards: number | null; source: string | null; saved_by: string | null };
       type MilPointsRaw = { received_at: string; off_points: number | null; def_points: number | null; source: string | null; saved_by: string | null };
-      type AttackRaw = { received_at: string; attack_type: string; attacker_name: string; attacker_kingdom: string; enemy_killed: number | null; enemy_imprisoned: number | null; massacred: number | null };
+      type AttackRaw = { received_at: string; attack_type: string; attacker_name: string; attacker_kingdom: string; acres_taken: number | null; enemy_killed: number | null; enemy_imprisoned: number | null; massacred: number | null };
       type RobRaw = { received_at: string; op: string; outcome: string; amount_stolen: number | null; thieves_lost: number; attacker_name: string; attacker_kingdom: string };
 
       const overviews = db.prepare(
@@ -3147,7 +3148,7 @@ export function createDbApi(db: Database.Database): DbApi {
       ).all(id, keyHash) as MilPointsRaw[];
       const attacksTaken = db.prepare(`
         SELECT ao.received_at, ao.attack_type, p.name AS attacker_name, p.kingdom AS attacker_kingdom,
-               ao.enemy_killed, ao.enemy_imprisoned, ao.massacred
+               ao.acres_taken, ao.enemy_killed, ao.enemy_imprisoned, ao.massacred
         FROM attack_ops ao
         JOIN provinces p ON p.id = ao.province_id
         WHERE ao.key_hash = ?
@@ -3230,6 +3231,7 @@ export function createDbApi(db: Database.Database): DbApi {
           attackType: row.attack_type,
           attackerName: row.attacker_name,
           attackerKingdom: row.attacker_kingdom,
+          acresTaken: row.acres_taken,
           killed: row.enemy_killed,
           imprisoned: row.enemy_imprisoned,
           massacred: row.massacred,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { ComposedChart, Legend, Line, ResponsiveContainer, Scatter, Tooltip, XAxis, YAxis } from "recharts";
 import type { TooltipContentProps } from "recharts/types/component/Tooltip";
 import type { Payload } from "recharts/types/component/DefaultTooltipContent";
@@ -78,6 +78,19 @@ type ChartRow = {
 
 function attackTypeLabel(type: string): string {
   return type.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+const ATTACK_TYPE_SHORT: Record<string, string> = {
+  TRADITIONAL_MARCH: "TM",
+  AMBUSH: "Ambush",
+  RAZE: "Raze",
+  PILLAGE: "Pillage",
+  LOOT: "Loot",
+  MASSACRE: "Massacre",
+  NIGHT_STRIKE: "NS",
+};
+function attackTypeShort(type: string): string {
+  return ATTACK_TYPE_SHORT[type] ?? attackTypeLabel(type);
 }
 
 function attackLosses(attacks: ProvinceHistoryPoint["attacksTaken"]): number {
@@ -176,9 +189,8 @@ function ChartTooltip({ active, payload, tz, hideAttacks, hideThievery }: Toolti
 
   const visible = (payload as Payload<number, string>[]).filter((p) => METRIC_BY_KEY.has(p.dataKey as MetricKey) && p.value != null);
   const attacks = hideAttacks ? [] : point.attacksTaken;
-  const totalKilled = attacks.reduce((sum, attack) => sum + (attack.killed ?? 0), 0);
-  const totalImprisoned = attacks.reduce((sum, attack) => sum + (attack.imprisoned ?? 0), 0);
-  const totalMassacred = attacks.reduce((sum, attack) => sum + (attack.massacred ?? 0), 0);
+  const totalAcresTaken = attacks.reduce((sum, a) => sum + (a.acresTaken ?? 0), 0);
+  const totalLosses = attacks.reduce((sum, a) => sum + (a.killed ?? 0) + (a.imprisoned ?? 0) + (a.massacred ?? 0), 0);
   const thieveryOps = hideThievery ? [] : point.thieveryOpsTaken;
   const totalStolen = thieveryOps.reduce((sum, op) => sum + (op.amountStolen ?? 0), 0);
   const stolenByType = new Map<string, { stolen: number; thievesLost: number }>();
@@ -193,7 +205,7 @@ function ChartTooltip({ active, payload, tz, hideAttacks, hideThievery }: Toolti
   const thieveryFailures = thieveryOps.length - thieverySuccesses;
 
   return (
-    <div className="rounded border border-gray-700 bg-gray-900 p-2 text-xs shadow-lg" style={{ minWidth: 160 }}>
+    <div className="rounded border border-gray-700 bg-gray-900 p-2 text-xs shadow-lg" style={{ minWidth: 240 }}>
       <div className="mb-1 font-medium text-gray-200">
         {point.label}
         <span className="ml-1 text-gray-500">{tz === "UTC" ? "UTC" : LOCAL_TZ_LABEL}</span>
@@ -203,23 +215,29 @@ function ChartTooltip({ active, payload, tz, hideAttacks, hideThievery }: Toolti
           <div className="mb-1 rounded border border-rose-900/70 bg-rose-950/30 p-1.5">
             <div className="flex items-center justify-between gap-3 text-rose-200">
               <span>{attacks.length} attack{attacks.length === 1 ? "" : "s"} taken</span>
-              <span className="tabular-nums">{formatNum(totalKilled + totalImprisoned + totalMassacred)} losses</span>
+              <span className="tabular-nums text-gray-400">
+                {totalAcresTaken > 0 && <>{totalAcresTaken} acres · </>}{formatNum(totalLosses)} losses
+              </span>
             </div>
-            <div className="mt-0.5 text-gray-400">
-              {totalKilled > 0 && <span>{formatNum(totalKilled)} killed</span>}
-              {totalKilled > 0 && totalImprisoned > 0 && <span> · </span>}
-              {totalImprisoned > 0 && <span>{formatNum(totalImprisoned)} imprisoned</span>}
-              {(totalKilled > 0 || totalImprisoned > 0) && totalMassacred > 0 && <span> · </span>}
-              {totalMassacred > 0 && <span>{formatNum(totalMassacred)} massacred</span>}
+            <div className="mt-1 grid grid-cols-[auto_1fr_2.5rem_auto] gap-x-2 gap-y-0.5 text-gray-600">
+              <span>Type</span><span>By</span><span className="text-right">Acres</span><span>Casualties</span>
+              {attacks.slice(0, 5).map((attack, i) => {
+                const cas = [
+                  attack.killed     ? `${formatNum(attack.killed)} K`   : null,
+                  attack.imprisoned ? `${formatNum(attack.imprisoned)} I` : null,
+                  attack.massacred  ? `${formatNum(attack.massacred)} M`  : null,
+                ].filter(Boolean).join(" · ");
+                return (
+                  <Fragment key={`${attack.receivedAt}:${i}`}>
+                    <span className="text-gray-400">{attackTypeShort(attack.attackType)}</span>
+                    <span className="truncate text-gray-500">{attack.attackerName}</span>
+                    <span className="text-right tabular-nums text-gray-500">{attack.acresTaken ?? "—"}</span>
+                    <span className="tabular-nums text-gray-500">{cas || "—"}</span>
+                  </Fragment>
+                );
+              })}
             </div>
-            <div className="mt-1 space-y-0.5 text-gray-500">
-              {attacks.slice(0, 4).map((attack, index) => (
-                <div key={`${attack.receivedAt}:${index}`}>
-                  {attackTypeLabel(attack.attackType)} by {attack.attackerName} ({attack.attackerKingdom})
-                </div>
-              ))}
-              {attacks.length > 4 && <div>{attacks.length - 4} more</div>}
-            </div>
+            {attacks.length > 5 && <div className="mt-0.5 text-gray-600">+{attacks.length - 5} more</div>}
           </div>
         )}
         {thieveryOps.length > 0 && (
