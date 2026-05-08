@@ -2577,3 +2577,64 @@ test("getRecentOps: since param filters to newer ops only", async () => {
     assert.equal(filtered[0].province_name, "Beta");
   });
 });
+
+test("getRecentOps: includes thievery, sorcery, and attack ops", async () => {
+  await withRealDb(({ getRecentOps }, db) => {
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Actor', '1:1')").run();
+    const { id: actorId } = db.prepare("SELECT id FROM provinces WHERE name = 'Actor'").get() as { id: number };
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, actorId);
+
+    db.prepare(`
+      INSERT INTO rob_ops (
+        province_id, key_hash, op, target_name, target_slot, target_kingdom,
+        outcome, amount_stolen, thieves_lost, saved_by, received_at
+      ) VALUES (?, ?, 'night_strike', 'Target', 7, '2:2', 'success', NULL, 1, 'Actor', '2026-04-01 10:00:00')
+    `).run(actorId, KEY_A);
+    db.prepare(`
+      INSERT INTO sorcery_ops (
+        province_id, key_hash, spell, outcome, runes_spent, wizards_lost,
+        duration_days, target_name, target_slot, target_kingdom, saved_by, received_at
+      ) VALUES (?, ?, 'FIREBALL', 'failure', 123, 2, NULL, 'Target', 7, '2:2', 'Actor', '2026-04-01 11:00:00')
+    `).run(actorId, KEY_A);
+    db.prepare(`
+      INSERT INTO attack_ops (
+        province_id, key_hash, attack_type, outcome, target_name, target_kingdom,
+        acres_taken, saved_by, received_at
+      ) VALUES (?, ?, 'traditional_march', 'success', 'Target', '2:2', 42, 'Actor', '2026-04-01 12:00:00')
+    `).run(actorId, KEY_A);
+
+    const ops = getRecentOps(KEY_A);
+    assert.deepEqual(ops.map((op) => op.op_category), ["attack", "sorcery", "thievery"]);
+    assert.deepEqual(ops.map((op) => op.province_name), ["Target", "Target", "Target"]);
+    assert.deepEqual(ops.map((op) => op.actor_name), ["Actor", "Actor", "Actor"]);
+    assert.equal(ops[0].op_type, "traditional_march");
+    assert.equal(ops[0].detail_value, 42);
+    assert.equal(ops[0].detail_kind, "acres_taken");
+    assert.equal(ops[1].op_type, "FIREBALL");
+    assert.equal(ops[1].outcome, "failure");
+    assert.equal(ops[2].op_type, "night_strike");
+  });
+});
+
+test("getRecentOps: exposes stolen resources as raw operation details", async () => {
+  await withRealDb(({ getRecentOps }, db) => {
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Actor', '1:1')").run();
+    const { id: actorId } = db.prepare("SELECT id FROM provinces WHERE name = 'Actor'").get() as { id: number };
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, actorId);
+
+    const ins = db.prepare(`
+      INSERT INTO rob_ops (
+        province_id, key_hash, op, target_name, target_slot, target_kingdom,
+        outcome, amount_stolen, thieves_lost, saved_by, received_at
+      ) VALUES (?, ?, ?, 'Target', 7, '2:2', 'success', ?, 0, 'Actor', ?)
+    `);
+    ins.run(actorId, KEY_A, "granaries", 1000, "2026-04-01 10:00:00");
+    ins.run(actorId, KEY_A, "towers", 2000, "2026-04-01 11:00:00");
+    ins.run(actorId, KEY_A, "vaults", 3000, "2026-04-01 12:00:00");
+
+    const ops = getRecentOps(KEY_A);
+    assert.deepEqual(ops.map((op) => op.op_type), ["vaults", "towers", "granaries"]);
+    assert.deepEqual(ops.map((op) => op.detail_value), [3000, 2000, 1000]);
+    assert.deepEqual(ops.map((op) => op.detail_kind), ["amount_stolen", "amount_stolen", "amount_stolen"]);
+  });
+});

@@ -19,10 +19,10 @@ export default async function OpsPage() {
   const selfWarTarget = boundKingdom
     ? (getLatestKingdomSnapshot(boundKingdom, keyHash)?.warTarget ?? null)
     : null;
-  const initialOps = getRecentOps(keyHash);
+  const initialOps = getRecentOps(keyHash, 200);
 
   return (
-    <main className="p-8 max-w-3xl mx-auto">
+    <main className="p-8 max-w-6xl mx-auto">
       <AppHeader
         endpointUrl={`${baseUrl}/api/intel`}
         boundKingdom={boundKingdom}
