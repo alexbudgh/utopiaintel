@@ -5,6 +5,7 @@ import readline from "node:readline";
 import { parseIntel } from "./parsers";
 import { getIntelPathname, matchesGamePath, extractProvinceOperationsInfo } from "./parsers/detect";
 import { parseKingdomNews } from "./parsers/kingdom_news";
+import { parseSoT } from "./parsers/sot";
 import {
   getDb,
   storeSoT,
@@ -165,6 +166,10 @@ export function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options
         const urlKingdom = extractProvinceOperationsInfo(entry.url)?.kingdom ?? null;
         storeKingdomNews(newsData, keyHash, true, normalizedReceivedAt ?? undefined, urlKingdom);
       }
+    }
+    if (parsed.data.spell === "CRYSTAL_BALL") {
+      const sotData = parseSoT(entry.data_simple);
+      if (sotData) storeSoT(sotData, savedBy, keyHash, false, normalizedReceivedAt ?? undefined);
     }
     return "sorcery";
   }

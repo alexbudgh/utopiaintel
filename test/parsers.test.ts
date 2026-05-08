@@ -415,7 +415,12 @@ test("detectIntelType — province_operations URLs route to same ops as thievery
   assert.equal(
     detectIntelType("https://utopia-game.com/wol/sit/game/province_operations/4/4/13?p=1446&s=CRYSTAL_BALL&c=829"),
     "sorcery",
-    "sitter province_operations sorcery spell should be detected",
+    "sitter province_operations Crystal Ball should still be detected as sorcery",
+  );
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/sorcery?p=528&s=CRYSTAL_BALL&c=2543"),
+    "sorcery",
+    "sorcery Crystal Ball should still be detected as sorcery",
   );
   assert.equal(
     detectIntelType("https://utopia-game.com/wol/game/province_operations/5/8/21"),
@@ -654,6 +659,26 @@ test("parseSoT — Obsidian (7:5)", () => {
   assert.equal(r.food, 0);
   assert.equal(r.runes, 158132);
   assert.equal(r.accuracy, 100);
+});
+
+test("parseSoT — embedded CRYSTAL_BALL report with spell page chrome", () => {
+  const text = [
+    "You enter the Mystic Circle.",
+    "Wizards\t532 (0.77 Wizards Per Acre)\tRunes\t30,967",
+    "More....",
+    SOT_TEXT,
+    "",
+    "Your wizards gather 322 runes and begin casting, and the spell succeeds.",
+    "Target kingdom is Target Kingdom (7:5)",
+    "Select target province:\t8 Obsidian --- ( 92% )",
+    "Select a spell:\tCrystal Ball (322 runes)",
+  ].join("\n");
+  const r = parseSoT(text);
+  assert.ok(r, "should parse embedded SoT report");
+  assert.equal(r.name, "Obsidian");
+  assert.equal(r.kingdom, "7:5");
+  assert.equal(r.race, "Avian");
+  assert.equal(r.land, 1576);
 });
 
 for (const { ruler, personality, honorTitle } of [

@@ -5,6 +5,7 @@ import { hashKey } from "@/lib/keys";
 import { parseIntel } from "@/lib/parsers";
 import { getIntelPathname, matchesGamePath, extractProvinceOperationsInfo } from "@/lib/parsers/detect";
 import { parseKingdomNews } from "@/lib/parsers/kingdom_news";
+import { parseSoT } from "@/lib/parsers/sot";
 import {
   storeSoT,
   storeSurvey,
@@ -178,6 +179,10 @@ export const POST = withAxiom(async (request: AxiomRequest) => {
           const urlKingdom = extractProvinceOperationsInfo(fields.url)?.kingdom ?? null;
           storeKingdomNews(newsData, keyHash, true, undefined, urlKingdom);
         }
+      }
+      if (result.data.spell === "CRYSTAL_BALL") {
+        const sotData = parseSoT(fields.data_simple);
+        if (sotData) storeSoT(sotData, savedBy, keyHash);
       }
       break;
     case "attack":
