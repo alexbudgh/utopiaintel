@@ -417,7 +417,7 @@ export function ProvinceHistoryChart({ history }: { history: ProvinceHistoryPoin
   const [hideSorcery, setHideSorcery] = useState(false);
   const [open, setOpen] = useState(false);
   const [hoveredLine, setHoveredLine] = useState<MetricKey | null>(null);
-  const [tz, setTz] = useState<"UTC" | "local">("UTC");
+  const [tz, setTz] = useState<"UTC" | "local">("local");
   const [containerWidth, setContainerWidth] = useState(800);
   const containerRef = useRef<HTMLDivElement>(null);
 
