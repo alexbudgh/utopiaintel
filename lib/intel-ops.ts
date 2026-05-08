@@ -12,6 +12,7 @@ export interface IntelOpAttempt {
   targetSlot: number | null;
   targetKingdom: string | null;
   accuracy: number | null;
+  thievesLost: number;
 }
 
 const THIEVERY_INTEL_OPS: Record<string, IntelOpType> = {
@@ -40,6 +41,7 @@ function getQueryOp(url: string): { op: string; intelType: IntelOpType } | null 
 
 const TARGET_KD_RE = /Target kingdom is [^(]+\((\d{1,2}:\d{1,2})\)/;
 const TARGET_PROV_RE = /Select province:\t(\d+)\s+(?:-\s*)?(.+?) ---/;
+const THIEVES_LOST_RE = /We lost ([\d,]+) thie(?:f|ves)(?: in the operation)?/;
 
 function getFormTarget(text: string): { targetName: string | null; targetSlot: number | null; targetKingdom: string | null } {
   const targetProv = TARGET_PROV_RE.exec(text);
@@ -55,9 +57,15 @@ function accuracyFromData(data: object): number | null {
   return "accuracy" in data && typeof data.accuracy === "number" ? data.accuracy : null;
 }
 
+function parseThievesLost(text: string): number {
+  const match = THIEVES_LOST_RE.exec(text);
+  return match ? parseInt(match[1].replace(/,/g, ""), 10) : 0;
+}
+
 function attemptFromParsed(op: string, intelType: IntelOpType, url: string, text: string, parsed: ParseResult): IntelOpAttempt | null {
   const urlTarget = extractProvinceOperationsInfo(url);
   const formTarget = getFormTarget(text);
+  const thievesLost = parseThievesLost(text);
 
   if (parsed.type !== intelType) return null;
 
@@ -70,6 +78,7 @@ function attemptFromParsed(op: string, intelType: IntelOpType, url: string, text
       targetSlot: formTarget.targetSlot ?? urlTarget?.slot ?? null,
       targetKingdom: parsed.data.targetKingdom ?? formTarget.targetKingdom ?? urlTarget?.kingdom ?? null,
       accuracy: null,
+      thievesLost,
     };
   }
 
@@ -82,6 +91,7 @@ function attemptFromParsed(op: string, intelType: IntelOpType, url: string, text
       targetSlot: urlTarget?.slot ?? formTarget.targetSlot ?? null,
       targetKingdom: parsed.data.kingdom || formTarget.targetKingdom || urlTarget?.kingdom || null,
       accuracy: accuracyFromData(parsed.data),
+      thievesLost,
     };
   }
 
@@ -97,6 +107,7 @@ export function buildIntelOpAttempt(url: string, text: string, parsed: ParseResu
 
   const urlTarget = extractProvinceOperationsInfo(url);
   const formTarget = getFormTarget(text);
+  const thievesLost = parseThievesLost(text);
   return {
     op: known.op,
     intelType: known.intelType,
@@ -105,5 +116,6 @@ export function buildIntelOpAttempt(url: string, text: string, parsed: ParseResu
     targetSlot: formTarget.targetSlot ?? urlTarget?.slot ?? null,
     targetKingdom: formTarget.targetKingdom ?? urlTarget?.kingdom ?? null,
     accuracy: null,
+    thievesLost,
   };
 }

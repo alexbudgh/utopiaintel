@@ -2634,14 +2634,16 @@ test("getRecentOps: includes failed intel attempts without duplicating successfu
     db.prepare(`
       INSERT INTO intel_ops (
         province_id, key_hash, op, intel_type, outcome,
-        target_name, target_slot, target_kingdom, accuracy, saved_by, received_at
-      ) VALUES (?, ?, 'SPY_ON_THRONE', 'sot', 'success', 'Target', 7, '2:2', 100, 'Actor', '2026-04-01 10:00:00')
+        target_name, target_slot, target_kingdom, accuracy, thieves_lost,
+        saved_by, received_at
+      ) VALUES (?, ?, 'SPY_ON_THRONE', 'sot', 'success', 'Target', 7, '2:2', 100, 1, 'Actor', '2026-04-01 10:00:00')
     `).run(actorId, KEY_A);
     db.prepare(`
       INSERT INTO intel_ops (
         province_id, key_hash, op, intel_type, outcome,
-        target_name, target_slot, target_kingdom, accuracy, saved_by, received_at
-      ) VALUES (?, ?, 'SPY_ON_MILITARY', 'som', 'failure', 'Target', 7, '2:2', NULL, 'Actor', '2026-04-01 11:00:00')
+        target_name, target_slot, target_kingdom, accuracy, thieves_lost,
+        saved_by, received_at
+      ) VALUES (?, ?, 'SPY_ON_MILITARY', 'som', 'failure', 'Target', 7, '2:2', NULL, 2, 'Actor', '2026-04-01 11:00:00')
     `).run(actorId, KEY_A);
 
     const ops = getRecentOps(KEY_A);
@@ -2650,6 +2652,8 @@ test("getRecentOps: includes failed intel attempts without duplicating successfu
     assert.equal(ops[0].op_category, "intel");
     assert.equal(ops[0].province_name, "Target");
     assert.equal(ops[0].actor_name, "Actor");
+    assert.equal(ops[0].detail_value, 2);
+    assert.equal(ops[0].detail_kind, "thieves_lost");
   });
 });
 

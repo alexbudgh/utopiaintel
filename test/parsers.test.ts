@@ -467,6 +467,7 @@ test("buildIntelOpAttempt — records successful thievery intel attempts", () =>
     targetSlot: 4,
     targetKingdom: "7:5",
     accuracy: 100,
+    thievesLost: 3,
   });
 });
 
@@ -490,6 +491,7 @@ test("buildIntelOpAttempt — records failed thievery intel attempts from URL ta
     targetSlot: 4,
     targetKingdom: "7:5",
     accuracy: null,
+    thievesLost: 2,
   });
 });
 
@@ -504,6 +506,7 @@ test("buildIntelOpAttempt — falls back to province_operations URL target when 
     targetSlot: 4,
     targetKingdom: "7:5",
     accuracy: null,
+    thievesLost: 0,
   });
 });
 

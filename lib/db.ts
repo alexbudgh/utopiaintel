@@ -744,6 +744,7 @@ export function initSchema(db: Database.Database) {
       target_slot INTEGER,
       target_kingdom TEXT,
       accuracy INTEGER,
+      thieves_lost INTEGER NOT NULL DEFAULT 0,
       saved_by TEXT,
       received_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -851,6 +852,7 @@ export function initSchema(db: Database.Database) {
   if (!hasCol("rob_ops", "kidnapped"))           db.exec("ALTER TABLE rob_ops ADD COLUMN kidnapped INTEGER");
   if (!hasCol("rob_ops", "acres_burned"))        db.exec("ALTER TABLE rob_ops ADD COLUMN acres_burned INTEGER");
   if (!hasCol("rob_ops", "effect_duration"))     db.exec("ALTER TABLE rob_ops ADD COLUMN effect_duration INTEGER");
+  if (!hasCol("intel_ops", "thieves_lost"))      db.exec("ALTER TABLE intel_ops ADD COLUMN thieves_lost INTEGER NOT NULL DEFAULT 0");
 
   if (!hasCol("provinces", "cached_rtpa")) {
     db.exec("ALTER TABLE provinces ADD COLUMN cached_rtpa REAL");
@@ -1268,12 +1270,12 @@ export function storeIntelOp(data: IntelOpAttempt, savedBy: string, keyHash: str
     db.prepare(`
       INSERT OR IGNORE INTO intel_ops
         (province_id, key_hash, op, intel_type, outcome,
-         target_name, target_slot, target_kingdom, accuracy,
+         target_name, target_slot, target_kingdom, accuracy, thieves_lost,
          saved_by, received_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
     `).run(
       provId, keyHash, data.op, data.intelType, data.outcome,
-      target.targetName, target.targetSlot, target.targetKingdom, data.accuracy,
+      target.targetName, target.targetSlot, target.targetKingdom, data.accuracy, data.thievesLost,
       savedBy, receivedAt ?? null,
     );
   })();
@@ -2909,8 +2911,8 @@ export function createDbApi(db: Database.Database): DbApi {
                  p.name, p.kingdom,
                  io.outcome,
                  NULL,
-                 NULL,
-                 NULL
+                 CASE WHEN io.thieves_lost > 0 THEN io.thieves_lost ELSE NULL END,
+                 CASE WHEN io.thieves_lost > 0 THEN 'thieves_lost' ELSE NULL END
           FROM intel_ops io JOIN provinces p ON p.id = io.province_id
           WHERE io.key_hash = @keyHash AND io.outcome = 'failure'
           UNION ALL
