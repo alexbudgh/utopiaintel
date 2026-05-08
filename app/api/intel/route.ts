@@ -4,6 +4,7 @@ import { appendDebugLog } from "@/lib/debug-log";
 import { hashKey } from "@/lib/keys";
 import { parseIntel } from "@/lib/parsers";
 import { getIntelPathname, matchesGamePath, extractProvinceOperationsInfo } from "@/lib/parsers/detect";
+import { parseKingdomNews } from "@/lib/parsers/kingdom_news";
 import {
   storeSoT,
   storeSurvey,
@@ -152,9 +153,12 @@ export const POST = withAxiom(async (request: AxiomRequest) => {
       storeState(result.data, savedBy, keyHash);
       break;
     case "kingdom_news": {
-      const isSnatched = new URL(fields.url).searchParams.get("o") === "SNATCH_NEWS";
+      const params = new URL(fields.url).searchParams;
+      const isExternalNews =
+        params.get("o")?.toUpperCase() === "SNATCH_NEWS" ||
+        params.get("s")?.toUpperCase() === "CRYSTAL_EYE";
       const urlKingdom = extractProvinceOperationsInfo(fields.url)?.kingdom ?? null;
-      storeKingdomNews(result.data, keyHash, isSnatched, undefined, urlKingdom);
+      storeKingdomNews(result.data, keyHash, isExternalNews, undefined, urlKingdom);
       break;
     }
     case "train_army":
@@ -168,6 +172,13 @@ export const POST = withAxiom(async (request: AxiomRequest) => {
       break;
     case "sorcery":
       storeSorcery(result.data, savedBy, keyHash);
+      if (result.data.spell === "CRYSTAL_EYE") {
+        const newsData = parseKingdomNews(fields.data_simple);
+        if (newsData) {
+          const urlKingdom = extractProvinceOperationsInfo(fields.url)?.kingdom ?? null;
+          storeKingdomNews(newsData, keyHash, true, undefined, urlKingdom);
+        }
+      }
       break;
     case "attack":
       storeAttack(result.data, savedBy, keyHash);

@@ -4,6 +4,7 @@ import { hashKey } from "./keys";
 import readline from "node:readline";
 import { parseIntel } from "./parsers";
 import { getIntelPathname, matchesGamePath, extractProvinceOperationsInfo } from "./parsers/detect";
+import { parseKingdomNews } from "./parsers/kingdom_news";
 import {
   getDb,
   storeSoT,
@@ -121,9 +122,12 @@ export function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options
   }
 
   if (parsed.type === "kingdom_news") {
-    const isSnatched = new URL(entry.url).searchParams.get("o") === "SNATCH_NEWS";
+    const params = new URL(entry.url).searchParams;
+    const isExternalNews =
+      params.get("o")?.toUpperCase() === "SNATCH_NEWS" ||
+      params.get("s")?.toUpperCase() === "CRYSTAL_EYE";
     const urlKingdom = extractProvinceOperationsInfo(entry.url)?.kingdom ?? null;
-    storeKingdomNews(parsed.data, keyHash, isSnatched, normalizedReceivedAt ?? undefined, urlKingdom);
+    storeKingdomNews(parsed.data, keyHash, isExternalNews, normalizedReceivedAt ?? undefined, urlKingdom);
     return "kingdom_news";
   }
 
@@ -155,6 +159,13 @@ export function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options
 
   if (parsed.type === "sorcery") {
     storeSorcery(parsed.data, savedBy, keyHash, normalizedReceivedAt ?? undefined);
+    if (parsed.data.spell === "CRYSTAL_EYE") {
+      const newsData = parseKingdomNews(entry.data_simple);
+      if (newsData) {
+        const urlKingdom = extractProvinceOperationsInfo(entry.url)?.kingdom ?? null;
+        storeKingdomNews(newsData, keyHash, true, normalizedReceivedAt ?? undefined, urlKingdom);
+      }
+    }
     return "sorcery";
   }
 

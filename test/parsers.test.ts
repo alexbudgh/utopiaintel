@@ -405,7 +405,12 @@ test("detectIntelType — province_operations URLs route to same ops as thievery
   assert.equal(
     detectIntelType("https://utopia-game.com/wol/game/province_operations/5/8/21?p=1157&s=CRYSTAL_EYE&c=436"),
     "sorcery",
-    "province_operations sorcery spell should be detected",
+    "province_operations Crystal Eye should still be detected as sorcery",
+  );
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/sorcery?p=1210&s=CRYSTAL_EYE&c=2085"),
+    "sorcery",
+    "sorcery Crystal Eye should still be detected as sorcery",
   );
   assert.equal(
     detectIntelType("https://utopia-game.com/wol/sit/game/province_operations/4/4/13?p=1446&s=CRYSTAL_BALL&c=829"),
@@ -1216,6 +1221,18 @@ test("parseKingdomNews — lines without tab separator are skipped", () => {
   assert.equal(r.events.length, 1);
 });
 
+test("parseKingdomNews — non-Utopia date tabular chrome is skipped", () => {
+  const text = [
+    "Unit\tAvailable\tSend",
+    "Soldiers\t0\t",
+    mkLine("May 1 of YR9", "Storm Rider (5:1) invaded Quiet Hamlet (7:3) and captured 425 acres"),
+  ].join("\n");
+  const r = parseKingdomNews(text);
+  assert.ok(r);
+  assert.equal(r.events.length, 1);
+  assert.equal(r.events[0].gameDate, "May 1 of YR9");
+});
+
 test("parseKingdomNews — unknown province invasion ('invaded ... and captured')", () => {
   const e = parseOne(mkLine("June 2 of YR9", "An unknown province from Shadow Realm (7:7) invaded Border Watch (2:8) and captured 300 acres"));
   assert.equal(e.eventType, "march");
@@ -1336,6 +1353,26 @@ test("parseKingdomNews — successful SNATCH_NEWS extracts targetKingdom from pr
   assert.ok(r);
   assert.equal(r.targetKingdom, "5:8");
   assert.equal(r.events.length, 1);
+});
+
+test("parseKingdomNews — successful CRYSTAL_EYE extracts targetKingdom and embedded news rows", () => {
+  const text = [
+    "You enter the Mystic Circle.",
+    "Wizards\t532 (0.77 Wizards Per Acre)\tRunes\t29,035",
+    "More....",
+    "April YR9 Edition",
+    mkLine("April 1 of YR9", "Attacker Province (5:8) captured 100 acres of land from Defender Province (3:4)."),
+    "Uniques -",
+    "Your wizards gather 322 runes and begin casting, and the spell succeeds. Our wizards have gleaned a glimpse into the last 2 month's of kingdom news from Target Province (5:8).",
+    "Target kingdom is Target Kingdom (5:8)",
+    "Select target province:\t17 Target Province --- ( 93% )",
+    "Select a spell:\tCrystal Eye (322 runes)",
+  ].join("\n");
+  const r = parseKingdomNews(text);
+  assert.ok(r);
+  assert.equal(r.targetKingdom, "5:8");
+  assert.equal(r.events.length, 1);
+  assert.equal(r.events[0].eventType, "march");
 });
 
 test("parseKingdomNews — targetKingdom is null when preamble absent (own kingdom news)", () => {

@@ -355,12 +355,17 @@ function classifyEvent(text: string): Omit<KingdomNewsEvent, "gameDate" | "rawTe
 }
 
 const STOLEN_FROM_RE = new RegExp(`stolen the last 2 month's of kingdom news from [^(]+${KDLOC}`);
+const CRYSTAL_EYE_TARGET_RE = new RegExp(`gleaned a glimpse into the last 2 month's of kingdom news from [^(]+${KDLOC}`);
+const TARGET_KINGDOM_RE = new RegExp(`Target kingdom is [^(]+${KDLOC}`);
+const GAME_DATE_RE = /^(January|February|March|April|May|June|July) \d+ of YR\d+$/;
 
 export function parseKingdomNews(text: string): KingdomNewsData | null {
   if (text.includes("mission was foiled")) return null;
 
   const stolenMatch = STOLEN_FROM_RE.exec(text);
-  const targetKingdom = stolenMatch ? stolenMatch[1] : null;
+  const crystalEyeTargetMatch = CRYSTAL_EYE_TARGET_RE.exec(text);
+  const targetKingdomMatch = TARGET_KINGDOM_RE.exec(text);
+  const targetKingdom = targetKingdomMatch?.[1] ?? stolenMatch?.[1] ?? crystalEyeTargetMatch?.[1] ?? null;
 
   const events: KingdomNewsEvent[] = [];
 
@@ -374,6 +379,7 @@ export function parseKingdomNews(text: string): KingdomNewsData | null {
 
     const gameDate = trimmed.slice(0, tabIdx).trim();
     const rawText = trimmed.slice(tabIdx + 1).trim();
+    if (!GAME_DATE_RE.test(gameDate)) continue;
     if (!rawText) continue;
 
     const classified = classifyEvent(rawText);
