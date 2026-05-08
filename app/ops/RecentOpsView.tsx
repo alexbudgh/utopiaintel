@@ -82,6 +82,10 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
     setActiveTypes(new Set([type]));
   };
 
+  const filterToSender = (sender: string | null) => {
+    setSenderFilter(sender ?? UNKNOWN_FILTER);
+  };
+
   const clearFilters = () => {
     setActiveTypes(new Set());
     setKingdomFilter(ALL_FILTER);
@@ -206,8 +210,16 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
                     {op.kingdom}
                   </Link>
                 </td>
-                <td className="py-2 pr-4 text-gray-400 text-[12px]">
-                  {op.saved_by ?? <span className="text-gray-600">—</span>}
+                <td className="py-2 pr-4 text-[12px]">
+                  <button
+                    type="button"
+                    onClick={() => filterToSender(op.saved_by)}
+                    aria-pressed={senderFilter === (op.saved_by ?? UNKNOWN_FILTER)}
+                    className="rounded px-1 py-0.5 text-gray-400 transition-colors hover:bg-gray-800 hover:text-gray-200"
+                    title={`Filter to ${op.saved_by ?? "unknown sender"}`}
+                  >
+                    {op.saved_by ?? <span className="text-gray-600">—</span>}
+                  </button>
                 </td>
                 <td className="py-2 text-right text-gray-500 text-[12px] tabular-nums">
                   {timeAgo(op.received_at)}
