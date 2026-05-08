@@ -942,6 +942,11 @@ export function initSchema(db: Database.Database) {
     "province_id, key_hash, source, saved_by, received_at"
   );
   ensureUniqueSubmissionIndex(
+    "idx_sos_unique_submission",
+    "sos_intel",
+    "province_id, key_hash, source, saved_by, received_at"
+  );
+  ensureUniqueSubmissionIndex(
     "idx_kingdom_unique_submission",
     "kingdom_intel",
     "key_hash, location, source, saved_by, received_at"
