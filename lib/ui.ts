@@ -81,6 +81,32 @@ export function formatTimestamp(iso: string | null): string {
   }) + " UTC";
 }
 
+export function formatLocalTimestamp(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso.replace(" ", "T") + "Z");
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    timeZoneName: "short",
+  });
+}
+
+export function formatLocalDate(iso: string | null): string {
+  if (!iso) return "Unknown date";
+  const d = new Date(iso.replace(" ", "T") + "Z");
+  if (Number.isNaN(d.getTime())) return "Unknown date";
+  return d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export function timeAgo(iso: string | null): string {
   if (!iso) return "—";
   const secs = Math.floor((Date.now() - parseUtc(iso)) / 1000);

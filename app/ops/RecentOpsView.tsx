@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
-import { timeAgo } from "@/lib/ui";
+import { formatLocalDate, formatLocalTimestamp, timeAgo } from "@/lib/ui";
 import type { RecentOp } from "@/lib/db";
+import { Tooltip } from "@/app/components/Tooltip";
 
 const OP_COLORS: Record<string, string> = {
   SoT:        "border-blue-500/40 bg-blue-500/10 text-blue-300",
@@ -105,16 +106,6 @@ function outcomeClass(outcome: string): string {
   return outcome === "success" ? "text-emerald-300" : "text-red-300";
 }
 
-function dateGroupLabel(receivedAt: string): string {
-  const date = new Date(receivedAt.replace(" ", "T") + "Z");
-  if (Number.isNaN(date.getTime())) return "Unknown date";
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
 export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
   const [ops, setOps] = useState(initialOps);
   const [newKeys, setNewKeys] = useState<Set<string>>(new Set());
@@ -183,7 +174,7 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
   const groupedOps = useMemo(() => {
     const groups: Array<{ label: string; ops: RecentOp[] }> = [];
     for (const op of pagedOps) {
-      const label = dateGroupLabel(op.received_at);
+      const label = formatLocalDate(op.received_at);
       const last = groups[groups.length - 1];
       if (last?.label === label) last.ops.push(op);
       else groups.push({ label, ops: [op] });
@@ -402,7 +393,9 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
                     </button>
                   </td>
                   <td className="py-2 text-right text-gray-500 text-[12px] tabular-nums">
-                    {timeAgo(op.received_at)}
+                    <Tooltip content={formatLocalTimestamp(op.received_at)}>
+                      <span>{timeAgo(op.received_at)}</span>
+                    </Tooltip>
                   </td>
                 </tr>
               );
