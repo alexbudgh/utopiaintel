@@ -2514,6 +2514,7 @@ test("getRecentOps: returns enemy ops and excludes self-intel sources", async ()
     const ops = getRecentOps(KEY_A);
     assert.equal(ops.length, 1);
     assert.equal(ops[0].op_type, "SoT");
+    assert.equal(ops[0].outcome, "success");
     assert.equal(ops[0].province_name, "Target");
 
     // Self-intel (throne source) must not appear
@@ -2648,7 +2649,7 @@ test("getRecentOps: includes failed intel attempts without duplicating successfu
 
     const ops = getRecentOps(KEY_A);
     assert.deepEqual(ops.map((op) => op.op_type), ["som", "SoT"]);
-    assert.deepEqual(ops.map((op) => op.outcome), ["failure", null]);
+    assert.deepEqual(ops.map((op) => op.outcome), ["failure", "success"]);
     assert.equal(ops[0].op_category, "intel");
     assert.equal(ops[0].province_name, "Target");
     assert.equal(ops[0].actor_name, "Actor");

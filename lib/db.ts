@@ -2871,38 +2871,38 @@ export function createDbApi(db: Database.Database): DbApi {
           SELECT 'SoT' AS op_type, 'intel' AS op_category, po.received_at, po.saved_by,
                  p.name AS province_name, p.kingdom,
                  NULL AS actor_name, NULL AS actor_kingdom,
-                 NULL AS outcome, NULL AS summary,
+                 'success' AS outcome, NULL AS summary,
                  NULL AS detail_value, NULL AS detail_kind
           FROM province_overview po JOIN provinces p ON p.id = po.province_id
           WHERE po.key_hash = @keyHash AND po.source = 'sot'
           UNION ALL
           SELECT 'SoM', 'intel', mi.received_at, mi.saved_by,
                  p.name, p.kingdom,
-                 NULL, NULL, NULL, NULL, NULL, NULL
+                 NULL, NULL, 'success', NULL, NULL, NULL
           FROM military_intel mi JOIN provinces p ON p.id = mi.province_id
           WHERE mi.key_hash = @keyHash AND mi.source = 'som'
           UNION ALL
           SELECT 'SoD', 'intel', hmp.received_at, hmp.saved_by,
                  p.name, p.kingdom,
-                 NULL, NULL, NULL, NULL, NULL, NULL
+                 NULL, NULL, 'success', NULL, NULL, NULL
           FROM home_military_points hmp JOIN provinces p ON p.id = hmp.province_id
           WHERE hmp.key_hash = @keyHash AND hmp.source = 'sod'
           UNION ALL
           SELECT 'SoS', 'intel', si.received_at, si.saved_by,
                  p.name, p.kingdom,
-                 NULL, NULL, NULL, NULL, NULL, NULL
+                 NULL, NULL, 'success', NULL, NULL, NULL
           FROM sos_intel si JOIN provinces p ON p.id = si.province_id
           WHERE si.key_hash = @keyHash AND si.source = 'sos'
           UNION ALL
           SELECT 'Survey', 'intel', sv.received_at, sv.saved_by,
                  p.name, p.kingdom,
-                 NULL, NULL, NULL, NULL, NULL, NULL
+                 NULL, NULL, 'success', NULL, NULL, NULL
           FROM survey_intel sv JOIN provinces p ON p.id = sv.province_id
           WHERE sv.key_hash = @keyHash AND sv.source = 'survey'
           UNION ALL
           SELECT 'Infiltrate', 'intel', pr.received_at, pr.saved_by,
                  p.name, p.kingdom,
-                 NULL, NULL, NULL, NULL, NULL, NULL
+                 NULL, NULL, 'success', NULL, NULL, NULL
           FROM province_resources pr JOIN provinces p ON p.id = pr.province_id
           WHERE pr.key_hash = @keyHash AND pr.source = 'infiltrate'
           UNION ALL
