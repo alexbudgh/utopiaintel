@@ -1,7 +1,8 @@
 export function register() {
-  console.log('Registering instrumentation. Pid:', process.pid);
   if (process.env.NEXT_RUNTIME === 'nodejs') {
-    const inspector = require('node:inspector') as typeof import('node:inspector');
+    console.log('Registering instrumentation. Pid:', process.pid);
+    const inspector =
+      require('node:inspector') as typeof import('node:inspector');
     const fs = require('node:fs') as typeof import('node:fs');
     process.on('SIGUSR2', () => {
       const session = new inspector.Session();
