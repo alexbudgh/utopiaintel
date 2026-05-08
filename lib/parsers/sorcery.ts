@@ -8,12 +8,20 @@ const GATHER_RE     = new RegExp(`gather (${INT}) runes and begin casting`);
 const WIZARD_LOSS_RE = new RegExp(`(${INT}) wizards? (?:was|were) killed in an explosion`);
 const DURATION_RE   = /for (\d+) days/;
 const TARGET_KD_RE  = new RegExp(`Target kingdom is [^(]+${KDLOC}`);
-const TARGET_PROV_RE = /Select target province:\t(\d+) (.+?) ---/;
+const TARGET_PROV_RE = /Select target province:\t(\d+)\s+(?:-\s*)?(.+?) ---/;
 // Fallback: some spells embed target as "of ProvName (KD)" in the result sentence
 const TARGET_INLINE_RE = new RegExp(
   `(?:skies of|lands of|womenfolk of|province of) ([^(\\n]+?)\\s*${KDLOC}`,
   "i",
 );
+
+function splitSlotPrefixedName(rawName: string): { name: string; slot: number | null } {
+  const name = rawName.trim();
+  const match = /^(\d+)\s*-\s*(.+)$/.exec(name);
+  if (!match) return { name, slot: null };
+
+  return { name: match[2].trim(), slot: parseInt(match[1], 10) };
+}
 
 export function getSpell(url: string): string | null {
   try {
@@ -42,6 +50,7 @@ export function parseSorcery(text: string, url: string, selfProv: string): Sorce
   const targetKdMatch = TARGET_KD_RE.exec(text);
   const targetProvMatch = TARGET_PROV_RE.exec(text);
   const targetInlineMatch = !targetProvMatch ? TARGET_INLINE_RE.exec(text) : null;
+  const targetInline = targetInlineMatch ? splitSlotPrefixedName(targetInlineMatch[1]) : null;
 
   return {
     name: selfProv,
@@ -53,10 +62,10 @@ export function parseSorcery(text: string, url: string, selfProv: string): Sorce
     durationDays: durationMatch ? parseInt(durationMatch[1], 10) : null,
     targetName: targetProvMatch
       ? targetProvMatch[2].trim()
-      : targetInlineMatch
-        ? targetInlineMatch[1].trim()
+      : targetInline
+        ? targetInline.name
         : null,
-    targetSlot: targetProvMatch ? parseInt(targetProvMatch[1], 10) : null,
+    targetSlot: targetProvMatch ? parseInt(targetProvMatch[1], 10) : targetInline?.slot ?? null,
     targetKingdom: targetKdMatch ? targetKdMatch[1] : null,
     wizards: wizardsMatch ? parseNum(wizardsMatch[1]) : null,
     runes: runesSelfMatch ? parseNum(runesSelfMatch[1]) : null,

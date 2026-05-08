@@ -114,6 +114,32 @@ test("parseSorcery — inline target via 'womenfolk of'", () => {
   assert.equal(r.targetKingdom, "3:9");
 });
 
+test("parseSorcery — inline target with slot prefix", () => {
+  const text = [
+    PREAMBLE, "", STATS, "",
+    "You gather 500 runes and begin casting, and the spell succeeds. Our crystal eye reveals the province of 9 - All I see is darkness (3:9).",
+    TARGET_KD,
+  ].join("\n");
+  const r = parseSorcery(text, "https://utopia-game.com/wol/game/sorcery?p=319&s=CRYSTAL_EYE", "TestProvince");
+  assert.ok(r);
+  assert.equal(r.targetName, "All I see is darkness");
+  assert.equal(r.targetSlot, 9);
+  assert.equal(r.targetKingdom, "3:9");
+});
+
+test("parseSorcery — target province form with dash after slot", () => {
+  const text = [
+    PREAMBLE, "", STATS, "",
+    "You gather 500 runes and begin casting, and the spell succeeds. Our crystal eye reveals the province.",
+    `${TARGET_KD}\nSelect target province:\t9 - All I see is darkness --- ( 118% )`,
+  ].join("\n");
+  const r = parseSorcery(text, "https://utopia-game.com/wol/game/sorcery?p=319&s=CRYSTAL_EYE", "TestProvince");
+  assert.ok(r);
+  assert.equal(r.targetName, "All I see is darkness");
+  assert.equal(r.targetSlot, 9);
+  assert.equal(r.targetKingdom, "3:9");
+});
+
 test("parseSorcery — no target (self-buff spell)", () => {
   const text = [
     PREAMBLE, "", STATS, "",
