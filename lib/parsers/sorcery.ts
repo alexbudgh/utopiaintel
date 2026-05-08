@@ -66,7 +66,7 @@ export function parseSorcery(text: string, url: string, selfProv: string): Sorce
         ? targetInline.name
         : null,
     targetSlot: targetProvMatch ? parseInt(targetProvMatch[1], 10) : targetInline?.slot ?? null,
-    targetKingdom: targetKdMatch ? targetKdMatch[1] : null,
+    targetKingdom: targetKdMatch ? targetKdMatch[1] : targetInlineMatch?.[2] ?? null,
     wizards: wizardsMatch ? parseNum(wizardsMatch[1]) : null,
     runes: runesSelfMatch ? parseNum(runesSelfMatch[1]) : null,
     mana: manaMatch ? parseInt(manaMatch[1], 10) : null,
