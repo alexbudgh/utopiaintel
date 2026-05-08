@@ -325,6 +325,7 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
             {group.ops.map((op) => {
               const key = op.received_at + op.op_type + op.province_name + (op.actor_name ?? "");
               const kdHref = `/kingdom/${encodeURIComponent(op.kingdom)}`;
+              const provHref = `${kdHref}/${encodeURIComponent(op.province_name)}`;
               const color = OP_COLORS[op.op_type] ?? CATEGORY_COLORS[op.op_category] ?? "border-gray-600 bg-gray-800/40 text-gray-400";
               const isNew = newKeys.has(key);
               const detail = formatDetail(op);
@@ -357,6 +358,15 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
                       )}
                       {op.province_name}
                     </button>
+                    {op.kingdom && (
+                      <Link
+                        href={provHref}
+                        className="ml-1.5 text-[10px] text-gray-600 transition-colors hover:text-gray-400"
+                        title="Province detail"
+                      >
+                        ↗
+                      </Link>
+                    )}
                   </td>
                   <td className="py-2 pr-4">
                     <Link href={kdHref} className="font-mono text-[11px] text-gray-400 hover:text-gray-200 transition-colors">
