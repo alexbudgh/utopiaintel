@@ -2904,6 +2904,16 @@ export function createDbApi(db: Database.Database): DbApi {
           FROM province_resources pr JOIN provinces p ON p.id = pr.province_id
           WHERE pr.key_hash = @keyHash AND pr.source = 'infiltrate'
           UNION ALL
+          SELECT io.intel_type, 'intel', io.received_at, io.saved_by,
+                 COALESCE(io.target_name, 'Unknown'), COALESCE(io.target_kingdom, ''),
+                 p.name, p.kingdom,
+                 io.outcome,
+                 NULL,
+                 NULL,
+                 NULL
+          FROM intel_ops io JOIN provinces p ON p.id = io.province_id
+          WHERE io.key_hash = @keyHash AND io.outcome = 'failure'
+          UNION ALL
           SELECT ro.op, 'thievery', ro.received_at, ro.saved_by,
                  COALESCE(ro.target_name, p.name), COALESCE(ro.target_kingdom, p.kingdom, ''),
                  p.name, p.kingdom,

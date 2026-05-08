@@ -7,12 +7,13 @@ import type { RecentOp } from "@/lib/db";
 import { Tooltip } from "@/app/components/Tooltip";
 
 const OP_COLORS: Record<string, string> = {
-  SoT:        "border-blue-500/40 bg-blue-500/10 text-blue-300",
-  SoM:        "border-violet-500/40 bg-violet-500/10 text-violet-300",
-  SoD:        "border-amber-500/40 bg-amber-500/10 text-amber-300",
-  SoS:        "border-cyan-500/40 bg-cyan-500/10 text-cyan-300",
-  Survey:     "border-green-500/40 bg-green-500/10 text-green-300",
-  Infiltrate: "border-red-500/40 bg-red-500/10 text-red-300",
+  sot: "border-blue-500/40 bg-blue-500/10 text-blue-300",
+  som: "border-violet-500/40 bg-violet-500/10 text-violet-300",
+  sod: "border-amber-500/40 bg-amber-500/10 text-amber-300",
+  sos: "border-cyan-500/40 bg-cyan-500/10 text-cyan-300",
+  survey: "border-green-500/40 bg-green-500/10 text-green-300",
+  infiltrate: "border-red-500/40 bg-red-500/10 text-red-300",
+  kingdom_news: "border-gray-500/40 bg-gray-500/10 text-gray-300",
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -35,14 +36,25 @@ const OP_ORDER = [
 ];
 
 const OP_LABELS: Record<string, string> = {
+  sot: "SoT",
+  som: "SoM",
+  sod: "SoD",
+  sos: "SoS",
+  survey: "Survey",
+  infiltrate: "Infiltrate",
+  kingdom_news: "Snatch News",
   granaries: "Rob Granaries",
   towers: "Rob Towers",
   vaults: "Rob Vaults",
 };
 
+function opTypeKey(type: string): string {
+  return type.toLowerCase();
+}
+
 function formatOpType(type: string): string {
-  if (OP_LABELS[type]) return OP_LABELS[type];
-  if (OP_COLORS[type]) return type;
+  const key = opTypeKey(type);
+  if (OP_LABELS[key]) return OP_LABELS[key];
   return type
     .toLowerCase()
     .split("_")
@@ -119,7 +131,7 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
   const latestRef = useRef(initialOps[0]?.received_at ?? "");
 
   const opTypes = useMemo(() => {
-    const types = [...new Set(ops.map((op) => op.op_type))];
+    const types = [...new Set(ops.map((op) => opTypeKey(op.op_type)))];
     return types.sort((a, b) => {
       const ai = OP_ORDER.indexOf(a);
       const bi = OP_ORDER.indexOf(b);
@@ -141,7 +153,7 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
   const visibleOps = useMemo(() => {
     const q = query.trim().toLowerCase();
     return ops.filter((op) => {
-      if (activeTypes.size > 0 && !activeTypes.has(op.op_type)) return false;
+      if (activeTypes.size > 0 && !activeTypes.has(opTypeKey(op.op_type))) return false;
       if (kingdomFilter !== ALL_FILTER && op.kingdom !== kingdomFilter) return false;
       if (targetFilter !== ALL_FILTER && op.province_name !== targetFilter) return false;
       if (senderFilter === UNKNOWN_FILTER && op.saved_by) return false;
@@ -326,7 +338,8 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
               const key = op.received_at + op.op_type + op.province_name + (op.actor_name ?? "");
               const kdHref = `/kingdom/${encodeURIComponent(op.kingdom)}`;
               const provHref = `${kdHref}/${encodeURIComponent(op.province_name)}`;
-              const color = OP_COLORS[op.op_type] ?? CATEGORY_COLORS[op.op_category] ?? "border-gray-600 bg-gray-800/40 text-gray-400";
+              const typeKey = opTypeKey(op.op_type);
+              const color = OP_COLORS[typeKey] ?? CATEGORY_COLORS[op.op_category] ?? "border-gray-600 bg-gray-800/40 text-gray-400";
               const isNew = newKeys.has(key);
               const detail = formatDetail(op);
               return (
@@ -337,8 +350,8 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
                   <td className="py-2 pr-4">
                     <button
                       type="button"
-                      onClick={() => filterToType(op.op_type)}
-                      aria-pressed={activeTypes.size === 1 && activeTypes.has(op.op_type)}
+                      onClick={() => filterToType(typeKey)}
+                      aria-pressed={activeTypes.size === 1 && activeTypes.has(typeKey)}
                       className={`rounded border px-1.5 py-0.5 text-[11px] font-medium transition-colors hover:border-white/40 hover:text-white ${color}`}
                       title={`Filter to ${formatOpType(op.op_type)}`}
                     >

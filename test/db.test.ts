@@ -2616,6 +2616,43 @@ test("getRecentOps: includes thievery, sorcery, and attack ops", async () => {
   });
 });
 
+test("getRecentOps: includes failed intel attempts without duplicating successful intel", async () => {
+  await withRealDb(({ getRecentOps }, db) => {
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Actor', '1:1')").run();
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Target', '2:2')").run();
+    const { id: actorId } = db.prepare("SELECT id FROM provinces WHERE name = 'Actor'").get() as { id: number };
+    const { id: targetId } = db.prepare("SELECT id FROM provinces WHERE name = 'Target'").get() as { id: number };
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, actorId);
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, targetId);
+
+    db.prepare(`
+      INSERT INTO province_overview (
+        province_id, key_hash, race, personality, honor_title, land, networth,
+        source, saved_by, accuracy, received_at
+      ) VALUES (?, ?, 'Human', NULL, NULL, 500, 100000, 'sot', 'Actor', 100, '2026-04-01 10:00:00')
+    `).run(targetId, KEY_A);
+    db.prepare(`
+      INSERT INTO intel_ops (
+        province_id, key_hash, op, intel_type, outcome,
+        target_name, target_slot, target_kingdom, accuracy, saved_by, received_at
+      ) VALUES (?, ?, 'SPY_ON_THRONE', 'sot', 'success', 'Target', 7, '2:2', 100, 'Actor', '2026-04-01 10:00:00')
+    `).run(actorId, KEY_A);
+    db.prepare(`
+      INSERT INTO intel_ops (
+        province_id, key_hash, op, intel_type, outcome,
+        target_name, target_slot, target_kingdom, accuracy, saved_by, received_at
+      ) VALUES (?, ?, 'SPY_ON_MILITARY', 'som', 'failure', 'Target', 7, '2:2', NULL, 'Actor', '2026-04-01 11:00:00')
+    `).run(actorId, KEY_A);
+
+    const ops = getRecentOps(KEY_A);
+    assert.deepEqual(ops.map((op) => op.op_type), ["som", "SoT"]);
+    assert.deepEqual(ops.map((op) => op.outcome), ["failure", null]);
+    assert.equal(ops[0].op_category, "intel");
+    assert.equal(ops[0].province_name, "Target");
+    assert.equal(ops[0].actor_name, "Actor");
+  });
+});
+
 test("getRecentOps: exposes stolen resources as raw operation details", async () => {
   await withRealDb(({ getRecentOps }, db) => {
     db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Actor', '1:1')").run();
