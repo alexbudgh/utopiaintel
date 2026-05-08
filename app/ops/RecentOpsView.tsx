@@ -120,6 +120,7 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
   const [newKeys, setNewKeys] = useState<Set<string>>(new Set());
   const [activeTypes, setActiveTypes] = useState<Set<string>>(() => new Set());
   const [kingdomFilter, setKingdomFilter] = useState(ALL_FILTER);
+  const [targetFilter, setTargetFilter] = useState(ALL_FILTER);
   const [senderFilter, setSenderFilter] = useState(ALL_FILTER);
   const [outcomeFilter, setOutcomeFilter] = useState(ALL_FILTER);
   const [query, setQuery] = useState("");
@@ -139,6 +140,7 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
   }, [ops]);
 
   const kingdoms = useMemo(() => [...new Set(ops.map((op) => op.kingdom))].sort(), [ops]);
+  const targets = useMemo(() => [...new Set(ops.map((op) => op.province_name))].sort(), [ops]);
   const senders = useMemo(() => {
     const names = [...new Set(ops.map((op) => op.saved_by).filter((v): v is string => !!v))].sort();
     return ops.some((op) => !op.saved_by) ? [UNKNOWN_FILTER, ...names] : names;
@@ -150,6 +152,7 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
     return ops.filter((op) => {
       if (activeTypes.size > 0 && !activeTypes.has(op.op_type)) return false;
       if (kingdomFilter !== ALL_FILTER && op.kingdom !== kingdomFilter) return false;
+      if (targetFilter !== ALL_FILTER && op.province_name !== targetFilter) return false;
       if (senderFilter === UNKNOWN_FILTER && op.saved_by) return false;
       if (senderFilter !== ALL_FILTER && senderFilter !== UNKNOWN_FILTER && op.saved_by !== senderFilter) return false;
       if (outcomeFilter !== ALL_FILTER && op.outcome !== outcomeFilter) return false;
@@ -173,9 +176,9 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
         op.slot != null ? String(op.slot) : "",
       ].some((value) => value.toLowerCase().includes(q));
     });
-  }, [ops, activeTypes, kingdomFilter, senderFilter, outcomeFilter, query]);
+  }, [ops, activeTypes, kingdomFilter, targetFilter, senderFilter, outcomeFilter, query]);
 
-  const hasFilters = activeTypes.size > 0 || kingdomFilter !== ALL_FILTER || senderFilter !== ALL_FILTER || outcomeFilter !== ALL_FILTER || query.trim() !== "";
+  const hasFilters = activeTypes.size > 0 || kingdomFilter !== ALL_FILTER || targetFilter !== ALL_FILTER || senderFilter !== ALL_FILTER || outcomeFilter !== ALL_FILTER || query.trim() !== "";
   const pagedOps = visibleOps.slice(0, visibleLimit);
   const groupedOps = useMemo(() => {
     const groups: Array<{ label: string; ops: RecentOp[] }> = [];
@@ -205,13 +208,18 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
     setSenderFilter(sender ?? UNKNOWN_FILTER);
   };
 
+  const filterToTarget = (target: string) => {
+    setTargetFilter(target);
+  };
+
   useEffect(() => {
     setVisibleLimit(PAGE_SIZE);
-  }, [activeTypes, kingdomFilter, senderFilter, outcomeFilter, query]);
+  }, [activeTypes, kingdomFilter, targetFilter, senderFilter, outcomeFilter, query]);
 
   const clearFilters = () => {
     setActiveTypes(new Set());
     setKingdomFilter(ALL_FILTER);
+    setTargetFilter(ALL_FILTER);
     setSenderFilter(ALL_FILTER);
     setOutcomeFilter(ALL_FILTER);
     setQuery("");
@@ -257,10 +265,16 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
             <option key={kingdom} value={kingdom}>{kingdom}</option>
           ))}
         </select>
+        <select value={targetFilter} onChange={(e) => setTargetFilter(e.target.value)} className={controlClass}>
+          <option value={ALL_FILTER}>All targets</option>
+          {targets.map((target) => (
+            <option key={target} value={target}>{target}</option>
+          ))}
+        </select>
         <select value={senderFilter} onChange={(e) => setSenderFilter(e.target.value)} className={controlClass}>
-          <option value={ALL_FILTER}>All senders</option>
+          <option value={ALL_FILTER}>All submitters</option>
           {senders.map((sender) => (
-            <option key={sender} value={sender}>{sender === UNKNOWN_FILTER ? "Unknown sender" : sender}</option>
+            <option key={sender} value={sender}>{sender === UNKNOWN_FILTER ? "Unknown submitter" : sender}</option>
           ))}
         </select>
         {hasOutcomes && (
@@ -316,7 +330,6 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
             {group.ops.map((op) => {
               const key = op.received_at + op.op_type + op.province_name + (op.actor_name ?? "");
               const kdHref = `/kingdom/${encodeURIComponent(op.kingdom)}`;
-              const provHref = `${kdHref}/${encodeURIComponent(op.province_name)}`;
               const color = OP_COLORS[op.op_type] ?? CATEGORY_COLORS[op.op_category] ?? "border-gray-600 bg-gray-800/40 text-gray-400";
               const isNew = newKeys.has(key);
               const detail = formatDetail(op);
@@ -337,12 +350,18 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
                     </button>
                   </td>
                   <td className="py-2 pr-4">
-                    <Link href={provHref} className="text-gray-200 hover:text-white transition-colors">
+                    <button
+                      type="button"
+                      onClick={() => filterToTarget(op.province_name)}
+                      aria-pressed={targetFilter === op.province_name}
+                      className="text-left text-gray-200 transition-colors hover:text-white"
+                      title={`Filter to ${op.province_name}`}
+                    >
                       {op.slot != null && (
                         <span className="mr-1.5 text-xs tabular-nums text-gray-500">#{op.slot}</span>
                       )}
                       {op.province_name}
-                    </Link>
+                    </button>
                   </td>
                   <td className="py-2 pr-4">
                     <Link href={kdHref} className="font-mono text-[11px] text-gray-400 hover:text-gray-200 transition-colors">
@@ -367,7 +386,7 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
                       onClick={() => filterToSender(op.saved_by)}
                       aria-pressed={senderFilter === (op.saved_by ?? UNKNOWN_FILTER)}
                       className="rounded px-1 py-0.5 text-gray-400 transition-colors hover:bg-gray-800 hover:text-gray-200"
-                      title={`Filter to ${op.saved_by ?? "unknown sender"}`}
+                      title={`Filter to ${op.saved_by ?? "unknown submitter"}`}
                     >
                       {op.saved_by ?? <span className="text-gray-600">—</span>}
                     </button>
