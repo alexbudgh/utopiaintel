@@ -3,7 +3,7 @@ import type { SoMData, ArmyData } from "./types";
 import { INT, FLOAT, KDLOC, parseNum, parseFloat_, parseAccuracy } from "./util";
 
 const PROVINCE_RE = new RegExp(
-  `Our thieves listen in on a report from the Military Elders of ([^(]+)${KDLOC}`,
+  `Our thieves listen in on a report from the Military Elders of\\s+([^\\r\\n(]+?)\\s*${KDLOC}\\s*\\.\\.\\.`,
 );
 const NET_OFF_RE = new RegExp(`Net Offensive Points at Home\\s*(${INT})`);
 const NET_DEF_RE = new RegExp(`Net Defensive Points at Home\\s*(${INT})`);

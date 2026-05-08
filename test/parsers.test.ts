@@ -831,6 +831,13 @@ test("parseSoM — Obsidian (7:5)", () => {
   assert.equal(home.elites, 2294);    // Drakes
 });
 
+test("parseSoM — ignores operation summary text without target province location", () => {
+  const text = `Early indications show that our operation was a success and we have 100% confidence in the information retrieved. Our thieves listen in on a report from the Military Elders of Noble Lady Test Ruler the Craftswoman, we have 5 generals available to lead our armies. At this time, approximately 73.4% of our maximum population is allocated to non-peasant roles. Our wage rate is 200.0% of normal levels, and our military is functioning at 114.6% efficiency. Our net military details are as follows: Offensive Military Effectiveness is 139.5% with 111,618 Net Offensive Points at Home and our Defensive Military Effectiveness is 126.4% with 92,586 Net Defensive Points at Home. We have currently 529 soldiers, 0 offensive specialists, 4,816 defensive specialists, 5,020 elites and 1,568 war horses at home.
+Target kingdom is Example Kingdom (7:5)`;
+
+  assert.equal(parseSoM(text), null);
+});
+
 test("parseSoD — Obsidian (7:5)", () => {
   const r = parseSoD(SOD_TEXT);
   assert.ok(r, "should parse successfully");
