@@ -15,6 +15,18 @@ function normalizeGamePath(pathname: string): string {
     : pathname;
 }
 
+// Extracts kingdom location and province slot from a province_operations URL.
+// /wol/game/province_operations/<x>/<y>/<slot> → { kingdom: "<x>:<y>", slot: <slot> }
+export function extractProvinceOperationsInfo(url: string): { kingdom: string; slot: number } | null {
+  try {
+    const pathname = normalizeGamePath(new URL(url).pathname.toLowerCase());
+    const m = /^\/wol\/game\/province_operations\/(\d+)\/(\d+)\/(\d+)/.exec(pathname);
+    return m ? { kingdom: `${m[1]}:${m[2]}`, slot: parseInt(m[3], 10) } : null;
+  } catch {
+    return null;
+  }
+}
+
 export function matchesGamePath(pathname: string | null, page: string): boolean {
   return !!pathname && normalizeGamePath(pathname) === `/wol/game/${page}`;
 }
@@ -84,8 +96,9 @@ export function detectIntelType(url: string): IntelType | null {
 
   // Non-thievery pages
   if (matchesGamePath(pathname, "survey")) return "survey";
-  // Sorcery ops use ?s= param; only route when a spell is specified
-  if (matchesGamePath(pathname, "sorcery")) {
+  // Sorcery ops use ?s= param; only route when a spell is specified.
+  // Both /wol/game/sorcery and province_operations/<x>/<y>/<id> carry sorcery results.
+  if (matchesGamePath(pathname, "sorcery") || pathname.startsWith("/wol/game/province_operations/")) {
     try {
       if (new URL(url).searchParams.has("s")) return "sorcery";
     } catch { /* ignore */ }

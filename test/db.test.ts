@@ -1301,13 +1301,9 @@ function queryNewsKingdoms(db: ReturnType<typeof makeNewsDb>): string[] {
   return (db.prepare("SELECT DISTINCT kingdom FROM kingdom_news_sharded ORDER BY kingdom").all() as { kingdom: string }[]).map(r => r.kingdom);
 }
 
-// Mirror of storeKingdomNews SNATCH_NEWS inference logic using the in-memory DB
-function snatchStore(db: ReturnType<typeof makeNewsDb>, data: KingdomNewsData, keyHash: string) {
-  const ownRow = db.prepare("SELECT kingdom FROM key_kingdom_bindings WHERE key_hash = ?").get(keyHash) as { kingdom: string } | undefined;
-  const ownKingdom = ownRow?.kingdom ?? null;
-
-  const outgoing = data.events.find(e => e.attackerKingdom && e.attackerKingdom !== ownKingdom);
-  const kingdom = outgoing?.attackerKingdom ?? null;
+// Mirror of storeKingdomNews SNATCH_NEWS kingdom resolution: targetKingdom ?? urlKingdom
+function snatchStore(db: ReturnType<typeof makeNewsDb>, data: KingdomNewsData, keyHash: string, urlKingdom?: string | null) {
+  const kingdom = data.targetKingdom ?? urlKingdom ?? null;
   if (!kingdom) return;
 
   const ins = db.prepare(`
@@ -1320,44 +1316,29 @@ function snatchStore(db: ReturnType<typeof makeNewsDb>, data: KingdomNewsData, k
   }
 }
 
-test("storeKingdomNews SNATCH_NEWS: infers target kingdom from outgoing attack", () => {
+function makeNewsEvent(kingdom: string): KingdomNewsData["events"][number] {
+  return { gameDate: "May 1 of YR9", eventType: "march", rawText: `A (${kingdom}) captured 100 acres of land from B (1:1)`, attackerName: "A", attackerKingdom: kingdom, defenderName: "B", defenderKingdom: "1:1", acres: 100, books: null, senderName: null, receiverName: null, relationKingdom: null, dragonType: null, dragonName: null };
+}
+
+test("storeKingdomNews SNATCH_NEWS: uses targetKingdom from preamble", () => {
   const db = makeNewsDb();
-  // Our bound kingdom is 2:6; we snatched news from 4:9
-  db.prepare("INSERT INTO key_kingdom_bindings (key_hash, kingdom, source) VALUES (?, '2:6', 'throne')").run(KEY_A);
-
-  const data: KingdomNewsData = {
-    events: [
-      // Outgoing attack from 4:9 → identifies 4:9 as target kingdom
-      { gameDate: "May 1 of YR9", eventType: "march", rawText: "Napoleon Dynamite (4:9) captured 501 acres of land from Who Knows (2:6)", attackerName: "Napoleon Dynamite", attackerKingdom: "4:9", defenderName: "Who Knows", defenderKingdom: "2:6", acres: 501, books: null, senderName: null, receiverName: null, relationKingdom: null, dragonType: null, dragonName: null },
-      // Incoming attack on 4:9 — attacker is from another kingdom, not 4:9
-      { gameDate: "May 1 of YR9", eventType: "march", rawText: "Attacker (2:6) captured 200 acres of land from Defender (4:9)", attackerName: "Attacker", attackerKingdom: "2:6", defenderName: "Defender", defenderKingdom: "4:9", acres: 200, books: null, senderName: null, receiverName: null, relationKingdom: null, dragonType: null, dragonName: null },
-    ],
-  };
-
+  const data: KingdomNewsData = { targetKingdom: "4:9", events: [makeNewsEvent("4:9")] };
   snatchStore(db, data, KEY_A);
-
-  const stored = queryNewsKingdoms(db);
-  assert.deepEqual(stored, ["4:9"], "news should be stored under the target kingdom, not our own or both");
+  assert.deepEqual(queryNewsKingdoms(db), ["4:9"]);
 });
 
-test("storeKingdomNews SNATCH_NEWS: falls back gracefully when no outgoing attack found", () => {
+test("storeKingdomNews SNATCH_NEWS: falls back to urlKingdom when targetKingdom is null", () => {
   const db = makeNewsDb();
-  db.prepare("INSERT INTO key_kingdom_bindings (key_hash, kingdom, source) VALUES (?, '2:6', 'throne')").run(KEY_A);
+  const data: KingdomNewsData = { targetKingdom: null, events: [makeNewsEvent("5:8")] };
+  snatchStore(db, data, KEY_A, "5:8");
+  assert.deepEqual(queryNewsKingdoms(db), ["5:8"]);
+});
 
-  // News contains only incoming attacks against the target kingdom from a third party
-  const data: KingdomNewsData = {
-    events: [
-      { gameDate: "May 3 of YR9", eventType: "march", rawText: "Raider (9:9) captured 100 acres of land from Victim (4:9)", attackerName: "Raider", attackerKingdom: "9:9", defenderName: "Victim", defenderKingdom: "4:9", acres: 100, books: null, senderName: null, receiverName: null, relationKingdom: null, dragonType: null, dragonName: null },
-    ],
-  };
-
-  snatchStore(db, data, KEY_A);
-
-  // The news has an attacker from 9:9 (not our kingdom 2:6), so it picks 9:9 as target.
-  // While not ideal, this is the defined behavior: first non-self attacker kingdom wins.
-  const stored = queryNewsKingdoms(db);
-  assert.equal(stored.length, 1);
-  assert.notEqual(stored[0], "2:6", "should not store under our own kingdom");
+test("storeKingdomNews SNATCH_NEWS: stores nothing when both targetKingdom and urlKingdom are null", () => {
+  const db = makeNewsDb();
+  const data: KingdomNewsData = { targetKingdom: null, events: [makeNewsEvent("4:9")] };
+  snatchStore(db, data, KEY_A, null);
+  assert.deepEqual(queryNewsKingdoms(db), []);
 });
 
 // ---------------------------------------------------------------------------

@@ -3,7 +3,7 @@ import { withAxiom, AxiomRequest } from "next-axiom";
 import { appendDebugLog } from "@/lib/debug-log";
 import { hashKey } from "@/lib/keys";
 import { parseIntel } from "@/lib/parsers";
-import { getIntelPathname, matchesGamePath } from "@/lib/parsers/detect";
+import { getIntelPathname, matchesGamePath, extractProvinceOperationsInfo } from "@/lib/parsers/detect";
 import {
   storeSoT,
   storeSurvey,
@@ -151,9 +151,12 @@ export const POST = withAxiom(async (request: AxiomRequest) => {
     case "state":
       storeState(result.data, savedBy, keyHash);
       break;
-    case "kingdom_news":
-      storeKingdomNews(result.data, keyHash, new URL(fields.url).searchParams.get("o") === "SNATCH_NEWS");
+    case "kingdom_news": {
+      const isSnatched = new URL(fields.url).searchParams.get("o") === "SNATCH_NEWS";
+      const urlKingdom = extractProvinceOperationsInfo(fields.url)?.kingdom ?? null;
+      storeKingdomNews(result.data, keyHash, isSnatched, undefined, urlKingdom);
       break;
+    }
     case "train_army":
       storeTrainArmy(result.data, savedBy, keyHash);
       break;

@@ -19,6 +19,7 @@ export interface KingdomNewsEvent {
 
 export interface KingdomNewsData {
   events: KingdomNewsEvent[];
+  targetKingdom: string | null;
 }
 
 // Matches optional slot prefix "N - " followed by name and (X:Y)
@@ -353,7 +354,14 @@ function classifyEvent(text: string): Omit<KingdomNewsEvent, "gameDate" | "rawTe
   };
 }
 
+const STOLEN_FROM_RE = new RegExp(`stolen the last 2 month's of kingdom news from [^(]+${KDLOC}`);
+
 export function parseKingdomNews(text: string): KingdomNewsData | null {
+  if (text.includes("mission was foiled")) return null;
+
+  const stolenMatch = STOLEN_FROM_RE.exec(text);
+  const targetKingdom = stolenMatch ? stolenMatch[1] : null;
+
   const events: KingdomNewsEvent[] = [];
 
   for (const line of text.split("\n")) {
@@ -373,5 +381,5 @@ export function parseKingdomNews(text: string): KingdomNewsData | null {
   }
 
   if (events.length === 0) return null;
-  return { events };
+  return { events, targetKingdom };
 }

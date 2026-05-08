@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { hashKey } from "./keys";
 import readline from "node:readline";
 import { parseIntel } from "./parsers";
-import { getIntelPathname, matchesGamePath } from "./parsers/detect";
+import { getIntelPathname, matchesGamePath, extractProvinceOperationsInfo } from "./parsers/detect";
 import {
   getDb,
   storeSoT,
@@ -121,7 +121,9 @@ export function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options
   }
 
   if (parsed.type === "kingdom_news") {
-    storeKingdomNews(parsed.data, keyHash, new URL(entry.url).searchParams.get("o") === "SNATCH_NEWS", normalizedReceivedAt ?? undefined);
+    const isSnatched = new URL(entry.url).searchParams.get("o") === "SNATCH_NEWS";
+    const urlKingdom = extractProvinceOperationsInfo(entry.url)?.kingdom ?? null;
+    storeKingdomNews(parsed.data, keyHash, isSnatched, normalizedReceivedAt ?? undefined, urlKingdom);
     return "kingdom_news";
   }
 

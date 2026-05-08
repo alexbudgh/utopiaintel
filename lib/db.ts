@@ -2379,17 +2379,11 @@ function getProvinceDetailForDb(db: Database.Database, name: string, kingdom: st
   };
 }
 
-export function storeKingdomNews(data: KingdomNewsData, keyHash: string, isSnatched = false, receivedAt?: string) {
+export function storeKingdomNews(data: KingdomNewsData, keyHash: string, isSnatched = false, receivedAt?: string, urlKingdom?: string | null) {
   const db = getDb();
   let kingdom: string | null;
   if (isSnatched) {
-    // The target kingdom is the one making outgoing attacks in their own news feed.
-    // Find the first attack event where the attacker isn't our own kingdom.
-    const ownKingdom = getBoundKingdom(keyHash);
-    const outgoing = data.events.find(
-      e => e.attackerKingdom && e.attackerKingdom !== ownKingdom
-    );
-    kingdom = outgoing?.attackerKingdom ?? null;
+    kingdom = data.targetKingdom ?? urlKingdom ?? null;
   } else {
     kingdom = getBoundKingdom(keyHash);
   }

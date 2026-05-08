@@ -4,6 +4,7 @@ import {
   detectIntelType,
   getIntelPathname,
   matchesGamePath,
+  extractProvinceOperationsInfo,
 } from "../lib/parsers/detect";
 import { parseIntel } from "../lib/parsers";
 import { parseSoT } from "../lib/parsers/sot";
@@ -372,9 +373,49 @@ test("detectIntelType — province_operations URLs route to same ops as thievery
     "som",
   );
   assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/province_operations/3/9/16?p=808&o=SPY_ON_SCIENCES&q=72&c=8407"),
+    "sos",
+  );
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/province_operations/3/9/16?p=808&o=SURVEY&q=72&c=8407"),
+    "survey",
+  );
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/province_operations/3/9/16?p=808&o=INFILTRATE&q=72&c=8407"),
+    "infiltrate",
+  );
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/province_operations/5/8/21?p=1157&o=SNATCH_NEWS&q=75&c=3146"),
+    "kingdom_news",
+  );
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/province_operations/3/9/16?p=808&o=ROB_THE_VAULTS&q=72&c=8407"),
+    "rob",
+  );
+  assert.equal(
     detectIntelType("https://utopia-game.com/wol/sit/game/province_operations/3/9/16?p=808&o=SPY_ON_DEFENSE&q=72&c=8407"),
     "sod",
     "sitter province_operations should also be detected",
+  );
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/sit/game/province_operations/3/9/16?p=808&o=SNATCH_NEWS&q=72&c=8407"),
+    "kingdom_news",
+    "sitter province_operations SNATCH_NEWS should be detected",
+  );
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/province_operations/5/8/21?p=1157&s=CRYSTAL_EYE&c=436"),
+    "sorcery",
+    "province_operations sorcery spell should be detected",
+  );
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/sit/game/province_operations/4/4/13?p=1446&s=CRYSTAL_BALL&c=829"),
+    "sorcery",
+    "sitter province_operations sorcery spell should be detected",
+  );
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/province_operations/5/8/21"),
+    null,
+    "province_operations with no op param should return null",
   );
 });
 
@@ -383,6 +424,24 @@ test("detectIntelType — SNATCH_NEWS detected as kingdom_news", () => {
     detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=SNATCH_NEWS&q=387&c=4517"),
     "kingdom_news",
   );
+});
+
+test("extractProvinceOperationsInfo — extracts kingdom and slot", () => {
+  const r = extractProvinceOperationsInfo("https://utopia-game.com/wol/game/province_operations/5/8/21?p=1157&o=SNATCH_NEWS");
+  assert.ok(r);
+  assert.equal(r.kingdom, "5:8");
+  assert.equal(r.slot, 21);
+});
+
+test("extractProvinceOperationsInfo — works for sitter URLs", () => {
+  const r = extractProvinceOperationsInfo("https://utopia-game.com/wol/sit/game/province_operations/3/9/16?o=SPY_ON_THRONE");
+  assert.ok(r);
+  assert.equal(r.kingdom, "3:9");
+  assert.equal(r.slot, 16);
+});
+
+test("extractProvinceOperationsInfo — returns null for non-province_operations URLs", () => {
+  assert.equal(extractProvinceOperationsInfo("https://utopia-game.com/wol/game/thievery?o=SNATCH_NEWS"), null);
 });
 
 test("detectIntelType — build page detected as build", () => {
@@ -1254,6 +1313,29 @@ test("parseKingdomNews — ceasefire withdrawn", () => {
   const e = parseOne(mkLine("July 10 of YR9", "We have withdrawn our ceasefire proposal to Rival Kingdom (4:6)"));
   assert.equal(e.eventType, "ceasefire_withdrawn");
   assert.equal(e.relationKingdom, "4:6");
+});
+
+test("parseKingdomNews — foiled op returns null", () => {
+  const text = "Sources have indicated the mission was foiled. We lost 2 thieves. If we are lucky, they will not rat on who sent them. I am sorry, we will train harder for the next mission.";
+  assert.equal(parseKingdomNews(text), null);
+});
+
+test("parseKingdomNews — successful SNATCH_NEWS extracts targetKingdom from preamble", () => {
+  const text = [
+    "Our thieves have stolen the last 2 month's of kingdom news from Target Province (5:8)",
+    mkLine("April 1 of YR9", "Attacker Province (5:8) captured 100 acres of land from Defender Province (3:4)"),
+  ].join("\n");
+  const r = parseKingdomNews(text);
+  assert.ok(r);
+  assert.equal(r.targetKingdom, "5:8");
+  assert.equal(r.events.length, 1);
+});
+
+test("parseKingdomNews — targetKingdom is null when preamble absent (own kingdom news)", () => {
+  const text = mkLine("April 1 of YR9", "Attacker Province (5:8) captured 100 acres of land from Defender Province (3:4)");
+  const r = parseKingdomNews(text);
+  assert.ok(r);
+  assert.equal(r.targetKingdom, null);
 });
 
 // ---------------------------------------------------------------------------
