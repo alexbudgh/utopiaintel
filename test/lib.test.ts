@@ -354,12 +354,12 @@ test("normalizeReceivedAt normalizes ISO timestamps to sqlite UTC format", () =>
 });
 
 test("getReplayTypes falls back to all allowed types when input is empty or invalid", () => {
-  assert.equal(getReplayTypes(undefined).size, 11);
-  assert.equal(getReplayTypes("nope").size, 11);
+  assert.equal(getReplayTypes(undefined).size, 14);
+  assert.equal(getReplayTypes("nope").size, 14);
 });
 
 test("getReplayTypes filters to valid replay types", () => {
-  assert.deepEqual([...getReplayTypes("kingdom,build,rob,sorcery,attack,nope").values()].sort(), ["attack", "build", "kingdom", "rob", "sorcery"]);
+  assert.deepEqual([...getReplayTypes("kingdom,build,rob,sos,sod,infiltrate,sorcery,attack,nope").values()].sort(), ["attack", "build", "infiltrate", "kingdom", "rob", "sod", "sorcery", "sos"]);
 });
 
 test("hashReplayKey returns a stable sha256 hex digest", () => {

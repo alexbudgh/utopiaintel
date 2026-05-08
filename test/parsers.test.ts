@@ -19,6 +19,7 @@ import { parseBuild } from "../lib/parsers/build";
 import { parseKingdomNews } from "../lib/parsers/kingdom_news";
 import { parseState } from "../lib/parsers/state";
 import { parseUtopiaDate, formatUtopiaDate } from "../lib/ui";
+import { buildIntelOpAttempt } from "../lib/intel-ops";
 
 // ---------------------------------------------------------------------------
 // Fixture texts extracted from ~/intel_debug.jsonl
@@ -452,6 +453,69 @@ test("extractProvinceOperationsInfo — works for sitter URLs", () => {
 
 test("extractProvinceOperationsInfo — returns null for non-province_operations URLs", () => {
   assert.equal(extractProvinceOperationsInfo("https://utopia-game.com/wol/game/thievery?o=SNATCH_NEWS"), null);
+});
+
+test("buildIntelOpAttempt — records successful thievery intel attempts", () => {
+  const url = "https://utopia-game.com/wol/game/province_operations/7/5/4?p=1&o=SPY_ON_THRONE&q=2&c=3";
+  const parsed = parseIntel(url, SOT_TEXT, "SavedBy");
+  const attempt = buildIntelOpAttempt(url, SOT_TEXT, parsed);
+  assert.deepEqual(attempt, {
+    op: "SPY_ON_THRONE",
+    intelType: "sot",
+    outcome: "success",
+    targetName: "Obsidian",
+    targetSlot: 4,
+    targetKingdom: "7:5",
+    accuracy: 100,
+  });
+});
+
+test("buildIntelOpAttempt — records failed thievery intel attempts from URL target", () => {
+  const url = "https://utopia-game.com/wol/game/province_operations/7/5/4?p=1&o=SPY_ON_THRONE&q=2&c=3";
+  const attempt = buildIntelOpAttempt(
+    url,
+    [
+      "Sources have indicated the mission was foiled. We lost 2 thieves.",
+      "Target kingdom is Test Kingdom (7:5)",
+      "Select province:\t4 Obsidian --- ( 92% )",
+      "Select operation:\tSpy on Throne",
+    ].join("\n"),
+    null,
+  );
+  assert.deepEqual(attempt, {
+    op: "SPY_ON_THRONE",
+    intelType: "sot",
+    outcome: "failure",
+    targetName: "Obsidian",
+    targetSlot: 4,
+    targetKingdom: "7:5",
+    accuracy: null,
+  });
+});
+
+test("buildIntelOpAttempt — falls back to province_operations URL target when form target is absent", () => {
+  const url = "https://utopia-game.com/wol/game/province_operations/7/5/4?p=1&o=SPY_ON_THRONE&q=2&c=3";
+  const attempt = buildIntelOpAttempt(url, "Sources have indicated the mission was foiled.", null);
+  assert.deepEqual(attempt, {
+    op: "SPY_ON_THRONE",
+    intelType: "sot",
+    outcome: "failure",
+    targetName: null,
+    targetSlot: 4,
+    targetKingdom: "7:5",
+    accuracy: null,
+  });
+});
+
+test("buildIntelOpAttempt — does not duplicate sorcery intel spells", () => {
+  assert.equal(
+    buildIntelOpAttempt("https://utopia-game.com/wol/game/sorcery?p=1&s=CRYSTAL_BALL&c=2", "Your wizards gather 100 runes and begin casting, but the spell fails.", null),
+    null,
+  );
+  assert.equal(
+    buildIntelOpAttempt("https://utopia-game.com/wol/game/sorcery?p=1&s=CRYSTAL_EYE&c=2", "Your wizards gather 100 runes and begin casting, but the spell fails.", null),
+    null,
+  );
 });
 
 test("detectIntelType — build page detected as build", () => {

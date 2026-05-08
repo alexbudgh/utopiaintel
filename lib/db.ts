@@ -22,6 +22,7 @@ import type {
   SorceryData,
   AttackData,
 } from "./parsers/types";
+import type { IntelOpAttempt } from "./intel-ops";
 import type { KingdomNewsData, KingdomNewsEvent } from "./parsers/kingdom_news";
 
 const DB_PATH = process.env.INTEL_DB_PATH || path.join(process.cwd(), "intel.db");
@@ -732,6 +733,23 @@ export function initSchema(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_rob_ops_prov
       ON rob_ops(province_id, key_hash, received_at DESC);
 
+    CREATE TABLE IF NOT EXISTS intel_ops (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      province_id INTEGER NOT NULL REFERENCES provinces(id),
+      key_hash TEXT NOT NULL,
+      op TEXT NOT NULL,
+      intel_type TEXT NOT NULL,
+      outcome TEXT NOT NULL,
+      target_name TEXT,
+      target_slot INTEGER,
+      target_kingdom TEXT,
+      accuracy INTEGER,
+      saved_by TEXT,
+      received_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_intel_ops_prov
+      ON intel_ops(province_id, key_hash, received_at DESC);
+
     CREATE TABLE IF NOT EXISTS sorcery_ops (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       province_id INTEGER NOT NULL REFERENCES provinces(id),
@@ -937,6 +955,11 @@ export function initSchema(db: Database.Database) {
     "province_id, key_hash, received_at"
   );
   ensureUniqueSubmissionIndex(
+    "idx_intel_ops_unique_submission",
+    "intel_ops",
+    "province_id, key_hash, received_at, op"
+  );
+  ensureUniqueSubmissionIndex(
     "idx_sorcery_ops_unique_submission",
     "sorcery_ops",
     "province_id, key_hash, received_at"
@@ -1112,7 +1135,7 @@ export function storeSoT(data: SoTData, savedBy: string, keyHash: string, isSelf
   })();
 }
 
-export function storeSoD(data: SoDData, savedBy: string, keyHash: string) {
+export function storeSoD(data: SoDData, savedBy: string, keyHash: string, receivedAt?: string) {
   const db = getDb();
   db.transaction(() => {
     const provId = ensureProvince(db, data.name, data.kingdom);
@@ -1120,21 +1143,21 @@ export function storeSoD(data: SoDData, savedBy: string, keyHash: string) {
 
     // SoD returns net modified def at home
     db.prepare(`
-      INSERT INTO home_military_points (province_id, key_hash, mod_off_at_home, mod_def_at_home, source, saved_by, accuracy)
-      VALUES (?, ?, NULL, ?, 'sod', ?, ?)
-    `).run(provId, keyHash, data.defPoints, savedBy, data.accuracy);
+      INSERT OR IGNORE INTO home_military_points (province_id, key_hash, mod_off_at_home, mod_def_at_home, source, saved_by, accuracy, received_at)
+      VALUES (?, ?, NULL, ?, 'sod', ?, ?, COALESCE(?, datetime('now')))
+    `).run(provId, keyHash, data.defPoints, savedBy, data.accuracy, receivedAt ?? null);
   })();
 }
 
-export function storeInfiltrate(data: InfiltrateData, savedBy: string, keyHash: string) {
+export function storeInfiltrate(data: InfiltrateData, savedBy: string, keyHash: string, receivedAt?: string) {
   const db = getDb();
   db.transaction(() => {
     const provId = ensureProvince(db, data.name, data.kingdom);
     recordSubmission(db, keyHash, provId);
     db.prepare(`
-      INSERT INTO province_resources (province_id, key_hash, thieves, source, saved_by, accuracy)
-      VALUES (?, ?, ?, 'infiltrate', ?, ?)
-    `).run(provId, keyHash, data.thieves, savedBy, data.accuracy);
+      INSERT OR IGNORE INTO province_resources (province_id, key_hash, thieves, source, saved_by, accuracy, received_at)
+      VALUES (?, ?, ?, 'infiltrate', ?, ?, COALESCE(?, datetime('now')))
+    `).run(provId, keyHash, data.thieves, savedBy, data.accuracy, receivedAt ?? null);
     updateMetricsCache(db, provId, keyHash);
   })();
 }
@@ -1236,6 +1259,58 @@ export function storeRob(data: RobData, savedBy: string, keyHash: string, receiv
   })();
 }
 
+export function storeIntelOp(data: IntelOpAttempt, savedBy: string, keyHash: string, receivedAt?: string) {
+  const db = getDb();
+  db.transaction(() => {
+    const provId = ensureProvince(db, savedBy, "");
+    recordSubmission(db, keyHash, provId);
+    const target = resolveIntelOpTarget(db, data, keyHash);
+    db.prepare(`
+      INSERT OR IGNORE INTO intel_ops
+        (province_id, key_hash, op, intel_type, outcome,
+         target_name, target_slot, target_kingdom, accuracy,
+         saved_by, received_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
+    `).run(
+      provId, keyHash, data.op, data.intelType, data.outcome,
+      target.targetName, target.targetSlot, target.targetKingdom, data.accuracy,
+      savedBy, receivedAt ?? null,
+    );
+  })();
+}
+
+function resolveIntelOpTarget(db: Database.Database, data: IntelOpAttempt, keyHash: string) {
+  let targetName = data.targetName;
+  let targetSlot = data.targetSlot;
+  const targetKingdom = data.targetKingdom;
+
+  if (targetKingdom && targetName == null && targetSlot != null) {
+    const row = db.prepare(`
+      SELECT kp.name
+      FROM kingdom_provinces kp
+      JOIN kingdom_intel ki ON ki.id = kp.kingdom_intel_id
+      WHERE ki.key_hash = ? AND ki.location = ? AND kp.slot = ?
+      ORDER BY ki.received_at DESC, ki.id DESC
+      LIMIT 1
+    `).get(keyHash, targetKingdom, targetSlot) as { name: string } | undefined;
+    targetName = row?.name ?? null;
+  }
+
+  if (targetKingdom && targetSlot == null && targetName) {
+    const row = db.prepare(`
+      SELECT kp.slot
+      FROM kingdom_provinces kp
+      JOIN kingdom_intel ki ON ki.id = kp.kingdom_intel_id
+      WHERE ki.key_hash = ? AND ki.location = ? AND kp.name = ?
+      ORDER BY ki.received_at DESC, ki.id DESC
+      LIMIT 1
+    `).get(keyHash, targetKingdom, targetName) as { slot: number | null } | undefined;
+    targetSlot = row?.slot ?? null;
+  }
+
+  return { targetName, targetSlot, targetKingdom };
+}
+
 export function storeSorcery(data: SorceryData, savedBy: string, keyHash: string, receivedAt?: string) {
   const db = getDb();
   db.transaction(() => {
@@ -1283,7 +1358,7 @@ export function storeAttack(data: AttackData, savedBy: string, keyHash: string, 
   })();
 }
 
-export function storeSoS(data: SoSData, savedBy: string, keyHash: string, isSelf = false) {
+export function storeSoS(data: SoSData, savedBy: string, keyHash: string, isSelf = false, receivedAt?: string) {
   const db = getDb();
   const src = isSelf ? "council_science" : "sos";
   db.transaction(() => {
@@ -1291,9 +1366,10 @@ export function storeSoS(data: SoSData, savedBy: string, keyHash: string, isSelf
     recordSubmission(db, keyHash, provId);
 
     const result = db.prepare(`
-      INSERT INTO sos_intel (province_id, key_hash, source, saved_by, accuracy)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(provId, keyHash, src, savedBy, data.accuracy);
+      INSERT OR IGNORE INTO sos_intel (province_id, key_hash, source, saved_by, accuracy, received_at)
+      VALUES (?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
+    `).run(provId, keyHash, src, savedBy, data.accuracy, receivedAt ?? null);
+    if (result.changes === 0) return;
 
     const sosId = result.lastInsertRowid;
     const ins = db.prepare("INSERT INTO sos_sciences (sos_intel_id, science, books, effect) VALUES (?, ?, ?, ?)");
@@ -3428,6 +3504,7 @@ export function createDbApi(db: Database.Database): DbApi {
         DELETE FROM kingdom_news WHERE received_at < ${cutoff};
         DELETE FROM kingdom_news_sharded WHERE received_at < ${cutoff};
         DELETE FROM rob_ops WHERE received_at < ${cutoff};
+        DELETE FROM intel_ops WHERE received_at < ${cutoff};
         DELETE FROM sorcery_ops WHERE received_at < ${cutoff};
         DELETE FROM attack_ops WHERE received_at < ${cutoff};
       `);

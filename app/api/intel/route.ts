@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { withAxiom, AxiomRequest } from "next-axiom";
 import { appendDebugLog } from "@/lib/debug-log";
 import { hashKey } from "@/lib/keys";
+import { buildIntelOpAttempt } from "@/lib/intel-ops";
 import { parseIntel } from "@/lib/parsers";
 import { getIntelPathname, matchesGamePath, extractProvinceOperationsInfo } from "@/lib/parsers/detect";
 import { parseKingdomNews } from "@/lib/parsers/kingdom_news";
@@ -19,6 +20,7 @@ import {
   storeTrainArmy,
   storeBuild,
   storeRob,
+  storeIntelOp,
   storeSorcery,
   storeAttack,
   cleanupExpired,
@@ -106,6 +108,9 @@ export const POST = withAxiom(async (request: AxiomRequest) => {
   }).catch(() => {});
 
   const result = parseIntel(fields.url, fields.data_simple, fields.prov);
+  const intelOpAttempt = buildIntelOpAttempt(fields.url, fields.data_simple, result);
+  if (intelOpAttempt) storeIntelOp(intelOpAttempt, fields.prov, keyHash);
+
   if (!result) {
     intelLog(`from=${fields.prov}  key=${keyHash.slice(0, 8)}  unrecognized  url=${fields.url}`);
     request.log.warn("unrecognized intel", { url: fields.url, prov: fields.prov, keyHash: keyHash.slice(0, 8) });

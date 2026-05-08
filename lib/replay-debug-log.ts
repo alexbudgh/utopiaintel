@@ -2,6 +2,7 @@ import { createReadStream } from "node:fs";
 import { resolve } from "node:path";
 import { hashKey } from "./keys";
 import readline from "node:readline";
+import { buildIntelOpAttempt } from "./intel-ops";
 import { parseIntel } from "./parsers";
 import { getIntelPathname, matchesGamePath, extractProvinceOperationsInfo } from "./parsers/detect";
 import { parseKingdomNews } from "./parsers/kingdom_news";
@@ -14,15 +15,19 @@ import {
   storeKingdomNews,
   storeState,
   storeSoM,
+  storeSoS,
+  storeSoD,
+  storeInfiltrate,
   storeTrainArmy,
   storeBuild,
   storeRob,
+  storeIntelOp,
   storeSorcery,
   storeAttack,
   setMetricsCacheRefreshEnabled,
 } from "./db";
 
-export type ReplayType = "kingdom" | "survey" | "sot" | "kingdom_news" | "state" | "som" | "train_army" | "build" | "rob" | "sorcery" | "attack";
+export type ReplayType = "kingdom" | "survey" | "sot" | "kingdom_news" | "state" | "som" | "sos" | "sod" | "infiltrate" | "train_army" | "build" | "rob" | "sorcery" | "attack";
 
 export interface DebugEntry {
   url: string;
@@ -47,7 +52,7 @@ export interface ReplaySummary {
   byType: Map<string, number>;
 }
 
-export const allowedReplayTypes = new Set<ReplayType>(["kingdom", "survey", "sot", "kingdom_news", "state", "som", "train_army", "build", "rob", "sorcery", "attack"]);
+export const allowedReplayTypes = new Set<ReplayType>(["kingdom", "survey", "sot", "kingdom_news", "state", "som", "sos", "sod", "infiltrate", "train_army", "build", "rob", "sorcery", "attack"]);
 
 export function normalizeReceivedAt(receivedAt: string): string {
   const date = new Date(receivedAt);
@@ -96,13 +101,29 @@ export function resolveReplayKeyHash(entry: DebugEntry, assumeKeyHash?: string):
 export function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options: { keyHash?: string; assumeKeyHash?: string; dryRun?: boolean } = {}) {
   if (!shouldReplayEntry(entry, options.keyHash)) return null;
   const parsed = parseIntel(entry.url, entry.data_simple, entry.prov);
-  if (!parsed) return null;
-  if (!allowed.has(parsed.type as ReplayType)) return null;
+  const intelOpAttempt = buildIntelOpAttempt(entry.url, entry.data_simple, parsed);
+  if (!parsed) {
+    if (!intelOpAttempt || !allowed.has(intelOpAttempt.intelType)) return null;
+
+    const keyHash = resolveReplayKeyHash(entry, options.assumeKeyHash);
+    const normalizedReceivedAt = entry.received_at ? normalizeReceivedAt(entry.received_at) : null;
+    if (options.dryRun) return intelOpAttempt.intelType;
+
+    storeIntelOp(intelOpAttempt, entry.prov, keyHash, normalizedReceivedAt ?? undefined);
+    return intelOpAttempt.intelType;
+  }
+
+  const shouldReplayParsed = allowed.has(parsed.type as ReplayType);
+  const shouldReplayIntelOp = !!intelOpAttempt && allowed.has(intelOpAttempt.intelType);
+  if (!shouldReplayParsed && !shouldReplayIntelOp) return null;
 
   const keyHash = resolveReplayKeyHash(entry, options.assumeKeyHash);
   const savedBy = entry.prov;
   const normalizedReceivedAt = entry.received_at ? normalizeReceivedAt(entry.received_at) : null;
-  if (options.dryRun) return parsed.type;
+  if (options.dryRun) return shouldReplayParsed ? parsed.type : intelOpAttempt?.intelType ?? null;
+
+  if (shouldReplayIntelOp) storeIntelOp(intelOpAttempt, savedBy, keyHash, normalizedReceivedAt ?? undefined);
+  if (!shouldReplayParsed) return intelOpAttempt?.intelType ?? null;
 
   if (parsed.type === "kingdom") {
     storeKingdom(parsed.data, savedBy, keyHash, normalizedReceivedAt ?? undefined);
@@ -141,6 +162,22 @@ export function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options
     const isSelfMilitary = matchesGamePath(getIntelPathname(entry.url), "council_military");
     storeSoM(parsed.data, savedBy, keyHash, isSelfMilitary, normalizedReceivedAt ?? undefined);
     return "som";
+  }
+
+  if (parsed.type === "sos") {
+    const isSelfScience = matchesGamePath(getIntelPathname(entry.url), "council_science");
+    storeSoS(parsed.data, savedBy, keyHash, isSelfScience, normalizedReceivedAt ?? undefined);
+    return "sos";
+  }
+
+  if (parsed.type === "sod") {
+    storeSoD(parsed.data, savedBy, keyHash, normalizedReceivedAt ?? undefined);
+    return "sod";
+  }
+
+  if (parsed.type === "infiltrate") {
+    storeInfiltrate(parsed.data, savedBy, keyHash, normalizedReceivedAt ?? undefined);
+    return "infiltrate";
   }
 
   if (parsed.type === "train_army") {
