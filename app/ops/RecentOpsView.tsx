@@ -212,6 +212,10 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
     setTargetFilter(target);
   };
 
+  const filterToOutcome = (outcome: string) => {
+    setOutcomeFilter(outcome);
+  };
+
   useEffect(() => {
     setVisibleLimit(PAGE_SIZE);
   }, [activeTypes, kingdomFilter, targetFilter, senderFilter, outcomeFilter, query]);
@@ -371,9 +375,15 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
                   <td className="py-2 pr-4 text-[12px] text-gray-400">
                     {op.outcome ? (
                       <>
-                        <span className={outcomeClass(op.outcome)}>
+                        <button
+                          type="button"
+                          onClick={() => filterToOutcome(op.outcome!)}
+                          aria-pressed={outcomeFilter === op.outcome}
+                          className={`${outcomeClass(op.outcome)} transition-colors hover:text-white`}
+                          title={`Filter to ${op.outcome === "success" ? "Success" : "Failed"}`}
+                        >
                           {op.outcome === "success" ? "Success" : "Failed"}
-                        </span>
+                        </button>
                         {detail && <span className="text-gray-500"> · {detail}</span>}
                       </>
                     ) : (
