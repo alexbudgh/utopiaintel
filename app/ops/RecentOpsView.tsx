@@ -78,6 +78,10 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
     });
   };
 
+  const filterToType = (type: string) => {
+    setActiveTypes(new Set([type]));
+  };
+
   const clearFilters = () => {
     setActiveTypes(new Set());
     setKingdomFilter(ALL_FILTER);
@@ -179,9 +183,15 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
                 className={`border-b border-gray-800/50 transition-colors duration-1000 ${isNew ? "bg-gray-700/40" : "hover:bg-gray-800/30"}`}
               >
                 <td className="py-2 pr-4">
-                  <span className={`rounded border px-1.5 py-0.5 text-[11px] font-medium ${color}`}>
+                  <button
+                    type="button"
+                    onClick={() => filterToType(op.op_type)}
+                    aria-pressed={activeTypes.size === 1 && activeTypes.has(op.op_type)}
+                    className={`rounded border px-1.5 py-0.5 text-[11px] font-medium transition-colors hover:border-white/40 hover:text-white ${color}`}
+                    title={`Filter to ${op.op_type}`}
+                  >
                     {op.op_type}
-                  </span>
+                  </button>
                 </td>
                 <td className="py-2 pr-4">
                   <Link href={provHref} className="text-gray-200 hover:text-white transition-colors">
