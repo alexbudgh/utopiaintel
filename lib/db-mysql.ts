@@ -631,6 +631,21 @@ export async function bindKeyToKingdom(conn: PoolConnection, keyHash: string, ki
 
 // ── Store functions ───────────────────────────────────────────────────────────
 
+export async function storeInfiltrate(data: InfiltrateData, savedBy: string, keyHash: string): Promise<void> {
+  await ensureReady();
+  await withTransaction(async (conn) => {
+    const provId = await ensureProvince(conn, data.name, data.kingdom);
+    await recordSubmission(conn, keyHash, provId);
+    await conn.execute(
+      `INSERT IGNORE INTO province_resources
+         (province_id, key_hash, thieves, source, saved_by, accuracy)
+       VALUES (?, ?, ?, 'infiltrate', ?, ?)`,
+      [provId, keyHash, data.thieves, savedBy, data.accuracy],
+    );
+    // updateMetricsCache called here once implemented
+  });
+}
+
 export async function storeSoD(data: SoDData, savedBy: string, keyHash: string): Promise<void> {
   await ensureReady();
   await withTransaction(async (conn) => {

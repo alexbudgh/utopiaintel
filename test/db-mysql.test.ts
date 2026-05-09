@@ -1,7 +1,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import type { RowDataPacket } from "mysql2/promise";
-import { pool, initDb, ensureProvince, recordSubmission, bindKeyToKingdom, withTransaction, storeSoD } from "../lib/db-mysql";
+import { pool, initDb, ensureProvince, recordSubmission, bindKeyToKingdom, withTransaction, storeInfiltrate, storeSoD } from "../lib/db-mysql";
 
 after(async () => {
   await pool.end();
@@ -211,4 +211,21 @@ test("storeSoD: idempotent — same-second duplicate is silently dropped", async
     ["keyhash1"],
   );
   assert.ok(n >= 1);
+});
+
+// ── storeInfiltrate ───────────────────────────────────────────────────────────
+
+test("storeInfiltrate: inserts a province_resources row with correct thieves value", async () => {
+  await truncateAll();
+  interface ResRow extends RowDataPacket { thieves: number; source: string; accuracy: number }
+
+  await storeInfiltrate({ name: "TestProv", kingdom: "7:5", thieves: 4038, accuracy: 100 }, "spy1", "keyhash1");
+
+  const [[row]] = await pool.query<ResRow[]>(
+    "SELECT thieves, source, accuracy FROM province_resources WHERE key_hash = ?",
+    ["keyhash1"],
+  );
+  assert.equal(row.thieves, 4038);
+  assert.equal(row.source, "infiltrate");
+  assert.equal(row.accuracy, 100);
 });
