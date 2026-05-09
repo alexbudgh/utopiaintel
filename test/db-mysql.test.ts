@@ -1,7 +1,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import type { RowDataPacket } from "mysql2/promise";
-import { pool, initDb, ensureProvince, recordSubmission, bindKeyToKingdom, withTransaction, storeSorcery, storeRob, storeAttack, storeTrainArmy, storeBuild, storeInfiltrate, storeSoD } from "../lib/db-mysql";
+import { pool, initDb, ensureProvince, recordSubmission, bindKeyToKingdom, withTransaction, storeSoS, storeSorcery, storeRob, storeAttack, storeTrainArmy, storeBuild, storeInfiltrate, storeSoD } from "../lib/db-mysql";
 
 after(async () => {
   await pool.end();
@@ -445,6 +445,62 @@ test("storeSorcery: duplicate op does not insert province_resources", async () =
 
   const [[{ n }]] = await pool.query<CountRow[]>(
     "SELECT COUNT(*) AS n FROM province_resources WHERE key_hash = ?",
+    ["keyhash1"],
+  );
+  assert.equal(n, 1);
+});
+
+// ── storeSoS ──────────────────────────────────────────────────────────────────
+
+const baseSoS = {
+  name: "TestProv", kingdom: "7:5",
+  sciences: [
+    { science: "Crime", books: 500, effect: 12.5 },
+    { science: "Channeling", books: 300, effect: 8.0 },
+  ],
+  accuracy: 100,
+};
+
+test("storeSoS: inserts sos_intel and sos_sciences child rows", async () => {
+  await truncateAll();
+  interface SciRow extends RowDataPacket { science: string; books: number; effect: number }
+
+  await storeSoS(baseSoS, "spy1", "keyhash1");
+
+  const [sciRows] = await pool.query<SciRow[]>(
+    `SELECT ss.science, ss.books, ss.effect
+     FROM sos_sciences ss JOIN sos_intel si ON si.id = ss.sos_intel_id
+     WHERE si.key_hash = ? ORDER BY ss.science`,
+    ["keyhash1"],
+  );
+  assert.equal(sciRows.length, 2);
+  const crime = sciRows.find((r) => r.science === "Crime")!;
+  assert.equal(crime.books, 500);
+  assert.equal(crime.effect, 12.5);
+});
+
+test("storeSoS: isSelf=true stores source as council_science", async () => {
+  await truncateAll();
+  interface SrcRow extends RowDataPacket { source: string }
+
+  await storeSoS(baseSoS, "player1", "keyhash1", true);
+
+  const [[row]] = await pool.query<SrcRow[]>(
+    "SELECT source FROM sos_intel WHERE key_hash = ?",
+    ["keyhash1"],
+  );
+  assert.equal(row.source, "council_science");
+});
+
+test("storeSoS: duplicate does not insert sciences again", async () => {
+  await truncateAll();
+  interface CountRow extends RowDataPacket { n: number }
+
+  await storeSoS(baseSoS, "spy1", "keyhash1", false, "2025-06-01 12:00:00");
+  await storeSoS(baseSoS, "spy1", "keyhash1", false, "2025-06-01 12:00:00");
+
+  const [[{ n }]] = await pool.query<CountRow[]>(
+    "SELECT COUNT(*) AS n FROM sos_intel WHERE key_hash = ?",
     ["keyhash1"],
   );
   assert.equal(n, 1);

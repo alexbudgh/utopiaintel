@@ -553,6 +553,7 @@ export async function initDb(): Promise<void> {
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_status_unique_submission ON province_status(province_id, key_hash, source, saved_by, received_at)`,
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_effects_unique_submission ON province_effects(province_id, key_hash, source, saved_by, received_at, effect_name, effect_kind)`,
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_milintel_unique_submission ON military_intel(province_id, key_hash, source, saved_by, received_at)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_sos_unique_submission ON sos_intel(province_id, key_hash, source, saved_by, received_at)`,
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_survey_unique_submission ON survey_intel(province_id, key_hash, source, saved_by, received_at)`,
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_kingdom_unique_submission ON kingdom_intel(key_hash, location, source, saved_by, received_at)`,
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_attack_ops_unique_submission ON attack_ops(province_id, key_hash, received_at)`,
@@ -630,6 +631,31 @@ export async function bindKeyToKingdom(conn: PoolConnection, keyHash: string, ki
 }
 
 // ── Store functions ───────────────────────────────────────────────────────────
+
+export async function storeSoS(data: SoSData, savedBy: string, keyHash: string, isSelf = false, receivedAt?: string): Promise<void> {
+  await ensureReady();
+  const src = isSelf ? "council_science" : "sos";
+  await withTransaction(async (conn) => {
+    const provId = await ensureProvince(conn, data.name, data.kingdom);
+    await recordSubmission(conn, keyHash, provId);
+
+    const [result] = await conn.execute(
+      `INSERT IGNORE INTO sos_intel (province_id, key_hash, source, saved_by, accuracy, received_at)
+       VALUES (?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+      [provId, keyHash, src, savedBy, data.accuracy, receivedAt ?? null],
+    ) as [ResultSetHeader, unknown];
+    if (result.affectedRows === 0) return;
+
+    const sosId = result.insertId;
+    for (const s of data.sciences) {
+      await conn.execute(
+        "INSERT INTO sos_sciences (sos_intel_id, science, books, effect) VALUES (?, ?, ?, ?)",
+        [sosId, s.science, s.books, s.effect],
+      );
+    }
+    // queueMetricsCacheRefresh called here once implemented
+  });
+}
 
 export async function storeSorcery(data: SorceryData, savedBy: string, keyHash: string, receivedAt?: string): Promise<void> {
   await ensureReady();
