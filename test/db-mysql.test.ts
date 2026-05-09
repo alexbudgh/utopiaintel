@@ -1,7 +1,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import type { RowDataPacket } from "mysql2/promise";
-import { pool, initDb, ensureProvince, recordSubmission, bindKeyToKingdom, withTransaction, storeSoS, storeSorcery, storeRob, storeAttack, storeTrainArmy, storeBuild, storeInfiltrate, storeSoD, storeIntelOp, storeSurvey } from "../lib/db-mysql";
+import { pool, initDb, ensureProvince, recordSubmission, bindKeyToKingdom, withTransaction, storeSoS, storeSoM, storeSorcery, storeRob, storeAttack, storeTrainArmy, storeBuild, storeInfiltrate, storeSoD, storeIntelOp, storeSurvey } from "../lib/db-mysql";
 
 after(async () => {
   await pool.end();
@@ -659,5 +659,71 @@ test("storeSurvey: duplicate does not insert buildings again", async () => {
     "SELECT COUNT(*) AS n FROM survey_intel WHERE key_hash = ?",
     ["keyhash1"],
   );
+  assert.equal(n, 1);
+});
+
+// ── storeSoM ─────────────────────────────────────────────────────────────────
+
+const baseSoM = {
+  name: "MilProvince",
+  kingdom: "7:5",
+  accuracy: 95,
+  ome: 1.05,
+  dme: 0.98,
+  netOffense: 12000,
+  netDefense: 9000,
+  armies: [
+    { armyType: "home" as const, generals: 0, soldiers: 300, offSpecs: 50, defSpecs: 80, elites: 20, warHorses: 5, thieves: 0, landGained: 0, returnDays: null },
+    { armyType: "out1" as const, generals: 1, soldiers: 100, offSpecs: 20, defSpecs: 0, elites: 10, warHorses: 2, thieves: 0, landGained: 150, returnDays: 3.5 },
+  ],
+};
+
+test("storeSoM: inserts military_intel, province_troops, home_military_points and som_armies", async () => {
+  await truncateAll();
+  interface MilRow extends RowDataPacket { ome: number; dme: number; source: string }
+  interface TroopsRow extends RowDataPacket { soldiers: number; off_specs: number; source: string }
+  interface HomeRow extends RowDataPacket { mod_off_at_home: number; mod_def_at_home: number }
+  interface ArmyRow extends RowDataPacket { army_type: string; soldiers: number; return_days: number | null }
+
+  await storeSoM(baseSoM, "scout1", "keyhash1", false, "2025-06-01 12:00:00");
+
+  const [[mil]] = await pool.query<MilRow[]>("SELECT ome, dme, source FROM military_intel WHERE key_hash = ?", ["keyhash1"]);
+  assert.equal(mil.source, "som");
+  assert.equal(mil.ome, 1.05);
+
+  const [[troops]] = await pool.query<TroopsRow[]>("SELECT soldiers, off_specs, source FROM province_troops WHERE key_hash = ?", ["keyhash1"]);
+  assert.equal(troops.soldiers, 300);
+  assert.equal(troops.off_specs, 50);
+  assert.equal(troops.source, "som");
+
+  const [[home]] = await pool.query<HomeRow[]>("SELECT mod_off_at_home, mod_def_at_home FROM home_military_points WHERE key_hash = ?", ["keyhash1"]);
+  assert.equal(home.mod_off_at_home, 12000);
+  assert.equal(home.mod_def_at_home, 9000);
+
+  const [armies] = await pool.query<ArmyRow[]>("SELECT army_type, soldiers, return_days FROM som_armies ORDER BY army_type");
+  assert.equal(armies.length, 2);
+  const out = armies.find((a) => a.army_type === "out1")!;
+  assert.equal(out.soldiers, 100);
+  assert.equal(out.return_days, 3.5);
+});
+
+test("storeSoM: isSelf=true stores source as council_military", async () => {
+  await truncateAll();
+  interface SrcRow extends RowDataPacket { source: string }
+
+  await storeSoM(baseSoM, "self1", "keyhash1", true, "2025-06-01 12:00:00");
+
+  const [[row]] = await pool.query<SrcRow[]>("SELECT source FROM military_intel WHERE key_hash = ?", ["keyhash1"]);
+  assert.equal(row.source, "council_military");
+});
+
+test("storeSoM: duplicate does not insert armies again", async () => {
+  await truncateAll();
+  interface CountRow extends RowDataPacket { n: number }
+
+  await storeSoM(baseSoM, "scout1", "keyhash1", false, "2025-06-01 12:00:00");
+  await storeSoM(baseSoM, "scout1", "keyhash1", false, "2025-06-01 12:00:00");
+
+  const [[{ n }]] = await pool.query<CountRow[]>("SELECT COUNT(*) AS n FROM military_intel WHERE key_hash = ?", ["keyhash1"]);
   assert.equal(n, 1);
 });

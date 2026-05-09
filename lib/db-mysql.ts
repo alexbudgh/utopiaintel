@@ -884,6 +884,50 @@ export async function storeIntelOp(data: IntelOpAttempt, savedBy: string, keyHas
   });
 }
 
+export async function storeSoM(data: SoMData, savedBy: string, keyHash: string, isSelf = false, receivedAt?: string): Promise<void> {
+  await ensureReady();
+  const src = isSelf ? "council_military" : "som";
+  await withTransaction(async (conn) => {
+    const provId = await ensureProvince(conn, data.name, data.kingdom);
+    await recordSubmission(conn, keyHash, provId);
+
+    const homeArmy = data.armies.find((a) => a.armyType === "home");
+    if (homeArmy) {
+      await conn.execute(
+        `INSERT IGNORE INTO province_troops
+           (province_id, key_hash, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, saved_by, accuracy, received_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, COALESCE(?, NOW()))`,
+        [provId, keyHash, homeArmy.soldiers, homeArmy.offSpecs, homeArmy.defSpecs, homeArmy.elites, homeArmy.warHorses, src, savedBy, data.accuracy, receivedAt ?? null],
+      );
+    }
+
+    await conn.execute(
+      `INSERT IGNORE INTO home_military_points
+         (province_id, key_hash, mod_off_at_home, mod_def_at_home, source, saved_by, accuracy, received_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+      [provId, keyHash, data.netOffense, data.netDefense, src, savedBy, data.accuracy, receivedAt ?? null],
+    );
+
+    const [result] = await conn.execute(
+      `INSERT IGNORE INTO military_intel
+         (province_id, key_hash, ome, dme, source, saved_by, accuracy, received_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+      [provId, keyHash, data.ome, data.dme, src, savedBy, data.accuracy, receivedAt ?? null],
+    ) as [ResultSetHeader, unknown];
+    if (result.affectedRows === 0) return;
+
+    const milIntelId = result.insertId;
+    for (const a of data.armies) {
+      await conn.execute(
+        `INSERT INTO som_armies
+           (military_intel_id, army_type, generals, soldiers, off_specs, def_specs, elites, war_horses, thieves, land_gained, return_days)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [milIntelId, a.armyType, a.generals, a.soldiers, a.offSpecs, a.defSpecs, a.elites, a.warHorses, a.thieves, a.landGained, a.returnDays],
+      );
+    }
+  });
+}
+
 export async function storeSurvey(data: SurveyData, savedBy: string, keyHash: string, isSelf = false, receivedAt?: string): Promise<void> {
   await ensureReady();
   const src = isSelf ? "council_internal" : "survey";
