@@ -1,6 +1,6 @@
 import mysql from "mysql2/promise";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
-import { BAD_SPELL_NAMES } from "./effects";
+import { BAD_SPELL_NAMES, COMBAT_EVENT_TYPES } from "./effects";
 import { parseUtopiaDate, formatUtopiaDate, UTOPIA_DAYS_PER_MONTH } from "./ui";
 import { computeWizardCount } from "./nw";
 import { computeDtpaValue, computeMtpaValue, computeMwpaValue, computeOtpaValue, rawPerAcreValue } from "./metrics";
@@ -97,7 +97,7 @@ export async function withTransaction<T>(fn: (conn: PoolConnection) => Promise<T
 // ── SQL helpers ──────────────────────────────────────────────────────────────
 
 const TTL_DAYS = 7;
-const COMBAT_TYPES_SQL = `'march','ambush','raze','pillage','loot','failed_attack'`;
+const COMBAT_TYPES_SQL = COMBAT_EVENT_TYPES.map((t) => `'${t}'`).join(",");
 
 // Same-tick check: integer division of UNIX_TIMESTAMP by 3600 (one Utopia hour)
 const SAME_TICK_EXPR = (a: string, b: string) =>

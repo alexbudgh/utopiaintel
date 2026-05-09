@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
-import { BAD_SPELL_NAMES } from "./effects";
+import { BAD_SPELL_NAMES, COMBAT_EVENT_TYPES } from "./effects";
 import { parseUtopiaDate, formatUtopiaDate } from "./ui";
 import { computeWizardCount } from "./nw";
 import { computeDtpaValue, computeMtpaValue, computeMwpaValue, computeOtpaValue, rawPerAcreValue } from "./metrics";
@@ -2643,7 +2643,7 @@ export function getLatestWarDate(kingdom: string, keyHash: string): string | nul
   return createDbApi(getDb()).getLatestWarDate(kingdom, keyHash);
 }
 
-const COMBAT_TYPES = `'march','ambush','raze','pillage','loot','failed_attack'`;
+const COMBAT_TYPES = COMBAT_EVENT_TYPES.map((t) => `'${t}'`).join(",");
 
 export interface NewsProvinceSummary {
   provinceName: string | null;
