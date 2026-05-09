@@ -1061,31 +1061,31 @@ export async function storeBuild(data: BuildData, savedBy: string, keyHash: stri
   });
 }
 
-export async function storeInfiltrate(data: InfiltrateData, savedBy: string, keyHash: string): Promise<void> {
+export async function storeInfiltrate(data: InfiltrateData, savedBy: string, keyHash: string, receivedAt?: string): Promise<void> {
   await ensureReady();
   await withTransaction(async (conn) => {
     const provId = await ensureProvince(conn, data.name, data.kingdom);
     await recordSubmission(conn, keyHash, provId);
     await conn.execute(
       `INSERT IGNORE INTO province_resources
-         (province_id, key_hash, thieves, source, saved_by, accuracy)
-       VALUES (?, ?, ?, 'infiltrate', ?, ?)`,
-      [provId, keyHash, data.thieves, savedBy, data.accuracy],
+         (province_id, key_hash, thieves, source, saved_by, accuracy, received_at)
+       VALUES (?, ?, ?, 'infiltrate', ?, ?, COALESCE(?, NOW()))`,
+      [provId, keyHash, data.thieves, savedBy, data.accuracy, receivedAt ?? null],
     );
-    queueMetricsCacheRefresh(provId, keyHash);
+    queueMetricsCacheRefresh(provId, keyHash, receivedAt);
   });
 }
 
-export async function storeSoD(data: SoDData, savedBy: string, keyHash: string): Promise<void> {
+export async function storeSoD(data: SoDData, savedBy: string, keyHash: string, receivedAt?: string): Promise<void> {
   await ensureReady();
   await withTransaction(async (conn) => {
     const provId = await ensureProvince(conn, data.name, data.kingdom);
     await recordSubmission(conn, keyHash, provId);
     await conn.execute(
       `INSERT IGNORE INTO home_military_points
-         (province_id, key_hash, mod_off_at_home, mod_def_at_home, source, saved_by, accuracy)
-       VALUES (?, ?, NULL, ?, 'sod', ?, ?)`,
-      [provId, keyHash, data.defPoints, savedBy, data.accuracy],
+         (province_id, key_hash, mod_off_at_home, mod_def_at_home, source, saved_by, accuracy, received_at)
+       VALUES (?, ?, NULL, ?, 'sod', ?, ?, COALESCE(?, NOW()))`,
+      [provId, keyHash, data.defPoints, savedBy, data.accuracy, receivedAt ?? null],
     );
   });
 }

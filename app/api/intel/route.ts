@@ -7,23 +7,6 @@ import { parseIntel } from "@/lib/parsers";
 import { getIntelPathname, matchesGamePath, extractProvinceOperationsInfo } from "@/lib/parsers/detect";
 import { parseKingdomNews } from "@/lib/parsers/kingdom_news";
 import { parseSoT } from "@/lib/parsers/sot";
-import {
-  storeSoT,
-  storeSurvey,
-  storeSoM,
-  storeSoS,
-  storeSoD,
-  storeInfiltrate,
-  storeKingdom,
-  storeState,
-  storeKingdomNews,
-  storeTrainArmy,
-  storeBuild,
-  storeRob,
-  storeIntelOp,
-  storeSorcery,
-  storeAttack,
-} from "@/lib/db";
 import { getDbApi } from "@/lib/db-api";
 
 interface IntelFields {
@@ -109,7 +92,8 @@ export const POST = withAxiom(async (request: AxiomRequest) => {
 
   const result = parseIntel(fields.url, fields.data_simple, fields.prov);
   const intelOpAttempt = buildIntelOpAttempt(fields.url, fields.data_simple, result);
-  if (intelOpAttempt) storeIntelOp(intelOpAttempt, fields.prov, keyHash);
+  const db = getDbApi();
+  if (intelOpAttempt) await db.storeIntelOp(intelOpAttempt, fields.prov, keyHash);
 
   if (!result) {
     intelLog(`from=${fields.prov}  key=${keyHash.slice(0, 8)}  unrecognized  url=${fields.url}`);
@@ -135,28 +119,28 @@ export const POST = withAxiom(async (request: AxiomRequest) => {
 
   switch (result.type) {
     case "sot":
-      storeSoT(result.data, savedBy, keyHash, isSelfThrone);
+      await db.storeSoT(result.data, savedBy, keyHash, isSelfThrone);
       break;
     case "survey":
-      storeSurvey(result.data, savedBy, keyHash, isSelfInternal);
+      await db.storeSurvey(result.data, savedBy, keyHash, isSelfInternal);
       break;
     case "som":
-      storeSoM(result.data, savedBy, keyHash, isSelfMilitary);
+      await db.storeSoM(result.data, savedBy, keyHash, isSelfMilitary);
       break;
     case "sos":
-      storeSoS(result.data, savedBy, keyHash, isSelfScience);
+      await db.storeSoS(result.data, savedBy, keyHash, isSelfScience);
       break;
     case "sod":
-      storeSoD(result.data, savedBy, keyHash);
+      await db.storeSoD(result.data, savedBy, keyHash);
       break;
     case "infiltrate":
-      storeInfiltrate(result.data, savedBy, keyHash);
+      await db.storeInfiltrate(result.data, savedBy, keyHash);
       break;
     case "kingdom":
-      storeKingdom(result.data, savedBy, keyHash);
+      await db.storeKingdom(result.data, savedBy, keyHash);
       break;
     case "state":
-      storeState(result.data, savedBy, keyHash);
+      await db.storeState(result.data, savedBy, keyHash);
       break;
     case "kingdom_news": {
       const params = new URL(fields.url).searchParams;
@@ -164,40 +148,40 @@ export const POST = withAxiom(async (request: AxiomRequest) => {
         params.get("o")?.toUpperCase() === "SNATCH_NEWS" ||
         params.get("s")?.toUpperCase() === "CRYSTAL_EYE";
       const urlKingdom = extractProvinceOperationsInfo(fields.url)?.kingdom ?? null;
-      storeKingdomNews(result.data, keyHash, isExternalNews, undefined, urlKingdom);
+      await db.storeKingdomNews(result.data, keyHash, isExternalNews, undefined, urlKingdom);
       break;
     }
     case "train_army":
-      storeTrainArmy(result.data, savedBy, keyHash);
+      await db.storeTrainArmy(result.data, savedBy, keyHash);
       break;
     case "build":
-      storeBuild(result.data, savedBy, keyHash);
+      await db.storeBuild(result.data, savedBy, keyHash);
       break;
     case "rob":
-      storeRob(result.data, savedBy, keyHash);
+      await db.storeRob(result.data, savedBy, keyHash);
       break;
     case "sorcery":
-      storeSorcery(result.data, savedBy, keyHash);
+      await db.storeSorcery(result.data, savedBy, keyHash);
       if (result.data.spell === "CRYSTAL_EYE") {
         const newsData = parseKingdomNews(fields.data_simple);
         if (newsData) {
           const urlKingdom = extractProvinceOperationsInfo(fields.url)?.kingdom ?? null;
-          storeKingdomNews(newsData, keyHash, true, undefined, urlKingdom);
+          await db.storeKingdomNews(newsData, keyHash, true, undefined, urlKingdom);
         }
       }
       if (result.data.spell === "CRYSTAL_BALL") {
         const sotData = parseSoT(fields.data_simple);
-        if (sotData) storeSoT(sotData, savedBy, keyHash);
+        if (sotData) await db.storeSoT(sotData, savedBy, keyHash);
       }
       break;
     case "attack":
-      storeAttack(result.data, savedBy, keyHash);
+      await db.storeAttack(result.data, savedBy, keyHash);
       break;
   }
 
   // Periodic cleanup
   if (++requestCount % 100 === 0) {
-    void getDbApi().cleanupExpired();
+    void db.cleanupExpired();
   }
 
   return NextResponse.json({

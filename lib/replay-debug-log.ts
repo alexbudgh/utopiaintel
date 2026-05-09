@@ -7,26 +7,8 @@ import { parseIntel } from "./parsers";
 import { getIntelPathname, matchesGamePath, extractProvinceOperationsInfo } from "./parsers/detect";
 import { parseKingdomNews } from "./parsers/kingdom_news";
 import { parseSoT } from "./parsers/sot";
-import {
-  getDb,
-  storeSoT,
-  storeKingdom,
-  storeSurvey,
-  storeKingdomNews,
-  storeState,
-  storeSoM,
-  storeSoS,
-  storeSoD,
-  storeInfiltrate,
-  storeTrainArmy,
-  storeBuild,
-  storeRob,
-  storeIntelOp,
-  storeSorcery,
-  storeAttack,
-  setMetricsCacheRefreshEnabled,
-  flushMetricsCacheRefreshQueue,
-} from "./db";
+import { getDb } from "./db";
+import { getDbApi, setMetricsCacheRefreshEnabled, flushMetricsCacheRefreshQueue } from "./db-api";
 
 export type ReplayType = "kingdom" | "survey" | "sot" | "kingdom_news" | "state" | "som" | "sos" | "sod" | "infiltrate" | "train_army" | "build" | "rob" | "sorcery" | "attack";
 
@@ -99,7 +81,7 @@ export function resolveReplayKeyHash(entry: DebugEntry, assumeKeyHash?: string):
   return getSingleKeyHash();
 }
 
-export function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options: { keyHash?: string; assumeKeyHash?: string; dryRun?: boolean } = {}) {
+export async function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options: { keyHash?: string; assumeKeyHash?: string; dryRun?: boolean } = {}): Promise<string | null> {
   if (!shouldReplayEntry(entry, options.keyHash)) return null;
   const parsed = parseIntel(entry.url, entry.data_simple, entry.prov);
   const intelOpAttempt = buildIntelOpAttempt(entry.url, entry.data_simple, parsed);
@@ -110,7 +92,7 @@ export function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options
     const normalizedReceivedAt = entry.received_at ? normalizeReceivedAt(entry.received_at) : null;
     if (options.dryRun) return intelOpAttempt.intelType;
 
-    storeIntelOp(intelOpAttempt, entry.prov, keyHash, normalizedReceivedAt ?? undefined);
+    await getDbApi().storeIntelOp(intelOpAttempt, entry.prov, keyHash, normalizedReceivedAt ?? undefined);
     return intelOpAttempt.intelType;
   }
 
@@ -123,24 +105,26 @@ export function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options
   const normalizedReceivedAt = entry.received_at ? normalizeReceivedAt(entry.received_at) : null;
   if (options.dryRun) return shouldReplayParsed ? parsed.type : intelOpAttempt?.intelType ?? null;
 
-  if (shouldReplayIntelOp) storeIntelOp(intelOpAttempt, savedBy, keyHash, normalizedReceivedAt ?? undefined);
+  const db = getDbApi();
+  const ra = normalizedReceivedAt ?? undefined;
+
+  if (shouldReplayIntelOp) await db.storeIntelOp(intelOpAttempt, savedBy, keyHash, ra);
   if (!shouldReplayParsed) return intelOpAttempt?.intelType ?? null;
 
   if (parsed.type === "kingdom") {
-    storeKingdom(parsed.data, savedBy, keyHash, normalizedReceivedAt ?? undefined);
+    await db.storeKingdom(parsed.data, savedBy, keyHash, ra);
     return "kingdom";
   }
 
   if (parsed.type === "survey") {
     const isSelfInternal = matchesGamePath(getIntelPathname(entry.url), "council_internal");
-    storeSurvey(parsed.data, savedBy, keyHash, isSelfInternal, normalizedReceivedAt ?? undefined);
+    await db.storeSurvey(parsed.data, savedBy, keyHash, isSelfInternal, ra);
     return "survey";
   }
 
   if (parsed.type === "sot") {
-    const pathname = getIntelPathname(entry.url);
-    const isSelfThrone = matchesGamePath(pathname, "throne");
-    storeSoT(parsed.data, savedBy, keyHash, isSelfThrone, normalizedReceivedAt ?? undefined);
+    const isSelfThrone = matchesGamePath(getIntelPathname(entry.url), "throne");
+    await db.storeSoT(parsed.data, savedBy, keyHash, isSelfThrone, ra);
     return "sot";
   }
 
@@ -150,70 +134,70 @@ export function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options
       params.get("o")?.toUpperCase() === "SNATCH_NEWS" ||
       params.get("s")?.toUpperCase() === "CRYSTAL_EYE";
     const urlKingdom = extractProvinceOperationsInfo(entry.url)?.kingdom ?? null;
-    storeKingdomNews(parsed.data, keyHash, isExternalNews, normalizedReceivedAt ?? undefined, urlKingdom);
+    await db.storeKingdomNews(parsed.data, keyHash, isExternalNews, ra, urlKingdom);
     return "kingdom_news";
   }
 
   if (parsed.type === "state") {
-    storeState(parsed.data, savedBy, keyHash, normalizedReceivedAt ?? undefined);
+    await db.storeState(parsed.data, savedBy, keyHash, ra);
     return "state";
   }
 
   if (parsed.type === "som") {
     const isSelfMilitary = matchesGamePath(getIntelPathname(entry.url), "council_military");
-    storeSoM(parsed.data, savedBy, keyHash, isSelfMilitary, normalizedReceivedAt ?? undefined);
+    await db.storeSoM(parsed.data, savedBy, keyHash, isSelfMilitary, ra);
     return "som";
   }
 
   if (parsed.type === "sos") {
     const isSelfScience = matchesGamePath(getIntelPathname(entry.url), "council_science");
-    storeSoS(parsed.data, savedBy, keyHash, isSelfScience, normalizedReceivedAt ?? undefined);
+    await db.storeSoS(parsed.data, savedBy, keyHash, isSelfScience, ra);
     return "sos";
   }
 
   if (parsed.type === "sod") {
-    storeSoD(parsed.data, savedBy, keyHash, normalizedReceivedAt ?? undefined);
+    await db.storeSoD(parsed.data, savedBy, keyHash, ra);
     return "sod";
   }
 
   if (parsed.type === "infiltrate") {
-    storeInfiltrate(parsed.data, savedBy, keyHash, normalizedReceivedAt ?? undefined);
+    await db.storeInfiltrate(parsed.data, savedBy, keyHash, ra);
     return "infiltrate";
   }
 
   if (parsed.type === "train_army") {
-    storeTrainArmy(parsed.data, savedBy, keyHash, normalizedReceivedAt ?? undefined);
+    await db.storeTrainArmy(parsed.data, savedBy, keyHash, ra);
     return "train_army";
   }
 
   if (parsed.type === "build") {
-    storeBuild(parsed.data, savedBy, keyHash, normalizedReceivedAt ?? undefined);
+    await db.storeBuild(parsed.data, savedBy, keyHash, ra);
     return "build";
   }
 
   if (parsed.type === "rob") {
-    storeRob(parsed.data, savedBy, keyHash, normalizedReceivedAt ?? undefined);
+    await db.storeRob(parsed.data, savedBy, keyHash, ra);
     return "rob";
   }
 
   if (parsed.type === "sorcery") {
-    storeSorcery(parsed.data, savedBy, keyHash, normalizedReceivedAt ?? undefined);
+    await db.storeSorcery(parsed.data, savedBy, keyHash, ra);
     if (parsed.data.spell === "CRYSTAL_EYE") {
       const newsData = parseKingdomNews(entry.data_simple);
       if (newsData) {
         const urlKingdom = extractProvinceOperationsInfo(entry.url)?.kingdom ?? null;
-        storeKingdomNews(newsData, keyHash, true, normalizedReceivedAt ?? undefined, urlKingdom);
+        await db.storeKingdomNews(newsData, keyHash, true, ra, urlKingdom);
       }
     }
     if (parsed.data.spell === "CRYSTAL_BALL") {
       const sotData = parseSoT(entry.data_simple);
-      if (sotData) storeSoT(sotData, savedBy, keyHash, false, normalizedReceivedAt ?? undefined);
+      if (sotData) await db.storeSoT(sotData, savedBy, keyHash, false, ra);
     }
     return "sorcery";
   }
 
   if (parsed.type === "attack") {
-    storeAttack(parsed.data, savedBy, keyHash, normalizedReceivedAt ?? undefined);
+    await db.storeAttack(parsed.data, savedBy, keyHash, ra);
     return "attack";
   }
 
@@ -230,16 +214,13 @@ export async function replayDebugLogs({ files, replayTypes, keyHash, assumeKeyHa
     for (const file of files) {
       const fullPath = resolve(file);
       const stream = createReadStream(fullPath, "utf8");
-      const rl = readline.createInterface({
-        input: stream,
-        crlfDelay: Infinity,
-      });
+      const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
 
       for await (const line of rl) {
         if (!line.trim()) continue;
         linesSeen += 1;
         const entry = JSON.parse(line) as DebugEntry;
-        const type = replayEntry(entry, replayTypes, { keyHash, assumeKeyHash, dryRun });
+        const type = await replayEntry(entry, replayTypes, { keyHash, assumeKeyHash, dryRun });
         if (!type) continue;
         replayed += 1;
         byType.set(type, (byType.get(type) ?? 0) + 1);
@@ -250,9 +231,5 @@ export async function replayDebugLogs({ files, replayTypes, keyHash, assumeKeyHa
     restoreMetricsCacheRefresh();
   }
 
-  return {
-    linesSeen,
-    replayed,
-    byType,
-  };
+  return { linesSeen, replayed, byType };
 }

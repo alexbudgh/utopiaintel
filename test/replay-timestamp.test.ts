@@ -14,7 +14,7 @@ test("replayEntry inserts original received_at directly", async () => {
 
     const receivedAt = "2026-05-03T03:57:27.581Z";
     const expected = normalizeReceivedAt(receivedAt);
-    const type = replayEntry(
+    const type = await replayEntry(
       {
         url: "https://utopia-game.com/wol/game/council_state",
         prov: "Replay Timestamp",
