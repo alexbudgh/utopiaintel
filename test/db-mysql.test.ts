@@ -864,7 +864,7 @@ const baseKingdom = {
   warDoctrines: [],
   provinces: [
     { slot: 1, name: "ProvA", race: "Elf", land: 600, networth: 80000, honorTitle: "Knight" },
-    { slot: 2, name: "ProvB", race: "Human", land: 500, networth: 70000, honorTitle: null },
+    { slot: 2, name: "ProvB", race: "Human", land: 500, networth: 70000, honorTitle: "" },
   ],
 };
 
@@ -945,5 +945,96 @@ test("storeState: duplicate does not double-insert", async () => {
   await storeState(baseState, "self1", "keyhash1", "2025-06-01 12:00:00");
 
   const [[{ n }]] = await pool.query<CountRow[]>("SELECT COUNT(*) AS n FROM province_overview WHERE key_hash = ?", ["keyhash1"]);
+  assert.equal(n, 1);
+});
+
+import { getBoundKingdom, storeKingdomNews } from "../lib/db-mysql";
+
+// ── getBoundKingdom ───────────────────────────────────────────────────────────
+
+test("getBoundKingdom: returns null for unknown key", async () => {
+  await truncateAll();
+  const result = await getBoundKingdom("unknownhash");
+  assert.equal(result, null);
+});
+
+test("getBoundKingdom: returns kingdom after binding", async () => {
+  await truncateAll();
+  await withTransaction((conn) => bindKeyToKingdom(conn, "hash1", "7:5", "throne"));
+  const result = await getBoundKingdom("hash1");
+  assert.equal(result, "7:5");
+});
+
+// ── storeKingdomNews ──────────────────────────────────────────────────────────
+
+const baseNewsData = {
+  targetKingdom: null,
+  events: [
+    {
+      gameDate: "Year 1, Month 2, Day 3",
+      eventType: "attack_success",
+      rawText: "TestAttacker attacked TestDefender and took 50 acres.",
+      attackerName: "TestAttacker",
+      attackerKingdom: "7:5",
+      defenderName: "TestDefender",
+      defenderKingdom: "8:6",
+      acres: 50,
+      books: null,
+      senderName: null,
+      receiverName: null,
+      relationKingdom: null,
+      dragonType: null,
+      dragonName: null,
+    },
+  ],
+};
+
+test("storeKingdomNews: inserts event when key is bound to a kingdom", async () => {
+  await truncateAll();
+  interface NewsRow extends RowDataPacket { event_type: string; acres: number; attacker_name: string }
+
+  // Bind key first
+  await withTransaction((conn) => bindKeyToKingdom(conn, "keyhash1", "7:5", "throne"));
+  await storeKingdomNews(baseNewsData, "keyhash1", false, "2025-06-01 12:00:00");
+
+  const [[row]] = await pool.query<NewsRow[]>(
+    "SELECT event_type, acres, attacker_name FROM kingdom_news_sharded WHERE key_hash = ?",
+    ["keyhash1"],
+  );
+  assert.equal(row.event_type, "attack_success");
+  assert.equal(row.acres, 50);
+  assert.equal(row.attacker_name, "TestAttacker");
+});
+
+test("storeKingdomNews: no-op when key has no bound kingdom and isSnatched=false", async () => {
+  await truncateAll();
+  interface CountRow extends RowDataPacket { n: number }
+
+  await storeKingdomNews(baseNewsData, "unboundkey", false, "2025-06-01 12:00:00");
+
+  const [[{ n }]] = await pool.query<CountRow[]>("SELECT COUNT(*) AS n FROM kingdom_news_sharded", []);
+  assert.equal(n, 0);
+});
+
+test("storeKingdomNews: isSnatched=true uses targetKingdom from data", async () => {
+  await truncateAll();
+  interface KdRow extends RowDataPacket { kingdom: string }
+
+  const snatchedData = { ...baseNewsData, targetKingdom: "9:1" };
+  await storeKingdomNews(snatchedData, "keyhash1", true, "2025-06-01 12:00:00");
+
+  const [[row]] = await pool.query<KdRow[]>("SELECT kingdom FROM kingdom_news_sharded WHERE key_hash = ?", ["keyhash1"]);
+  assert.equal(row.kingdom, "9:1");
+});
+
+test("storeKingdomNews: duplicate event is ignored", async () => {
+  await truncateAll();
+  interface CountRow extends RowDataPacket { n: number }
+
+  await withTransaction((conn) => bindKeyToKingdom(conn, "keyhash1", "7:5", "throne"));
+  await storeKingdomNews(baseNewsData, "keyhash1", false, "2025-06-01 12:00:00");
+  await storeKingdomNews(baseNewsData, "keyhash1", false, "2025-06-01 12:00:00");
+
+  const [[{ n }]] = await pool.query<CountRow[]>("SELECT COUNT(*) AS n FROM kingdom_news_sharded WHERE key_hash = ?", ["keyhash1"]);
   assert.equal(n, 1);
 });

@@ -1128,3 +1128,58 @@ export async function storeSurvey(data: SurveyData, savedBy: string, keyHash: st
     // queueMetricsCacheRefresh called here once implemented
   });
 }
+
+export async function getBoundKingdom(keyHash: string): Promise<string | null> {
+  await ensureReady();
+  interface BindRow extends RowDataPacket { kingdom: string }
+  const [rows] = await pool.execute<BindRow[]>(
+    "SELECT kingdom FROM key_kingdom_bindings WHERE key_hash = ?",
+    [keyHash],
+  );
+  return rows[0]?.kingdom ?? null;
+}
+
+export async function storeKingdomNews(
+  data: KingdomNewsData,
+  keyHash: string,
+  isSnatched = false,
+  receivedAt?: string,
+  urlKingdom?: string | null,
+): Promise<void> {
+  await ensureReady();
+
+  let kingdom: string | null;
+  if (isSnatched) {
+    kingdom = data.targetKingdom ?? urlKingdom ?? null;
+  } else {
+    kingdom = await getBoundKingdom(keyHash);
+  }
+  if (!kingdom) return;
+
+  await withTransaction(async (conn) => {
+    for (const e of data.events) {
+      await conn.execute(
+        `INSERT IGNORE INTO kingdom_news_sharded (
+           key_hash, kingdom, game_date, game_date_ord, event_type, raw_text,
+           attacker_name, attacker_kingdom,
+           defender_name, defender_kingdom,
+           acres, books,
+           sender_name, receiver_name,
+           relation_kingdom,
+           dragon_type, dragon_name,
+           received_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+        [
+          keyHash, kingdom, e.gameDate, parseUtopiaDate(e.gameDate), e.eventType, e.rawText,
+          e.attackerName, e.attackerKingdom,
+          e.defenderName, e.defenderKingdom,
+          e.acres, e.books,
+          e.senderName, e.receiverName,
+          e.relationKingdom,
+          e.dragonType, e.dragonName,
+          receivedAt ?? null,
+        ],
+      );
+    }
+  });
+}
