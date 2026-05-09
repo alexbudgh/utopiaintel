@@ -188,12 +188,10 @@ async function insertOne(
 ): Promise<number> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [res] = await conn.execute(sql, params as any) as [ResultSetHeader, unknown];
-  await throttle();
   if (res.insertId !== 0) return res.insertId;
   // Duplicate — find existing ID
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [rows] = await conn.execute(conflictSql, conflictParams as any) as [{ id: number }[], unknown];
-  await throttle();
   return rows[0].id;
 }
 
@@ -204,7 +202,6 @@ async function resolveOne(
 ): Promise<number> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [rows] = await conn.execute(sql, params as any) as [{ id: number }[], unknown];
-  await throttle();
   if (!rows[0]) throw new Error(`Unable to resolve existing MySQL row for SQL: ${sql}`);
   return rows[0].id;
 }
@@ -283,7 +280,8 @@ async function main() {
       const rowsToInsert = rows.filter((r) => shouldInsertSourceRow("provinces", r.id));
       console.log(`provinces: ${rowsToInsert.length} rows${checkpoint ? ` (${rows.length} mapped)` : ""}`);
       const provMap = new Map<number, number>();
-      for (const r of rows) {
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
         const id = shouldInsertSourceRow("provinces", r.id)
           ? await insertOne(
               conn,
@@ -302,6 +300,7 @@ async function main() {
             )
           : await resolveOne(conn, "SELECT id FROM provinces WHERE name = ? AND kingdom = ?", [r.name, r.kingdom]);
         provMap.set(r.id, id);
+        if ((i + 1) % BATCH === 0) await throttle();
       }
       await recordRowsWatermark(conn, "provinces", rowsToInsert);
 
@@ -414,7 +413,8 @@ async function main() {
         const armyRows = selectRows<ArmyRow>(sqlite, "som_armies", "military_intel_id, id");
         console.log(`military_intel: ${milRowsToInsert.length} rows${checkpoint ? ` (${milRows.length} mapped)` : ""}, som_armies: ${armyRows.length} rows`);
         const milMap = new Map<number, number>();
-        for (const r of milRows) {
+        for (let i = 0; i < milRows.length; i++) {
+          const r = milRows[i];
           const mysqlProvinceId = provMap.get(r.province_id)!;
           const conflictSql = "SELECT id FROM military_intel WHERE province_id = ? AND key_hash <=> ? AND source = ? AND saved_by <=> ? AND received_at = ?";
           const conflictParams = [mysqlProvinceId, r.key_hash, r.source, r.saved_by, r.received_at];
@@ -428,6 +428,7 @@ async function main() {
               )
             : await resolveOne(conn, conflictSql, conflictParams);
           milMap.set(r.id, id);
+          if ((i + 1) % BATCH === 0) await throttle();
         }
         await batchInsert(conn, "som_armies",
           ["military_intel_id","army_type","generals","soldiers","off_specs","def_specs","elites","war_horses","thieves","land_gained","return_days"],
@@ -446,7 +447,8 @@ async function main() {
         const bldgRows = selectRows<BldgRow>(sqlite, "survey_buildings", "survey_intel_id, id");
         console.log(`survey_intel: ${surveyRowsToInsert.length} rows${checkpoint ? ` (${surveyRows.length} mapped)` : ""}, survey_buildings: ${bldgRows.length} rows`);
         const surveyMap = new Map<number, number>();
-        for (const r of surveyRows) {
+        for (let i = 0; i < surveyRows.length; i++) {
+          const r = surveyRows[i];
           const mysqlProvinceId = provMap.get(r.province_id)!;
           const conflictSql = "SELECT id FROM survey_intel WHERE province_id = ? AND key_hash <=> ? AND source = ? AND saved_by <=> ? AND received_at = ?";
           const conflictParams = [mysqlProvinceId, r.key_hash, r.source, r.saved_by, r.received_at];
@@ -460,6 +462,7 @@ async function main() {
               )
             : await resolveOne(conn, conflictSql, conflictParams);
           surveyMap.set(r.id, id);
+          if ((i + 1) % BATCH === 0) await throttle();
         }
         await batchInsert(conn, "survey_buildings",
           ["survey_intel_id","building","built","in_progress"],
@@ -478,7 +481,8 @@ async function main() {
         const sciRows = selectRows<SciRow>(sqlite, "sos_sciences", "sos_intel_id, id");
         console.log(`sos_intel: ${sosRowsToInsert.length} rows${checkpoint ? ` (${sosRows.length} mapped)` : ""}, sos_sciences: ${sciRows.length} rows`);
         const sosMap = new Map<number, number>();
-        for (const r of sosRows) {
+        for (let i = 0; i < sosRows.length; i++) {
+          const r = sosRows[i];
           const mysqlProvinceId = provMap.get(r.province_id)!;
           const conflictSql = "SELECT id FROM sos_intel WHERE province_id = ? AND key_hash <=> ? AND source = ? AND saved_by <=> ? AND received_at = ?";
           const conflictParams = [mysqlProvinceId, r.key_hash, r.source, r.saved_by, r.received_at];
@@ -492,6 +496,7 @@ async function main() {
               )
             : await resolveOne(conn, conflictSql, conflictParams);
           sosMap.set(r.id, id);
+          if ((i + 1) % BATCH === 0) await throttle();
         }
         await batchInsert(conn, "sos_sciences",
           ["sos_intel_id","science","books","effect"],
@@ -579,7 +584,8 @@ async function main() {
       const kpRows = selectRows<KpRow>(sqlite, "kingdom_provinces", "kingdom_intel_id, id");
       console.log(`kingdom_intel: ${kiRowsToInsert.length} rows${checkpoint ? ` (${kiRows.length} mapped)` : ""}, kingdom_provinces: ${kpRows.length} rows`);
       const kiMap = new Map<number, number>();
-      for (const r of kiRows) {
+      for (let i = 0; i < kiRows.length; i++) {
+        const r = kiRows[i];
         const conflictSql = "SELECT id FROM kingdom_intel WHERE key_hash <=> ? AND location = ? AND source = ? AND saved_by <=> ? AND received_at = ?";
         const conflictParams = [r.key_hash, r.location, r.source, r.saved_by, r.received_at];
         const id = shouldInsertSourceRow("kingdom_intel", r.id)
@@ -602,6 +608,7 @@ async function main() {
             )
           : await resolveOne(conn, conflictSql, conflictParams);
         kiMap.set(r.id, id);
+        if ((i + 1) % BATCH === 0) await throttle();
       }
       await batchInsert(conn, "kingdom_provinces",
         ["kingdom_intel_id","slot","name","race","land","networth","honor_title"],
