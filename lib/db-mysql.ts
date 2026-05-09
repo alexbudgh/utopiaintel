@@ -416,7 +416,7 @@ export async function initDb(): Promise<void> {
       their_attitude_points DOUBLE,
       our_attitude_to_them VARCHAR(64),
       our_attitude_points DOUBLE,
-      hostility_meter_visible_until DATETIME,
+      hostility_meter_visible_until VARCHAR(100),
       open_relations_json TEXT,
       war_doctrines_json TEXT,
       source VARCHAR(64) NOT NULL DEFAULT 'kingdom',
