@@ -154,15 +154,15 @@ queries joining historical source tables such as `province_resources`,
 
 Coalescing refreshes by `(province_id, key_hash)` can reduce duplicate work
 during bursts because several writes for the same province collapse into one
-pending refresh. This is only a mitigation: it moves refresh work out of the
-request transaction path and lowers repeated recomputation, but it still runs
-the same expensive queries. Large batches across many provinces can still
-consume CPU.
+pending refresh. The queue drains in small chunks and yields between chunks so a
+large batch does not become one long event-loop block. This is still only a
+mitigation: it moves refresh work out of the request transaction path and lowers
+repeated recomputation, but it still runs the same expensive queries. Large
+batches across many provinces can still consume CPU.
 
 Longer-term improvements should focus on making the refresh itself cheaper or
 less bursty:
 
-- Process queued refreshes in small chunks and yield between chunks.
 - Add or adjust indexes for the exact metric-cache query shapes.
 - Avoid recomputing unrelated metrics when a source type only affects one subset.
 - Consider a background worker/job for cache refreshes instead of doing them in

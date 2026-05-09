@@ -28,6 +28,8 @@ import type { KingdomNewsData, KingdomNewsEvent } from "./parsers/kingdom_news";
 const DB_PATH = process.env.INTEL_DB_PATH || path.join(process.cwd(), "intel.db");
 const TTL_DAYS = 7;
 const METRICS_CACHE_BATCH_DELAY_MS = 250;
+const METRICS_CACHE_CHUNK_SIZE = 5;
+const METRICS_CACHE_CHUNK_YIELD_MS = 0;
 
 let _db: Database.Database | null = null;
 const BAD_SPELL_SQL_LIST = BAD_SPELL_NAMES.map((name) => `'${name.replaceAll("'", "''")}'`).join(", ");
@@ -406,6 +408,7 @@ function metricsCacheKey(provinceId: number, keyHash: string) {
 }
 
 function scheduleMetricsCacheFlush() {
+  if (metricsCacheFlushPromise) return;
   if (metricsCacheFlushTimer) return;
   metricsCacheFlushTimer = setTimeout(() => {
     metricsCacheFlushTimer = null;
@@ -420,6 +423,33 @@ function queueMetricsCacheRefresh(provinceId: number, keyHash: string) {
   scheduleMetricsCacheFlush();
 }
 
+function takeMetricsCacheRefreshChunk() {
+  const chunk: { provinceId: number; keyHash: string }[] = [];
+  for (const [key, item] of pendingMetricsCacheRefreshes) {
+    pendingMetricsCacheRefreshes.delete(key);
+    chunk.push(item);
+    if (chunk.length >= METRICS_CACHE_CHUNK_SIZE) break;
+  }
+  return chunk;
+}
+
+function yieldMetricsCacheRefreshQueue() {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, METRICS_CACHE_CHUNK_YIELD_MS);
+  });
+}
+
+async function drainMetricsCacheRefreshQueue() {
+  const db = getDb();
+  while (pendingMetricsCacheRefreshes.size > 0) {
+    const chunk = takeMetricsCacheRefreshChunk();
+    for (const item of chunk) {
+      updateMetricsCache(db, item.provinceId, item.keyHash);
+    }
+    if (pendingMetricsCacheRefreshes.size > 0) await yieldMetricsCacheRefreshQueue();
+  }
+}
+
 export async function flushMetricsCacheRefreshQueue(): Promise<void> {
   if (metricsCacheFlushTimer) {
     clearTimeout(metricsCacheFlushTimer);
@@ -428,15 +458,7 @@ export async function flushMetricsCacheRefreshQueue(): Promise<void> {
   if (metricsCacheFlushPromise) return metricsCacheFlushPromise;
   if (pendingMetricsCacheRefreshes.size === 0) return;
 
-  metricsCacheFlushPromise = Promise.resolve().then(() => {
-    const batch = [...pendingMetricsCacheRefreshes.values()];
-    pendingMetricsCacheRefreshes.clear();
-    const db = getDb();
-    for (const item of batch) {
-      updateMetricsCache(db, item.provinceId, item.keyHash);
-    }
-    if (pendingMetricsCacheRefreshes.size > 0) scheduleMetricsCacheFlush();
-  }).catch((err) => {
+  metricsCacheFlushPromise = drainMetricsCacheRefreshQueue().catch((err) => {
     console.error("[intel] metrics cache refresh failed", err);
   }).finally(() => {
     metricsCacheFlushPromise = null;
