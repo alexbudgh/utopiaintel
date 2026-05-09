@@ -631,6 +631,34 @@ export async function bindKeyToKingdom(conn: PoolConnection, keyHash: string, ki
 
 // ── Store functions ───────────────────────────────────────────────────────────
 
+export async function storeTrainArmy(data: TrainArmyData, savedBy: string, keyHash: string, receivedAt?: string): Promise<void> {
+  await ensureReady();
+  await withTransaction(async (conn) => {
+    const provId = await ensureProvince(conn, data.name, data.kingdom);
+    await recordSubmission(conn, keyHash, provId);
+    await conn.execute(
+      `INSERT IGNORE INTO province_resources
+         (province_id, key_hash, free_specialist_credits, source, saved_by, accuracy, received_at)
+       VALUES (?, ?, ?, 'train_army', ?, 100, COALESCE(?, NOW()))`,
+      [provId, keyHash, data.freeSpecialistCredits, savedBy, receivedAt ?? null],
+    );
+  });
+}
+
+export async function storeBuild(data: BuildData, savedBy: string, keyHash: string, receivedAt?: string): Promise<void> {
+  await ensureReady();
+  await withTransaction(async (conn) => {
+    const provId = await ensureProvince(conn, data.name, data.kingdom);
+    await recordSubmission(conn, keyHash, provId);
+    await conn.execute(
+      `INSERT IGNORE INTO province_resources
+         (province_id, key_hash, free_building_credits, source, saved_by, accuracy, received_at)
+       VALUES (?, ?, ?, 'build', ?, 100, COALESCE(?, NOW()))`,
+      [provId, keyHash, data.freeBuildingCredits, savedBy, receivedAt ?? null],
+    );
+  });
+}
+
 export async function storeInfiltrate(data: InfiltrateData, savedBy: string, keyHash: string): Promise<void> {
   await ensureReady();
   await withTransaction(async (conn) => {

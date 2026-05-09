@@ -1,7 +1,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import type { RowDataPacket } from "mysql2/promise";
-import { pool, initDb, ensureProvince, recordSubmission, bindKeyToKingdom, withTransaction, storeInfiltrate, storeSoD } from "../lib/db-mysql";
+import { pool, initDb, ensureProvince, recordSubmission, bindKeyToKingdom, withTransaction, storeTrainArmy, storeBuild, storeInfiltrate, storeSoD } from "../lib/db-mysql";
 
 after(async () => {
   await pool.end();
@@ -228,4 +228,49 @@ test("storeInfiltrate: inserts a province_resources row with correct thieves val
   assert.equal(row.thieves, 4038);
   assert.equal(row.source, "infiltrate");
   assert.equal(row.accuracy, 100);
+});
+
+// ── storeTrainArmy ────────────────────────────────────────────────────────────
+
+test("storeTrainArmy: stores free_specialist_credits", async () => {
+  await truncateAll();
+  interface ResRow extends RowDataPacket { free_specialist_credits: number; source: string }
+
+  await storeTrainArmy({ name: "TestProv", kingdom: "7:5", freeSpecialistCredits: 42 }, "player1", "keyhash1");
+
+  const [[row]] = await pool.query<ResRow[]>(
+    "SELECT free_specialist_credits, source FROM province_resources WHERE key_hash = ?",
+    ["keyhash1"],
+  );
+  assert.equal(row.free_specialist_credits, 42);
+  assert.equal(row.source, "train_army");
+});
+
+test("storeTrainArmy: respects explicit receivedAt", async () => {
+  await truncateAll();
+  interface ResRow extends RowDataPacket { received_at: string }
+
+  await storeTrainArmy({ name: "TestProv", kingdom: "7:5", freeSpecialistCredits: 1 }, "p", "kh", "2025-01-15 10:00:00");
+
+  const [[row]] = await pool.query<ResRow[]>(
+    "SELECT received_at FROM province_resources WHERE key_hash = ?",
+    ["kh"],
+  );
+  assert.equal(row.received_at, "2025-01-15 10:00:00");
+});
+
+// ── storeBuild ────────────────────────────────────────────────────────────────
+
+test("storeBuild: stores free_building_credits", async () => {
+  await truncateAll();
+  interface ResRow extends RowDataPacket { free_building_credits: number; source: string }
+
+  await storeBuild({ name: "TestProv", kingdom: "7:5", freeBuildingCredits: 7 }, "player1", "keyhash1");
+
+  const [[row]] = await pool.query<ResRow[]>(
+    "SELECT free_building_credits, source FROM province_resources WHERE key_hash = ?",
+    ["keyhash1"],
+  );
+  assert.equal(row.free_building_credits, 7);
+  assert.equal(row.source, "build");
 });
