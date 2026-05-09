@@ -1,5 +1,7 @@
 const UTOPIA_MONTHS = ["January","February","March","April","May","June","July"];
 
+export const UTOPIA_DAYS_PER_MONTH = 24;
+
 /** Convert "Month D of YRN" → sortable ordinal (year*168 + monthIdx*24 + day-1). Returns -1 if unparseable. */
 export function parseUtopiaDate(date: string): number {
   const m = /^(\w+)\s+(\d+)\s+of\s+YR(\d+)$/i.exec(date.trim());

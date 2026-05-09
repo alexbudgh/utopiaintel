@@ -1038,3 +1038,178 @@ test("storeKingdomNews: duplicate event is ignored", async () => {
   const [[{ n }]] = await pool.query<CountRow[]>("SELECT COUNT(*) AS n FROM kingdom_news_sharded WHERE key_hash = ?", ["keyhash1"]);
   assert.equal(n, 1);
 });
+
+import {
+  getLatestKingdomSnapshot,
+  getKingdomSnapshotHistory,
+  getKingdomRitual,
+  getKingdomDragon,
+  getLatestWarDate,
+  getKingdomNews,
+} from "../lib/db-mysql";
+
+// ── getLatestKingdomSnapshot ──────────────────────────────────────────────────
+
+test("getLatestKingdomSnapshot: returns null when no data", async () => {
+  await truncateAll();
+  const result = await getLatestKingdomSnapshot("7:5", "keyhash1");
+  assert.equal(result, null);
+});
+
+test("getLatestKingdomSnapshot: returns snapshot with provinces sorted by networth DESC", async () => {
+  await truncateAll();
+  await storeKingdom(baseKingdom, "scout1", "keyhash1", "2025-06-01 12:00:00");
+
+  const snap = await getLatestKingdomSnapshot("7:5", "keyhash1");
+  assert.ok(snap !== null);
+  assert.equal(snap.name, "TestKingdom");
+  assert.equal(snap.location, "7:5");
+  assert.equal(snap.totalNetworth, 5000000);
+  assert.equal(snap.provinces.length, 2);
+  assert.equal(snap.provinces[0].name, "ProvA"); // higher networth first
+});
+
+test("getLatestKingdomSnapshot: returns most recent when multiple snapshots exist", async () => {
+  await truncateAll();
+  await storeKingdom(baseKingdom, "scout1", "keyhash1", "2025-06-01 10:00:00");
+  const newer = { ...baseKingdom, totalNetworth: 9999999 };
+  await storeKingdom(newer, "scout1", "keyhash1", "2025-06-01 12:00:00");
+
+  const snap = await getLatestKingdomSnapshot("7:5", "keyhash1");
+  assert.equal(snap?.totalNetworth, 9999999);
+});
+
+// ── getKingdomSnapshotHistory ─────────────────────────────────────────────────
+
+test("getKingdomSnapshotHistory: returns empty array when no data", async () => {
+  await truncateAll();
+  const result = await getKingdomSnapshotHistory("7:5", "keyhash1");
+  assert.deepEqual(result, []);
+});
+
+test("getKingdomSnapshotHistory: returns snapshots in chronological order", async () => {
+  await truncateAll();
+  await storeKingdom(baseKingdom, "scout1", "keyhash1", "2025-06-01 10:00:00");
+  await storeKingdom({ ...baseKingdom, totalNetworth: 6000000 }, "scout1", "keyhash1", "2025-06-01 12:00:00");
+
+  const hist = await getKingdomSnapshotHistory("7:5", "keyhash1");
+  assert.equal(hist.length, 2);
+  assert.ok(hist[0].receivedAt < hist[1].receivedAt);
+  assert.equal(hist[1].totalNetworth, 6000000);
+});
+
+// ── getKingdomRitual ──────────────────────────────────────────────────────────
+
+test("getKingdomRitual: returns null when no rituals", async () => {
+  await truncateAll();
+  const result = await getKingdomRitual("7:5", "keyhash1");
+  assert.equal(result, null);
+});
+
+test("getKingdomRitual: returns ritual when present and no newer observation", async () => {
+  await truncateAll();
+  // Store SoT with a ritual effect (no subsequent province_status observation)
+  await storeSoT({
+    ...baseSoT,
+    activeEffects: [{ name: "Mystic Aura", kind: "ritual", durationText: "10 days", remainingTicks: 10, effectivenessPercent: 1.2 }],
+  }, "scout1", "keyhash1", false, "2025-06-01 12:00:00");
+
+  const ritual = await getKingdomRitual("7:5", "keyhash1");
+  assert.ok(ritual !== null);
+  assert.equal(ritual.name, "Mystic Aura");
+  assert.equal(ritual.remainingTicks, 10);
+});
+
+// ── getKingdomDragon ──────────────────────────────────────────────────────────
+
+test("getKingdomDragon: returns null when no dragon", async () => {
+  await truncateAll();
+  const result = await getKingdomDragon("7:5", "keyhash1");
+  assert.equal(result, null);
+});
+
+test("getKingdomDragon: returns dragon when province has one", async () => {
+  await truncateAll();
+  await storeSoT({
+    ...baseSoT,
+    dragonType: "Fire Dragon",
+    dragonName: "Ignis",
+  }, "scout1", "keyhash1", false, "2025-06-01 12:00:00");
+
+  const dragon = await getKingdomDragon("7:5", "keyhash1");
+  assert.ok(dragon !== null);
+  assert.equal(dragon.dragonType, "Fire Dragon");
+  assert.equal(dragon.dragonName, "Ignis");
+});
+
+// ── getLatestWarDate ──────────────────────────────────────────────────────────
+
+test("getLatestWarDate: returns null when no news access", async () => {
+  await truncateAll();
+  const result = await getLatestWarDate("7:5", "keyhash1");
+  assert.equal(result, null);
+});
+
+test("getLatestWarDate: returns null when no war_declared event", async () => {
+  await truncateAll();
+  await withTransaction((conn) => bindKeyToKingdom(conn, "keyhash1", "7:5", "throne"));
+  await storeKingdomNews(baseNewsData, "keyhash1", false, "2025-06-01 12:00:00");
+
+  const result = await getLatestWarDate("7:5", "keyhash1");
+  assert.equal(result, null);
+});
+
+test("getLatestWarDate: returns game_date of latest war_declared event", async () => {
+  await truncateAll();
+  await withTransaction((conn) => bindKeyToKingdom(conn, "keyhash1", "7:5", "throne"));
+
+  const warNews = {
+    targetKingdom: null,
+    events: [{ ...baseNewsData.events[0], eventType: "war_declared", rawText: "War declared!", gameDate: "January 3 of YR1" }],
+  };
+  await storeKingdomNews(warNews, "keyhash1", false, "2025-06-01 12:00:00");
+
+  const result = await getLatestWarDate("7:5", "keyhash1");
+  assert.equal(result, "January 3 of YR1");
+});
+
+// ── getKingdomNews ────────────────────────────────────────────────────────────
+
+test("getKingdomNews: returns empty when no news access", async () => {
+  await truncateAll();
+  const result = await getKingdomNews("7:5", "keyhash1");
+  assert.deepEqual(result.events, []);
+  assert.equal(result.effectiveFrom, null);
+});
+
+test("getKingdomNews: returns events when kingdom has news", async () => {
+  await truncateAll();
+  await withTransaction((conn) => bindKeyToKingdom(conn, "keyhash1", "7:5", "throne"));
+  await storeKingdomNews(baseNewsData, "keyhash1", false, "2025-06-01 12:00:00");
+
+  const result = await getKingdomNews("7:5", "keyhash1");
+  assert.equal(result.events.length, 1);
+  assert.equal(result.events[0].eventType, "attack_success");
+  assert.equal(result.events[0].acres, 50);
+  assert.ok(result.effectiveFrom !== null);
+});
+
+test("getKingdomNews: respects explicit from/to date range", async () => {
+  await truncateAll();
+  await withTransaction((conn) => bindKeyToKingdom(conn, "keyhash1", "7:5", "throne"));
+
+  const newsInRange = {
+    targetKingdom: null,
+    events: [{ ...baseNewsData.events[0], gameDate: "January 5 of YR1", rawText: "In range event" }],
+  };
+  const newsOutOfRange = {
+    targetKingdom: null,
+    events: [{ ...baseNewsData.events[0], gameDate: "January 1 of YR1", rawText: "Out of range event" }],
+  };
+  await storeKingdomNews(newsInRange, "keyhash1", false, "2025-06-01 12:00:00");
+  await storeKingdomNews(newsOutOfRange, "keyhash1", false, "2025-06-01 13:00:00");
+
+  const result = await getKingdomNews("7:5", "keyhash1", "January 3 of YR1");
+  assert.equal(result.events.length, 1);
+  assert.equal(result.events[0].rawText, "In range event");
+});

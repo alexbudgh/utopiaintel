@@ -14,7 +14,15 @@ import type {
   KingdomNewsSummary,
   ProvinceHistoryPoint,
 } from "./db";
-import { getBoundKingdom as mysqlGetBoundKingdom } from "./db-mysql";
+import {
+  getBoundKingdom as mysqlGetBoundKingdom,
+  getLatestKingdomSnapshot as mysqlGetLatestKingdomSnapshot,
+  getKingdomSnapshotHistory as mysqlGetKingdomSnapshotHistory,
+  getKingdomRitual as mysqlGetKingdomRitual,
+  getKingdomDragon as mysqlGetKingdomDragon,
+  getLatestWarDate as mysqlGetLatestWarDate,
+  getKingdomNews as mysqlGetKingdomNews,
+} from "./db-mysql";
 
 // Re-export row types so callers don't have to import from both db and db-api.
 export type {
@@ -94,17 +102,17 @@ function createMysqlDbApi(): AsyncDbApi {
   if (!_mysqlApi) {
     const notYet = (name: string) => () => Promise.reject(new Error(`MySQL: ${name} not yet implemented`));
     _mysqlApi = {
-      getBoundKingdom:           (kh) => mysqlGetBoundKingdom(kh),
+      getBoundKingdom:           (kh)           => mysqlGetBoundKingdom(kh),
+      getLatestKingdomSnapshot:  (loc, kh)      => mysqlGetLatestKingdomSnapshot(loc, kh),
+      getKingdomSnapshotHistory: (loc, kh)      => mysqlGetKingdomSnapshotHistory(loc, kh),
+      getKingdomRitual:          (kd, kh)       => mysqlGetKingdomRitual(kd, kh),
+      getKingdomDragon:          (kd, kh)       => mysqlGetKingdomDragon(kd, kh),
+      getLatestWarDate:          (kd, kh)       => mysqlGetLatestWarDate(kd, kh),
+      getKingdomNews:            (kd, kh, f, t) => mysqlGetKingdomNews(kd, kh, f, t),
       getKingdoms:               notYet("getKingdoms") as AsyncDbApi["getKingdoms"],
-      getLatestKingdomSnapshot:  notYet("getLatestKingdomSnapshot") as AsyncDbApi["getLatestKingdomSnapshot"],
-      getKingdomSnapshotHistory: notYet("getKingdomSnapshotHistory") as AsyncDbApi["getKingdomSnapshotHistory"],
       getRecentOps:              notYet("getRecentOps") as AsyncDbApi["getRecentOps"],
       getKingdomProvinces:       notYet("getKingdomProvinces") as AsyncDbApi["getKingdomProvinces"],
-      getKingdomRitual:          notYet("getKingdomRitual") as AsyncDbApi["getKingdomRitual"],
-      getKingdomDragon:          notYet("getKingdomDragon") as AsyncDbApi["getKingdomDragon"],
       getProvinceDetail:         notYet("getProvinceDetail") as AsyncDbApi["getProvinceDetail"],
-      getKingdomNews:            notYet("getKingdomNews") as AsyncDbApi["getKingdomNews"],
-      getLatestWarDate:          notYet("getLatestWarDate") as AsyncDbApi["getLatestWarDate"],
       getKingdomNewsSummary:     notYet("getKingdomNewsSummary") as AsyncDbApi["getKingdomNewsSummary"],
       getProvinceHistory:        notYet("getProvinceHistory") as AsyncDbApi["getProvinceHistory"],
       cleanupExpired:            notYet("cleanupExpired") as AsyncDbApi["cleanupExpired"],

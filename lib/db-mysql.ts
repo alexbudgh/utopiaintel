@@ -1,7 +1,7 @@
 import mysql from "mysql2/promise";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { BAD_SPELL_NAMES } from "./effects";
-import { parseUtopiaDate, formatUtopiaDate } from "./ui";
+import { parseUtopiaDate, formatUtopiaDate, UTOPIA_DAYS_PER_MONTH } from "./ui";
 import { computeWizardCount } from "./nw";
 import { computeDtpaValue, computeMtpaValue, computeMwpaValue, computeOtpaValue, rawPerAcreValue } from "./metrics";
 import type {
@@ -97,6 +97,7 @@ export async function withTransaction<T>(fn: (conn: PoolConnection) => Promise<T
 // ── SQL helpers ──────────────────────────────────────────────────────────────
 
 const TTL_DAYS = 7;
+const COMBAT_TYPES_SQL = `'march','ambush','raze','pillage','loot','failed_attack'`;
 
 // Same-tick check: integer division of UNIX_TIMESTAMP by 3600 (one Utopia hour)
 const SAME_TICK_EXPR = (a: string, b: string) =>
@@ -1182,4 +1183,272 @@ export async function storeKingdomNews(
       );
     }
   });
+}
+
+// ── Read functions ────────────────────────────────────────────────────────────
+
+export async function getLatestKingdomSnapshot(location: string, keyHash: string): Promise<KingdomSnapshot | null> {
+  await ensureReady();
+  interface SnapRow extends RowDataPacket {
+    id: number; name: string; location: string; kingdom_title: string | null;
+    total_networth: number | null; total_land: number | null; total_honor: number | null;
+    wars_won: number | null; war_losses: number | null;
+    networth_rank: number | null; land_rank: number | null; honor_rank: number | null;
+    war_target: string | null;
+    their_attitude_to_us: string | null; their_attitude_points: number | null;
+    our_attitude_to_them: string | null; our_attitude_points: number | null;
+    hostility_meter_visible_until: string | null;
+    open_relations_json: string | null; war_doctrines_json: string | null;
+    received_at: string;
+  }
+  interface KpRow extends RowDataPacket {
+    slot: number | null; name: string; race: string; land: number; networth: number; honor_title: string | null;
+  }
+
+  const [snapRows] = await pool.execute<SnapRow[]>(
+    `SELECT ki.id, ki.name, ki.location, ki.kingdom_title,
+            ki.total_networth, ki.total_land, ki.total_honor, ki.wars_won, ki.war_losses,
+            ki.networth_rank, ki.land_rank, ki.honor_rank, ki.war_target,
+            ki.their_attitude_to_us, ki.their_attitude_points,
+            ki.our_attitude_to_them, ki.our_attitude_points,
+            ki.hostility_meter_visible_until, ki.open_relations_json, ki.war_doctrines_json,
+            ki.received_at
+     FROM kingdom_intel ki
+     WHERE ki.location = ? AND ki.key_hash = ?
+     ORDER BY ki.received_at DESC, ki.id DESC
+     LIMIT 1`,
+    [location, keyHash],
+  );
+  if (snapRows.length === 0) return null;
+  const snap = snapRows[0];
+
+  const [provRows] = await pool.execute<KpRow[]>(
+    `SELECT slot, name, race, land, networth, honor_title
+     FROM kingdom_provinces
+     WHERE kingdom_intel_id = ?
+     ORDER BY networth DESC, name ASC`,
+    [snap.id],
+  );
+
+  return {
+    id: snap.id,
+    name: snap.name,
+    location: snap.location,
+    kingdomTitle: snap.kingdom_title,
+    totalNetworth: snap.total_networth,
+    totalLand: snap.total_land,
+    totalHonor: snap.total_honor,
+    warsWon: snap.wars_won,
+    warLosses: snap.war_losses,
+    networthRank: snap.networth_rank,
+    landRank: snap.land_rank,
+    honorRank: snap.honor_rank,
+    warTarget: snap.war_target,
+    theirAttitudeToUs: snap.their_attitude_to_us,
+    theirAttitudePoints: snap.their_attitude_points,
+    ourAttitudeToThem: snap.our_attitude_to_them,
+    ourAttitudePoints: snap.our_attitude_points,
+    hostilityMeterVisibleUntil: snap.hostility_meter_visible_until,
+    openRelations: snap.open_relations_json ? JSON.parse(snap.open_relations_json) : [],
+    warDoctrines: snap.war_doctrines_json ? JSON.parse(snap.war_doctrines_json) : [],
+    receivedAt: snap.received_at,
+    provinces: provRows.map((p) => ({
+      slot: p.slot,
+      name: p.name,
+      race: p.race,
+      land: p.land,
+      networth: p.networth,
+      honorTitle: p.honor_title,
+    })),
+  };
+}
+
+export async function getKingdomSnapshotHistory(location: string, keyHash: string): Promise<KingdomSnapshotHistoryPoint[]> {
+  await ensureReady();
+  interface HistRow extends RowDataPacket {
+    id: number; name: string; location: string; kingdom_title: string | null;
+    total_networth: number | null; total_land: number | null; total_honor: number | null;
+    wars_won: number | null; war_losses: number | null;
+    networth_rank: number | null; land_rank: number | null; honor_rank: number | null;
+    received_at: string;
+  }
+
+  const [rows] = await pool.execute<HistRow[]>(
+    `SELECT ki.id, ki.name, ki.location, ki.kingdom_title,
+            ki.total_networth, ki.total_land, ki.total_honor, ki.wars_won, ki.war_losses,
+            ki.networth_rank, ki.land_rank, ki.honor_rank, ki.received_at
+     FROM kingdom_intel ki
+     WHERE ki.location = ?
+       AND (ki.total_networth IS NOT NULL OR ki.total_land IS NOT NULL OR ki.total_honor IS NOT NULL)
+       AND ki.key_hash = ?
+     ORDER BY ki.received_at ASC, ki.id ASC`,
+    [location, keyHash],
+  );
+
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    location: row.location,
+    kingdomTitle: row.kingdom_title,
+    totalNetworth: row.total_networth,
+    totalLand: row.total_land,
+    totalHonor: row.total_honor,
+    warsWon: row.wars_won,
+    warLosses: row.war_losses,
+    networthRank: row.networth_rank,
+    landRank: row.land_rank,
+    honorRank: row.honor_rank,
+    receivedAt: row.received_at,
+  }));
+}
+
+export async function getKingdomRitual(kingdom: string, keyHash: string): Promise<KingdomRitual | null> {
+  await ensureReady();
+  interface ObsRow extends RowDataPacket { received_at: string }
+  interface RitRow extends RowDataPacket {
+    effect_name: string; remaining_ticks: number | null; effectiveness_percent: number | null; received_at: string;
+  }
+
+  const [obsRows] = await pool.execute<ObsRow[]>(
+    `SELECT ps.received_at
+     FROM province_status ps
+     JOIN provinces p ON p.id = ps.province_id
+     WHERE p.kingdom = ? AND ps.key_hash = ? AND ps.source IN ('sot', 'throne')
+     ORDER BY ps.received_at DESC, ps.id DESC
+     LIMIT 1`,
+    [kingdom, keyHash],
+  );
+
+  const [ritRows] = await pool.execute<RitRow[]>(
+    `SELECT pe.effect_name, pe.remaining_ticks, pe.effectiveness_percent, pe.received_at
+     FROM province_effects pe
+     JOIN provinces p ON p.id = pe.province_id
+     WHERE p.kingdom = ? AND pe.key_hash = ? AND pe.effect_kind = 'ritual'
+     ORDER BY pe.received_at DESC, pe.id DESC
+     LIMIT 1`,
+    [kingdom, keyHash],
+  );
+
+  if (ritRows.length === 0) return null;
+  const row = ritRows[0];
+  const latestObs = obsRows[0];
+  if (latestObs && latestObs.received_at > row.received_at) return null;
+  return { name: row.effect_name, remainingTicks: row.remaining_ticks, effectivenessPercent: row.effectiveness_percent, receivedAt: row.received_at };
+}
+
+export async function getKingdomDragon(kingdom: string, keyHash: string): Promise<KingdomDragon | null> {
+  await ensureReady();
+  interface DragRow extends RowDataPacket { dragon_type: string | null; dragon_name: string | null; received_at: string }
+
+  const [rows] = await pool.execute<DragRow[]>(
+    `SELECT ps.dragon_type, ps.dragon_name, ps.received_at
+     FROM province_status ps
+     JOIN provinces p ON p.id = ps.province_id
+     WHERE p.kingdom = ? AND ps.key_hash = ? AND ps.source IN ('sot', 'throne')
+     ORDER BY ps.received_at DESC, ps.id DESC
+     LIMIT 1`,
+    [kingdom, keyHash],
+  );
+
+  if (rows.length === 0 || !rows[0].dragon_type || !rows[0].dragon_name) return null;
+  return { dragonType: rows[0].dragon_type, dragonName: rows[0].dragon_name, receivedAt: rows[0].received_at };
+}
+
+export async function getLatestWarDate(kingdom: string, keyHash: string): Promise<string | null> {
+  await ensureReady();
+  interface AccessRow extends RowDataPacket { n: number }
+  interface DateRow extends RowDataPacket { game_date: string }
+
+  const [[access]] = await pool.execute<AccessRow[]>(
+    "SELECT COUNT(*) AS n FROM kingdom_news_sharded WHERE key_hash = ? AND kingdom = ? LIMIT 1",
+    [keyHash, kingdom],
+  );
+  if (!access.n) return null;
+
+  const [rows] = await pool.execute<DateRow[]>(
+    `SELECT game_date FROM kingdom_news_sharded
+     WHERE key_hash = ? AND kingdom = ? AND event_type = 'war_declared'
+     ORDER BY game_date_ord DESC, id DESC
+     LIMIT 1`,
+    [keyHash, kingdom],
+  );
+  return rows[0]?.game_date ?? null;
+}
+
+export async function getKingdomNews(
+  kingdom: string,
+  keyHash: string,
+  from?: string,
+  to?: string,
+): Promise<{ events: KingdomNewsRow[]; effectiveFrom: string | null }> {
+  await ensureReady();
+  interface AccessRow extends RowDataPacket { n: number }
+  interface MaxRow extends RowDataPacket { m: number | null }
+  interface EventRow extends RowDataPacket {
+    id: number; kingdom: string; game_date: string; event_type: string; raw_text: string;
+    attacker_name: string | null; attacker_kingdom: string | null;
+    defender_name: string | null; defender_kingdom: string | null;
+    acres: number | null; books: number | null;
+    sender_name: string | null; receiver_name: string | null;
+    relation_kingdom: string | null; dragon_type: string | null; dragon_name: string | null;
+    received_at: string;
+  }
+
+  const [[access]] = await pool.execute<AccessRow[]>(
+    "SELECT COUNT(*) AS n FROM kingdom_news_sharded WHERE key_hash = ? AND kingdom = ? LIMIT 1",
+    [keyHash, kingdom],
+  );
+  if (!access.n) return { events: [], effectiveFrom: null };
+
+  let fromOrd: number;
+  let toOrd: number;
+  let effectiveFrom: string | null = from ?? null;
+
+  if (from || to) {
+    fromOrd = from ? parseUtopiaDate(from) : 0;
+    toOrd   = to   ? parseUtopiaDate(to)   : 999999;
+  } else {
+    const [[maxRow]] = await pool.execute<MaxRow[]>(
+      "SELECT MAX(game_date_ord) AS m FROM kingdom_news_sharded WHERE key_hash = ? AND kingdom = ?",
+      [keyHash, kingdom],
+    );
+    const maxOrd = maxRow?.m ?? 0;
+    fromOrd = maxOrd - 3 * UTOPIA_DAYS_PER_MONTH + 1;
+    toOrd   = 999999;
+    effectiveFrom = formatUtopiaDate(fromOrd);
+  }
+
+  const [rows] = await pool.execute<EventRow[]>(
+    `SELECT id, kingdom, game_date, event_type, raw_text,
+            attacker_name, attacker_kingdom,
+            defender_name, defender_kingdom,
+            acres, books,
+            sender_name, receiver_name,
+            relation_kingdom, dragon_type, dragon_name, received_at
+     FROM kingdom_news_sharded
+     WHERE key_hash = ? AND kingdom = ? AND game_date_ord >= ? AND game_date_ord <= ?
+     ORDER BY game_date_ord DESC, id DESC`,
+    [keyHash, kingdom, fromOrd, toOrd],
+  );
+
+  const events = rows.map((r) => ({
+    id: r.id,
+    kingdom: r.kingdom,
+    gameDate: r.game_date,
+    eventType: r.event_type,
+    rawText: r.raw_text,
+    attackerName: r.attacker_name,
+    attackerKingdom: r.attacker_kingdom,
+    defenderName: r.defender_name,
+    defenderKingdom: r.defender_kingdom,
+    acres: r.acres,
+    books: r.books,
+    senderName: r.sender_name,
+    receiverName: r.receiver_name,
+    relationKingdom: r.relation_kingdom,
+    dragonType: r.dragon_type,
+    dragonName: r.dragon_name,
+    receivedAt: r.received_at,
+  }));
+  return { events, effectiveFrom };
 }
