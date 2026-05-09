@@ -2,7 +2,7 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { getBoundKingdom } from "@/lib/db";
+import { getDbApi } from "@/lib/db-api";
 import { hashKey } from "@/lib/keys";
 
 export async function login(formData: FormData) {
@@ -18,7 +18,7 @@ export async function login(formData: FormData) {
   });
 
   const keyHash = hashKey(key);
-  const boundKingdom = getBoundKingdom(keyHash);
+  const boundKingdom = await getDbApi().getBoundKingdom(keyHash);
   if (boundKingdom) {
     redirect(`/kingdom/${encodeURIComponent(boundKingdom)}`);
   }

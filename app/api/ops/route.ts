@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { withAxiom, AxiomRequest } from "next-axiom";
-import { getRecentOps } from "@/lib/db";
+import { getDbApi } from "@/lib/db-api";
 import { hashKey } from "@/lib/keys";
 
 export const GET = withAxiom(async (req: AxiomRequest) => {
@@ -9,5 +9,5 @@ export const GET = withAxiom(async (req: AxiomRequest) => {
   if (!key) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const keyHash = hashKey(key);
   const since = req.nextUrl.searchParams.get("since") ?? undefined;
-  return NextResponse.json(getRecentOps(keyHash, 200, since));
+  return NextResponse.json(await getDbApi().getRecentOps(keyHash, 200, since));
 });

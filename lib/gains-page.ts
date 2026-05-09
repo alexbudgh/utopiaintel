@@ -1,13 +1,5 @@
-import {
-  type DbApi,
-  getBoundKingdom,
-  getKingdomProvinces,
-  getKingdomRitual,
-  getLatestKingdomSnapshot,
-  type KingdomSnapshot,
-  type KingdomRitual,
-  type ProvinceRow,
-} from "@/lib/db";
+import { getDbApi, type AsyncDbApi } from "@/lib/db-api";
+import type { KingdomSnapshot, KingdomRitual, ProvinceRow } from "@/lib/db-api";
 
 export interface GainsPageData {
   targetKingdom: string;
@@ -19,17 +11,10 @@ export interface GainsPageData {
   targetRitual: KingdomRitual | null;
 }
 
-type GainsPageDeps = Pick<DbApi, "getBoundKingdom" | "getKingdomProvinces" | "getLatestKingdomSnapshot" | "getKingdomRitual">;
+type GainsPageDeps = Pick<AsyncDbApi, "getBoundKingdom" | "getKingdomProvinces" | "getLatestKingdomSnapshot" | "getKingdomRitual">;
 
-const defaultDeps: GainsPageDeps = {
-  getBoundKingdom,
-  getKingdomProvinces,
-  getLatestKingdomSnapshot,
-  getKingdomRitual,
-};
-
-export function getGainsPageData(targetKingdom: string, keyHash: string, deps: GainsPageDeps = defaultDeps): GainsPageData {
-  const selfKingdom = deps.getBoundKingdom(keyHash);
+export async function getGainsPageData(targetKingdom: string, keyHash: string, deps: GainsPageDeps = getDbApi()): Promise<GainsPageData> {
+  const selfKingdom = await deps.getBoundKingdom(keyHash);
 
   if (!selfKingdom) {
     return {
@@ -43,13 +28,13 @@ export function getGainsPageData(targetKingdom: string, keyHash: string, deps: G
     };
   }
 
-  return {
-    targetKingdom,
-    selfKingdom,
-    selfProvinces: deps.getKingdomProvinces(selfKingdom, keyHash),
-    targetLatest: deps.getKingdomProvinces(targetKingdom, keyHash),
-    selfSnapshot: deps.getLatestKingdomSnapshot(selfKingdom, keyHash),
-    targetSnapshot: deps.getLatestKingdomSnapshot(targetKingdom, keyHash),
-    targetRitual: deps.getKingdomRitual(targetKingdom, keyHash),
-  };
+  const [selfProvinces, targetLatest, selfSnapshot, targetSnapshot, targetRitual] = await Promise.all([
+    deps.getKingdomProvinces(selfKingdom, keyHash),
+    deps.getKingdomProvinces(targetKingdom, keyHash),
+    deps.getLatestKingdomSnapshot(selfKingdom, keyHash),
+    deps.getLatestKingdomSnapshot(targetKingdom, keyHash),
+    deps.getKingdomRitual(targetKingdom, keyHash),
+  ]);
+
+  return { targetKingdom, selfKingdom, selfProvinces, targetLatest, selfSnapshot, targetSnapshot, targetRitual };
 }

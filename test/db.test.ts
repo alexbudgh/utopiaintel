@@ -2225,7 +2225,13 @@ test("getGainsPageData: returns empty shape when the key is not bound to a kingd
     const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name = 'Alpha' AND kingdom = '7:5'").get() as { id: number };
     db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
 
-    const result = getGainsPageData("8:3", KEY_A, api);
+    const asyncApi = {
+      getBoundKingdom: (kh: string) => Promise.resolve(api.getBoundKingdom(kh)),
+      getKingdomProvinces: (kd: string, kh: string) => Promise.resolve(api.getKingdomProvinces(kd, kh)),
+      getLatestKingdomSnapshot: (loc: string, kh: string) => Promise.resolve(api.getLatestKingdomSnapshot(loc, kh)),
+      getKingdomRitual: (kd: string, kh: string) => Promise.resolve(api.getKingdomRitual(kd, kh)),
+    };
+    const result = await getGainsPageData("8:3", KEY_A, asyncApi);
 
     assert.deepEqual(result, {
       targetKingdom: "8:3",
@@ -2278,7 +2284,13 @@ test("getGainsPageData: returns bound kingdom context, target intel, and target 
       ) VALUES (?, ?, 'Onslaught', 'ritual', 42, 88.5, 'throne', 'EnemyOne', '2026-04-04 18:00:00')
     `).run(enemyProvId, KEY_A);
 
-    const result = getGainsPageData("8:3", KEY_A, api);
+    const asyncApi = {
+      getBoundKingdom: (kh: string) => Promise.resolve(api.getBoundKingdom(kh)),
+      getKingdomProvinces: (kd: string, kh: string) => Promise.resolve(api.getKingdomProvinces(kd, kh)),
+      getLatestKingdomSnapshot: (loc: string, kh: string) => Promise.resolve(api.getLatestKingdomSnapshot(loc, kh)),
+      getKingdomRitual: (kd: string, kh: string) => Promise.resolve(api.getKingdomRitual(kd, kh)),
+    };
+    const result = await getGainsPageData("8:3", KEY_A, asyncApi);
 
     assert.equal(result.selfKingdom, "7:5");
     assert.equal(result.selfProvinces.length, 1);

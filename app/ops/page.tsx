@@ -1,6 +1,6 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { getBoundKingdom, getLatestKingdomSnapshot, getRecentOps } from "@/lib/db";
+import { getDbApi } from "@/lib/db-api";
 import { hashKey } from "@/lib/keys";
 import { AppHeader } from "@/app/components/AppHeader";
 import { RecentOpsView } from "./RecentOpsView";
@@ -15,11 +15,14 @@ export default async function OpsPage() {
   if (!key) redirect("/");
 
   const keyHash = hashKey(key);
-  const boundKingdom = getBoundKingdom(keyHash);
+  const db = getDbApi();
+  const [boundKingdom, initialOps] = await Promise.all([
+    db.getBoundKingdom(keyHash),
+    db.getRecentOps(keyHash, 200),
+  ]);
   const selfWarTarget = boundKingdom
-    ? (getLatestKingdomSnapshot(boundKingdom, keyHash)?.warTarget ?? null)
+    ? ((await db.getLatestKingdomSnapshot(boundKingdom, keyHash))?.warTarget ?? null)
     : null;
-  const initialOps = getRecentOps(keyHash, 200);
 
   return (
     <main className="p-8 max-w-6xl mx-auto">

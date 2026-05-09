@@ -23,8 +23,8 @@ import {
   storeIntelOp,
   storeSorcery,
   storeAttack,
-  cleanupExpired,
 } from "@/lib/db";
+import { getDbApi } from "@/lib/db-api";
 
 interface IntelFields {
   data_html: string;
@@ -197,7 +197,7 @@ export const POST = withAxiom(async (request: AxiomRequest) => {
 
   // Periodic cleanup
   if (++requestCount % 100 === 0) {
-    cleanupExpired();
+    void getDbApi().cleanupExpired();
   }
 
   return NextResponse.json({

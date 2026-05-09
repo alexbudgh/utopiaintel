@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { ScreenshotCarousel } from "@/app/components/ScreenshotCarousel";
 import { cookies, headers } from "next/headers";
-import { getBoundKingdom, getKingdoms, getLatestKingdomSnapshot, getKingdomRitual, getKingdomDragon, type KingdomSnapshot } from "@/lib/db";
+import { getDbApi, type KingdomSnapshot } from "@/lib/db-api";
 import { hashKey } from "@/lib/keys";
 import { IntelSetupCard } from "@/app/components/IntelSetupCard";
 import { freshnessColor, timeAgo } from "@/lib/ui";
@@ -257,20 +257,27 @@ export default async function Home() {
   }
 
   const keyHash = hashKey(key);
-  const boundKingdom = getBoundKingdom(keyHash);
-  const kingdoms = getKingdoms(keyHash);
-  const kingdomRows = kingdoms.map((kd) => {
-    const snapshot = getLatestKingdomSnapshot(kd.location, keyHash);
+  const db = getDbApi();
+  const [boundKingdom, kingdoms] = await Promise.all([
+    db.getBoundKingdom(keyHash),
+    db.getKingdoms(keyHash),
+  ]);
+  const kingdomRows = await Promise.all(kingdoms.map(async (kd) => {
+    const [snapshot, ritual, dragon] = await Promise.all([
+      db.getLatestKingdomSnapshot(kd.location, keyHash),
+      db.getKingdomRitual(kd.location, keyHash),
+      db.getKingdomDragon(kd.location, keyHash),
+    ]);
     const relationContexts =
       boundKingdom && kd.location === boundKingdom
-        ? (snapshot?.openRelations ?? [])
-            .map((relation) => toRelationContext(getLatestKingdomSnapshot(relation.location, keyHash)))
-            .filter((context) => context != null)
+        ? await Promise.all(
+            (snapshot?.openRelations ?? []).map((relation) =>
+              db.getLatestKingdomSnapshot(relation.location, keyHash)
+            )
+          ).then((snaps) => snaps.map(toRelationContext).filter((ctx) => ctx != null))
         : [];
-    const ritual = getKingdomRitual(kd.location, keyHash);
-    const dragon = getKingdomDragon(kd.location, keyHash);
     return { kd, snapshot, relationContexts, ritual, dragon };
-  });
+  }));
 
   const selfWarTarget = boundKingdom
     ? (kingdomRows.find((r) => r.kd.location === boundKingdom)?.snapshot?.warTarget ?? null)

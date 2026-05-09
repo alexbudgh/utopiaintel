@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { cookies, headers } from "next/headers";
-import { getBoundKingdom, getKingdomProvinces, getLatestKingdomSnapshot, getKingdomSnapshotHistory, getKingdomRitual, getKingdomDragon, getKingdomNews, getKingdomNewsSummary, getLatestWarDate } from "@/lib/db";
+import { getDbApi } from "@/lib/db-api";
 import { hashKey } from "@/lib/keys";
 import { IntelSetupCard } from "@/app/components/IntelSetupCard";
 import { toRelationContext } from "@/lib/relation-context";
@@ -31,28 +31,33 @@ export default async function KingdomPage({
   const baseUrl = `${proto}://${host}`;
   const key = (await cookies()).get("auth")?.value ?? "";
   const keyHash = hashKey(key);
-  const boundKingdom = getBoundKingdom(keyHash);
-  const provinces = getKingdomProvinces(kingdom, keyHash);
-  const snapshot = getLatestKingdomSnapshot(kingdom, keyHash);
-  const snapshotHistory = getKingdomSnapshotHistory(kingdom, keyHash);
+  const db = getDbApi();
+  const [boundKingdom, provinces, snapshot, snapshotHistory, ritual, dragon] = await Promise.all([
+    db.getBoundKingdom(keyHash),
+    db.getKingdomProvinces(kingdom, keyHash),
+    db.getLatestKingdomSnapshot(kingdom, keyHash),
+    db.getKingdomSnapshotHistory(kingdom, keyHash),
+    db.getKingdomRitual(kingdom, keyHash),
+    db.getKingdomDragon(kingdom, keyHash),
+  ]);
   const compareHistory = view === "history" && compareKingdom && compareKingdom !== kingdom
-    ? getKingdomSnapshotHistory(compareKingdom, keyHash)
+    ? await db.getKingdomSnapshotHistory(compareKingdom, keyHash)
     : [];
   const initialRelationContexts = boundKingdom && kingdom === boundKingdom
-    ? (snapshot?.openRelations ?? [])
-        .map((relation) => toRelationContext(getLatestKingdomSnapshot(relation.location, keyHash)))
-        .filter((context) => context !== null)
+    ? await Promise.all(
+        (snapshot?.openRelations ?? []).map((relation) =>
+          db.getLatestKingdomSnapshot(relation.location, keyHash)
+        )
+      ).then((snaps) => snaps.map(toRelationContext).filter((ctx) => ctx !== null))
     : [];
   const hasAnyIntel = provinces.length > 0 || !!snapshot;
-  const gainsInitial = view === "gains" ? getGainsPageData(kingdom, keyHash) : null;
-  const thieveryInitial = view === "thievery" ? getGainsPageData(kingdom, keyHash) : null;
-  const newsResult = view === "news" ? getKingdomNews(kingdom, keyHash, from, to) : null;
+  const gainsInitial = view === "gains" ? await getGainsPageData(kingdom, keyHash) : null;
+  const thieveryInitial = view === "thievery" ? await getGainsPageData(kingdom, keyHash) : null;
+  const newsResult = view === "news" ? await db.getKingdomNews(kingdom, keyHash, from, to) : null;
   const newsEvents = newsResult?.events ?? null;
   const newsEffectiveFrom = newsResult?.effectiveFrom ?? null;
-  const newsSummary = view === "news" ? getKingdomNewsSummary(kingdom, keyHash, from, to) : null;
-  const latestWarDate = view === "news" ? getLatestWarDate(kingdom, keyHash) : null;
-  const ritual = getKingdomRitual(kingdom, keyHash);
-  const dragon = getKingdomDragon(kingdom, keyHash);
+  const newsSummary = view === "news" ? await db.getKingdomNewsSummary(kingdom, keyHash, from, to) : null;
+  const latestWarDate = view === "news" ? await db.getLatestWarDate(kingdom, keyHash) : null;
   let tabContent: ReactNode | null = null;
 
   if (view === "news") {
