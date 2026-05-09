@@ -1,5 +1,8 @@
 node_modules/
 .next/
+.env*
+!.env.example
+!.env.*.example
 intel.jsonl
 intel_debug.jsonl*
 intel.db*
