@@ -1,5 +1,5 @@
 import mysql from "mysql2/promise";
-import type { PoolConnection, ResultSetHeader } from "mysql2/promise";
+import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { BAD_SPELL_NAMES } from "./effects";
 import { parseUtopiaDate, formatUtopiaDate } from "./ui";
 import { computeWizardCount } from "./nw";
@@ -570,4 +570,61 @@ export async function initDb(): Promise<void> {
   } catch {
     // May not have SUPER privilege; ignore
   }
+}
+
+// ── Internal transaction helpers ─────────────────────────────────────────────
+// All three take a PoolConnection so they can participate in a caller's transaction.
+
+interface IdRow extends RowDataPacket { id: number }
+interface KingdomRow2 extends RowDataPacket { kingdom: string }
+
+// Get-or-create a province row; returns its id.
+// When kingdom is "", prefer an existing row with the same name and a real kingdom
+// (self-intel arrives without a kingdom, but the province already exists from SoT).
+export async function ensureProvince(conn: PoolConnection, name: string, kingdom: string): Promise<number> {
+  if (!kingdom) {
+    const [rows] = await conn.execute<IdRow[]>(
+      "SELECT id FROM provinces WHERE name = ? AND kingdom != '' LIMIT 1",
+      [name],
+    );
+    if (rows.length > 0) return rows[0].id;
+  }
+  await conn.execute(
+    "INSERT IGNORE INTO provinces (name, kingdom) VALUES (?, ?)",
+    [name, kingdom],
+  );
+  const [rows] = await conn.execute<IdRow[]>(
+    "SELECT id FROM provinces WHERE name = ? AND kingdom = ?",
+    [name, kingdom],
+  );
+  return rows[0].id;
+}
+
+// Record that keyHash has access to provinceId (idempotent).
+export async function recordSubmission(conn: PoolConnection, keyHash: string, provinceId: number): Promise<void> {
+  await conn.execute(
+    "INSERT IGNORE INTO intel_partitions (key_hash, province_id) VALUES (?, ?)",
+    [keyHash, provinceId],
+  );
+}
+
+// Bind a key_hash to a kingdom (first write wins; warns on conflict).
+export async function bindKeyToKingdom(conn: PoolConnection, keyHash: string, kingdom: string, source: string): Promise<void> {
+  const [rows] = await conn.execute<KingdomRow2[]>(
+    "SELECT kingdom FROM key_kingdom_bindings WHERE key_hash = ?",
+    [keyHash],
+  );
+  const existing = rows[0];
+
+  if (existing && existing.kingdom !== kingdom) {
+    console.warn(
+      `[intel ${new Date().toISOString()}] key binding mismatch for ${keyHash.slice(0, 8)}: existing=${existing.kingdom} incoming=${kingdom} source=${source}`,
+    );
+    return;
+  }
+
+  await conn.execute(
+    "INSERT IGNORE INTO key_kingdom_bindings (key_hash, kingdom, source) VALUES (?, ?, ?)",
+    [keyHash, kingdom, source],
+  );
 }
