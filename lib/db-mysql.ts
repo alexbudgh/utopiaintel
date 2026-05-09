@@ -1595,3 +1595,424 @@ export async function getRecentOps(keyHash: string, limit = 20, since?: string):
   const [rows] = await pool.execute<OpRow[]>(sql, vals as import("mysql2").ExecuteValues);
   return rows as RecentOp[];
 }
+
+export async function getKingdoms(keyHash: string): Promise<KingdomRow[]> {
+  await ensureReady();
+  interface KRow extends RowDataPacket { location: string; province_count: number; last_seen: string | null }
+  const [sql, vals] = n(`
+    WITH ${latestSlotCte()}
+    SELECT p.kingdom AS location,
+           COUNT(DISTINCT p.id) AS province_count,
+           MAX(po.received_at) AS last_seen
+    FROM provinces p
+    LEFT JOIN province_overview po ON po.province_id = p.id AND po.key_hash = :keyHash
+    WHERE p.kingdom != ''
+      AND EXISTS (SELECT 1 FROM intel_partitions WHERE key_hash = :keyHash AND province_id = p.id)
+      AND (
+        EXISTS (SELECT 1 FROM latest_slot ls WHERE ls.kingdom = p.kingdom AND ls.name = p.name)
+        OR NOT EXISTS (
+          SELECT 1 FROM kingdom_provinces kp
+          JOIN kingdom_intel ki ON kp.kingdom_intel_id = ki.id
+          WHERE ki.location = p.kingdom AND ki.key_hash = :keyHash AND kp.name = p.name
+        )
+      )
+    GROUP BY p.kingdom
+    ORDER BY last_seen DESC
+  `, { keyHash });
+  const [rows] = await pool.execute<KRow[]>(sql, vals as import("mysql2").ExecuteValues);
+  return rows as KingdomRow[];
+}
+
+export async function getKingdomNewsSummary(
+  kingdom: string,
+  keyHash: string,
+  from?: string,
+  to?: string,
+): Promise<KingdomNewsSummary> {
+  await ensureReady();
+  const empty: KingdomNewsSummary = {
+    ourKingdom: kingdom, totalMarchAcresIn: 0, totalRazeAcresIn: 0,
+    totalMarchAcresOut: 0, totalRazeAcresOut: 0, uniqueAttackers: 0, byKingdom: [],
+  };
+
+  interface AccessRow extends RowDataPacket { n: number }
+  const [[access]] = await pool.execute<AccessRow[]>(
+    "SELECT COUNT(*) AS n FROM kingdom_news_sharded WHERE key_hash = ? AND kingdom = ? LIMIT 1",
+    [keyHash, kingdom],
+  );
+  if (!access.n) return empty;
+
+  interface MaxRow extends RowDataPacket { m: number | null }
+  let fromOrd: number;
+  let toOrd: number;
+  if (from || to) {
+    fromOrd = from ? parseUtopiaDate(from) : 0;
+    toOrd   = to   ? parseUtopiaDate(to)   : 999999;
+  } else {
+    const [[maxRow]] = await pool.execute<MaxRow[]>(
+      "SELECT MAX(game_date_ord) AS m FROM kingdom_news_sharded WHERE key_hash = ? AND kingdom = ?",
+      [keyHash, kingdom],
+    );
+    const maxOrd = maxRow?.m ?? 0;
+    fromOrd = maxOrd - 3 * UTOPIA_DAYS_PER_MONTH + 1;
+    toOrd   = 999999;
+  }
+
+  interface CombatRow extends RowDataPacket {
+    attacker_name: string | null; attacker_kingdom: string;
+    defender_name: string | null; defender_kingdom: string;
+    event_type: string; acres: number | null; books: number | null;
+  }
+  const [combatRows] = await pool.execute<CombatRow[]>(
+    `SELECT attacker_name, attacker_kingdom, defender_name, defender_kingdom, event_type, acres, books
+     FROM kingdom_news_sharded
+     WHERE key_hash = ? AND kingdom = ? AND event_type IN (${COMBAT_TYPES_SQL})
+       AND attacker_kingdom IS NOT NULL AND defender_kingdom IS NOT NULL
+       AND game_date_ord >= ? AND game_date_ord <= ?`,
+    [keyHash, kingdom, fromOrd, toOrd],
+  );
+
+  type AttackerEntry = {
+    attacker_name: string | null; attacker_kingdom: string;
+    hits: number; marchHits: number; ambushHits: number; razeHits: number; pillageHits: number; lootHits: number; failedHits: number;
+    marchAcres: number; ambushAcres: number; razeAcres: number; books: number;
+  };
+  type DefenderEntry = {
+    defender_name: string | null; defender_kingdom: string;
+    hits: number; marchHits: number; ambushHits: number; razeHits: number; pillageHits: number; lootHits: number; failedHits: number;
+    marchAcres: number; ambushAcres: number; razeAcres: number;
+  };
+  const newAttacker = (name: string | null, kd: string): AttackerEntry =>
+    ({ attacker_name: name, attacker_kingdom: kd, hits: 0, marchHits: 0, ambushHits: 0, razeHits: 0, pillageHits: 0, lootHits: 0, failedHits: 0, marchAcres: 0, ambushAcres: 0, razeAcres: 0, books: 0 });
+  const newDefender = (name: string | null, kd: string): DefenderEntry =>
+    ({ defender_name: name, defender_kingdom: kd, hits: 0, marchHits: 0, ambushHits: 0, razeHits: 0, pillageHits: 0, lootHits: 0, failedHits: 0, marchAcres: 0, ambushAcres: 0, razeAcres: 0 });
+
+  const attackerMap = new Map<string, AttackerEntry>();
+  const defenderMap = new Map<string, DefenderEntry>();
+
+  for (const r of combatRows) {
+    const ak = `${r.attacker_name ?? ""}\0${r.attacker_kingdom}`;
+    const a = attackerMap.get(ak) ?? newAttacker(r.attacker_name, r.attacker_kingdom);
+    a.hits++;
+    if      (r.event_type === "march")         { a.marchHits++;   a.marchAcres  += r.acres ?? 0; }
+    else if (r.event_type === "ambush")        { a.ambushHits++;  a.ambushAcres += r.acres ?? 0; }
+    else if (r.event_type === "raze")          { a.razeHits++;    a.razeAcres   += r.acres ?? 0; }
+    else if (r.event_type === "pillage")       { a.pillageHits++; }
+    else if (r.event_type === "loot")          { a.lootHits++;    a.books       += r.books ?? 0; }
+    else if (r.event_type === "failed_attack") { a.failedHits++; }
+    attackerMap.set(ak, a);
+
+    const dk = `${r.defender_name ?? ""}\0${r.defender_kingdom}`;
+    const d = defenderMap.get(dk) ?? newDefender(r.defender_name, r.defender_kingdom);
+    d.hits++;
+    if      (r.event_type === "march")         { d.marchHits++;   d.marchAcres  += r.acres ?? 0; }
+    else if (r.event_type === "ambush")        { d.ambushHits++;  d.ambushAcres += r.acres ?? 0; }
+    else if (r.event_type === "raze")          { d.razeHits++;    d.razeAcres   += r.acres ?? 0; }
+    else if (r.event_type === "pillage")       { d.pillageHits++; }
+    else if (r.event_type === "loot")          { d.lootHits++; }
+    else if (r.event_type === "failed_attack") { d.failedHits++; }
+    defenderMap.set(dk, d);
+  }
+
+  const asAttacker = [...attackerMap.values()];
+  const asDefender = [...defenderMap.values()];
+
+  type ProvKey = string;
+  type ProvEntry = {
+    kd: string; name: string | null;
+    hitsMade: number; marchMade: number; ambushMade: number; razeMade: number; pillageMade: number; lootMade: number; failedMade: number;
+    marchAcresGained: number; ambushAcresGained: number; razeAcresDealt: number; booksLooted: number;
+    hitsTaken: number; marchTaken: number; ambushTaken: number; razeTaken: number; pillageTaken: number; lootTaken: number; failedTaken: number;
+    marchAcresLost: number; ambushAcresLost: number; razeAcresLost: number;
+  };
+  const provMap = new Map<ProvKey, ProvEntry>();
+  const provKey = (name: string | null, kd: string) => `${name ?? ""}\0${kd}`;
+  const emptyProv = (name: string | null, kd: string): ProvEntry => ({
+    kd, name,
+    hitsMade: 0, marchMade: 0, ambushMade: 0, razeMade: 0, pillageMade: 0, lootMade: 0, failedMade: 0,
+    marchAcresGained: 0, ambushAcresGained: 0, razeAcresDealt: 0, booksLooted: 0,
+    hitsTaken: 0, marchTaken: 0, ambushTaken: 0, razeTaken: 0, pillageTaken: 0, lootTaken: 0, failedTaken: 0,
+    marchAcresLost: 0, ambushAcresLost: 0, razeAcresLost: 0,
+  });
+
+  for (const r of asAttacker) {
+    const k = provKey(r.attacker_name, r.attacker_kingdom);
+    const p = provMap.get(k) ?? emptyProv(r.attacker_name, r.attacker_kingdom);
+    p.hitsMade += r.hits; p.marchMade += r.marchHits; p.ambushMade += r.ambushHits; p.razeMade += r.razeHits;
+    p.pillageMade += r.pillageHits; p.lootMade += r.lootHits; p.failedMade += r.failedHits;
+    p.marchAcresGained += r.marchAcres; p.ambushAcresGained += r.ambushAcres; p.razeAcresDealt += r.razeAcres; p.booksLooted += r.books;
+    provMap.set(k, p);
+  }
+  for (const r of asDefender) {
+    const k = provKey(r.defender_name, r.defender_kingdom);
+    const p = provMap.get(k) ?? emptyProv(r.defender_name, r.defender_kingdom);
+    p.hitsTaken += r.hits; p.marchTaken += r.marchHits; p.ambushTaken += r.ambushHits; p.razeTaken += r.razeHits;
+    p.pillageTaken += r.pillageHits; p.lootTaken += r.lootHits; p.failedTaken += r.failedHits;
+    p.marchAcresLost += r.marchAcres; p.ambushAcresLost += r.ambushAcres; p.razeAcresLost += r.razeAcres;
+    provMap.set(k, p);
+  }
+
+  const kingdoms = [...new Set([...provMap.values()].map((p) => p.kd))];
+  const slotMap = new Map<string, number | null>();
+  if (kingdoms.length > 0) {
+    const placeholders = kingdoms.map(() => "?").join(",");
+    interface SlotRow extends RowDataPacket { name: string; kingdom: string; slot: number | null }
+    const [slotRows] = await pool.execute<SlotRow[]>(
+      `SELECT kp.name, ki.location AS kingdom, kp.slot
+       FROM kingdom_provinces kp
+       JOIN kingdom_intel ki ON ki.id = kp.kingdom_intel_id
+       WHERE ki.key_hash = ? AND ki.location IN (${placeholders}) AND kp.name IS NOT NULL`,
+      [keyHash, ...kingdoms],
+    );
+    for (const r of slotRows) slotMap.set(`${r.name}\0${r.kingdom}`, r.slot);
+  }
+
+  const kdMap = new Map<string, NewsProvinceSummary[]>();
+  for (const p of provMap.values()) {
+    const slot = p.name ? (slotMap.get(`${p.name}\0${p.kd}`) ?? null) : null;
+    const list = kdMap.get(p.kd) ?? [];
+    list.push({
+      provinceName: p.name, slot,
+      hitsMade: p.hitsMade, marchMade: p.marchMade, ambushMade: p.ambushMade, razeMade: p.razeMade,
+      plunderMade: p.pillageMade, lootMade: p.lootMade, failedMade: p.failedMade,
+      marchAcresGained: p.marchAcresGained, ambushAcresGained: p.ambushAcresGained, razeAcresDealt: p.razeAcresDealt, booksLooted: p.booksLooted,
+      hitsTaken: p.hitsTaken, marchTaken: p.marchTaken, ambushTaken: p.ambushTaken, razeTaken: p.razeTaken,
+      plunderTaken: p.pillageTaken, lootTaken: p.lootTaken, failedTaken: p.failedTaken,
+      marchAcresLost: p.marchAcresLost, ambushAcresLost: p.ambushAcresLost, razeAcresLost: p.razeAcresLost,
+    });
+    kdMap.set(p.kd, list);
+  }
+
+  interface KdNameRow extends RowDataPacket { name: string }
+  const kdNames = new Map<string, string>();
+  for (const loc of kdMap.keys()) {
+    const [[row]] = await pool.execute<KdNameRow[]>(
+      "SELECT name FROM kingdom_intel WHERE key_hash = ? AND location = ? ORDER BY received_at DESC LIMIT 1",
+      [keyHash, loc],
+    );
+    if (row) kdNames.set(loc, row.name);
+  }
+
+  const byKingdom: NewsKingdomSummary[] = [...kdMap.entries()].map(([kd, provs]) => {
+    provs.sort((a, b) => {
+      const netB = b.marchAcresGained - b.marchAcresLost - b.razeAcresLost;
+      const netA = a.marchAcresGained - a.marchAcresLost - a.razeAcresLost;
+      return netB - netA;
+    });
+    const sum = <K extends keyof NewsProvinceSummary>(f: K) => provs.reduce((s, p) => s + (p[f] as number), 0);
+    return {
+      kingdom: kd, kingdomName: kdNames.get(kd) ?? null, provinces: provs,
+      totalHitsMade:          sum("hitsMade"),
+      totalMarchMade:         sum("marchMade"),
+      totalAmbushMade:        sum("ambushMade"),
+      totalRazeMade:          sum("razeMade"),
+      totalPlunderMade:       sum("plunderMade"),
+      totalLootMade:          sum("lootMade"),
+      totalFailedMade:        sum("failedMade"),
+      totalMarchAcresGained:  sum("marchAcresGained"),
+      totalAmbushAcresGained: sum("ambushAcresGained"),
+      totalRazeAcresDealt:    sum("razeAcresDealt"),
+      totalHitsTaken:         sum("hitsTaken"),
+      totalMarchTaken:        sum("marchTaken"),
+      totalAmbushTaken:       sum("ambushTaken"),
+      totalRazeTaken:         sum("razeTaken"),
+      totalPlunderTaken:      sum("plunderTaken"),
+      totalLootTaken:         sum("lootTaken"),
+      totalFailedTaken:       sum("failedTaken"),
+      totalMarchAcresLost:    sum("marchAcresLost"),
+      totalAmbushAcresLost:   sum("ambushAcresLost"),
+      totalRazeAcresLost:     sum("razeAcresLost"),
+    };
+  });
+
+  byKingdom.sort((a, b) => {
+    if (a.kingdom === kingdom) return -1;
+    if (b.kingdom === kingdom) return 1;
+    return (b.totalHitsMade - a.totalHitsMade) || (a.totalMarchAcresGained - b.totalMarchAcresGained);
+  });
+
+  const ours = byKingdom.find((k) => k.kingdom === kingdom);
+  const enemies = byKingdom.filter((k) => k.kingdom !== kingdom);
+  const totalMarchAcresIn  = enemies.reduce((s, k) => s + k.totalMarchAcresGained, 0);
+  const totalRazeAcresIn   = enemies.reduce((s, k) => s + k.totalRazeAcresDealt, 0);
+  const totalMarchAcresOut = ours?.totalMarchAcresGained ?? 0;
+  const totalRazeAcresOut  = ours?.totalRazeAcresDealt ?? 0;
+  const uniqueAttackers = asAttacker.filter((r) => r.attacker_kingdom !== kingdom).length;
+
+  return { ourKingdom: kingdom, totalMarchAcresIn, totalRazeAcresIn, totalMarchAcresOut, totalRazeAcresOut, uniqueAttackers, byKingdom };
+}
+
+export async function getProvinceHistory(
+  name: string,
+  kingdom: string,
+  keyHash: string,
+): Promise<ProvinceHistoryPoint[]> {
+  await ensureReady();
+  interface ProvRow extends RowDataPacket { id: number }
+  interface AccessRow extends RowDataPacket { n: number }
+
+  const [[prov]] = await pool.execute<ProvRow[]>(
+    "SELECT id FROM provinces WHERE name = ? AND kingdom = ?",
+    [name, kingdom],
+  );
+  if (!prov) return [];
+
+  const [[access]] = await pool.execute<AccessRow[]>(
+    "SELECT COUNT(*) AS n FROM intel_partitions WHERE key_hash = ? AND province_id = ?",
+    [keyHash, prov.id],
+  );
+  if (!access.n) return [];
+
+  const id = prov.id;
+  interface OverviewRaw extends RowDataPacket { received_at: string; land: number | null; networth: number | null; source: string | null; saved_by: string | null }
+  interface TroopsRaw extends RowDataPacket { received_at: string; soldiers: number | null; off_specs: number | null; def_specs: number | null; elites: number | null; war_horses: number | null; peasants: number | null; source: string | null; saved_by: string | null }
+  interface ResourcesRaw extends RowDataPacket { received_at: string; money: number | null; food: number | null; runes: number | null; thieves: number | null; wizards: number | null; source: string | null; saved_by: string | null }
+  interface MilPointsRaw extends RowDataPacket { received_at: string; off_points: number | null; def_points: number | null; source: string | null; saved_by: string | null }
+  interface AttackRaw extends RowDataPacket { received_at: string; attack_type: string; attacker_name: string; attacker_kingdom: string; acres_taken: number | null; enemy_killed: number | null; enemy_imprisoned: number | null; massacred: number | null }
+  interface RobRaw extends RowDataPacket { received_at: string; op: string; outcome: string; amount_stolen: number | null; thieves_lost: number; attacker_name: string; attacker_kingdom: string; troops_assassinated: number | null; kidnapped: number | null; acres_burned: number | null; effect_duration: number | null }
+  interface SorceryRaw extends RowDataPacket { received_at: string; spell: string; outcome: string; duration_days: number | null; wizards_lost: number; caster_name: string; caster_kingdom: string }
+
+  const [overviews, troops, resources, milPoints, attacksTaken, thieveryOpsTaken, sorceryOpsTaken] = await Promise.all([
+    pool.execute<OverviewRaw[]>(
+      "SELECT received_at, land, networth, source, saved_by FROM province_overview WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC",
+      [id, keyHash],
+    ).then(([r]) => r),
+    pool.execute<TroopsRaw[]>(
+      "SELECT received_at, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, saved_by FROM province_troops WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC",
+      [id, keyHash],
+    ).then(([r]) => r),
+    pool.execute<ResourcesRaw[]>(
+      "SELECT received_at, money, food, runes, thieves, wizards, source, saved_by FROM province_resources WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC",
+      [id, keyHash],
+    ).then(([r]) => r),
+    pool.execute<MilPointsRaw[]>(
+      "SELECT received_at, off_points, def_points, source, saved_by FROM total_military_points WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC",
+      [id, keyHash],
+    ).then(([r]) => r),
+    pool.execute<AttackRaw[]>(
+      `SELECT ao.received_at, ao.attack_type, p.name AS attacker_name, p.kingdom AS attacker_kingdom,
+              ao.acres_taken, ao.enemy_killed, ao.enemy_imprisoned, ao.massacred
+       FROM attack_ops ao JOIN provinces p ON p.id = ao.province_id
+       WHERE ao.key_hash = ? AND ao.target_name = ? AND ao.target_kingdom = ? AND ao.outcome = 'success'
+       ORDER BY ao.received_at ASC`,
+      [keyHash, name, kingdom],
+    ).then(([r]) => r),
+    pool.execute<RobRaw[]>(
+      `SELECT ro.received_at, ro.op, ro.outcome, ro.amount_stolen, ro.thieves_lost,
+              p.name AS attacker_name, p.kingdom AS attacker_kingdom,
+              ro.troops_assassinated, ro.kidnapped, ro.acres_burned, ro.effect_duration
+       FROM rob_ops ro JOIN provinces p ON p.id = ro.province_id
+       WHERE ro.key_hash = ? AND ro.target_name = ? AND ro.target_kingdom = ?
+       ORDER BY ro.received_at ASC`,
+      [keyHash, name, kingdom],
+    ).then(([r]) => r),
+    pool.execute<SorceryRaw[]>(
+      `SELECT so.received_at, so.spell, so.outcome, so.duration_days, so.wizards_lost,
+              p.name AS caster_name, p.kingdom AS caster_kingdom
+       FROM sorcery_ops so JOIN provinces p ON p.id = so.province_id
+       WHERE so.key_hash = ? AND so.target_name = ? AND so.target_kingdom = ?
+       ORDER BY so.received_at ASC`,
+      [keyHash, name, kingdom],
+    ).then(([r]) => r),
+  ]);
+
+  const BUCKET_MS = 5 * 60 * 1000;
+  function bucketKey(isoStr: string): string {
+    const ms = new Date(isoStr.replace(" ", "T") + "Z").getTime();
+    const bucketMs = Math.floor(ms / BUCKET_MS) * BUCKET_MS;
+    return new Date(bucketMs).toISOString().replace("T", " ").replace(".000Z", "");
+  }
+
+  const buckets = new Map<string, ProvinceHistoryPoint>();
+  function ensureBucket(key: string): ProvinceHistoryPoint {
+    if (!buckets.has(key)) {
+      buckets.set(key, {
+        receivedAt: key,
+        networth: null, land: null, peasants: null,
+        soldiers: null, offSpecs: null, defSpecs: null, elites: null, warHorses: null,
+        offPoints: null, defPoints: null,
+        money: null, food: null, runes: null, thieves: null, wizards: null,
+        attacksTaken: [], thieveryOpsTaken: [], sorceryOpsTaken: [], meta: {},
+      });
+    }
+    return buckets.get(key)!;
+  }
+  function mergeMetric(b: ProvinceHistoryPoint, metricKey: string, source: string | null, savedBy: string | null) {
+    const m = b.meta[metricKey] ?? (b.meta[metricKey] = { sources: [], savedBy: [] });
+    if (source && !m.sources.includes(source)) m.sources.push(source);
+    if (savedBy && !m.savedBy.includes(savedBy)) m.savedBy.push(savedBy);
+  }
+
+  for (const row of overviews) {
+    const b = ensureBucket(bucketKey(row.received_at));
+    if (row.land != null) { b.land = row.land; mergeMetric(b, "land", row.source, row.saved_by); }
+    if (row.networth != null) { b.networth = row.networth; mergeMetric(b, "networth", row.source, row.saved_by); }
+  }
+  for (const row of troops) {
+    const b = ensureBucket(bucketKey(row.received_at));
+    if (row.soldiers  != null) { b.soldiers  = row.soldiers;  mergeMetric(b, "soldiers",  row.source, row.saved_by); }
+    if (row.off_specs != null) { b.offSpecs  = row.off_specs; mergeMetric(b, "offSpecs",  row.source, row.saved_by); }
+    if (row.def_specs != null) { b.defSpecs  = row.def_specs; mergeMetric(b, "defSpecs",  row.source, row.saved_by); }
+    if (row.elites    != null) { b.elites    = row.elites;    mergeMetric(b, "elites",    row.source, row.saved_by); }
+    if (row.war_horses != null) { b.warHorses = row.war_horses; mergeMetric(b, "warHorses", row.source, row.saved_by); }
+    if (row.peasants  != null) { b.peasants  = row.peasants;  mergeMetric(b, "peasants",  row.source, row.saved_by); }
+  }
+  for (const row of resources) {
+    const b = ensureBucket(bucketKey(row.received_at));
+    if (row.money   != null) { b.money   = row.money;   mergeMetric(b, "money",   row.source, row.saved_by); }
+    if (row.food    != null) { b.food    = row.food;    mergeMetric(b, "food",    row.source, row.saved_by); }
+    if (row.runes   != null) { b.runes   = row.runes;   mergeMetric(b, "runes",   row.source, row.saved_by); }
+    if (row.thieves != null) { b.thieves = row.thieves; mergeMetric(b, "thieves", row.source, row.saved_by); }
+    if (row.wizards != null) { b.wizards = row.wizards; mergeMetric(b, "wizards", row.source, row.saved_by); }
+  }
+  for (const row of milPoints) {
+    const b = ensureBucket(bucketKey(row.received_at));
+    if (row.off_points != null) { b.offPoints = row.off_points; mergeMetric(b, "offPoints", row.source, row.saved_by); }
+    if (row.def_points != null) { b.defPoints = row.def_points; mergeMetric(b, "defPoints", row.source, row.saved_by); }
+  }
+  for (const row of attacksTaken) {
+    const b = ensureBucket(bucketKey(row.received_at));
+    b.attacksTaken.push({
+      receivedAt: row.received_at, attackType: row.attack_type,
+      attackerName: row.attacker_name, attackerKingdom: row.attacker_kingdom,
+      acresTaken: row.acres_taken, killed: row.enemy_killed,
+      imprisoned: row.enemy_imprisoned, massacred: row.massacred,
+    });
+  }
+  for (const row of thieveryOpsTaken) {
+    const b = ensureBucket(bucketKey(row.received_at));
+    b.thieveryOpsTaken.push({
+      receivedAt: row.received_at, op: row.op,
+      outcome: row.outcome as "success" | "failure",
+      amountStolen: row.amount_stolen, thievesLost: row.thieves_lost,
+      attackerName: row.attacker_name, attackerKingdom: row.attacker_kingdom,
+      troopsAssassinated: row.troops_assassinated, kidnapped: row.kidnapped,
+      acresBurned: row.acres_burned, effectDuration: row.effect_duration,
+    });
+  }
+  for (const row of sorceryOpsTaken) {
+    const b = ensureBucket(bucketKey(row.received_at));
+    b.sorceryOpsTaken.push({
+      receivedAt: row.received_at, spell: row.spell,
+      outcome: row.outcome as "success" | "failure",
+      durationDays: row.duration_days, wizardsLost: row.wizards_lost,
+      casterName: row.caster_name, casterKingdom: row.caster_kingdom,
+    });
+  }
+
+  return [...buckets.values()].sort((a, b) => a.receivedAt.localeCompare(b.receivedAt));
+}
+
+export async function cleanupExpired(): Promise<void> {
+  await ensureReady();
+  const cutoff = `DATE_SUB(NOW(), INTERVAL ${TTL_DAYS} DAY)`;
+  for (const tbl of [
+    "province_overview", "total_military_points", "home_military_points",
+    "province_troops", "province_resources", "province_status",
+    "military_intel", "survey_intel", "sos_intel",
+    "kingdom_intel", "kingdom_news", "kingdom_news_sharded",
+    "rob_ops", "intel_ops", "sorcery_ops", "attack_ops",
+  ]) {
+    await pool.query(`DELETE FROM \`${tbl}\` WHERE received_at < ${cutoff}`);
+  }
+}

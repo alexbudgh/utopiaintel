@@ -23,6 +23,10 @@ import {
   getLatestWarDate as mysqlGetLatestWarDate,
   getKingdomNews as mysqlGetKingdomNews,
   getRecentOps as mysqlGetRecentOps,
+  getKingdoms as mysqlGetKingdoms,
+  getKingdomNewsSummary as mysqlGetKingdomNewsSummary,
+  getProvinceHistory as mysqlGetProvinceHistory,
+  cleanupExpired as mysqlCleanupExpired,
 } from "./db-mysql";
 
 // Re-export row types so callers don't have to import from both db and db-api.
@@ -111,12 +115,12 @@ function createMysqlDbApi(): AsyncDbApi {
       getLatestWarDate:          (kd, kh)       => mysqlGetLatestWarDate(kd, kh),
       getKingdomNews:            (kd, kh, f, t) => mysqlGetKingdomNews(kd, kh, f, t),
       getRecentOps:              (kh, lim, s)   => mysqlGetRecentOps(kh, lim, s),
-      getKingdoms:               notYet("getKingdoms") as AsyncDbApi["getKingdoms"],
+      getKingdoms:               (kh)           => mysqlGetKingdoms(kh),
+      getKingdomNewsSummary:     (kd, kh, f, t) => mysqlGetKingdomNewsSummary(kd, kh, f, t),
+      getProvinceHistory:        (nm, kd, kh)   => mysqlGetProvinceHistory(nm, kd, kh),
+      cleanupExpired:            ()             => mysqlCleanupExpired(),
       getKingdomProvinces:       notYet("getKingdomProvinces") as AsyncDbApi["getKingdomProvinces"],
       getProvinceDetail:         notYet("getProvinceDetail") as AsyncDbApi["getProvinceDetail"],
-      getKingdomNewsSummary:     notYet("getKingdomNewsSummary") as AsyncDbApi["getKingdomNewsSummary"],
-      getProvinceHistory:        notYet("getProvinceHistory") as AsyncDbApi["getProvinceHistory"],
-      cleanupExpired:            notYet("cleanupExpired") as AsyncDbApi["cleanupExpired"],
     };
   }
   return _mysqlApi;
