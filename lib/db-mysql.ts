@@ -628,3 +628,19 @@ export async function bindKeyToKingdom(conn: PoolConnection, keyHash: string, ki
     [keyHash, kingdom, source],
   );
 }
+
+// ── Store functions ───────────────────────────────────────────────────────────
+
+export async function storeSoD(data: SoDData, savedBy: string, keyHash: string): Promise<void> {
+  await ensureReady();
+  await withTransaction(async (conn) => {
+    const provId = await ensureProvince(conn, data.name, data.kingdom);
+    await recordSubmission(conn, keyHash, provId);
+    await conn.execute(
+      `INSERT IGNORE INTO home_military_points
+         (province_id, key_hash, mod_off_at_home, mod_def_at_home, source, saved_by, accuracy)
+       VALUES (?, ?, NULL, ?, 'sod', ?, ?)`,
+      [provId, keyHash, data.defPoints, savedBy, data.accuracy],
+    );
+  });
+}

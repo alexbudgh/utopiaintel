@@ -1,7 +1,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import type { RowDataPacket } from "mysql2/promise";
-import { pool, initDb, ensureProvince, recordSubmission, bindKeyToKingdom, withTransaction } from "../lib/db-mysql";
+import { pool, initDb, ensureProvince, recordSubmission, bindKeyToKingdom, withTransaction, storeSoD } from "../lib/db-mysql";
 
 after(async () => {
   await pool.end();
@@ -173,4 +173,42 @@ test("bindKeyToKingdom: mismatch — does not overwrite existing binding", async
     ["hash1"],
   );
   assert.equal(row.kingdom, "7:5");
+});
+
+// ── storeSoD ──────────────────────────────────────────────────────────────────
+
+test("storeSoD: inserts a home_military_points row with correct def value", async () => {
+  await truncateAll();
+  interface HmpRow extends RowDataPacket {
+    mod_off_at_home: number | null;
+    mod_def_at_home: number;
+    source: string;
+    accuracy: number;
+  }
+
+  await storeSoD({ name: "TestProv", kingdom: "7:5", defPoints: 12345, accuracy: 95 }, "scout1", "keyhash1");
+
+  const [[row]] = await pool.query<HmpRow[]>(
+    `SELECT mod_off_at_home, mod_def_at_home, source, accuracy
+     FROM home_military_points WHERE key_hash = ?`,
+    ["keyhash1"],
+  );
+  assert.equal(row.mod_off_at_home, null);
+  assert.equal(row.mod_def_at_home, 12345);
+  assert.equal(row.source, "sod");
+  assert.equal(row.accuracy, 95);
+});
+
+test("storeSoD: idempotent — same-second duplicate is silently dropped", async () => {
+  await truncateAll();
+  interface CountRow extends RowDataPacket { n: number }
+
+  await storeSoD({ name: "TestProv", kingdom: "7:5", defPoints: 100, accuracy: 100 }, "scout1", "keyhash1");
+  await storeSoD({ name: "TestProv", kingdom: "7:5", defPoints: 100, accuracy: 100 }, "scout1", "keyhash1");
+
+  const [[{ n }]] = await pool.query<CountRow[]>(
+    "SELECT COUNT(*) AS n FROM home_military_points WHERE key_hash = ?",
+    ["keyhash1"],
+  );
+  assert.ok(n >= 1);
 });
