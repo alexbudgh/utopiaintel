@@ -1,7 +1,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import type { RowDataPacket } from "mysql2/promise";
-import { pool, initDb, ensureProvince, recordSubmission, bindKeyToKingdom, withTransaction, storeSoS, storeSoM, storeSorcery, storeRob, storeAttack, storeTrainArmy, storeBuild, storeInfiltrate, storeSoD, storeIntelOp, storeSurvey } from "../lib/db-mysql";
+import { pool, initDb, ensureProvince, recordSubmission, bindKeyToKingdom, withTransaction, storeSoT, storeSoS, storeSoM, storeSorcery, storeRob, storeAttack, storeTrainArmy, storeBuild, storeInfiltrate, storeSoD, storeIntelOp, storeSurvey } from "../lib/db-mysql";
 
 after(async () => {
   await pool.end();
@@ -725,5 +725,117 @@ test("storeSoM: duplicate does not insert armies again", async () => {
   await storeSoM(baseSoM, "scout1", "keyhash1", false, "2025-06-01 12:00:00");
 
   const [[{ n }]] = await pool.query<CountRow[]>("SELECT COUNT(*) AS n FROM military_intel WHERE key_hash = ?", ["keyhash1"]);
+  assert.equal(n, 1);
+});
+
+// ── storeSoT ─────────────────────────────────────────────────────────────────
+
+const baseSoT = {
+  name: "SoTProvince",
+  kingdom: "7:5",
+  race: "Elf",
+  personality: "Warrior",
+  honorTitle: "Knight",
+  ruler: "TestRuler",
+  land: 800,
+  networth: 120000,
+  soldiers: 500,
+  offSpecs: 100,
+  defSpecs: 150,
+  elites: 40,
+  warHorses: 10,
+  peasants: 4000,
+  buildingEfficiency: 95,
+  thieves: null,
+  stealth: null,
+  money: 250000,
+  wizards: null,
+  mana: null,
+  food: 80000,
+  runes: 5000,
+  prisoners: 0,
+  tradeBalance: 1200,
+  offPoints: 18000,
+  defPoints: 12000,
+  plagued: false,
+  overpopulated: false,
+  overpopDeserters: null,
+  dragonType: null,
+  dragonName: null,
+  hitStatus: "not_hit",
+  war: false,
+  warTarget: null,
+  accuracy: 100,
+  activeEffects: [
+    { name: "Fountain of Knowledge", kind: "spell" as const, durationText: "4 days", remainingTicks: 4, effectivenessPercent: null },
+  ],
+};
+
+test("storeSoT: inserts all six tables (overview, totmil, troops, resources, status, effects)", async () => {
+  await truncateAll();
+  interface CountRow extends RowDataPacket { n: number }
+
+  await storeSoT(baseSoT, "spy1", "keyhash1", false, "2025-06-01 12:00:00");
+
+  for (const tbl of ["province_overview", "total_military_points", "province_troops", "province_resources", "province_status", "province_effects"]) {
+    const [[{ n }]] = await pool.query<CountRow[]>(`SELECT COUNT(*) AS n FROM \`${tbl}\` WHERE key_hash = ?`, ["keyhash1"]);
+    assert.equal(n, 1, `expected 1 row in ${tbl}`);
+  }
+});
+
+test("storeSoT: correct field values in province_overview and resources", async () => {
+  await truncateAll();
+  interface OvRow extends RowDataPacket { race: string; land: number; networth: number; source: string }
+  interface ResRow extends RowDataPacket { money: number; food: number; off_points?: number }
+
+  await storeSoT(baseSoT, "spy1", "keyhash1", false, "2025-06-01 12:00:00");
+
+  const [[ov]] = await pool.query<OvRow[]>("SELECT race, land, networth, source FROM province_overview WHERE key_hash = ?", ["keyhash1"]);
+  assert.equal(ov.race, "Elf");
+  assert.equal(ov.land, 800);
+  assert.equal(ov.source, "sot");
+
+  const [[res]] = await pool.query<ResRow[]>("SELECT money, food FROM province_resources WHERE key_hash = ?", ["keyhash1"]);
+  assert.equal(res.money, 250000);
+  assert.equal(res.food, 80000);
+});
+
+test("storeSoT: isSelfThrone=true stores source as throne and binds key to kingdom", async () => {
+  await truncateAll();
+  interface SrcRow extends RowDataPacket { source: string }
+  interface BindRow extends RowDataPacket { kingdom: string }
+
+  const selfSoT = { ...baseSoT, warTarget: "8:6" };
+  await storeSoT(selfSoT, "self1", "keyhash1", true, "2025-06-01 12:00:00");
+
+  const [[ov]] = await pool.query<SrcRow[]>("SELECT source FROM province_overview WHERE key_hash = ?", ["keyhash1"]);
+  assert.equal(ov.source, "throne");
+
+  const [[bind]] = await pool.query<BindRow[]>("SELECT kingdom FROM key_kingdom_bindings WHERE key_hash = ?", ["keyhash1"]);
+  assert.equal(bind.kingdom, "7:5");
+});
+
+test("storeSoT: isSelfThrone=true with armiesOut inserts som_armies rows", async () => {
+  await truncateAll();
+  interface ArmyRow extends RowDataPacket { army_type: string; land_gained: number; return_days: number }
+
+  const selfSoT = { ...baseSoT, armiesOut: [{ daysLeft: 3, acres: 120 }, { daysLeft: 1, acres: 60 }] };
+  await storeSoT(selfSoT, "self1", "keyhash1", true, "2025-06-01 12:00:00");
+
+  const [armies] = await pool.query<ArmyRow[]>("SELECT army_type, land_gained, return_days FROM som_armies ORDER BY army_type");
+  assert.equal(armies.length, 2);
+  assert.equal(armies[0].army_type, "out_1");
+  assert.equal(armies[0].land_gained, 120);
+  assert.equal(armies[0].return_days, 3);
+});
+
+test("storeSoT: duplicate does not double-insert", async () => {
+  await truncateAll();
+  interface CountRow extends RowDataPacket { n: number }
+
+  await storeSoT(baseSoT, "spy1", "keyhash1", false, "2025-06-01 12:00:00");
+  await storeSoT(baseSoT, "spy1", "keyhash1", false, "2025-06-01 12:00:00");
+
+  const [[{ n }]] = await pool.query<CountRow[]>("SELECT COUNT(*) AS n FROM province_overview WHERE key_hash = ?", ["keyhash1"]);
   assert.equal(n, 1);
 });

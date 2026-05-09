@@ -884,6 +884,100 @@ export async function storeIntelOp(data: IntelOpAttempt, savedBy: string, keyHas
   });
 }
 
+export async function storeSoT(data: SoTData, savedBy: string, keyHash: string, isSelfThrone = false, receivedAt?: string): Promise<void> {
+  await ensureReady();
+  const src = isSelfThrone ? "throne" : "sot";
+  await withTransaction(async (conn) => {
+    const provId = await ensureProvince(conn, data.name, data.kingdom);
+    await recordSubmission(conn, keyHash, provId);
+
+    if (isSelfThrone && data.kingdom) {
+      await bindKeyToKingdom(conn, keyHash, data.kingdom, "throne");
+      // MySQL cannot UPDATE and SELECT the same table in a subquery directly;
+      // wrap in a derived table to work around the restriction.
+      await conn.execute(
+        `UPDATE kingdom_intel SET war_target = ?
+         WHERE id = (
+           SELECT id FROM (
+             SELECT id FROM kingdom_intel WHERE location = ? AND key_hash = ? ORDER BY id DESC LIMIT 1
+           ) AS _tmp
+         )`,
+        [data.warTarget ?? null, data.kingdom, keyHash],
+      );
+    }
+
+    // 1. Overview
+    await conn.execute(
+      `INSERT IGNORE INTO province_overview
+         (province_id, key_hash, race, personality, honor_title, ruler, land, networth, source, saved_by, accuracy, received_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+      [provId, keyHash, data.race, data.personality ?? null, data.honorTitle ?? null, data.ruler ?? null, data.land, data.networth, src, savedBy, data.accuracy, receivedAt ?? null],
+    );
+
+    // 2. Total military points
+    await conn.execute(
+      `INSERT IGNORE INTO total_military_points
+         (province_id, key_hash, off_points, def_points, source, saved_by, accuracy, received_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+      [provId, keyHash, data.offPoints, data.defPoints, src, savedBy, data.accuracy, receivedAt ?? null],
+    );
+
+    // 3. Troops at home
+    await conn.execute(
+      `INSERT IGNORE INTO province_troops
+         (province_id, key_hash, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, saved_by, accuracy, received_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+      [provId, keyHash, data.soldiers, data.offSpecs, data.defSpecs, data.elites, data.warHorses, data.peasants, src, savedBy, data.accuracy, receivedAt ?? null],
+    );
+
+    // 4. Resources
+    await conn.execute(
+      `INSERT IGNORE INTO province_resources
+         (province_id, key_hash, money, food, runes, prisoners, trade_balance, building_efficiency, thieves, stealth, wizards, mana, source, saved_by, accuracy, received_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+      [provId, keyHash, data.money, data.food, data.runes, data.prisoners, data.tradeBalance, data.buildingEfficiency, data.thieves, data.stealth, data.wizards, data.mana, src, savedBy, data.accuracy, receivedAt ?? null],
+    );
+
+    // 5. Status
+    await conn.execute(
+      `INSERT IGNORE INTO province_status
+         (province_id, key_hash, plagued, overpopulated, overpop_deserters, dragon_type, dragon_name, hit_status, war, source, saved_by, received_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+      [provId, keyHash, data.plagued ? 1 : 0, data.overpopulated ? 1 : 0, data.overpopDeserters ?? null, data.dragonType ?? null, data.dragonName ?? null, data.hitStatus, data.war ? 1 : 0, src, savedBy, receivedAt ?? null],
+    );
+
+    // 6. Active effects
+    for (const effect of data.activeEffects) {
+      await conn.execute(
+        `INSERT IGNORE INTO province_effects
+           (province_id, key_hash, effect_name, effect_kind, duration_text, remaining_ticks, effectiveness_percent, source, saved_by, received_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+        [provId, keyHash, effect.name, effect.kind, effect.durationText, effect.remainingTicks, effect.effectivenessPercent, src, savedBy, receivedAt ?? null],
+      );
+    }
+
+    // 7. Armies out (self-throne only)
+    if (isSelfThrone && data.armiesOut?.length) {
+      const [milResult] = await conn.execute(
+        `INSERT IGNORE INTO military_intel
+           (province_id, key_hash, ome, dme, source, saved_by, accuracy, received_at)
+         VALUES (?, ?, NULL, NULL, 'throne', ?, ?, COALESCE(?, NOW()))`,
+        [provId, keyHash, savedBy, data.accuracy, receivedAt ?? null],
+      ) as [ResultSetHeader, unknown];
+      if (milResult.affectedRows === 0) return;
+      const milId = milResult.insertId;
+      for (let i = 0; i < data.armiesOut.length; i++) {
+        const a = data.armiesOut[i];
+        await conn.execute(
+          "INSERT INTO som_armies (military_intel_id, army_type, land_gained, return_days) VALUES (?, ?, ?, ?)",
+          [milId, `out_${i + 1}`, a.acres, a.daysLeft],
+        );
+      }
+    }
+    // queueMetricsCacheRefresh called here once implemented
+  });
+}
+
 export async function storeSoM(data: SoMData, savedBy: string, keyHash: string, isSelf = false, receivedAt?: string): Promise<void> {
   await ensureReady();
   const src = isSelf ? "council_military" : "som";
