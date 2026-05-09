@@ -10,7 +10,7 @@ test("replayEntry inserts original received_at directly", async () => {
 
   try {
     const { replayEntry, normalizeReceivedAt } = await import("../lib/replay-debug-log");
-    const { getDb } = await import("../lib/db");
+    const { getDb, flushMetricsCacheRefreshQueue } = await import("../lib/db");
 
     const receivedAt = "2026-05-03T03:57:27.581Z";
     const expected = normalizeReceivedAt(receivedAt);
@@ -39,6 +39,7 @@ test("replayEntry inserts original received_at directly", async () => {
       const row = db.prepare(`SELECT received_at FROM ${table}`).get() as { received_at: string };
       assert.equal(row.received_at, expected, table);
     }
+    await flushMetricsCacheRefreshQueue();
     db.close();
   } finally {
     await rm(dir, { recursive: true, force: true });

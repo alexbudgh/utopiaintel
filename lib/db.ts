@@ -27,10 +27,14 @@ import type { KingdomNewsData, KingdomNewsEvent } from "./parsers/kingdom_news";
 
 const DB_PATH = process.env.INTEL_DB_PATH || path.join(process.cwd(), "intel.db");
 const TTL_DAYS = 7;
+const METRICS_CACHE_BATCH_DELAY_MS = 250;
 
 let _db: Database.Database | null = null;
 const BAD_SPELL_SQL_LIST = BAD_SPELL_NAMES.map((name) => `'${name.replaceAll("'", "''")}'`).join(", ");
 let metricsCacheRefreshEnabled = true;
+let metricsCacheFlushTimer: ReturnType<typeof setTimeout> | null = null;
+let metricsCacheFlushPromise: Promise<void> | null = null;
+const pendingMetricsCacheRefreshes = new Map<string, { provinceId: number; keyHash: string }>();
 
 export function getDb(): Database.Database {
   if (!_db) {
@@ -395,6 +399,50 @@ export function setMetricsCacheRefreshEnabled(enabled: boolean): () => void {
   return () => {
     metricsCacheRefreshEnabled = previous;
   };
+}
+
+function metricsCacheKey(provinceId: number, keyHash: string) {
+  return `${provinceId}\0${keyHash}`;
+}
+
+function scheduleMetricsCacheFlush() {
+  if (metricsCacheFlushTimer) return;
+  metricsCacheFlushTimer = setTimeout(() => {
+    metricsCacheFlushTimer = null;
+    void flushMetricsCacheRefreshQueue();
+  }, METRICS_CACHE_BATCH_DELAY_MS);
+  metricsCacheFlushTimer.unref?.();
+}
+
+function queueMetricsCacheRefresh(provinceId: number, keyHash: string) {
+  if (!metricsCacheRefreshEnabled) return;
+  pendingMetricsCacheRefreshes.set(metricsCacheKey(provinceId, keyHash), { provinceId, keyHash });
+  scheduleMetricsCacheFlush();
+}
+
+export async function flushMetricsCacheRefreshQueue(): Promise<void> {
+  if (metricsCacheFlushTimer) {
+    clearTimeout(metricsCacheFlushTimer);
+    metricsCacheFlushTimer = null;
+  }
+  if (metricsCacheFlushPromise) return metricsCacheFlushPromise;
+  if (pendingMetricsCacheRefreshes.size === 0) return;
+
+  metricsCacheFlushPromise = Promise.resolve().then(() => {
+    const batch = [...pendingMetricsCacheRefreshes.values()];
+    pendingMetricsCacheRefreshes.clear();
+    const db = getDb();
+    for (const item of batch) {
+      updateMetricsCache(db, item.provinceId, item.keyHash);
+    }
+    if (pendingMetricsCacheRefreshes.size > 0) scheduleMetricsCacheFlush();
+  }).catch((err) => {
+    console.error("[intel] metrics cache refresh failed", err);
+  }).finally(() => {
+    metricsCacheFlushPromise = null;
+  });
+
+  return metricsCacheFlushPromise;
 }
 
 export function initSchema(db: Database.Database) {
@@ -1138,7 +1186,7 @@ export function storeSoT(data: SoTData, savedBy: string, keyHash: string, isSelf
         insArmy.run(milId, `out_${i + 1}`, a.acres, a.daysLeft);
       });
     }
-    updateMetricsCache(db, provId, keyHash);
+    queueMetricsCacheRefresh(provId, keyHash);
   })();
 }
 
@@ -1165,7 +1213,7 @@ export function storeInfiltrate(data: InfiltrateData, savedBy: string, keyHash: 
       INSERT OR IGNORE INTO province_resources (province_id, key_hash, thieves, source, saved_by, accuracy, received_at)
       VALUES (?, ?, ?, 'infiltrate', ?, ?, COALESCE(?, datetime('now')))
     `).run(provId, keyHash, data.thieves, savedBy, data.accuracy, receivedAt ?? null);
-    updateMetricsCache(db, provId, keyHash);
+    queueMetricsCacheRefresh(provId, keyHash);
   })();
 }
 
@@ -1383,7 +1431,7 @@ export function storeSoS(data: SoSData, savedBy: string, keyHash: string, isSelf
     for (const s of data.sciences) {
       ins.run(sosId, s.science, s.books, s.effect);
     }
-    updateMetricsCache(db, provId, keyHash);
+    queueMetricsCacheRefresh(provId, keyHash);
   })();
 }
 
@@ -1415,7 +1463,7 @@ export function storeSurvey(data: SurveyData, savedBy: string, keyHash: string, 
     for (const b of data.buildings) {
       ins.run(surveyId, b.building, b.built, b.inProgress);
     }
-    updateMetricsCache(db, provId, keyHash);
+    queueMetricsCacheRefresh(provId, keyHash);
   })();
 }
 
@@ -1496,7 +1544,7 @@ export function storeState(data: StateData, savedBy: string, keyHash: string, re
       INSERT OR IGNORE INTO province_troops (province_id, key_hash, peasants, source, saved_by, accuracy, received_at)
       VALUES (?, ?, ?, 'state', ?, 100, COALESCE(?, datetime('now')))
     `).run(provId, keyHash, data.peasants, savedBy, receivedAt ?? null);
-    updateMetricsCache(db, provId, keyHash);
+    queueMetricsCacheRefresh(provId, keyHash);
   })();
 }
 

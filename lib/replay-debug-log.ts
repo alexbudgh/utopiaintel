@@ -25,6 +25,7 @@ import {
   storeSorcery,
   storeAttack,
   setMetricsCacheRefreshEnabled,
+  flushMetricsCacheRefreshQueue,
 } from "./db";
 
 export type ReplayType = "kingdom" | "survey" | "sot" | "kingdom_news" | "state" | "som" | "sos" | "sod" | "infiltrate" | "train_army" | "build" | "rob" | "sorcery" | "attack";
@@ -245,6 +246,7 @@ export async function replayDebugLogs({ files, replayTypes, keyHash, assumeKeyHa
       }
     }
   } finally {
+    if (refreshMetrics && !dryRun) await flushMetricsCacheRefreshQueue();
     restoreMetricsCacheRefresh();
   }
 

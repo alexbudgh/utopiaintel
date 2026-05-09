@@ -137,3 +137,35 @@ Replay can expose stale identities already present in `provinces` and
 `intel_partitions`. That is expected: replay should preserve shard visibility,
 while read queries are responsible for requiring the source rows needed to render
 current UI data.
+
+## Metric Cache Refresh
+
+The province table uses cached last-valid TPA/WPA values from `provinces` when
+same-tick source rows are not currently reconstructable from retained history.
+Those cache values are produced by `updateMetricsCache()`.
+
+CPU profiles from production-like runs showed occasional spikes dominated by
+synchronous SQLite `Statement#get` calls inside `updateMetricsCache()`, especially
+when called from SoS and sorcery/resource writes. The expensive work is not
+React rendering or recent-ops polling; it is same-tick metric reconstruction
+queries joining historical source tables such as `province_resources`,
+`province_overview`, `sos_intel`, `sos_sciences`, `survey_intel`,
+`survey_buildings`, and `province_troops`.
+
+Coalescing refreshes by `(province_id, key_hash)` can reduce duplicate work
+during bursts because several writes for the same province collapse into one
+pending refresh. This is only a mitigation: it moves refresh work out of the
+request transaction path and lowers repeated recomputation, but it still runs
+the same expensive queries. Large batches across many provinces can still
+consume CPU.
+
+Longer-term improvements should focus on making the refresh itself cheaper or
+less bursty:
+
+- Process queued refreshes in small chunks and yield between chunks.
+- Add or adjust indexes for the exact metric-cache query shapes.
+- Avoid recomputing unrelated metrics when a source type only affects one subset.
+- Consider a background worker/job for cache refreshes instead of doing them in
+  request processes.
+- Consider storing tick-hour columns so same-tick joins can use normal indexed
+  equality instead of timestamp expressions.
