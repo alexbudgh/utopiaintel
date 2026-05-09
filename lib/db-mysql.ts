@@ -105,8 +105,15 @@ const SAME_TICK_EXPR = (a: string, b: string) =>
 
 const BAD_SPELL_SQL_LIST = BAD_SPELL_NAMES.map((name) => `'${name.replaceAll("'", "''")}'`).join(", ");
 
-// latestSlotCte uses :keyHash (and optionally :kingdom) — callers pass through n()
-const latestSlotCte = (extraWhere = "") => `
+// latestSlotCte uses :keyHash (and optionally :kingdom) — callers pass through n().
+// Inner subquery is non-correlated (GROUP BY location, slot) so the optimizer can
+// compute it once rather than once per outer row. When a kingdom filter is present,
+// both outer and inner are scoped to that kingdom, matching the SQLite behaviour.
+const latestSlotCte = (extraWhere = "") => {
+  const kingdomKnown = extraWhere.includes(":kingdom");
+  const innerWhere   = kingdomKnown ? "AND ki2.location = :kingdom" : "";
+  const groupBy      = kingdomKnown ? "kp2.slot" : "ki2.location, kp2.slot";
+  return `
   latest_slot AS (
     SELECT ki.location AS kingdom, kp.slot, kp.name
     FROM kingdom_provinces kp
@@ -114,16 +121,18 @@ const latestSlotCte = (extraWhere = "") => `
     WHERE ki.key_hash = :keyHash
       AND kp.slot IS NOT NULL
       ${extraWhere}
-      AND kp.id = (
+      AND kp.id IN (
         SELECT MAX(kp2.id)
         FROM kingdom_provinces kp2
         JOIN kingdom_intel ki2 ON ki2.id = kp2.kingdom_intel_id
         WHERE ki2.key_hash = :keyHash
-          AND ki2.location = ki.location
-          AND kp2.slot = kp.slot
+          AND kp2.slot IS NOT NULL
+          ${innerWhere}
+        GROUP BY ${groupBy}
       )
   )
 `;
+};
 
 // OVERVIEW scalar subqueries — use :keyHash (resolved via n())
 const OVERVIEW_RACE_SQL  = `(SELECT race        FROM province_overview WHERE province_id = p.id AND key_hash = :keyHash AND race        IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS race`;
