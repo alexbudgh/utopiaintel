@@ -1,7 +1,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import type { RowDataPacket } from "mysql2/promise";
-import { pool, initDb, ensureProvince, recordSubmission, bindKeyToKingdom, withTransaction, storeSoS, storeSorcery, storeRob, storeAttack, storeTrainArmy, storeBuild, storeInfiltrate, storeSoD } from "../lib/db-mysql";
+import { pool, initDb, ensureProvince, recordSubmission, bindKeyToKingdom, withTransaction, storeSoS, storeSorcery, storeRob, storeAttack, storeTrainArmy, storeBuild, storeInfiltrate, storeSoD, storeIntelOp, storeSurvey } from "../lib/db-mysql";
 
 after(async () => {
   await pool.end();
@@ -21,6 +21,7 @@ test("initDb: creates all expected tables", async () => {
   const expected = [
     "attack_ops",
     "home_military_points",
+    "intel_ops",
     "intel_partitions",
     "key_kingdom_bindings",
     "kingdom_intel",
@@ -62,7 +63,7 @@ async function truncateAll(): Promise<void> {
   try {
     await conn.query("SET FOREIGN_KEY_CHECKS = 0");
     for (const t of [
-      "attack_ops", "sorcery_ops", "rob_ops",
+      "intel_ops", "attack_ops", "sorcery_ops", "rob_ops",
       "kingdom_news_sharded", "kingdom_news",
       "kingdom_provinces", "kingdom_intel",
       "intel_partitions", "key_kingdom_bindings",
@@ -501,6 +502,161 @@ test("storeSoS: duplicate does not insert sciences again", async () => {
 
   const [[{ n }]] = await pool.query<CountRow[]>(
     "SELECT COUNT(*) AS n FROM sos_intel WHERE key_hash = ?",
+    ["keyhash1"],
+  );
+  assert.equal(n, 1);
+});
+
+// ── storeIntelOp ─────────────────────────────────────────────────────────────
+
+test("storeIntelOp: inserts row into intel_ops", async () => {
+  await truncateAll();
+  interface OpRow extends RowDataPacket {
+    op: string; intel_type: string; outcome: string;
+    target_name: string | null; target_slot: number | null; target_kingdom: string | null;
+    accuracy: number | null; thieves_lost: number; saved_by: string;
+  }
+
+  await storeIntelOp(
+    { op: "SPY_ON_THRONE", intelType: "sot", outcome: "success", targetName: "TestProvince", targetSlot: 3, targetKingdom: "7:5", accuracy: 100, thievesLost: 0 },
+    "spy1", "keyhash1", "2025-06-01 12:00:00",
+  );
+
+  const [[row]] = await pool.query<OpRow[]>(
+    "SELECT op, intel_type, outcome, target_name, target_slot, target_kingdom, accuracy, thieves_lost, saved_by FROM intel_ops WHERE key_hash = ?",
+    ["keyhash1"],
+  );
+  assert.equal(row.op, "SPY_ON_THRONE");
+  assert.equal(row.intel_type, "sot");
+  assert.equal(row.outcome, "success");
+  assert.equal(row.target_name, "TestProvince");
+  assert.equal(row.target_slot, 3);
+  assert.equal(row.target_kingdom, "7:5");
+  assert.equal(row.accuracy, 100);
+  assert.equal(row.thieves_lost, 0);
+  assert.equal(row.saved_by, "spy1");
+});
+
+test("storeIntelOp: resolves target name from slot via kingdom_provinces", async () => {
+  await truncateAll();
+  interface OpRow extends RowDataPacket { target_name: string | null }
+
+  // Insert kingdom intel so resolveIntelOpTarget can look up the province name
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [kiRes] = await conn.execute(
+      `INSERT INTO kingdom_intel (key_hash, name, location, source, saved_by) VALUES (?, ?, ?, 'kingdom', 'scout')`,
+      ["keyhash1", "TestKingdom", "7:5"],
+    ) as [import("mysql2/promise").ResultSetHeader, unknown];
+    await conn.execute(
+      `INSERT INTO kingdom_provinces (kingdom_intel_id, slot, name, race, land, networth) VALUES (?, ?, ?, 'Elf', 500, 10000)`,
+      [kiRes.insertId, 3, "TestProvince"],
+    );
+    await conn.commit();
+  } finally {
+    conn.release();
+  }
+
+  // targetName is null — should be resolved from slot
+  await storeIntelOp(
+    { op: "SPY_ON_THRONE", intelType: "sot", outcome: "success", targetName: null, targetSlot: 3, targetKingdom: "7:5", accuracy: 95, thievesLost: 1 },
+    "spy1", "keyhash1", "2025-06-01 13:00:00",
+  );
+
+  const [[row]] = await pool.query<OpRow[]>(
+    "SELECT target_name FROM intel_ops WHERE key_hash = ? ORDER BY received_at DESC LIMIT 1",
+    ["keyhash1"],
+  );
+  assert.equal(row.target_name, "TestProvince");
+});
+
+test("storeIntelOp: duplicate (same province+keyhash+received_at) is ignored", async () => {
+  await truncateAll();
+  interface CountRow extends RowDataPacket { n: number }
+
+  const op = { op: "SPY_ON_DEFENSE", intelType: "sod" as const, outcome: "success" as const, targetName: "TP", targetSlot: 1, targetKingdom: "7:5", accuracy: 90, thievesLost: 0 };
+  await storeIntelOp(op, "spy1", "keyhash1", "2025-06-01 12:00:00");
+  await storeIntelOp(op, "spy1", "keyhash1", "2025-06-01 12:00:00");
+
+  const [[{ n }]] = await pool.query<CountRow[]>(
+    "SELECT COUNT(*) AS n FROM intel_ops WHERE key_hash = ?",
+    ["keyhash1"],
+  );
+  assert.equal(n, 1);
+});
+
+// ── storeSurvey ──────────────────────────────────────────────────────────────
+
+const baseSurvey = {
+  name: "SurveyProvince",
+  kingdom: "7:5",
+  accuracy: 97,
+  thieveryEffectiveness: 1.2,
+  thiefPreventChance: 0.15,
+  castlesEffect: 1.05,
+  buildings: [
+    { building: "Homes", built: 50, inProgress: 5 },
+    { building: "Barracks", built: 30, inProgress: 0 },
+  ],
+};
+
+test("storeSurvey: inserts survey_intel and survey_buildings child rows", async () => {
+  await truncateAll();
+  interface SurveyRow extends RowDataPacket {
+    source: string; accuracy: number;
+    thievery_effectiveness: number | null; thief_prevent_chance: number | null; castles_effect: number | null;
+  }
+  interface BuildingRow extends RowDataPacket { building: string; built: number; in_progress: number }
+
+  await storeSurvey(baseSurvey, "scout1", "keyhash1", false, "2025-06-01 12:00:00");
+
+  const [[row]] = await pool.query<SurveyRow[]>(
+    "SELECT source, accuracy, thievery_effectiveness, thief_prevent_chance, castles_effect FROM survey_intel WHERE key_hash = ?",
+    ["keyhash1"],
+  );
+  assert.equal(row.source, "survey");
+  assert.equal(row.accuracy, 97);
+  assert.equal(row.thievery_effectiveness, 1.2);
+  assert.equal(row.thief_prevent_chance, 0.15);
+  assert.equal(row.castles_effect, 1.05);
+
+  const [buildings] = await pool.query<BuildingRow[]>(
+    `SELECT sb.building, sb.built, sb.in_progress
+     FROM survey_buildings sb
+     JOIN survey_intel si ON si.id = sb.survey_intel_id
+     WHERE si.key_hash = ?
+     ORDER BY sb.building`,
+    ["keyhash1"],
+  );
+  assert.equal(buildings.length, 2);
+  const barracks = buildings.find((b) => b.building === "Barracks")!;
+  assert.equal(barracks.built, 30);
+  assert.equal(barracks.in_progress, 0);
+});
+
+test("storeSurvey: isSelf=true stores source as council_internal", async () => {
+  await truncateAll();
+  interface SrcRow extends RowDataPacket { source: string }
+
+  await storeSurvey(baseSurvey, "self1", "keyhash1", true, "2025-06-01 12:00:00");
+
+  const [[row]] = await pool.query<SrcRow[]>(
+    "SELECT source FROM survey_intel WHERE key_hash = ?",
+    ["keyhash1"],
+  );
+  assert.equal(row.source, "council_internal");
+});
+
+test("storeSurvey: duplicate does not insert buildings again", async () => {
+  await truncateAll();
+  interface CountRow extends RowDataPacket { n: number }
+
+  await storeSurvey(baseSurvey, "scout1", "keyhash1", false, "2025-06-01 12:00:00");
+  await storeSurvey(baseSurvey, "scout1", "keyhash1", false, "2025-06-01 12:00:00");
+
+  const [[{ n }]] = await pool.query<CountRow[]>(
+    "SELECT COUNT(*) AS n FROM survey_intel WHERE key_hash = ?",
     ["keyhash1"],
   );
   assert.equal(n, 1);

@@ -22,6 +22,7 @@ import type {
   AttackData,
 } from "./parsers/types";
 import type { KingdomNewsData, KingdomNewsEvent } from "./parsers/kingdom_news";
+import type { IntelOpAttempt } from "./intel-ops";
 import type {
   KingdomRow,
   KingdomSnapshot,
@@ -544,6 +545,25 @@ export async function initDb(): Promise<void> {
 
     `CREATE INDEX IF NOT EXISTS idx_attack_ops_prov ON attack_ops(province_id, key_hash, received_at DESC)`,
 
+    `CREATE TABLE IF NOT EXISTS intel_ops (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      province_id INT NOT NULL,
+      key_hash VARCHAR(64) NOT NULL,
+      op VARCHAR(64) NOT NULL,
+      intel_type VARCHAR(64) NOT NULL,
+      outcome VARCHAR(64) NOT NULL,
+      target_name VARCHAR(255),
+      target_slot INT,
+      target_kingdom VARCHAR(16),
+      accuracy INT,
+      thieves_lost INT NOT NULL DEFAULT 0,
+      saved_by VARCHAR(255),
+      received_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_intel_ops_prov FOREIGN KEY (province_id) REFERENCES provinces(id)
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+
+    `CREATE INDEX IF NOT EXISTS idx_intel_ops_prov ON intel_ops(province_id, key_hash, received_at DESC)`,
+
     // Unique submission indexes (baked in — no additive migrations needed)
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_overview_unique_submission ON province_overview(province_id, key_hash, source, saved_by, received_at)`,
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_totmil_unique_submission ON total_military_points(province_id, key_hash, source, saved_by, received_at)`,
@@ -559,6 +579,7 @@ export async function initDb(): Promise<void> {
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_attack_ops_unique_submission ON attack_ops(province_id, key_hash, received_at)`,
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_rob_ops_unique_submission ON rob_ops(province_id, key_hash, received_at)`,
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_sorcery_ops_unique_submission ON sorcery_ops(province_id, key_hash, received_at)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_intel_ops_unique_submission ON intel_ops(province_id, key_hash, received_at)`,
   ];
 
   for (const stmt of ddl) {
@@ -797,5 +818,101 @@ export async function storeSoD(data: SoDData, savedBy: string, keyHash: string):
        VALUES (?, ?, NULL, ?, 'sod', ?, ?)`,
       [provId, keyHash, data.defPoints, savedBy, data.accuracy],
     );
+  });
+}
+
+async function resolveIntelOpTarget(
+  conn: PoolConnection,
+  data: IntelOpAttempt,
+  keyHash: string,
+): Promise<{ targetName: string | null; targetSlot: number | null; targetKingdom: string | null }> {
+  interface NameRow extends RowDataPacket { name: string }
+  interface SlotRow extends RowDataPacket { slot: number | null }
+
+  let targetName = data.targetName;
+  let targetSlot = data.targetSlot;
+  const targetKingdom = data.targetKingdom;
+
+  if (targetKingdom && targetName == null && targetSlot != null) {
+    const [rows] = await conn.execute<NameRow[]>(
+      `SELECT kp.name
+       FROM kingdom_provinces kp
+       JOIN kingdom_intel ki ON ki.id = kp.kingdom_intel_id
+       WHERE ki.key_hash = ? AND ki.location = ? AND kp.slot = ?
+       ORDER BY ki.received_at DESC, ki.id DESC
+       LIMIT 1`,
+      [keyHash, targetKingdom, targetSlot],
+    );
+    targetName = rows[0]?.name ?? null;
+  }
+
+  if (targetKingdom && targetSlot == null && targetName) {
+    const [rows] = await conn.execute<SlotRow[]>(
+      `SELECT kp.slot
+       FROM kingdom_provinces kp
+       JOIN kingdom_intel ki ON ki.id = kp.kingdom_intel_id
+       WHERE ki.key_hash = ? AND ki.location = ? AND kp.name = ?
+       ORDER BY ki.received_at DESC, ki.id DESC
+       LIMIT 1`,
+      [keyHash, targetKingdom, targetName],
+    );
+    targetSlot = rows[0]?.slot ?? null;
+  }
+
+  return { targetName, targetSlot, targetKingdom };
+}
+
+export async function storeIntelOp(data: IntelOpAttempt, savedBy: string, keyHash: string, receivedAt?: string): Promise<void> {
+  await ensureReady();
+  await withTransaction(async (conn) => {
+    const provId = await ensureProvince(conn, savedBy, "");
+    await recordSubmission(conn, keyHash, provId);
+    const target = await resolveIntelOpTarget(conn, data, keyHash);
+    await conn.execute(
+      `INSERT IGNORE INTO intel_ops
+         (province_id, key_hash, op, intel_type, outcome,
+          target_name, target_slot, target_kingdom, accuracy, thieves_lost,
+          saved_by, received_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+      [
+        provId, keyHash, data.op, data.intelType, data.outcome,
+        target.targetName, target.targetSlot, target.targetKingdom,
+        data.accuracy, data.thievesLost,
+        savedBy, receivedAt ?? null,
+      ],
+    );
+  });
+}
+
+export async function storeSurvey(data: SurveyData, savedBy: string, keyHash: string, isSelf = false, receivedAt?: string): Promise<void> {
+  await ensureReady();
+  const src = isSelf ? "council_internal" : "survey";
+  await withTransaction(async (conn) => {
+    const provId = await ensureProvince(conn, data.name, data.kingdom);
+    await recordSubmission(conn, keyHash, provId);
+
+    const [result] = await conn.execute(
+      `INSERT IGNORE INTO survey_intel
+         (province_id, key_hash, source, saved_by, accuracy,
+          thievery_effectiveness, thief_prevent_chance, castles_effect, received_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+      [
+        provId, keyHash, src, savedBy, data.accuracy,
+        data.thieveryEffectiveness ?? null,
+        data.thiefPreventChance ?? null,
+        data.castlesEffect ?? null,
+        receivedAt ?? null,
+      ],
+    ) as [ResultSetHeader, unknown];
+    if (result.affectedRows === 0) return;
+
+    const surveyId = result.insertId;
+    for (const b of data.buildings) {
+      await conn.execute(
+        "INSERT INTO survey_buildings (survey_intel_id, building, built, in_progress) VALUES (?, ?, ?, ?)",
+        [surveyId, b.building, b.built, b.inProgress],
+      );
+    }
+    // queueMetricsCacheRefresh called here once implemented
   });
 }
