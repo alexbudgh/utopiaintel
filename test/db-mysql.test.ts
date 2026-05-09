@@ -1,7 +1,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import type { RowDataPacket } from "mysql2/promise";
-import { pool, initDb, ensureProvince, recordSubmission, bindKeyToKingdom, withTransaction, storeRob, storeAttack, storeTrainArmy, storeBuild, storeInfiltrate, storeSoD } from "../lib/db-mysql";
+import { pool, initDb, ensureProvince, recordSubmission, bindKeyToKingdom, withTransaction, storeSorcery, storeRob, storeAttack, storeTrainArmy, storeBuild, storeInfiltrate, storeSoD } from "../lib/db-mysql";
 
 after(async () => {
   await pool.end();
@@ -384,6 +384,64 @@ test("storeRob: duplicate op does not insert province_resources", async () => {
   // Same receivedAt → same unique key → INSERT IGNORE skips the rob_ops row
   // → affectedRows === 0 → province_resources should NOT get a second write
   await storeRob(data, "scout1", "keyhash1", "2025-06-01 12:00:00");
+
+  const [[{ n }]] = await pool.query<CountRow[]>(
+    "SELECT COUNT(*) AS n FROM province_resources WHERE key_hash = ?",
+    ["keyhash1"],
+  );
+  assert.equal(n, 1);
+});
+
+// ── storeSorcery ──────────────────────────────────────────────────────────────
+
+const baseSorcery = {
+  name: "Wizard", kingdom: "",
+  spell: "Fireball", outcome: "success" as const,
+  runesSpent: 150, wizardsLost: 0, durationDays: null,
+  targetName: "Victim", targetSlot: 2, targetKingdom: "8:6",
+  wizards: null, runes: null, mana: null,
+};
+
+test("storeSorcery: inserts a sorcery_ops row with correct fields", async () => {
+  await truncateAll();
+  interface SorcRow extends RowDataPacket {
+    spell: string; outcome: string; runes_spent: number; target_kingdom: string;
+  }
+
+  await storeSorcery(baseSorcery, "mage1", "keyhash1");
+
+  const [[row]] = await pool.query<SorcRow[]>(
+    "SELECT spell, outcome, runes_spent, target_kingdom FROM sorcery_ops WHERE key_hash = ?",
+    ["keyhash1"],
+  );
+  assert.equal(row.spell, "Fireball");
+  assert.equal(row.outcome, "success");
+  assert.equal(row.runes_spent, 150);
+  assert.equal(row.target_kingdom, "8:6");
+});
+
+test("storeSorcery: stores wizards+runes in province_resources when present", async () => {
+  await truncateAll();
+  interface ResRow extends RowDataPacket { wizards: number; runes: number; source: string }
+
+  await storeSorcery({ ...baseSorcery, wizards: 500, runes: 2000, mana: 80 }, "mage1", "keyhash1");
+
+  const [[row]] = await pool.query<ResRow[]>(
+    "SELECT wizards, runes, source FROM province_resources WHERE key_hash = ?",
+    ["keyhash1"],
+  );
+  assert.equal(row.wizards, 500);
+  assert.equal(row.runes, 2000);
+  assert.equal(row.source, "sorcery");
+});
+
+test("storeSorcery: duplicate op does not insert province_resources", async () => {
+  await truncateAll();
+  interface CountRow extends RowDataPacket { n: number }
+
+  const data = { ...baseSorcery, wizards: 500 };
+  await storeSorcery(data, "mage1", "keyhash1", "2025-06-01 12:00:00");
+  await storeSorcery(data, "mage1", "keyhash1", "2025-06-01 12:00:00");
 
   const [[{ n }]] = await pool.query<CountRow[]>(
     "SELECT COUNT(*) AS n FROM province_resources WHERE key_hash = ?",

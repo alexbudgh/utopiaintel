@@ -631,6 +631,36 @@ export async function bindKeyToKingdom(conn: PoolConnection, keyHash: string, ki
 
 // ── Store functions ───────────────────────────────────────────────────────────
 
+export async function storeSorcery(data: SorceryData, savedBy: string, keyHash: string, receivedAt?: string): Promise<void> {
+  await ensureReady();
+  await withTransaction(async (conn) => {
+    const provId = await ensureProvince(conn, data.name, "");
+    await recordSubmission(conn, keyHash, provId);
+    const [result] = await conn.execute(
+      `INSERT IGNORE INTO sorcery_ops
+         (province_id, key_hash, spell, outcome, runes_spent, wizards_lost,
+          duration_days, target_name, target_slot, target_kingdom,
+          wizards, runes, mana, saved_by, received_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+      [
+        provId, keyHash, data.spell, data.outcome, data.runesSpent, data.wizardsLost,
+        data.durationDays, data.targetName, data.targetSlot, data.targetKingdom,
+        data.wizards, data.runes, data.mana, savedBy, receivedAt ?? null,
+      ],
+    ) as [ResultSetHeader, unknown];
+    if (result.affectedRows === 0) return;
+
+    if (data.wizards != null || data.runes != null) {
+      await conn.execute(
+        `INSERT IGNORE INTO province_resources
+           (province_id, key_hash, wizards, runes, mana, source, saved_by, accuracy, received_at)
+         VALUES (?, ?, ?, ?, ?, 'sorcery', ?, 100, COALESCE(?, NOW()))`,
+        [provId, keyHash, data.wizards, data.runes, data.mana, savedBy, receivedAt ?? null],
+      );
+    }
+  });
+}
+
 export async function storeRob(data: RobData, savedBy: string, keyHash: string, receivedAt?: string): Promise<void> {
   await ensureReady();
   await withTransaction(async (conn) => {
