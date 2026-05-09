@@ -118,6 +118,10 @@ function outcomeClass(outcome: string): string {
   return outcome === "success" ? "text-emerald-300" : "text-red-300";
 }
 
+function isUnknownProvinceName(name: string): boolean {
+  return name === "Unknown" || name === "Unknown province";
+}
+
 export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
   const [ops, setOps] = useState(initialOps);
   const [newKeys, setNewKeys] = useState<Set<string>>(new Set());
@@ -338,6 +342,7 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
               const key = op.received_at + op.op_type + op.province_name + (op.actor_name ?? "");
               const kdHref = `/kingdom/${encodeURIComponent(op.kingdom)}`;
               const provHref = `${kdHref}/${encodeURIComponent(op.province_name)}`;
+              const unknownProvince = isUnknownProvinceName(op.province_name);
               const typeKey = opTypeKey(op.op_type);
               const color = OP_COLORS[typeKey] ?? CATEGORY_COLORS[op.op_category] ?? "border-gray-600 bg-gray-800/40 text-gray-400";
               const isNew = newKeys.has(key);
@@ -359,26 +364,45 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
                     </button>
                   </td>
                   <td className="py-2 pr-4">
-                    <button
-                      type="button"
-                      onClick={() => filterToTarget(op.province_name)}
-                      aria-pressed={targetFilter === op.province_name}
-                      className="text-left text-gray-200 transition-colors hover:text-white"
-                      title={`Filter to ${op.province_name}`}
-                    >
-                      {op.slot != null && (
-                        <span className="mr-1.5 text-xs tabular-nums text-gray-500">#{op.slot}</span>
-                      )}
-                      {op.province_name}
-                    </button>
-                    {op.kingdom && (
-                      <Link
-                        href={provHref}
-                        className="ml-1.5 text-[10px] text-gray-600 transition-colors hover:text-gray-400"
-                        title="Province detail"
-                      >
-                        ↗
-                      </Link>
+                    {unknownProvince ? (
+                      <span>
+                        <span className="text-gray-500 italic">Unknown province</span>
+                        {op.kingdom && (
+                          <>
+                            {" "}
+                            <Link
+                              href={kdHref}
+                              className="font-mono text-[11px] text-blue-300 transition-colors hover:text-blue-200"
+                            >
+                              ({op.kingdom})
+                            </Link>
+                          </>
+                        )}
+                      </span>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => filterToTarget(op.province_name)}
+                          aria-pressed={targetFilter === op.province_name}
+                          className="text-left text-gray-200 transition-colors hover:text-white"
+                          title={`Filter to ${op.province_name}`}
+                        >
+                          {op.slot != null && (
+                            <span className="mr-1.5 text-xs tabular-nums text-gray-500">#{op.slot}</span>
+                          )}
+                          {op.province_name}
+                        </button>
+                        {op.kingdom && (
+                          <Link
+                            href={provHref}
+                            className="ml-1.5 text-[10px] text-gray-600 transition-colors hover:text-gray-400"
+                            title="Province detail"
+                          >
+                            ↗
+                          </Link>
+                        )}
+                      </>
                     )}
                   </td>
                   <td className="py-2 pr-4">
