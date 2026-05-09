@@ -631,6 +631,28 @@ export async function bindKeyToKingdom(conn: PoolConnection, keyHash: string, ki
 
 // ── Store functions ───────────────────────────────────────────────────────────
 
+export async function storeAttack(data: AttackData, savedBy: string, keyHash: string, receivedAt?: string): Promise<void> {
+  await ensureReady();
+  await withTransaction(async (conn) => {
+    const provId = await ensureProvince(conn, data.name, "");
+    await recordSubmission(conn, keyHash, provId);
+    await conn.execute(
+      `INSERT IGNORE INTO attack_ops
+         (province_id, key_hash, attack_type, outcome, target_name, target_kingdom,
+          acres_taken, buildings_survived, specialist_credits, peasants_settled,
+          massacred, enemy_killed, enemy_imprisoned, return_days, saved_by, received_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+      [
+        provId, keyHash, data.attackType, data.outcome,
+        data.targetName, data.targetKingdom,
+        data.acresTaken, data.buildingsSurvived, data.specialistCredits, data.peasantsSettled,
+        data.massacred, data.enemyKilled, data.enemyImprisoned, data.returnDays,
+        savedBy, receivedAt ?? null,
+      ],
+    );
+  });
+}
+
 export async function storeTrainArmy(data: TrainArmyData, savedBy: string, keyHash: string, receivedAt?: string): Promise<void> {
   await ensureReady();
   await withTransaction(async (conn) => {

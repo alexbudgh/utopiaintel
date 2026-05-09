@@ -1,7 +1,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import type { RowDataPacket } from "mysql2/promise";
-import { pool, initDb, ensureProvince, recordSubmission, bindKeyToKingdom, withTransaction, storeTrainArmy, storeBuild, storeInfiltrate, storeSoD } from "../lib/db-mysql";
+import { pool, initDb, ensureProvince, recordSubmission, bindKeyToKingdom, withTransaction, storeAttack, storeTrainArmy, storeBuild, storeInfiltrate, storeSoD } from "../lib/db-mysql";
 
 after(async () => {
   await pool.end();
@@ -273,4 +273,57 @@ test("storeBuild: stores free_building_credits", async () => {
   );
   assert.equal(row.free_building_credits, 7);
   assert.equal(row.source, "build");
+});
+
+// ── storeAttack ───────────────────────────────────────────────────────────────
+
+test("storeAttack: inserts an attack_ops row with correct fields", async () => {
+  await truncateAll();
+  interface AtkRow extends RowDataPacket {
+    attack_type: string; outcome: string;
+    target_name: string | null; target_kingdom: string | null;
+    acres_taken: number | null; enemy_killed: number | null;
+  }
+
+  await storeAttack(
+    {
+      name: "Attacker", kingdom: "",
+      attackType: "traditional_march", outcome: "success",
+      targetName: "Defender", targetKingdom: "8:6",
+      acresTaken: 150, buildingsSurvived: null, specialistCredits: null,
+      peasantsSettled: null, massacred: null,
+      enemyKilled: 300, enemyImprisoned: 10, returnDays: 8,
+    },
+    "general1", "keyhash1",
+  );
+
+  const [[row]] = await pool.query<AtkRow[]>(
+    "SELECT attack_type, outcome, target_name, target_kingdom, acres_taken, enemy_killed FROM attack_ops WHERE key_hash = ?",
+    ["keyhash1"],
+  );
+  assert.equal(row.attack_type, "traditional_march");
+  assert.equal(row.outcome, "success");
+  assert.equal(row.target_name, "Defender");
+  assert.equal(row.target_kingdom, "8:6");
+  assert.equal(row.acres_taken, 150);
+  assert.equal(row.enemy_killed, 300);
+});
+
+test("storeAttack: uses empty kingdom for attacker (self)", async () => {
+  await truncateAll();
+  interface ProvRow extends RowDataPacket { kingdom: string }
+
+  await storeAttack(
+    { name: "Attacker", kingdom: "", attackType: "ambush", outcome: "failure",
+      targetName: null, targetKingdom: null, acresTaken: null, buildingsSurvived: null,
+      specialistCredits: null, peasantsSettled: null, massacred: null,
+      enemyKilled: null, enemyImprisoned: null, returnDays: null },
+    "p", "kh",
+  );
+
+  const [[row]] = await pool.query<ProvRow[]>(
+    "SELECT p.kingdom FROM provinces p JOIN attack_ops a ON a.province_id = p.id WHERE a.key_hash = ?",
+    ["kh"],
+  );
+  assert.equal(row.kingdom, "");
 });
