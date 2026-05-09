@@ -4,6 +4,7 @@ import { BAD_SPELL_NAMES, COMBAT_EVENT_TYPES } from "./effects";
 import { parseUtopiaDate, formatUtopiaDate, UTOPIA_DAYS_PER_MONTH } from "./ui";
 import { computeWizardCount } from "./nw";
 import { computeDtpaValue, computeMtpaValue, computeMwpaValue, computeOtpaValue, rawPerAcreValue } from "./metrics";
+import { createMetricsCacheQueue } from "./metrics-cache";
 import type {
   SoTData,
   SurveyData,
@@ -661,6 +662,264 @@ export async function bindKeyToKingdom(conn: PoolConnection, keyHash: string, ki
   );
 }
 
+// ── Metrics cache ────────────────────────────────────────────────────────────
+
+const SAME_TICK = (a: string, b: string) =>
+  `(UNIX_TIMESTAMP(${a}) DIV 3600) = (UNIX_TIMESTAMP(${b}) DIV 3600)`;
+
+async function mysqlUpdateMetricsCache(
+  provinceId: number,
+  keyHash: string,
+  receivedAt?: string | null,
+): Promise<void> {
+  await ensureReady();
+
+  // Appends a window WHERE fragment + positional params for the given table alias.
+  const wc = (alias: string, p: unknown[]) => {
+    if (receivedAt == null) return "TRUE";
+    p.push(receivedAt, receivedAt);
+    return `(${alias}.received_at >= DATE_SUB(?, INTERVAL 1 HOUR) AND ${alias}.received_at <= ?)`;
+  };
+
+  type EV = import("mysql2").ExecuteValues;
+
+  // ── rTPA ─────────────────────────────────────────────────────────────────
+  interface RtpaRow extends RowDataPacket { thieves: number; land: number; age: string }
+  const rtpaP: unknown[] = [provinceId, keyHash];
+  const [[rtpaRow]] = await pool.execute<RtpaRow[]>(`
+    SELECT pr.thieves, po.land, pr.received_at AS age
+    FROM province_resources pr
+    JOIN province_overview po
+      ON po.province_id = pr.province_id AND po.key_hash = pr.key_hash
+      AND po.land > 0 AND ${SAME_TICK("pr.received_at", "po.received_at")}
+    WHERE pr.province_id = ? AND pr.key_hash = ? AND pr.thieves IS NOT NULL
+      AND ${wc("pr", rtpaP)} AND ${wc("po", rtpaP)}
+    ORDER BY pr.received_at DESC LIMIT 1
+  `, rtpaP as EV);
+
+  let cached_rtpa: number | null = null, cached_rtpa_age: string | null = null;
+  if (rtpaRow) {
+    cached_rtpa = rawPerAcreValue(rtpaRow.thieves, rtpaRow.land);
+    cached_rtpa_age = rtpaRow.age;
+  }
+
+  // ── mTPA ─────────────────────────────────────────────────────────────────
+  interface MtpaRow extends RowDataPacket {
+    thieves: number; land: number; race: string | null;
+    honor_title: string | null; personality: string | null; crime_effect: number; age: string;
+  }
+  const mtpaP: unknown[] = [provinceId, keyHash];
+  const [[mtpaRow]] = await pool.execute<MtpaRow[]>(`
+    SELECT pr.thieves, po.land, po.race,
+      COALESCE(po.honor_title, (SELECT po2.honor_title FROM province_overview po2
+        WHERE po2.province_id = pr.province_id AND po2.honor_title IS NOT NULL
+        ORDER BY po2.received_at DESC LIMIT 1)) AS honor_title,
+      COALESCE(po.personality, (SELECT po2.personality FROM province_overview po2
+        WHERE po2.province_id = pr.province_id AND po2.personality IS NOT NULL
+        ORDER BY po2.received_at DESC LIMIT 1)) AS personality,
+      ss.effect AS crime_effect, pr.received_at AS age
+    FROM province_resources pr
+    JOIN province_overview po
+      ON po.province_id = pr.province_id AND po.key_hash = pr.key_hash
+      AND po.land > 0 AND ${SAME_TICK("pr.received_at", "po.received_at")}
+    JOIN sos_intel si ON si.province_id = pr.province_id AND si.key_hash = pr.key_hash
+      AND ${SAME_TICK("pr.received_at", "si.received_at")}
+    JOIN sos_sciences ss ON ss.sos_intel_id = si.id AND ss.science = 'Crime'
+    WHERE pr.province_id = ? AND pr.key_hash = ? AND pr.thieves IS NOT NULL
+      AND ${wc("pr", mtpaP)} AND ${wc("po", mtpaP)} AND ${wc("si", mtpaP)}
+    ORDER BY pr.received_at DESC LIMIT 1
+  `, mtpaP as EV);
+
+  let cached_mtpa: number | null = null, cached_mtpa_age: string | null = null;
+  if (mtpaRow) {
+    const rtpa = rawPerAcreValue(mtpaRow.thieves, mtpaRow.land);
+    cached_mtpa = computeMtpaValue(rtpa, mtpaRow.crime_effect, mtpaRow.race, mtpaRow.honor_title, mtpaRow.personality);
+    cached_mtpa_age = mtpaRow.age;
+  }
+
+  // ── oTPA / dTPA ──────────────────────────────────────────────────────────
+  interface OdtpaRow extends MtpaRow {
+    thieves_dens_effect: number | null; watch_towers_effect: number | null;
+  }
+  const odtpaP: unknown[] = [provinceId, keyHash];
+  const [[odtpaRow]] = await pool.execute<OdtpaRow[]>(`
+    SELECT pr.thieves, po.land, po.race,
+      COALESCE(po.honor_title, (SELECT po2.honor_title FROM province_overview po2
+        WHERE po2.province_id = pr.province_id AND po2.honor_title IS NOT NULL
+        ORDER BY po2.received_at DESC LIMIT 1)) AS honor_title,
+      COALESCE(po.personality, (SELECT po2.personality FROM province_overview po2
+        WHERE po2.province_id = pr.province_id AND po2.personality IS NOT NULL
+        ORDER BY po2.received_at DESC LIMIT 1)) AS personality,
+      ss.effect AS crime_effect,
+      srv.thievery_effectiveness AS thieves_dens_effect,
+      srv.thief_prevent_chance AS watch_towers_effect,
+      pr.received_at AS age
+    FROM province_resources pr
+    JOIN province_overview po
+      ON po.province_id = pr.province_id AND po.key_hash = pr.key_hash
+      AND po.land > 0 AND ${SAME_TICK("pr.received_at", "po.received_at")}
+    JOIN sos_intel si ON si.province_id = pr.province_id AND si.key_hash = pr.key_hash
+      AND ${SAME_TICK("pr.received_at", "si.received_at")}
+    JOIN sos_sciences ss ON ss.sos_intel_id = si.id AND ss.science = 'Crime'
+    JOIN survey_intel srv ON srv.province_id = pr.province_id AND srv.key_hash = pr.key_hash
+      AND ${SAME_TICK("pr.received_at", "srv.received_at")}
+    WHERE pr.province_id = ? AND pr.key_hash = ? AND pr.thieves IS NOT NULL
+      AND ${wc("pr", odtpaP)} AND ${wc("po", odtpaP)} AND ${wc("si", odtpaP)} AND ${wc("srv", odtpaP)}
+    ORDER BY pr.received_at DESC LIMIT 1
+  `, odtpaP as EV);
+
+  let cached_otpa: number | null = null, cached_otpa_age: string | null = null;
+  let cached_dtpa: number | null = null, cached_dtpa_age: string | null = null;
+  if (odtpaRow) {
+    const rtpa = rawPerAcreValue(odtpaRow.thieves, odtpaRow.land);
+    const mtpa = computeMtpaValue(rtpa, odtpaRow.crime_effect, odtpaRow.race, odtpaRow.honor_title, odtpaRow.personality);
+    cached_otpa = computeOtpaValue(mtpa, odtpaRow.thieves_dens_effect);
+    if (cached_otpa != null) cached_otpa_age = odtpaRow.age;
+    cached_dtpa = computeDtpaValue(mtpa, odtpaRow.watch_towers_effect);
+    if (cached_dtpa != null) cached_dtpa_age = odtpaRow.age;
+  }
+
+  // ── rWPA direct ──────────────────────────────────────────────────────────
+  interface RwpaDirectRow extends RowDataPacket {
+    wizards: number; land: number; race: string | null;
+    honor_title: string | null; personality: string | null; mana: number | null; age: string;
+  }
+  const rwpaDirP: unknown[] = [provinceId, keyHash];
+  const [[rwpaDirRow]] = await pool.execute<RwpaDirectRow[]>(`
+    SELECT pr.wizards, po.land, po.race, pr.mana,
+      COALESCE(po.honor_title, (SELECT po2.honor_title FROM province_overview po2
+        WHERE po2.province_id = pr.province_id AND po2.honor_title IS NOT NULL
+        ORDER BY po2.received_at DESC LIMIT 1)) AS honor_title,
+      COALESCE(po.personality, (SELECT po2.personality FROM province_overview po2
+        WHERE po2.province_id = pr.province_id AND po2.personality IS NOT NULL
+        ORDER BY po2.received_at DESC LIMIT 1)) AS personality,
+      pr.received_at AS age
+    FROM province_resources pr
+    JOIN province_overview po
+      ON po.province_id = pr.province_id AND po.key_hash = pr.key_hash
+      AND po.land > 0 AND ${SAME_TICK("pr.received_at", "po.received_at")}
+    WHERE pr.province_id = ? AND pr.key_hash = ? AND pr.wizards IS NOT NULL
+      AND ${wc("pr", rwpaDirP)} AND ${wc("po", rwpaDirP)}
+    ORDER BY pr.received_at DESC LIMIT 1
+  `, rwpaDirP as EV);
+
+  // ── mWPA direct ──────────────────────────────────────────────────────────
+  interface MwpaDirectRow extends RwpaDirectRow { channeling_effect: number }
+  const mwpaDirP: unknown[] = [provinceId, keyHash];
+  const [[mwpaDirRow]] = await pool.execute<MwpaDirectRow[]>(`
+    SELECT pr.wizards, po.land, po.race, pr.mana,
+      COALESCE(po.honor_title, (SELECT po2.honor_title FROM province_overview po2
+        WHERE po2.province_id = pr.province_id AND po2.honor_title IS NOT NULL
+        ORDER BY po2.received_at DESC LIMIT 1)) AS honor_title,
+      COALESCE(po.personality, (SELECT po2.personality FROM province_overview po2
+        WHERE po2.province_id = pr.province_id AND po2.personality IS NOT NULL
+        ORDER BY po2.received_at DESC LIMIT 1)) AS personality,
+      ss.effect AS channeling_effect, pr.received_at AS age
+    FROM province_resources pr
+    JOIN province_overview po
+      ON po.province_id = pr.province_id AND po.key_hash = pr.key_hash
+      AND po.land > 0 AND ${SAME_TICK("pr.received_at", "po.received_at")}
+    JOIN sos_intel si ON si.province_id = pr.province_id AND si.key_hash = pr.key_hash
+      AND ${SAME_TICK("pr.received_at", "si.received_at")}
+    JOIN sos_sciences ss ON ss.sos_intel_id = si.id AND ss.science = 'Channeling'
+    WHERE pr.province_id = ? AND pr.key_hash = ? AND pr.wizards IS NOT NULL
+      AND ${wc("pr", mwpaDirP)} AND ${wc("po", mwpaDirP)} AND ${wc("si", mwpaDirP)}
+    ORDER BY pr.received_at DESC LIMIT 1
+  `, mwpaDirP as EV);
+
+  // ── rWPA / mWPA back-calc ─────────────────────────────────────────────────
+  interface RwpaBackRow extends RowDataPacket {
+    thieves: number; land: number; networth: number; race: string;
+    honor_title: string | null; personality: string | null; mana: number | null;
+    science_total_books: number | null; buildings_built: number | null; buildings_in_progress: number | null;
+    soldiers: number | null; off_specs: number | null; def_specs: number | null;
+    elites: number | null; war_horses: number | null; peasants: number | null;
+    money: number | null; prisoners: number | null; channeling_effect: number | null; age: string;
+  }
+  const rwpaBkP: unknown[] = [provinceId, keyHash];
+  const [[rwpaBkRow]] = await pool.execute<RwpaBackRow[]>(`
+    SELECT pr.thieves, po.land, po.networth, po.race,
+      COALESCE(po.honor_title, (SELECT po2.honor_title FROM province_overview po2
+        WHERE po2.province_id = pr.province_id AND po2.honor_title IS NOT NULL
+        ORDER BY po2.received_at DESC LIMIT 1)) AS honor_title,
+      COALESCE(po.personality, (SELECT po2.personality FROM province_overview po2
+        WHERE po2.province_id = pr.province_id AND po2.personality IS NOT NULL
+        ORDER BY po2.received_at DESC LIMIT 1)) AS personality,
+      (SELECT pr2.mana FROM province_resources pr2
+       WHERE pr2.province_id = pr.province_id AND pr2.key_hash = pr.key_hash AND pr2.mana IS NOT NULL
+       ORDER BY pr2.received_at DESC LIMIT 1) AS mana,
+      (SELECT SUM(ss2.books) FROM sos_sciences ss2 WHERE ss2.sos_intel_id = si.id) AS science_total_books,
+      (SELECT SUM(sb.built) FROM survey_buildings sb
+       WHERE sb.survey_intel_id = srv.id AND sb.building != 'Barren Land') AS buildings_built,
+      (SELECT SUM(sb.in_progress) FROM survey_buildings sb WHERE sb.survey_intel_id = srv.id) AS buildings_in_progress,
+      pt.soldiers, pt.off_specs, pt.def_specs, pt.elites, pt.war_horses, pt.peasants,
+      pr_sot.money, pr_sot.prisoners,
+      (SELECT ss2.effect FROM sos_sciences ss2 WHERE ss2.sos_intel_id = si.id AND ss2.science = 'Channeling') AS channeling_effect,
+      pr.received_at AS age
+    FROM province_resources pr
+    JOIN province_overview po
+      ON po.province_id = pr.province_id AND po.key_hash = pr.key_hash
+      AND po.land > 0 AND po.networth IS NOT NULL AND po.race IS NOT NULL
+      AND ${SAME_TICK("pr.received_at", "po.received_at")}
+    JOIN sos_intel si ON si.province_id = pr.province_id AND si.key_hash = pr.key_hash
+      AND ${SAME_TICK("pr.received_at", "si.received_at")}
+    JOIN survey_intel srv ON srv.province_id = pr.province_id AND srv.key_hash = pr.key_hash
+      AND ${SAME_TICK("pr.received_at", "srv.received_at")}
+    JOIN province_troops pt
+      ON pt.province_id = pr.province_id AND pt.key_hash = pr.key_hash
+      AND pt.source IN ('sot', 'throne') AND ${SAME_TICK("pr.received_at", "pt.received_at")}
+    JOIN province_resources pr_sot
+      ON pr_sot.province_id = pr.province_id AND pr_sot.key_hash = pr.key_hash
+      AND pr_sot.source IN ('sot', 'throne') AND ${SAME_TICK("pr.received_at", "pr_sot.received_at")}
+    WHERE pr.province_id = ? AND pr.key_hash = ? AND pr.thieves IS NOT NULL
+      AND ${wc("pr", rwpaBkP)} AND ${wc("po", rwpaBkP)} AND ${wc("si", rwpaBkP)}
+      AND ${wc("srv", rwpaBkP)} AND ${wc("pt", rwpaBkP)} AND ${wc("pr_sot", rwpaBkP)}
+    ORDER BY pr.received_at DESC LIMIT 1
+  `, rwpaBkP as EV);
+
+  // ── Compute rWPA / mWPA ───────────────────────────────────────────────────
+  let cached_rwpa: number | null = null, cached_rwpa_age: string | null = null;
+  let cached_mwpa: number | null = null, cached_mwpa_age: string | null = null;
+
+  if (rwpaDirRow) {
+    cached_rwpa = rawPerAcreValue(rwpaDirRow.wizards, rwpaDirRow.land);
+    cached_rwpa_age = rwpaDirRow.age;
+    if (mwpaDirRow) {
+      cached_mwpa = computeMwpaValue(cached_rwpa, mwpaDirRow.channeling_effect, mwpaDirRow.race, mwpaDirRow.honor_title, mwpaDirRow.personality, mwpaDirRow.mana);
+      cached_mwpa_age = mwpaDirRow.age;
+    }
+  } else if (rwpaBkRow) {
+    const wiz = computeWizardCount(rwpaBkRow);
+    if (wiz != null) {
+      cached_rwpa = rawPerAcreValue(wiz, rwpaBkRow.land);
+      cached_rwpa_age = rwpaBkRow.age;
+      cached_mwpa = computeMwpaValue(cached_rwpa, rwpaBkRow.channeling_effect, rwpaBkRow.race, rwpaBkRow.honor_title, rwpaBkRow.personality, rwpaBkRow.mana);
+      if (cached_mwpa != null) cached_mwpa_age = rwpaBkRow.age;
+    }
+  }
+
+  // ── Persist ───────────────────────────────────────────────────────────────
+  await pool.execute(
+    `UPDATE provinces SET
+      cached_rtpa=COALESCE(?, cached_rtpa), cached_rtpa_age=COALESCE(?, cached_rtpa_age),
+      cached_mtpa=COALESCE(?, cached_mtpa), cached_mtpa_age=COALESCE(?, cached_mtpa_age),
+      cached_otpa=COALESCE(?, cached_otpa), cached_otpa_age=COALESCE(?, cached_otpa_age),
+      cached_dtpa=COALESCE(?, cached_dtpa), cached_dtpa_age=COALESCE(?, cached_dtpa_age),
+      cached_rwpa=COALESCE(?, cached_rwpa), cached_rwpa_age=COALESCE(?, cached_rwpa_age),
+      cached_mwpa=COALESCE(?, cached_mwpa), cached_mwpa_age=COALESCE(?, cached_mwpa_age)
+    WHERE id=?`,
+    [
+      cached_rtpa, cached_rtpa_age, cached_mtpa, cached_mtpa_age,
+      cached_otpa, cached_otpa_age, cached_dtpa, cached_dtpa_age,
+      cached_rwpa, cached_rwpa_age, cached_mwpa, cached_mwpa_age,
+      provinceId,
+    ],
+  );
+}
+
+const { queue: queueMetricsCacheRefresh, flush: flushMetricsCacheRefreshQueue, setEnabled: setMetricsCacheRefreshEnabled } = createMetricsCacheQueue(mysqlUpdateMetricsCache);
+export { flushMetricsCacheRefreshQueue, setMetricsCacheRefreshEnabled };
+
 // ── Store functions ───────────────────────────────────────────────────────────
 
 export async function storeSoS(data: SoSData, savedBy: string, keyHash: string, isSelf = false, receivedAt?: string): Promise<void> {
@@ -684,7 +943,7 @@ export async function storeSoS(data: SoSData, savedBy: string, keyHash: string, 
         [sosId, s.science, s.books, s.effect],
       );
     }
-    // queueMetricsCacheRefresh called here once implemented
+    queueMetricsCacheRefresh(provId, keyHash, receivedAt);
   });
 }
 
@@ -813,7 +1072,7 @@ export async function storeInfiltrate(data: InfiltrateData, savedBy: string, key
        VALUES (?, ?, ?, 'infiltrate', ?, ?)`,
       [provId, keyHash, data.thieves, savedBy, data.accuracy],
     );
-    // updateMetricsCache called here once implemented
+    queueMetricsCacheRefresh(provId, keyHash);
   });
 }
 
@@ -964,7 +1223,7 @@ export async function storeState(data: StateData, savedBy: string, keyHash: stri
        VALUES (?, ?, ?, 'state', ?, 100, COALESCE(?, NOW()))`,
       [provId, keyHash, data.peasants, savedBy, receivedAt ?? null],
     );
-    // queueMetricsCacheRefresh called here once implemented
+    queueMetricsCacheRefresh(provId, keyHash, receivedAt);
   });
 }
 
@@ -1058,7 +1317,7 @@ export async function storeSoT(data: SoTData, savedBy: string, keyHash: string, 
         );
       }
     }
-    // queueMetricsCacheRefresh called here once implemented
+    queueMetricsCacheRefresh(provId, keyHash, receivedAt);
   });
 }
 
@@ -1135,7 +1394,7 @@ export async function storeSurvey(data: SurveyData, savedBy: string, keyHash: st
         [surveyId, b.building, b.built, b.inProgress],
       );
     }
-    // queueMetricsCacheRefresh called here once implemented
+    queueMetricsCacheRefresh(provId, keyHash, receivedAt);
   });
 }
 
