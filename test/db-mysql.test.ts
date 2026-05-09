@@ -1046,6 +1046,7 @@ import {
   getKingdomDragon,
   getLatestWarDate,
   getKingdomNews,
+  getRecentOps,
 } from "../lib/db-mysql";
 
 // ── getLatestKingdomSnapshot ──────────────────────────────────────────────────
@@ -1212,4 +1213,156 @@ test("getKingdomNews: respects explicit from/to date range", async () => {
   const result = await getKingdomNews("7:5", "keyhash1", "January 3 of YR1");
   assert.equal(result.events.length, 1);
   assert.equal(result.events[0].rawText, "In range event");
+});
+
+// ── getRecentOps ──────────────────────────────────────────────────────────────
+
+test("getRecentOps: returns empty array when no data", async () => {
+  await truncateAll();
+  const ops = await getRecentOps("keyhash1");
+  assert.deepEqual(ops, []);
+});
+
+test("getRecentOps: returns a SoT op after storeSoT", async () => {
+  await truncateAll();
+  await storeSoT(baseSoT, "spy1", "keyhash1", false, "2025-06-01 12:00:00");
+
+  const ops = await getRecentOps("keyhash1");
+  assert.equal(ops.length, 1);
+  assert.equal(ops[0].op_type, "SoT");
+  assert.equal(ops[0].op_category, "intel");
+  assert.equal(ops[0].province_name, "SoTProvince");
+  assert.equal(ops[0].kingdom, "7:5");
+  assert.equal(ops[0].outcome, "success");
+});
+
+test("getRecentOps: returns a SoM op after storeSoM", async () => {
+  await truncateAll();
+  await storeSoM(baseSoM, "scout1", "keyhash1", false, "2025-06-01 12:00:00");
+
+  const ops = await getRecentOps("keyhash1");
+  assert.equal(ops.length, 1);
+  assert.equal(ops[0].op_type, "SoM");
+  assert.equal(ops[0].op_category, "intel");
+});
+
+test("getRecentOps: multiple op types appear and are ordered newest-first", async () => {
+  await truncateAll();
+  await storeSoT(baseSoT, "spy1", "keyhash1", false, "2025-06-01 10:00:00");
+  await storeSoM(baseSoM, "scout1", "keyhash1", false, "2025-06-01 12:00:00");
+
+  const ops = await getRecentOps("keyhash1");
+  assert.equal(ops.length, 2);
+  assert.equal(ops[0].op_type, "SoM");
+  assert.equal(ops[1].op_type, "SoT");
+});
+
+test("getRecentOps: limit is respected", async () => {
+  await truncateAll();
+  await storeSoT(baseSoT, "spy1", "keyhash1", false, "2025-06-01 10:00:00");
+  await storeSoM(baseSoM, "scout1", "keyhash1", false, "2025-06-01 12:00:00");
+
+  const ops = await getRecentOps("keyhash1", 1);
+  assert.equal(ops.length, 1);
+  assert.equal(ops[0].op_type, "SoM");
+});
+
+test("getRecentOps: since filter excludes older ops", async () => {
+  await truncateAll();
+  await storeSoT(baseSoT, "spy1", "keyhash1", false, "2025-06-01 10:00:00");
+  await storeSoM(baseSoM, "scout1", "keyhash1", false, "2025-06-01 12:00:00");
+
+  const ops = await getRecentOps("keyhash1", 20, "2025-06-01 11:00:00");
+  assert.equal(ops.length, 1);
+  assert.equal(ops[0].op_type, "SoM");
+});
+
+test("getRecentOps: thievery op appears with correct category", async () => {
+  await truncateAll();
+  await storeRob(
+    {
+      name: "RobProvince",
+      kingdom: "7:5",
+      op: "arson",
+      outcome: "success",
+      targetName: "EnemyProv",
+      targetSlot: null,
+      targetKingdom: "3:4",
+      amountStolen: null,
+      troopsAssassinated: null,
+      kidnapped: null,
+      acresBurned: 5,
+      effectDuration: null,
+      thievesLost: 0,
+      thieves: null,
+      stealth: null,
+    },
+    "thief1", "keyhash1", "2025-06-01 12:00:00",
+  );
+
+  const ops = await getRecentOps("keyhash1");
+  assert.equal(ops.length, 1);
+  assert.equal(ops[0].op_type, "arson");
+  assert.equal(ops[0].op_category, "thievery");
+  assert.equal(ops[0].province_name, "EnemyProv");
+  assert.equal(ops[0].actor_name, "RobProvince");
+  assert.equal(ops[0].detail_kind, "acres_burned");
+  assert.equal(ops[0].detail_value, 5);
+});
+
+test("getRecentOps: attack op appears with correct category", async () => {
+  await truncateAll();
+  await storeAttack(
+    {
+      name: "AttackProv",
+      kingdom: "7:5",
+      attackType: "traditional_march",
+      outcome: "success",
+      targetName: "DefProv",
+      targetKingdom: "3:4",
+      acresTaken: 20,
+      buildingsSurvived: null,
+      specialistCredits: null,
+      peasantsSettled: null,
+      massacred: null,
+      enemyKilled: null,
+      enemyImprisoned: null,
+      returnDays: 3,
+    },
+    "gen1", "keyhash1", "2025-06-01 12:00:00",
+  );
+
+  const ops = await getRecentOps("keyhash1");
+  assert.equal(ops.length, 1);
+  assert.equal(ops[0].op_category, "attack");
+  assert.equal(ops[0].detail_kind, "acres_taken");
+  assert.equal(ops[0].detail_value, 20);
+});
+
+test("getRecentOps: sorcery op appears with correct category", async () => {
+  await truncateAll();
+  await storeSorcery(
+    {
+      name: "WizProv",
+      kingdom: "7:5",
+      spell: "Lightning Strike",
+      outcome: "success",
+      targetName: "TargetProv",
+      targetSlot: null,
+      targetKingdom: "3:4",
+      durationDays: 6,
+      wizardsLost: 0,
+      runesSpent: null,
+      wizards: null,
+      runes: null,
+      mana: null,
+    },
+    "wiz1", "keyhash1", "2025-06-01 12:00:00",
+  );
+
+  const ops = await getRecentOps("keyhash1");
+  assert.equal(ops.length, 1);
+  assert.equal(ops[0].op_category, "sorcery");
+  assert.equal(ops[0].detail_kind, "duration_days");
+  assert.equal(ops[0].detail_value, 6);
 });

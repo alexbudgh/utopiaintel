@@ -22,6 +22,7 @@ import {
   getKingdomDragon as mysqlGetKingdomDragon,
   getLatestWarDate as mysqlGetLatestWarDate,
   getKingdomNews as mysqlGetKingdomNews,
+  getRecentOps as mysqlGetRecentOps,
 } from "./db-mysql";
 
 // Re-export row types so callers don't have to import from both db and db-api.
@@ -109,8 +110,8 @@ function createMysqlDbApi(): AsyncDbApi {
       getKingdomDragon:          (kd, kh)       => mysqlGetKingdomDragon(kd, kh),
       getLatestWarDate:          (kd, kh)       => mysqlGetLatestWarDate(kd, kh),
       getKingdomNews:            (kd, kh, f, t) => mysqlGetKingdomNews(kd, kh, f, t),
+      getRecentOps:              (kh, lim, s)   => mysqlGetRecentOps(kh, lim, s),
       getKingdoms:               notYet("getKingdoms") as AsyncDbApi["getKingdoms"],
-      getRecentOps:              notYet("getRecentOps") as AsyncDbApi["getRecentOps"],
       getKingdomProvinces:       notYet("getKingdomProvinces") as AsyncDbApi["getKingdomProvinces"],
       getProvinceDetail:         notYet("getProvinceDetail") as AsyncDbApi["getProvinceDetail"],
       getKingdomNewsSummary:     notYet("getKingdomNewsSummary") as AsyncDbApi["getKingdomNewsSummary"],

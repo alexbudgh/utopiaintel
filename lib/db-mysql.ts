@@ -1452,3 +1452,146 @@ export async function getKingdomNews(
   }));
   return { events, effectiveFrom };
 }
+
+export async function getRecentOps(keyHash: string, limit = 20, since?: string): Promise<RecentOp[]> {
+  await ensureReady();
+  interface OpRow extends RowDataPacket {
+    op_type: string; op_category: string; received_at: string; saved_by: string | null;
+    province_name: string; kingdom: string;
+    actor_name: string | null; actor_kingdom: string | null;
+    outcome: string | null; summary: string | null;
+    detail_value: number | null; detail_kind: string | null;
+    slot: number | null;
+  }
+
+  const sinceClause = since ? "WHERE received_at > :since" : "";
+
+  const [sql, vals] = n(`
+    WITH ${latestSlotCte()},
+    ops AS (
+      SELECT 'SoT' AS op_type, 'intel' AS op_category, po.received_at, po.saved_by,
+             p.name AS province_name, p.kingdom,
+             NULL AS actor_name, NULL AS actor_kingdom,
+             'success' AS outcome, NULL AS summary,
+             NULL AS detail_value, NULL AS detail_kind
+      FROM province_overview po JOIN provinces p ON p.id = po.province_id
+      WHERE po.key_hash = :keyHash AND po.source = 'sot'
+      UNION ALL
+      SELECT 'SoM', 'intel', mi.received_at, mi.saved_by,
+             p.name, p.kingdom,
+             NULL, NULL, 'success', NULL, NULL, NULL
+      FROM military_intel mi JOIN provinces p ON p.id = mi.province_id
+      WHERE mi.key_hash = :keyHash AND mi.source = 'som'
+      UNION ALL
+      SELECT 'SoD', 'intel', hmp.received_at, hmp.saved_by,
+             p.name, p.kingdom,
+             NULL, NULL, 'success', NULL, NULL, NULL
+      FROM home_military_points hmp JOIN provinces p ON p.id = hmp.province_id
+      WHERE hmp.key_hash = :keyHash AND hmp.source = 'sod'
+      UNION ALL
+      SELECT 'SoS', 'intel', si.received_at, si.saved_by,
+             p.name, p.kingdom,
+             NULL, NULL, 'success', NULL, NULL, NULL
+      FROM sos_intel si JOIN provinces p ON p.id = si.province_id
+      WHERE si.key_hash = :keyHash AND si.source = 'sos'
+      UNION ALL
+      SELECT 'Survey', 'intel', sv.received_at, sv.saved_by,
+             p.name, p.kingdom,
+             NULL, NULL, 'success', NULL, NULL, NULL
+      FROM survey_intel sv JOIN provinces p ON p.id = sv.province_id
+      WHERE sv.key_hash = :keyHash AND sv.source = 'survey'
+      UNION ALL
+      SELECT 'Infiltrate', 'intel', pr.received_at, pr.saved_by,
+             p.name, p.kingdom,
+             NULL, NULL, 'success', NULL, NULL, NULL
+      FROM province_resources pr JOIN provinces p ON p.id = pr.province_id
+      WHERE pr.key_hash = :keyHash AND pr.source = 'infiltrate'
+      UNION ALL
+      SELECT io.intel_type, 'intel', io.received_at, io.saved_by,
+             COALESCE(io.target_name, 'Unknown'), COALESCE(io.target_kingdom, ''),
+             p.name, p.kingdom,
+             io.outcome, NULL,
+             CASE WHEN io.thieves_lost > 0 THEN io.thieves_lost ELSE NULL END,
+             CASE WHEN io.thieves_lost > 0 THEN 'thieves_lost' ELSE NULL END
+      FROM intel_ops io JOIN provinces p ON p.id = io.province_id
+      WHERE io.key_hash = :keyHash AND io.outcome = 'failure'
+      UNION ALL
+      SELECT ro.op, 'thievery', ro.received_at, ro.saved_by,
+             COALESCE(ro.target_name, p.name), COALESCE(ro.target_kingdom, p.kingdom, ''),
+             p.name, p.kingdom,
+             ro.outcome, NULL,
+             CASE
+               WHEN ro.amount_stolen    IS NOT NULL THEN ro.amount_stolen
+               WHEN ro.troops_assassinated IS NOT NULL THEN ro.troops_assassinated
+               WHEN ro.kidnapped        IS NOT NULL THEN ro.kidnapped
+               WHEN ro.acres_burned     IS NOT NULL THEN ro.acres_burned
+               WHEN ro.effect_duration  IS NOT NULL THEN ro.effect_duration
+               WHEN ro.thieves_lost > 0             THEN ro.thieves_lost
+               ELSE NULL
+             END,
+             CASE
+               WHEN ro.amount_stolen    IS NOT NULL THEN 'amount_stolen'
+               WHEN ro.troops_assassinated IS NOT NULL THEN 'troops_assassinated'
+               WHEN ro.kidnapped        IS NOT NULL THEN 'kidnapped'
+               WHEN ro.acres_burned     IS NOT NULL THEN 'acres_burned'
+               WHEN ro.effect_duration  IS NOT NULL THEN 'effect_duration'
+               WHEN ro.thieves_lost > 0             THEN 'thieves_lost'
+               ELSE NULL
+             END
+      FROM rob_ops ro JOIN provinces p ON p.id = ro.province_id
+      WHERE ro.key_hash = :keyHash
+      UNION ALL
+      SELECT so.spell, 'sorcery', so.received_at, so.saved_by,
+             COALESCE(so.target_name, p.name), COALESCE(so.target_kingdom, p.kingdom, ''),
+             p.name, p.kingdom,
+             so.outcome, NULL,
+             CASE
+               WHEN so.duration_days IS NOT NULL THEN so.duration_days
+               WHEN so.wizards_lost > 0          THEN so.wizards_lost
+               WHEN so.runes_spent  IS NOT NULL  THEN so.runes_spent
+               ELSE NULL
+             END,
+             CASE
+               WHEN so.duration_days IS NOT NULL THEN 'duration_days'
+               WHEN so.wizards_lost > 0          THEN 'wizards_lost'
+               WHEN so.runes_spent  IS NOT NULL  THEN 'runes_spent'
+               ELSE NULL
+             END
+      FROM sorcery_ops so JOIN provinces p ON p.id = so.province_id
+      WHERE so.key_hash = :keyHash
+      UNION ALL
+      SELECT ao.attack_type, 'attack', ao.received_at, ao.saved_by,
+             COALESCE(ao.target_name, p.name), COALESCE(ao.target_kingdom, p.kingdom, ''),
+             p.name, p.kingdom,
+             ao.outcome, NULL,
+             CASE
+               WHEN ao.acres_taken      IS NOT NULL THEN ao.acres_taken
+               WHEN ao.massacred        IS NOT NULL THEN ao.massacred
+               WHEN ao.enemy_killed     IS NOT NULL THEN ao.enemy_killed
+               WHEN ao.enemy_imprisoned IS NOT NULL THEN ao.enemy_imprisoned
+               WHEN ao.return_days      IS NOT NULL THEN ao.return_days
+               ELSE NULL
+             END,
+             CASE
+               WHEN ao.acres_taken      IS NOT NULL THEN 'acres_taken'
+               WHEN ao.massacred        IS NOT NULL THEN 'massacred'
+               WHEN ao.enemy_killed     IS NOT NULL THEN 'enemy_killed'
+               WHEN ao.enemy_imprisoned IS NOT NULL THEN 'enemy_imprisoned'
+               WHEN ao.return_days      IS NOT NULL THEN 'return_days'
+               ELSE NULL
+             END
+      FROM attack_ops ao JOIN provinces p ON p.id = ao.province_id
+      WHERE ao.key_hash = :keyHash
+    )
+    SELECT op_type, op_category, received_at, saved_by, province_name, kingdom,
+           actor_name, actor_kingdom, outcome, summary, detail_value, detail_kind,
+           (SELECT ls.slot FROM latest_slot ls WHERE ls.kingdom = ops.kingdom AND ls.name = ops.province_name) AS slot
+    FROM ops
+    ${sinceClause}
+    ORDER BY received_at DESC
+    LIMIT :limit
+  `, { keyHash, since: since ?? null, limit });
+
+  const [rows] = await pool.execute<OpRow[]>(sql, vals as import("mysql2").ExecuteValues);
+  return rows as RecentOp[];
+}
