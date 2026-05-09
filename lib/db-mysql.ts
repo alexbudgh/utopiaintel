@@ -884,6 +884,80 @@ export async function storeIntelOp(data: IntelOpAttempt, savedBy: string, keyHas
   });
 }
 
+export async function storeKingdom(data: KingdomData, savedBy: string, keyHash: string, receivedAt?: string): Promise<void> {
+  await ensureReady();
+  await withTransaction(async (conn) => {
+    const [result] = await conn.execute(
+      `INSERT IGNORE INTO kingdom_intel (
+         key_hash, name, location, kingdom_title, total_networth, total_land, total_honor,
+         wars_won, war_losses, networth_rank, land_rank, honor_rank, war_target,
+         their_attitude_to_us, their_attitude_points,
+         our_attitude_to_them, our_attitude_points,
+         hostility_meter_visible_until, open_relations_json, war_doctrines_json, saved_by, received_at
+       )
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+      [
+        keyHash, data.name, data.location, data.kingdomTitle,
+        data.totalNetworth, data.totalLand, data.totalHonor,
+        data.warsWon, data.warLosses, data.networthRank, data.landRank, data.honorRank, data.warTarget,
+        data.theirAttitudeToUs, data.theirAttitudePoints,
+        data.ourAttitudeToThem, data.ourAttitudePoints,
+        data.hostilityMeterVisibleUntil,
+        JSON.stringify(data.openRelations),
+        data.warDoctrines.length > 0 ? JSON.stringify(data.warDoctrines) : null,
+        savedBy, receivedAt ?? null,
+      ],
+    ) as [ResultSetHeader, unknown];
+    if (result.affectedRows === 0) return;
+
+    const kdId = result.insertId;
+    for (const p of data.provinces) {
+      const provId = await ensureProvince(conn, p.name, data.location);
+      await recordSubmission(conn, keyHash, provId);
+      await conn.execute(
+        "INSERT INTO kingdom_provinces (kingdom_intel_id, slot, name, race, land, networth, honor_title) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [kdId, p.slot, p.name, p.race, p.land, p.networth, p.honorTitle],
+      );
+      await conn.execute(
+        `INSERT IGNORE INTO province_overview
+           (province_id, key_hash, race, personality, honor_title, land, networth, source, saved_by, received_at)
+         VALUES (?, ?, ?, NULL, ?, ?, ?, 'kingdom', ?, COALESCE(?, NOW()))`,
+        [provId, keyHash, p.race, p.honorTitle, p.land, p.networth, savedBy, receivedAt ?? null],
+      );
+    }
+  });
+}
+
+export async function storeState(data: StateData, savedBy: string, keyHash: string, receivedAt?: string): Promise<void> {
+  await ensureReady();
+  await withTransaction(async (conn) => {
+    const provId = await ensureProvince(conn, data.name, data.kingdom);
+    await recordSubmission(conn, keyHash, provId);
+
+    await conn.execute(
+      `INSERT IGNORE INTO province_overview
+         (province_id, key_hash, land, networth, source, saved_by, accuracy, received_at)
+       VALUES (?, ?, ?, ?, 'state', ?, 100, COALESCE(?, NOW()))`,
+      [provId, keyHash, data.land, data.networth, savedBy, receivedAt ?? null],
+    );
+
+    await conn.execute(
+      `INSERT IGNORE INTO province_resources
+         (province_id, key_hash, thieves, wizards, total_pop, max_pop, source, saved_by, accuracy, received_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'state', ?, 100, COALESCE(?, NOW()))`,
+      [provId, keyHash, data.thieves, data.wizards, data.totalPop ?? null, data.maxPop ?? null, savedBy, receivedAt ?? null],
+    );
+
+    await conn.execute(
+      `INSERT IGNORE INTO province_troops
+         (province_id, key_hash, peasants, source, saved_by, accuracy, received_at)
+       VALUES (?, ?, ?, 'state', ?, 100, COALESCE(?, NOW()))`,
+      [provId, keyHash, data.peasants, savedBy, receivedAt ?? null],
+    );
+    // queueMetricsCacheRefresh called here once implemented
+  });
+}
+
 export async function storeSoT(data: SoTData, savedBy: string, keyHash: string, isSelfThrone = false, receivedAt?: string): Promise<void> {
   await ensureReady();
   const src = isSelfThrone ? "throne" : "sot";

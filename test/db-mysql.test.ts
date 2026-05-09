@@ -1,7 +1,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import type { RowDataPacket } from "mysql2/promise";
-import { pool, initDb, ensureProvince, recordSubmission, bindKeyToKingdom, withTransaction, storeSoT, storeSoS, storeSoM, storeSorcery, storeRob, storeAttack, storeTrainArmy, storeBuild, storeInfiltrate, storeSoD, storeIntelOp, storeSurvey } from "../lib/db-mysql";
+import { pool, initDb, ensureProvince, recordSubmission, bindKeyToKingdom, withTransaction, storeKingdom, storeState, storeSoT, storeSoS, storeSoM, storeSorcery, storeRob, storeAttack, storeTrainArmy, storeBuild, storeInfiltrate, storeSoD, storeIntelOp, storeSurvey } from "../lib/db-mysql";
 
 after(async () => {
   await pool.end();
@@ -835,6 +835,114 @@ test("storeSoT: duplicate does not double-insert", async () => {
 
   await storeSoT(baseSoT, "spy1", "keyhash1", false, "2025-06-01 12:00:00");
   await storeSoT(baseSoT, "spy1", "keyhash1", false, "2025-06-01 12:00:00");
+
+  const [[{ n }]] = await pool.query<CountRow[]>("SELECT COUNT(*) AS n FROM province_overview WHERE key_hash = ?", ["keyhash1"]);
+  assert.equal(n, 1);
+});
+
+// ── storeKingdom ─────────────────────────────────────────────────────────────
+
+const baseKingdom = {
+  name: "TestKingdom",
+  location: "7:5",
+  kingdomTitle: "Grand Kingdom",
+  totalNetworth: 5000000,
+  totalLand: 10000,
+  totalHonor: 200,
+  warsWon: 3,
+  warLosses: 1,
+  networthRank: 10,
+  landRank: 12,
+  honorRank: 8,
+  warTarget: null,
+  theirAttitudeToUs: null,
+  theirAttitudePoints: null,
+  ourAttitudeToThem: null,
+  ourAttitudePoints: null,
+  hostilityMeterVisibleUntil: null,
+  openRelations: [],
+  warDoctrines: [],
+  provinces: [
+    { slot: 1, name: "ProvA", race: "Elf", land: 600, networth: 80000, honorTitle: "Knight" },
+    { slot: 2, name: "ProvB", race: "Human", land: 500, networth: 70000, honorTitle: null },
+  ],
+};
+
+test("storeKingdom: inserts kingdom_intel and kingdom_provinces + province_overview", async () => {
+  await truncateAll();
+  interface KiRow extends RowDataPacket { name: string; location: string; total_networth: number }
+  interface KpRow extends RowDataPacket { slot: number; name: string; race: string }
+  interface CountRow extends RowDataPacket { n: number }
+
+  await storeKingdom(baseKingdom, "scout1", "keyhash1", "2025-06-01 12:00:00");
+
+  const [[ki]] = await pool.query<KiRow[]>("SELECT name, location, total_networth FROM kingdom_intel WHERE key_hash = ?", ["keyhash1"]);
+  assert.equal(ki.name, "TestKingdom");
+  assert.equal(ki.location, "7:5");
+  assert.equal(ki.total_networth, 5000000);
+
+  const [kp] = await pool.query<KpRow[]>("SELECT slot, name, race FROM kingdom_provinces ORDER BY slot");
+  assert.equal(kp.length, 2);
+  assert.equal(kp[0].name, "ProvA");
+  assert.equal(kp[1].race, "Human");
+
+  const [[{ n }]] = await pool.query<CountRow[]>("SELECT COUNT(*) AS n FROM province_overview WHERE key_hash = ?", ["keyhash1"]);
+  assert.equal(n, 2);
+});
+
+test("storeKingdom: duplicate is ignored", async () => {
+  await truncateAll();
+  interface CountRow extends RowDataPacket { n: number }
+
+  await storeKingdom(baseKingdom, "scout1", "keyhash1", "2025-06-01 12:00:00");
+  await storeKingdom(baseKingdom, "scout1", "keyhash1", "2025-06-01 12:00:00");
+
+  const [[{ n }]] = await pool.query<CountRow[]>("SELECT COUNT(*) AS n FROM kingdom_intel WHERE key_hash = ?", ["keyhash1"]);
+  assert.equal(n, 1);
+});
+
+// ── storeState ───────────────────────────────────────────────────────────────
+
+const baseState = {
+  name: "StateProvince",
+  kingdom: "7:5",
+  land: 750,
+  networth: 110000,
+  peasants: 5000,
+  thieves: 200,
+  wizards: 150,
+  totalPop: 8000,
+  maxPop: 10000,
+};
+
+test("storeState: inserts province_overview, province_resources, and province_troops", async () => {
+  await truncateAll();
+  interface OvRow extends RowDataPacket { land: number; networth: number; source: string }
+  interface ResRow extends RowDataPacket { thieves: number; wizards: number; total_pop: number }
+  interface TroopsRow extends RowDataPacket { peasants: number; source: string }
+
+  await storeState(baseState, "self1", "keyhash1", "2025-06-01 12:00:00");
+
+  const [[ov]] = await pool.query<OvRow[]>("SELECT land, networth, source FROM province_overview WHERE key_hash = ?", ["keyhash1"]);
+  assert.equal(ov.land, 750);
+  assert.equal(ov.source, "state");
+
+  const [[res]] = await pool.query<ResRow[]>("SELECT thieves, wizards, total_pop FROM province_resources WHERE key_hash = ?", ["keyhash1"]);
+  assert.equal(res.thieves, 200);
+  assert.equal(res.wizards, 150);
+  assert.equal(res.total_pop, 8000);
+
+  const [[troops]] = await pool.query<TroopsRow[]>("SELECT peasants, source FROM province_troops WHERE key_hash = ?", ["keyhash1"]);
+  assert.equal(troops.peasants, 5000);
+  assert.equal(troops.source, "state");
+});
+
+test("storeState: duplicate does not double-insert", async () => {
+  await truncateAll();
+  interface CountRow extends RowDataPacket { n: number }
+
+  await storeState(baseState, "self1", "keyhash1", "2025-06-01 12:00:00");
+  await storeState(baseState, "self1", "keyhash1", "2025-06-01 12:00:00");
 
   const [[{ n }]] = await pool.query<CountRow[]>("SELECT COUNT(*) AS n FROM province_overview WHERE key_hash = ?", ["keyhash1"]);
   assert.equal(n, 1);
