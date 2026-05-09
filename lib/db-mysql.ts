@@ -2016,3 +2016,709 @@ export async function cleanupExpired(): Promise<void> {
     await pool.query(`DELETE FROM \`${tbl}\` WHERE received_at < ${cutoff}`);
   }
 }
+
+// ── Army merge helpers (private, mirrors db.ts) ───────────────────────────────
+
+type SomArmy = { type: string; generals: number; soldiers: number; offSpecs: number; defSpecs: number; elites: number; warHorses: number; thieves: number; land: number; eta: number };
+type ThroneArmy = { type: string; land: number; eta: number };
+
+function mergeArmyArrays(somArmies: SomArmy[], throneArmies: ThroneArmy[], throneNewer: boolean): ArmyRow[] {
+  if (!throneNewer || throneArmies.length === 0) {
+    return somArmies.map((a) => ({
+      armyType: a.type, generals: a.generals, soldiers: a.soldiers,
+      offSpecs: a.offSpecs, defSpecs: a.defSpecs, elites: a.elites,
+      warHorses: a.warHorses, thieves: a.thieves, landGained: a.land, returnDays: a.eta,
+    }));
+  }
+  const somByType = new Map(somArmies.map((a) => [a.type, a]));
+  const outArmies: ArmyRow[] = throneArmies.map((t) => {
+    const s = somByType.get(t.type);
+    return {
+      armyType: t.type,
+      generals: s?.generals ?? null, soldiers: s?.soldiers ?? null,
+      offSpecs: s?.offSpecs ?? null, defSpecs: s?.defSpecs ?? null, elites: s?.elites ?? null,
+      warHorses: s?.warHorses ?? null, thieves: s?.thieves ?? null,
+      landGained: t.land ?? s?.land ?? null, returnDays: t.eta,
+    };
+  });
+  const nonOutArmies: ArmyRow[] = somArmies
+    .filter((a) => !a.type.startsWith("out_"))
+    .map((a) => ({
+      armyType: a.type, generals: a.generals, soldiers: a.soldiers,
+      offSpecs: a.offSpecs, defSpecs: a.defSpecs, elites: a.elites,
+      warHorses: a.warHorses, thieves: a.thieves, landGained: a.land, returnDays: a.eta,
+    }));
+  return [...nonOutArmies, ...outArmies];
+}
+
+function mergeArmiesJson(
+  somJson: string | null,
+  throneJson: string | null,
+  somAge: string | null,
+  throneAge: string | null,
+): string | null {
+  if (!somJson && !throneJson) return null;
+  const throneNewer = !!(throneAge && (!somAge || throneAge > somAge));
+  const somArmies: SomArmy[] = somJson ? JSON.parse(somJson) : [];
+  const throneArmies: ThroneArmy[] = throneJson ? JSON.parse(throneJson) : [];
+  const merged = mergeArmyArrays(somArmies, throneArmies, throneNewer);
+  return merged.length ? JSON.stringify(merged.map((a) => ({
+    type: a.armyType, soldiers: a.soldiers ?? 0, offSpecs: a.offSpecs ?? 0,
+    defSpecs: a.defSpecs ?? 0, elites: a.elites ?? 0, land: a.landGained ?? 0, eta: a.returnDays,
+  }))) : null;
+}
+
+// ── hydrateKingdomProvinceRows ────────────────────────────────────────────────
+
+async function hydrateKingdomProvinceRows(rows: ProvinceRow[], keyHash: string): Promise<void> {
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  const ids = rows.map((row) => row.id);
+  const idList = ids.map(() => "?").join(", ");
+  const p = () => [keyHash, ...ids];
+
+  const [
+    totalMilitaryRows,
+    troopRows,
+    resourceRows,
+    resourceFieldRows,
+    statusRows,
+    spellRows,
+    scienceRows,
+    surveyRows,
+    homeMilitaryRows,
+    militaryRows,
+    armyRows,
+  ] = await Promise.all([
+    pool.execute<any[]>(
+      `SELECT province_id, off_points, def_points, received_at AS military_age, source AS military_source
+       FROM (
+         SELECT tmp.*,
+                ROW_NUMBER() OVER (PARTITION BY tmp.province_id ORDER BY tmp.received_at DESC, tmp.id DESC) AS rn
+         FROM total_military_points tmp
+         WHERE tmp.key_hash = ? AND tmp.province_id IN (${idList})
+       ) ranked WHERE rn = 1`,
+      p(),
+    ).then(([r]) => r),
+
+    pool.execute<any[]>(
+      `SELECT province_id, source_group, soldiers, off_specs, def_specs, elites, war_horses, peasants, received_at, source
+       FROM (
+         SELECT pt.*,
+                CASE WHEN pt.source IN ('sot','throne') THEN 'total' WHEN pt.source IN ('som','council_military') THEN 'home' END AS source_group,
+                ROW_NUMBER() OVER (
+                  PARTITION BY pt.province_id,
+                               CASE WHEN pt.source IN ('sot','throne') THEN 'total' WHEN pt.source IN ('som','council_military') THEN 'home' END
+                  ORDER BY pt.received_at DESC, pt.id DESC
+                ) AS rn
+         FROM province_troops pt
+         WHERE pt.key_hash = ? AND pt.province_id IN (${idList})
+           AND pt.source IN ('sot','throne','som','council_military')
+       ) ranked WHERE rn = 1`,
+      p(),
+    ).then(([r]) => r),
+
+    pool.execute<any[]>(
+      `SELECT province_id, money, food, runes, prisoners, trade_balance, building_efficiency, stealth, wizards, mana,
+              received_at AS resources_age, source AS resources_source
+       FROM (
+         SELECT pr.*,
+                ROW_NUMBER() OVER (PARTITION BY pr.province_id ORDER BY pr.received_at DESC, pr.id DESC) AS rn
+         FROM province_resources pr
+         WHERE pr.key_hash = ? AND pr.province_id IN (${idList}) AND pr.source IN ('sot','throne')
+       ) ranked WHERE rn = 1`,
+      p(),
+    ).then(([r]) => r),
+
+    pool.execute<any[]>(
+      `SELECT province_id, total_pop, max_pop, thieves, free_specialist_credits, free_building_credits, received_at
+       FROM province_resources
+       WHERE key_hash = ? AND province_id IN (${idList})
+         AND (total_pop IS NOT NULL OR max_pop IS NOT NULL OR thieves IS NOT NULL
+              OR free_specialist_credits IS NOT NULL OR free_building_credits IS NOT NULL)
+       ORDER BY province_id ASC, received_at DESC, id DESC`,
+      p(),
+    ).then(([r]) => r),
+
+    pool.execute<any[]>(
+      `SELECT province_id, hit_status, received_at AS status_age
+       FROM (
+         SELECT ps.*,
+                ROW_NUMBER() OVER (PARTITION BY ps.province_id ORDER BY ps.received_at DESC, ps.id DESC) AS rn
+         FROM province_status ps
+         WHERE ps.key_hash = ? AND ps.province_id IN (${idList})
+       ) ranked WHERE rn = 1`,
+      p(),
+    ).then(([r]) => r),
+
+    pool.execute<any[]>(
+      `SELECT province_id, MAX(received_at) AS effects_age,
+              GROUP_CONCAT(
+                CASE WHEN effect_kind = 'spell' AND effect_name NOT IN (${BAD_SPELL_SQL_LIST})
+                THEN CONCAT(effect_name, CASE WHEN remaining_ticks IS NOT NULL THEN CONCAT(' (', remaining_ticks, ')') ELSE '' END)
+                END
+                SEPARATOR ' | '
+              ) AS good_spell_details,
+              GROUP_CONCAT(
+                CASE WHEN effect_kind = 'spell' AND effect_name IN (${BAD_SPELL_SQL_LIST})
+                THEN CONCAT(effect_name, CASE WHEN remaining_ticks IS NOT NULL THEN CONCAT(' (', remaining_ticks, ')') ELSE '' END)
+                END
+                SEPARATOR ' | '
+              ) AS bad_spell_details,
+              SUM(CASE WHEN effect_kind = 'spell' AND effect_name NOT IN (${BAD_SPELL_SQL_LIST}) THEN 1 ELSE 0 END) AS good_spell_count,
+              SUM(CASE WHEN effect_kind = 'spell' AND effect_name IN (${BAD_SPELL_SQL_LIST}) THEN 1 ELSE 0 END) AS bad_spell_count
+       FROM (
+         SELECT pe.*,
+                ROW_NUMBER() OVER (PARTITION BY pe.province_id, pe.effect_name, pe.effect_kind ORDER BY pe.id DESC) AS rn
+         FROM province_effects pe
+         WHERE pe.key_hash = ? AND pe.province_id IN (${idList})
+           AND pe.received_at = (
+             SELECT MAX(pe2.received_at) FROM province_effects pe2
+             WHERE pe2.province_id = pe.province_id AND pe2.key_hash = pe.key_hash
+           )
+       ) latest_effects
+       WHERE rn = 1
+       GROUP BY province_id`,
+      p(),
+    ).then(([r]) => r),
+
+    pool.execute<any[]>(
+      `SELECT si.province_id, si.received_at AS sciences_age,
+              MAX(CASE WHEN ss.science = 'Crime'      THEN ss.effect END) AS crime_effect,
+              MAX(CASE WHEN ss.science = 'Siege'      THEN ss.effect END) AS siege_effect,
+              MAX(CASE WHEN ss.science = 'Channeling' THEN ss.effect END) AS channeling_effect,
+              MAX(CASE WHEN ss.science = 'Shielding'  THEN ss.effect END) AS shielding_effect,
+              MAX(CASE WHEN ss.science = 'Housing'    THEN ss.effect END) AS housing_effect,
+              SUM(ss.books) AS science_total_books
+       FROM (
+         SELECT si2.*,
+                ROW_NUMBER() OVER (PARTITION BY si2.province_id ORDER BY si2.received_at DESC, si2.id DESC) AS rn
+         FROM sos_intel si2
+         WHERE si2.key_hash = ? AND si2.province_id IN (${idList})
+       ) si
+       LEFT JOIN sos_sciences ss ON ss.sos_intel_id = si.id
+       WHERE si.rn = 1
+       GROUP BY si.province_id, si.received_at`,
+      p(),
+    ).then(([r]) => r),
+
+    pool.execute<any[]>(
+      `SELECT si.province_id, si.received_at AS survey_age,
+              si.thief_prevent_chance AS watch_towers_effect,
+              si.thievery_effectiveness AS thieves_dens_effect,
+              si.castles_effect,
+              MAX(CASE WHEN sb.building = 'Barren Land' THEN sb.built END) AS barren_land,
+              MAX(CASE WHEN sb.building = 'Homes'       THEN sb.built END) AS homes_built,
+              MAX(CASE WHEN sb.building = 'Guilds'      THEN sb.built END) AS guilds_built,
+              SUM(CASE WHEN sb.building != 'Barren Land' THEN sb.built ELSE 0 END) AS buildings_built,
+              SUM(sb.in_progress) AS buildings_in_progress
+       FROM (
+         SELECT si2.*,
+                ROW_NUMBER() OVER (PARTITION BY si2.province_id ORDER BY si2.received_at DESC, si2.id DESC) AS rn
+         FROM survey_intel si2
+         WHERE si2.key_hash = ? AND si2.province_id IN (${idList})
+       ) si
+       LEFT JOIN survey_buildings sb ON sb.survey_intel_id = si.id
+       WHERE si.rn = 1
+       GROUP BY si.province_id, si.received_at, si.thief_prevent_chance, si.thievery_effectiveness, si.castles_effect`,
+      p(),
+    ).then(([r]) => r),
+
+    pool.execute<any[]>(
+      `SELECT province_id, mod_off_at_home AS off_home, mod_def_at_home AS def_home,
+              received_at AS home_mil_age, source AS home_mil_source
+       FROM (
+         SELECT hmp.*,
+                ROW_NUMBER() OVER (PARTITION BY hmp.province_id ORDER BY hmp.received_at DESC, hmp.id DESC) AS rn
+         FROM home_military_points hmp
+         WHERE hmp.key_hash = ? AND hmp.province_id IN (${idList})
+       ) ranked WHERE rn = 1`,
+      p(),
+    ).then(([r]) => r),
+
+    pool.execute<any[]>(
+      `SELECT province_id, source_group, ome, dme, received_at
+       FROM (
+         SELECT mi.*,
+                CASE WHEN mi.source IN ('som','council_military') THEN 'som' WHEN mi.source = 'throne' THEN 'throne' END AS source_group,
+                ROW_NUMBER() OVER (
+                  PARTITION BY mi.province_id,
+                               CASE WHEN mi.source IN ('som','council_military') THEN 'som' WHEN mi.source = 'throne' THEN 'throne' END
+                  ORDER BY mi.received_at DESC, mi.id DESC
+                ) AS rn
+         FROM military_intel mi
+         WHERE mi.key_hash = ? AND mi.province_id IN (${idList})
+           AND (mi.source IN ('som','council_military') OR mi.source = 'throne')
+       ) ranked WHERE rn = 1`,
+      p(),
+    ).then(([r]) => r),
+
+    pool.execute<any[]>(
+      `WITH latest_military AS (
+         SELECT * FROM (
+           SELECT mi.*,
+                  CASE WHEN mi.source IN ('som','council_military') THEN 'som' WHEN mi.source = 'throne' THEN 'throne' END AS source_group,
+                  ROW_NUMBER() OVER (
+                    PARTITION BY mi.province_id,
+                                 CASE WHEN mi.source IN ('som','council_military') THEN 'som' WHEN mi.source = 'throne' THEN 'throne' END
+                    ORDER BY mi.received_at DESC, mi.id DESC
+                  ) AS rn
+           FROM military_intel mi
+           WHERE mi.key_hash = ? AND mi.province_id IN (${idList})
+             AND (mi.source IN ('som','council_military') OR mi.source = 'throne')
+         ) ranked WHERE rn = 1
+       ),
+       latest_military_som AS (SELECT id, province_id, received_at FROM latest_military WHERE source_group = 'som'),
+       latest_military_throne AS (SELECT id, province_id, received_at FROM latest_military WHERE source_group = 'throne'),
+       latest_army_intel AS (
+         SELECT COALESCE(ms.province_id, mt.province_id) AS province_id,
+                CASE WHEN mt.id IS NOT NULL AND (ms.id IS NULL OR mt.received_at > ms.received_at) THEN mt.id ELSE ms.id END AS military_intel_id
+         FROM latest_military_som ms LEFT JOIN latest_military_throne mt ON mt.province_id = ms.province_id
+         UNION ALL
+         SELECT mt.province_id, mt.id FROM latest_military_throne mt
+         LEFT JOIN latest_military_som ms ON ms.province_id = mt.province_id WHERE ms.id IS NULL
+       ),
+       army_summary AS (
+         SELECT lai.province_id, COUNT(sa.id) AS armies_out_count,
+                SUM(sa.land_gained) AS land_incoming, MIN(sa.return_days) AS earliest_return
+         FROM latest_army_intel lai
+         LEFT JOIN som_armies sa ON sa.military_intel_id = lai.military_intel_id AND sa.return_days IS NOT NULL
+         GROUP BY lai.province_id
+       ),
+       som_armies_summary AS (
+         SELECT ms.province_id,
+                JSON_ARRAYAGG(JSON_OBJECT('type',sa.army_type,'generals',sa.generals,'soldiers',sa.soldiers,'offSpecs',sa.off_specs,'defSpecs',sa.def_specs,'elites',sa.elites,'warHorses',sa.war_horses,'thieves',sa.thieves,'land',sa.land_gained,'eta',sa.return_days)) AS som_armies_json
+         FROM latest_military_som ms
+         JOIN som_armies sa ON sa.military_intel_id = ms.id AND sa.return_days IS NOT NULL
+         GROUP BY ms.province_id
+       ),
+       throne_armies_summary AS (
+         SELECT mt.province_id,
+                JSON_ARRAYAGG(JSON_OBJECT('type',sa.army_type,'land',sa.land_gained,'eta',sa.return_days)) AS throne_armies_json
+         FROM latest_military_throne mt
+         JOIN som_armies sa ON sa.military_intel_id = mt.id AND sa.return_days IS NOT NULL
+         GROUP BY mt.province_id
+       )
+       SELECT army.province_id, army.armies_out_count, army.land_incoming, army.earliest_return,
+              som_armies.som_armies_json, throne_armies.throne_armies_json
+       FROM army_summary army
+       LEFT JOIN som_armies_summary som_armies ON som_armies.province_id = army.province_id
+       LEFT JOIN throne_armies_summary throne_armies ON throne_armies.province_id = army.province_id`,
+      p(),
+    ).then(([r]) => r),
+  ]);
+
+  for (const s of totalMilitaryRows) {
+    Object.assign(byId.get(s.province_id)!, {
+      off_points: s.off_points, def_points: s.def_points,
+      military_age: s.military_age, military_source: s.military_source,
+    });
+  }
+  for (const s of troopRows) {
+    const row = byId.get(s.province_id)!;
+    if (s.source_group === "total") {
+      Object.assign(row, {
+        soldiers: s.soldiers, off_specs: s.off_specs, def_specs: s.def_specs,
+        elites: s.elites, war_horses: s.war_horses, peasants: s.peasants,
+        troops_age: s.received_at, troops_source: s.source,
+      });
+    } else {
+      Object.assign(row, {
+        soldiers_home: s.soldiers, off_specs_home: s.off_specs,
+        def_specs_home: s.def_specs, elites_home: s.elites, troops_home_age: s.received_at,
+      });
+    }
+  }
+  for (const s of resourceRows) {
+    Object.assign(byId.get(s.province_id)!, {
+      money: s.money, food: s.food, runes: s.runes, prisoners: s.prisoners,
+      trade_balance: s.trade_balance, building_efficiency: s.building_efficiency,
+      stealth: s.stealth, wizards: s.wizards, mana: s.mana,
+      resources_age: s.resources_age, resources_source: s.resources_source,
+    });
+  }
+  for (const s of resourceFieldRows) {
+    const row = byId.get(s.province_id)!;
+    if (row.total_pop == null && s.total_pop != null) row.total_pop = s.total_pop;
+    if (row.max_pop  == null && s.max_pop  != null) row.max_pop  = s.max_pop;
+    if (row.thieves  == null && s.thieves  != null) { row.thieves = s.thieves; row.thieves_age = s.received_at; }
+    if (row.free_specialist_credits == null && s.free_specialist_credits != null) {
+      row.free_specialist_credits = s.free_specialist_credits;
+      row.free_specialist_credits_age = s.received_at;
+    }
+    if (row.free_building_credits == null && s.free_building_credits != null) {
+      row.free_building_credits = s.free_building_credits;
+      row.free_building_credits_age = s.received_at;
+    }
+  }
+  for (const s of statusRows) {
+    Object.assign(byId.get(s.province_id)!, { hit_status: s.hit_status, status_age: s.status_age });
+  }
+  for (const s of spellRows) {
+    Object.assign(byId.get(s.province_id)!, {
+      effects_age: s.effects_age,
+      good_spell_details: s.good_spell_details,
+      bad_spell_details: s.bad_spell_details,
+      good_spell_count: s.good_spell_count,
+      bad_spell_count: s.bad_spell_count,
+    });
+  }
+  for (const s of scienceRows) {
+    Object.assign(byId.get(s.province_id)!, {
+      sciences_age: s.sciences_age, crime_effect: s.crime_effect, siege_effect: s.siege_effect,
+      channeling_effect: s.channeling_effect, shielding_effect: s.shielding_effect,
+      housing_effect: s.housing_effect, science_total_books: s.science_total_books,
+    });
+  }
+  for (const s of surveyRows) {
+    Object.assign(byId.get(s.province_id)!, {
+      survey_age: s.survey_age, watch_towers_effect: s.watch_towers_effect,
+      thieves_dens_effect: s.thieves_dens_effect, castles_effect: s.castles_effect,
+      barren_land: s.barren_land, homes_built: s.homes_built, guilds_built: s.guilds_built,
+      buildings_built: s.buildings_built, buildings_in_progress: s.buildings_in_progress,
+    });
+  }
+  for (const s of homeMilitaryRows) {
+    Object.assign(byId.get(s.province_id)!, {
+      off_home: s.off_home, def_home: s.def_home,
+      home_mil_age: s.home_mil_age, home_mil_source: s.home_mil_source,
+    });
+  }
+  for (const s of militaryRows) {
+    const row = byId.get(s.province_id)!;
+    if (s.source_group === "som") {
+      row.ome = s.ome; row.dme = s.dme; row.som_age = s.received_at;
+    } else {
+      row.throne_age = s.received_at;
+    }
+  }
+  for (const s of armyRows) {
+    const somJson = typeof s.som_armies_json === "string" ? s.som_armies_json : (s.som_armies_json ? JSON.stringify(s.som_armies_json) : null);
+    const throneJson = typeof s.throne_armies_json === "string" ? s.throne_armies_json : (s.throne_armies_json ? JSON.stringify(s.throne_armies_json) : null);
+    Object.assign(byId.get(s.province_id)!, {
+      armies_out_count: s.armies_out_count, land_incoming: s.land_incoming,
+      earliest_return: s.earliest_return, som_armies_json: somJson, throne_armies_json: throneJson,
+    });
+  }
+}
+
+export async function getKingdomProvinces(kingdom: string, keyHash: string): Promise<ProvinceRow[]> {
+  await ensureReady();
+
+  const [sql, vals] = n(`
+    WITH ${latestSlotCte("AND ki.location = :kingdom")}
+    SELECT p.id, p.name, p.kingdom,
+           (SELECT ls.slot FROM latest_slot ls WHERE ls.kingdom = p.kingdom AND ls.name = p.name) AS slot,
+           ${OVERVIEW_RACE_SQL}, ${OVERVIEW_PERS_SQL}, ${OVERVIEW_HONOR_SQL},
+           po.land, po.networth, po.received_at AS overview_age, po.source AS overview_source,
+           p.cached_rtpa, p.cached_rtpa_age,
+           p.cached_mtpa, p.cached_mtpa_age,
+           p.cached_otpa, p.cached_otpa_age,
+           p.cached_dtpa, p.cached_dtpa_age,
+           p.cached_rwpa, p.cached_rwpa_age,
+           p.cached_mwpa, p.cached_mwpa_age
+    FROM provinces p
+    JOIN province_overview po ON po.id = (
+      SELECT po2.id FROM province_overview po2
+      WHERE po2.province_id = p.id AND po2.key_hash = :keyHash
+      ORDER BY po2.received_at DESC, po2.id DESC
+      LIMIT 1
+    )
+    WHERE p.kingdom = :kingdom
+      AND EXISTS (SELECT 1 FROM intel_partitions WHERE key_hash = :keyHash AND province_id = p.id)
+      AND (
+        EXISTS (SELECT 1 FROM latest_slot WHERE kingdom = p.kingdom AND name = p.name)
+        OR NOT EXISTS (
+          SELECT 1 FROM kingdom_provinces kp
+          JOIN kingdom_intel ki ON kp.kingdom_intel_id = ki.id
+          WHERE ki.location = p.kingdom AND ki.key_hash = :keyHash AND kp.name = p.name
+        )
+      )
+    ORDER BY po.networth IS NULL ASC, po.networth DESC
+  `, { keyHash, kingdom });
+
+  const [baseRows] = await pool.execute<any[]>(sql, vals as import("mysql2").ExecuteValues);
+
+  const rows = (baseRows as any[]).map((base) => ({
+    ...base,
+    off_points: null, def_points: null, military_age: null, military_source: null,
+    soldiers: null, off_specs: null, def_specs: null, elites: null, war_horses: null, peasants: null, troops_age: null, troops_source: null,
+    soldiers_home: null, off_specs_home: null, def_specs_home: null, elites_home: null, troops_home_age: null,
+    off_home: null, def_home: null, home_mil_age: null, home_mil_source: null,
+    money: null, food: null, runes: null, prisoners: null, trade_balance: null, building_efficiency: null,
+    thieves: null, thieves_age: null, stealth: null, wizards: null, mana: null, total_pop: null, max_pop: null,
+    resources_age: null, resources_source: null, free_specialist_credits: null, free_specialist_credits_age: null,
+    free_building_credits: null, free_building_credits_age: null, hit_status: null, status_age: null,
+    effects_age: null, good_spell_details: null, bad_spell_details: null, good_spell_count: null, bad_spell_count: null,
+    ome: null, dme: null, som_age: null, throne_age: null, sciences_age: null, crime_effect: null,
+    channeling_effect: null, siege_effect: null, shielding_effect: null, science_total_books: null,
+    survey_age: null, watch_towers_effect: null, thieves_dens_effect: null, castles_effect: null, housing_effect: null,
+    barren_land: null, homes_built: null, guilds_built: null, buildings_built: null, buildings_in_progress: null,
+    armies_out_count: null, land_incoming: null, earliest_return: null,
+    som_armies_json: null, throne_armies_json: null, armies_out_json: null,
+  })) as ProvinceRow[];
+
+  if (rows.length === 0) return rows;
+
+  await hydrateKingdomProvinceRows(rows, keyHash);
+
+  for (const row of rows) {
+    row.armies_out_json = mergeArmiesJson(row.som_armies_json, row.throne_armies_json, row.som_age, row.throne_age);
+    const allArmiesHome = (row.armies_out_count ?? 0) === 0;
+    const homeMilitaryNewer = !!row.home_mil_age && (!row.military_age || row.home_mil_age > row.military_age);
+    const homeMilitaryFromSoM = row.home_mil_source === "som" || row.home_mil_source === "council_military";
+    if (row.som_age && allArmiesHome && homeMilitaryNewer && homeMilitaryFromSoM) {
+      if (row.off_home != null) row.off_points = row.off_home;
+      if (row.def_home != null) row.def_points = row.def_home;
+      if (row.off_home != null || row.def_home != null) {
+        row.military_age = row.home_mil_age;
+        row.military_source = row.home_mil_source;
+      }
+    }
+  }
+  return rows;
+}
+
+export async function getProvinceDetail(name: string, kingdom: string, keyHash: string): Promise<ProvinceDetail> {
+  await ensureReady();
+  const nullResult: ProvinceDetail = { province: null, overview: null, totalMilitary: null, homeMilitary: null, sot: null, resources: null, status: null, effects: [], militaryIntel: null, survey: null, sciences: null };
+
+  interface ProvRow extends RowDataPacket { id: number; name: string; kingdom: string }
+  interface AccessRow extends RowDataPacket { n: number }
+
+  const [[prov]] = await pool.execute<ProvRow[]>(
+    "SELECT id, name, kingdom FROM provinces WHERE name = ? AND kingdom = ?",
+    [name, kingdom],
+  );
+  if (!prov) return nullResult;
+
+  const [[access]] = await pool.execute<AccessRow[]>(
+    "SELECT COUNT(*) AS n FROM intel_partitions WHERE key_hash = ? AND province_id = ?",
+    [keyHash, prov.id],
+  );
+  if (!access.n) return nullResult;
+
+  const id = prov.id;
+
+  const [slotSql, slotVals] = n(
+    `WITH ${latestSlotCte("AND ki.location = :kingdom")} SELECT slot FROM latest_slot WHERE kingdom = :kingdom AND name = :name LIMIT 1`,
+    { keyHash, kingdom, name },
+  );
+
+  const [
+    slotRows,
+    overviewRows,
+    tmRows,
+    hmRows,
+    troopRows,
+    resRows,
+    totalPopRows,
+    thievesRows,
+    creditsRows,
+    buildCreditsRows,
+    statusRows,
+    effectRows,
+    miSomRows,
+    miThroneRows,
+    surveyRows,
+    sosRows,
+  ] = await Promise.all([
+    pool.execute<any[]>(slotSql, slotVals as import("mysql2").ExecuteValues).then(([r]) => r),
+    pool.execute<any[]>(
+      `SELECT land, networth, source, saved_by, received_at,
+              (SELECT race        FROM province_overview WHERE province_id = ? AND key_hash = ? AND race        IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS race,
+              (SELECT personality FROM province_overview WHERE province_id = ? AND key_hash = ? AND personality IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS personality,
+              (SELECT honor_title FROM province_overview WHERE province_id = ? AND key_hash = ? AND honor_title IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS honor_title,
+              (SELECT ruler       FROM province_overview WHERE province_id = ? AND key_hash = ? AND ruler       IS NOT NULL ORDER BY received_at DESC LIMIT 1) AS ruler
+       FROM province_overview WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1`,
+      [id, keyHash, id, keyHash, id, keyHash, id, keyHash, id, keyHash],
+    ).then(([r]) => r),
+    pool.execute<any[]>(
+      "SELECT off_points, def_points, source, received_at FROM total_military_points WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1",
+      [id, keyHash],
+    ).then(([r]) => r),
+    pool.execute<any[]>(
+      "SELECT mod_off_at_home, mod_def_at_home, source, received_at FROM home_military_points WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1",
+      [id, keyHash],
+    ).then(([r]) => r),
+    pool.execute<any[]>(
+      "SELECT soldiers, off_specs, def_specs, elites, war_horses, peasants, source, received_at FROM province_troops WHERE province_id = ? AND key_hash = ? AND source IN ('sot','throne') ORDER BY received_at DESC LIMIT 1",
+      [id, keyHash],
+    ).then(([r]) => r),
+    pool.execute<any[]>(
+      "SELECT money, food, runes, prisoners, trade_balance, building_efficiency, stealth, wizards, mana, received_at FROM province_resources WHERE province_id = ? AND key_hash = ? AND source IN ('sot','throne') ORDER BY received_at DESC LIMIT 1",
+      [id, keyHash],
+    ).then(([r]) => r),
+    pool.execute<any[]>(
+      "SELECT total_pop, max_pop FROM province_resources WHERE province_id = ? AND key_hash = ? AND total_pop IS NOT NULL ORDER BY received_at DESC LIMIT 1",
+      [id, keyHash],
+    ).then(([r]) => r),
+    pool.execute<any[]>(
+      "SELECT thieves, received_at FROM province_resources WHERE province_id = ? AND key_hash = ? AND thieves IS NOT NULL ORDER BY received_at DESC LIMIT 1",
+      [id, keyHash],
+    ).then(([r]) => r),
+    pool.execute<any[]>(
+      "SELECT free_specialist_credits, received_at FROM province_resources WHERE province_id = ? AND key_hash = ? AND free_specialist_credits IS NOT NULL ORDER BY received_at DESC LIMIT 1",
+      [id, keyHash],
+    ).then(([r]) => r),
+    pool.execute<any[]>(
+      "SELECT free_building_credits, received_at FROM province_resources WHERE province_id = ? AND key_hash = ? AND free_building_credits IS NOT NULL ORDER BY received_at DESC LIMIT 1",
+      [id, keyHash],
+    ).then(([r]) => r),
+    pool.execute<any[]>(
+      "SELECT plagued, overpopulated, overpop_deserters, dragon_type, dragon_name, hit_status, war, received_at FROM province_status WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1",
+      [id, keyHash],
+    ).then(([r]) => r),
+    pool.execute<any[]>(
+      `SELECT effect_name, effect_kind, duration_text, remaining_ticks, effectiveness_percent, received_at
+       FROM (
+         SELECT effect_name, effect_kind, duration_text, remaining_ticks, effectiveness_percent, received_at,
+                ROW_NUMBER() OVER (PARTITION BY effect_name, effect_kind ORDER BY id DESC) AS rn
+         FROM province_effects
+         WHERE province_id = ? AND key_hash = ?
+           AND received_at = (SELECT MAX(pe2.received_at) FROM province_effects pe2 WHERE pe2.province_id = ?)
+       ) ranked WHERE rn = 1
+       ORDER BY effect_kind ASC, effect_name ASC`,
+      [id, keyHash, id],
+    ).then(([r]) => r),
+    pool.execute<any[]>(
+      "SELECT id, ome, dme, received_at FROM military_intel WHERE province_id = ? AND key_hash = ? AND source IN ('som','council_military') ORDER BY received_at DESC LIMIT 1",
+      [id, keyHash],
+    ).then(([r]) => r),
+    pool.execute<any[]>(
+      "SELECT id, received_at FROM military_intel WHERE province_id = ? AND key_hash = ? AND source = 'throne' ORDER BY received_at DESC LIMIT 1",
+      [id, keyHash],
+    ).then(([r]) => r),
+    pool.execute<any[]>(
+      "SELECT id, received_at FROM survey_intel WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1",
+      [id, keyHash],
+    ).then(([r]) => r),
+    pool.execute<any[]>(
+      "SELECT id, received_at FROM sos_intel WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1",
+      [id, keyHash],
+    ).then(([r]) => r),
+  ]);
+
+  const slotRow = slotRows[0] ?? null;
+  const ovRaw = overviewRows[0] ?? null;
+  const tmRaw = tmRows[0] ?? null;
+  const hmRaw = hmRows[0] ?? null;
+  const troopRaw = troopRows[0] ?? null;
+  const resRaw = resRows[0] ?? null;
+  const totalPopRaw = totalPopRows[0] ?? null;
+  const thievesRaw = thievesRows[0] ?? null;
+  const creditsRaw = creditsRows[0] ?? null;
+  const buildCreditsRaw = buildCreditsRows[0] ?? null;
+  const statusRaw = statusRows[0] ?? null;
+  const miSomRaw = miSomRows[0] ?? null;
+  const miThroneRaw = miThroneRows[0] ?? null;
+  const surveyRaw = surveyRows[0] ?? null;
+  const sosRaw = sosRows[0] ?? null;
+
+  const overview = ovRaw ? {
+    race: ovRaw.race ?? null, personality: ovRaw.personality ?? null,
+    honorTitle: ovRaw.honor_title ?? null, ruler: ovRaw.ruler ?? null,
+    land: ovRaw.land, networth: ovRaw.networth,
+    source: ovRaw.source, savedBy: ovRaw.saved_by, receivedAt: ovRaw.received_at,
+  } : null;
+
+  const armySnapshotRows = await pool.execute<any[]>(
+    `SELECT chosen.id AS military_intel_id, COUNT(sa.id) AS armies_out_count
+     FROM (
+       SELECT CASE
+         WHEN throne.id IS NOT NULL AND (som.id IS NULL OR throne.received_at > som.received_at) THEN throne.id
+         ELSE som.id
+       END AS id
+       FROM (SELECT id, received_at FROM military_intel WHERE province_id = ? AND key_hash = ? AND source IN ('som','council_military') ORDER BY received_at DESC LIMIT 1) som
+       LEFT JOIN (SELECT id, received_at FROM military_intel WHERE province_id = ? AND key_hash = ? AND source = 'throne' ORDER BY received_at DESC LIMIT 1) throne ON 1=1
+     ) chosen
+     LEFT JOIN som_armies sa ON sa.military_intel_id = chosen.id AND sa.return_days IS NOT NULL`,
+    [id, keyHash, id, keyHash],
+  ).then(([r]) => r);
+  const armySnapshot = armySnapshotRows[0] ?? null;
+
+  const allArmiesHome = armySnapshot?.military_intel_id != null && (armySnapshot.armies_out_count ?? 0) === 0;
+  const homeMilitaryNewer = !!hmRaw && (!tmRaw || hmRaw.received_at > tmRaw.received_at);
+  const homeMilitaryFromSoM = hmRaw?.source === "som" || hmRaw?.source === "council_military";
+  const totalMilitary = homeMilitaryFromSoM && homeMilitaryNewer && allArmiesHome && (hmRaw.mod_off_at_home != null || hmRaw.mod_def_at_home != null)
+    ? { offPoints: hmRaw.mod_off_at_home, defPoints: hmRaw.mod_def_at_home, source: hmRaw.source, receivedAt: hmRaw.received_at }
+    : tmRaw
+      ? { offPoints: tmRaw.off_points, defPoints: tmRaw.def_points, source: tmRaw.source, receivedAt: tmRaw.received_at }
+      : null;
+
+  const homeMilitary = hmRaw
+    ? { modOffAtHome: hmRaw.mod_off_at_home, modDefAtHome: hmRaw.mod_def_at_home, source: hmRaw.source, receivedAt: hmRaw.received_at }
+    : null;
+
+  const sot = troopRaw
+    ? { soldiers: troopRaw.soldiers, offSpecs: troopRaw.off_specs, defSpecs: troopRaw.def_specs, elites: troopRaw.elites, warHorses: troopRaw.war_horses, peasants: troopRaw.peasants, source: troopRaw.source, receivedAt: troopRaw.received_at }
+    : null;
+
+  const resources = resRaw
+    ? {
+        money: resRaw.money, food: resRaw.food, runes: resRaw.runes, prisoners: resRaw.prisoners,
+        tradeBalance: resRaw.trade_balance, buildingEfficiency: resRaw.building_efficiency,
+        thieves: thievesRaw?.thieves ?? null, thievesAge: thievesRaw?.received_at ?? null,
+        stealth: resRaw.stealth, wizards: resRaw.wizards, mana: resRaw.mana,
+        totalPop: totalPopRaw?.total_pop ?? null, maxPop: totalPopRaw?.max_pop ?? null,
+        freeSpecialistCredits: creditsRaw?.free_specialist_credits ?? null,
+        freeSpecialistCreditsAge: creditsRaw?.received_at ?? null,
+        freeBuildingCredits: buildCreditsRaw?.free_building_credits ?? null,
+        freeBuildingCreditsAge: buildCreditsRaw?.received_at ?? null,
+        receivedAt: resRaw.received_at,
+      }
+    : null;
+
+  const status = statusRaw
+    ? { plagued: !!statusRaw.plagued, overpopulated: !!statusRaw.overpopulated, overpopDeserters: statusRaw.overpop_deserters ?? null, dragonType: statusRaw.dragon_type ?? null, dragonName: statusRaw.dragon_name ?? null, hitStatus: statusRaw.hit_status, war: !!statusRaw.war, receivedAt: statusRaw.received_at }
+    : null;
+
+  const effects = effectRows.map((e: any) => ({
+    name: e.effect_name, kind: e.effect_kind, durationText: e.duration_text,
+    remainingTicks: e.remaining_ticks, effectivenessPercent: e.effectiveness_percent, receivedAt: e.received_at,
+  }));
+
+  let militaryIntel = null;
+  if (miSomRaw || miThroneRaw) {
+    const [somArmyRows, throneArmyRows] = await Promise.all([
+      miSomRaw ? pool.execute<any[]>(
+        "SELECT army_type, generals, soldiers, off_specs, def_specs, elites, war_horses, thieves, land_gained, return_days FROM som_armies WHERE military_intel_id = ?",
+        [miSomRaw.id],
+      ).then(([r]) => r) : Promise.resolve([] as any[]),
+      miThroneRaw ? pool.execute<any[]>(
+        "SELECT army_type, land_gained, return_days FROM som_armies WHERE military_intel_id = ?",
+        [miThroneRaw.id],
+      ).then(([r]) => r) : Promise.resolve([] as any[]),
+    ]);
+    const somArmies: SomArmy[] = somArmyRows.map((a: any) => ({ type: a.army_type, generals: a.generals, soldiers: a.soldiers, offSpecs: a.off_specs, defSpecs: a.def_specs, elites: a.elites, warHorses: a.war_horses, thieves: a.thieves, land: a.land_gained, eta: a.return_days }));
+    const throneArmies: ThroneArmy[] = throneArmyRows.map((a: any) => ({ type: a.army_type, land: a.land_gained, eta: a.return_days }));
+    const throneNewer = !!(miThroneRaw && (!miSomRaw || miThroneRaw.received_at > miSomRaw.received_at));
+    militaryIntel = {
+      ome: miSomRaw?.ome ?? null, dme: miSomRaw?.dme ?? null,
+      receivedAt: miSomRaw?.received_at ?? miThroneRaw?.received_at,
+      armies: mergeArmyArrays(somArmies, throneArmies, throneNewer),
+    };
+  }
+
+  let survey = null;
+  if (surveyRaw) {
+    const [buildingRows] = await pool.execute<any[]>(
+      "SELECT building, built, in_progress FROM survey_buildings WHERE survey_intel_id = ? ORDER BY built DESC",
+      [surveyRaw.id],
+    );
+    survey = { receivedAt: surveyRaw.received_at, buildings: (buildingRows as any[]).map((b) => ({ building: b.building, built: b.built, inProgress: b.in_progress })) };
+  }
+
+  let sciences = null;
+  if (sosRaw) {
+    const [sciRows] = await pool.execute<any[]>(
+      "SELECT science, books, effect FROM sos_sciences WHERE sos_intel_id = ? ORDER BY books DESC",
+      [sosRaw.id],
+    );
+    sciences = { receivedAt: sosRaw.received_at, sciences: (sciRows as any[]).map((s) => ({ science: s.science, books: s.books, effect: s.effect })) };
+  }
+
+  return {
+    province: { ...prov, slot: slotRow?.slot ?? null },
+    overview, totalMilitary, homeMilitary, sot, resources, status, effects, militaryIntel, survey, sciences,
+  };
+}

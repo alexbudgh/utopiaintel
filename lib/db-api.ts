@@ -27,6 +27,8 @@ import {
   getKingdomNewsSummary as mysqlGetKingdomNewsSummary,
   getProvinceHistory as mysqlGetProvinceHistory,
   cleanupExpired as mysqlCleanupExpired,
+  getKingdomProvinces as mysqlGetKingdomProvinces,
+  getProvinceDetail as mysqlGetProvinceDetail,
 } from "./db-mysql";
 
 // Re-export row types so callers don't have to import from both db and db-api.
@@ -119,8 +121,8 @@ function createMysqlDbApi(): AsyncDbApi {
       getKingdomNewsSummary:     (kd, kh, f, t) => mysqlGetKingdomNewsSummary(kd, kh, f, t),
       getProvinceHistory:        (nm, kd, kh)   => mysqlGetProvinceHistory(nm, kd, kh),
       cleanupExpired:            ()             => mysqlCleanupExpired(),
-      getKingdomProvinces:       notYet("getKingdomProvinces") as AsyncDbApi["getKingdomProvinces"],
-      getProvinceDetail:         notYet("getProvinceDetail") as AsyncDbApi["getProvinceDetail"],
+      getKingdomProvinces:       (kd, kh)     => mysqlGetKingdomProvinces(kd, kh),
+      getProvinceDetail:         (nm, kd, kh) => mysqlGetProvinceDetail(nm, kd, kh),
     };
   }
   return _mysqlApi;
