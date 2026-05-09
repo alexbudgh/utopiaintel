@@ -2027,6 +2027,41 @@ test("metrics cache: TPA values use latest historical same-tick inputs after new
   });
 });
 
+test("metrics cache: bounded refresh only considers the trigger lookback window", async () => {
+  await withRealDb(({ getKingdomProvinces }, db) => {
+    db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Windowed', '7:5')").run();
+    const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name = 'Windowed' AND kingdom = '7:5'").get() as { id: number };
+    db.prepare("INSERT INTO intel_partitions (key_hash, province_id) VALUES (?, ?)").run(KEY_A, provId);
+
+    db.prepare(`
+      INSERT INTO province_overview (province_id, key_hash, land, source, saved_by, received_at)
+      VALUES (?, ?, 1000, 'sot', 'Windowed', '2026-04-04 10:05:00')
+    `).run(provId, KEY_A);
+    db.prepare(`
+      INSERT INTO province_resources (province_id, key_hash, thieves, source, saved_by, received_at)
+      VALUES (?, ?, 2000, 'infiltrate', 'Windowed', '2026-04-04 10:10:00')
+    `).run(provId, KEY_A);
+
+    updateMetricsCache(db, provId, KEY_A, "2026-04-04 12:10:00");
+    let [row] = getKingdomProvinces("7:5", KEY_A);
+    assert.equal(row.cached_rtpa, null, "stale same-tick inputs should be outside the trigger window");
+
+    db.prepare(`
+      INSERT INTO province_overview (province_id, key_hash, land, source, saved_by, received_at)
+      VALUES (?, ?, 1200, 'sot', 'Windowed', '2026-04-04 12:05:00')
+    `).run(provId, KEY_A);
+    db.prepare(`
+      INSERT INTO province_resources (province_id, key_hash, thieves, source, saved_by, received_at)
+      VALUES (?, ?, 3000, 'infiltrate', 'Windowed', '2026-04-04 12:40:00')
+    `).run(provId, KEY_A);
+
+    updateMetricsCache(db, provId, KEY_A, "2026-04-04 12:40:00");
+    [row] = getKingdomProvinces("7:5", KEY_A);
+    assertApprox(row.cached_rtpa, 2.5, 0.0001, "current same-tick inputs should be considered");
+    assert.equal(row.cached_rtpa_age, "2026-04-04 12:40:00");
+  });
+});
+
 test("metrics cache: direct WPA prefers wizard count and applies channeling plus personality", async () => {
   await withRealDb(({ getKingdomProvinces }, db) => {
     db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Mystic', '7:5')").run();

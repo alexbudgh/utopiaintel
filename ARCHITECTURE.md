@@ -154,11 +154,21 @@ queries joining historical source tables such as `province_resources`,
 
 Coalescing refreshes by `(province_id, key_hash)` can reduce duplicate work
 during bursts because several writes for the same province collapse into one
-pending refresh. The queue drains in small chunks and yields between chunks so a
-large batch does not become one long event-loop block. This is still only a
-mitigation: it moves refresh work out of the request transaction path and lowers
-repeated recomputation, but it still runs the same expensive queries. Large
-batches across many provinces can still consume CPU.
+pending refresh. Queued refreshes keep the newest trigger timestamp and bound
+metric reconstruction to the hour before that trigger, which is enough for the
+same-tick metric inputs used by live ingest while avoiding scans across all
+retained history. This reduces the live query search space to a tiny fraction
+of retained rows and should be enough headroom for substantially higher request
+volumes before metric refresh becomes a bottleneck again. The queue drains in
+small chunks and yields between chunks so a large batch does not become one long
+event-loop block.
+
+The remaining risk is no longer ordinary retained-history growth. It is unusual
+bursts across many distinct provinces or regressions in the query shapes
+themselves. The refresh still runs synchronously inside the request process when
+each chunk executes, so very large batches can still consume CPU, but the
+bounded window means each unit of work is much smaller than the original
+seven-day historical scan.
 
 Longer-term improvements should focus on making the refresh itself cheaper or
 less bursty:

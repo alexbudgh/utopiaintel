@@ -30,13 +30,14 @@ const TTL_DAYS = 7;
 const METRICS_CACHE_BATCH_DELAY_MS = 250;
 const METRICS_CACHE_CHUNK_SIZE = 5;
 const METRICS_CACHE_CHUNK_YIELD_MS = 0;
+const METRICS_CACHE_LOOKBACK_SQL = "-1 hour";
 
 let _db: Database.Database | null = null;
 const BAD_SPELL_SQL_LIST = BAD_SPELL_NAMES.map((name) => `'${name.replaceAll("'", "''")}'`).join(", ");
 let metricsCacheRefreshEnabled = true;
 let metricsCacheFlushTimer: ReturnType<typeof setTimeout> | null = null;
 let metricsCacheFlushPromise: Promise<void> | null = null;
-const pendingMetricsCacheRefreshes = new Map<string, { provinceId: number; keyHash: string }>();
+const pendingMetricsCacheRefreshes = new Map<string, { provinceId: number; keyHash: string; receivedAt: string | null }>();
 
 export function getDb(): Database.Database {
   if (!_db) {
@@ -52,6 +53,9 @@ export function getDb(): Database.Database {
 // Same-tick check matching lib/ui.ts sameTick() — SQLite integer division of epoch seconds by 3600
 const SAME_TICK_EXPR = (a: string, b: string) =>
   `(strftime('%s', ${a}) / 3600) = (strftime('%s', ${b}) / 3600)`;
+
+const METRICS_CACHE_WINDOW_EXPR = (alias: string) =>
+  `(:metrics_received_at IS NULL OR (${alias}.received_at >= datetime(:metrics_received_at, '${METRICS_CACHE_LOOKBACK_SQL}') AND ${alias}.received_at <= datetime(:metrics_received_at)))`;
 
 const latestSlotCte = (extraWhere = "") => {
   // When a kingdom filter is present, group only by slot (one kingdom).
@@ -82,9 +86,9 @@ const latestSlotCte = (extraWhere = "") => {
   )
 `;};
 
-export function updateMetricsCache(db: Database.Database, provinceId: number, keyHash: string): void {
+export function updateMetricsCache(db: Database.Database, provinceId: number, keyHash: string, receivedAt?: string | null): void {
   if (!metricsCacheRefreshEnabled) return;
-  const p = { province_id: provinceId, key_hash: keyHash };
+  const p = { province_id: provinceId, key_hash: keyHash, metrics_received_at: receivedAt ?? null };
   // Preserve existing cached values when a metric is not currently reconstructable
   // from retained historical intel. This keeps cache refreshes from erasing a
   // known-good fallback after sparse updates or history cleanup.
@@ -115,6 +119,7 @@ export function updateMetricsCache(db: Database.Database, provinceId: number, ke
       AND po.land > 0
       AND ${SAME_TICK_EXPR("pr.received_at", "po.received_at")}
     WHERE pr.province_id = :province_id AND pr.key_hash = :key_hash AND pr.thieves IS NOT NULL
+      AND ${METRICS_CACHE_WINDOW_EXPR("pr")} AND ${METRICS_CACHE_WINDOW_EXPR("po")}
     ORDER BY pr.received_at DESC LIMIT 1
   `).get(p);
 
@@ -158,6 +163,8 @@ export function updateMetricsCache(db: Database.Database, provinceId: number, ke
       AND ${SAME_TICK_EXPR("pr.received_at", "si.received_at")}
     JOIN sos_sciences ss ON ss.sos_intel_id = si.id AND ss.science = 'Crime'
     WHERE pr.province_id = :province_id AND pr.key_hash = :key_hash AND pr.thieves IS NOT NULL
+      AND ${METRICS_CACHE_WINDOW_EXPR("pr")} AND ${METRICS_CACHE_WINDOW_EXPR("po")}
+      AND ${METRICS_CACHE_WINDOW_EXPR("si")}
     ORDER BY pr.received_at DESC LIMIT 1
   `).get(p);
 
@@ -205,6 +212,8 @@ export function updateMetricsCache(db: Database.Database, provinceId: number, ke
       ON srv.province_id = pr.province_id AND srv.key_hash = pr.key_hash
       AND ${SAME_TICK_EXPR("pr.received_at", "srv.received_at")}
     WHERE pr.province_id = :province_id AND pr.key_hash = :key_hash AND pr.thieves IS NOT NULL
+      AND ${METRICS_CACHE_WINDOW_EXPR("pr")} AND ${METRICS_CACHE_WINDOW_EXPR("po")}
+      AND ${METRICS_CACHE_WINDOW_EXPR("si")} AND ${METRICS_CACHE_WINDOW_EXPR("srv")}
     ORDER BY pr.received_at DESC LIMIT 1
   `).get(p);
 
@@ -258,6 +267,7 @@ export function updateMetricsCache(db: Database.Database, provinceId: number, ke
       AND po.land > 0
       AND ${SAME_TICK_EXPR("pr.received_at", "po.received_at")}
     WHERE pr.province_id = :province_id AND pr.key_hash = :key_hash AND pr.wizards IS NOT NULL
+      AND ${METRICS_CACHE_WINDOW_EXPR("pr")} AND ${METRICS_CACHE_WINDOW_EXPR("po")}
     ORDER BY pr.received_at DESC LIMIT 1
   `).get(p);
 
@@ -287,6 +297,8 @@ export function updateMetricsCache(db: Database.Database, provinceId: number, ke
       AND ${SAME_TICK_EXPR("pr.received_at", "si.received_at")}
     JOIN sos_sciences ss ON ss.sos_intel_id = si.id AND ss.science = 'Channeling'
     WHERE pr.province_id = :province_id AND pr.key_hash = :key_hash AND pr.wizards IS NOT NULL
+      AND ${METRICS_CACHE_WINDOW_EXPR("pr")} AND ${METRICS_CACHE_WINDOW_EXPR("po")}
+      AND ${METRICS_CACHE_WINDOW_EXPR("si")}
     ORDER BY pr.received_at DESC LIMIT 1
   `).get(p);
 
@@ -344,6 +356,9 @@ export function updateMetricsCache(db: Database.Database, provinceId: number, ke
       AND pr_sot.source IN ('sot', 'throne')
       AND ${SAME_TICK_EXPR("pr.received_at", "pr_sot.received_at")}
     WHERE pr.province_id = :province_id AND pr.key_hash = :key_hash AND pr.thieves IS NOT NULL
+      AND ${METRICS_CACHE_WINDOW_EXPR("pr")} AND ${METRICS_CACHE_WINDOW_EXPR("po")}
+      AND ${METRICS_CACHE_WINDOW_EXPR("si")} AND ${METRICS_CACHE_WINDOW_EXPR("srv")}
+      AND ${METRICS_CACHE_WINDOW_EXPR("pt")} AND ${METRICS_CACHE_WINDOW_EXPR("pr_sot")}
     ORDER BY pr.received_at DESC LIMIT 1
   `).get(p);
 
@@ -407,6 +422,17 @@ function metricsCacheKey(provinceId: number, keyHash: string) {
   return `${provinceId}\0${keyHash}`;
 }
 
+function metricsCacheTriggerReceivedAt(receivedAt?: string | null) {
+  return receivedAt ?? new Date().toISOString();
+}
+
+function metricsCacheReceivedAtMs(receivedAt: string | null) {
+  if (!receivedAt) return Number.NEGATIVE_INFINITY;
+  const normalized = receivedAt.includes("T") ? receivedAt : `${receivedAt.replace(" ", "T")}Z`;
+  const ms = Date.parse(normalized);
+  return Number.isNaN(ms) ? Number.NEGATIVE_INFINITY : ms;
+}
+
 function scheduleMetricsCacheFlush() {
   if (metricsCacheFlushPromise) return;
   if (metricsCacheFlushTimer) return;
@@ -417,14 +443,19 @@ function scheduleMetricsCacheFlush() {
   metricsCacheFlushTimer.unref?.();
 }
 
-function queueMetricsCacheRefresh(provinceId: number, keyHash: string) {
+function queueMetricsCacheRefresh(provinceId: number, keyHash: string, receivedAt?: string | null) {
   if (!metricsCacheRefreshEnabled) return;
-  pendingMetricsCacheRefreshes.set(metricsCacheKey(provinceId, keyHash), { provinceId, keyHash });
+  const key = metricsCacheKey(provinceId, keyHash);
+  const triggerReceivedAt = metricsCacheTriggerReceivedAt(receivedAt);
+  const pending = pendingMetricsCacheRefreshes.get(key);
+  if (!pending || metricsCacheReceivedAtMs(triggerReceivedAt) > metricsCacheReceivedAtMs(pending.receivedAt)) {
+    pendingMetricsCacheRefreshes.set(key, { provinceId, keyHash, receivedAt: triggerReceivedAt });
+  }
   scheduleMetricsCacheFlush();
 }
 
 function takeMetricsCacheRefreshChunk() {
-  const chunk: { provinceId: number; keyHash: string }[] = [];
+  const chunk: { provinceId: number; keyHash: string; receivedAt: string | null }[] = [];
   for (const [key, item] of pendingMetricsCacheRefreshes) {
     pendingMetricsCacheRefreshes.delete(key);
     chunk.push(item);
@@ -444,7 +475,7 @@ async function drainMetricsCacheRefreshQueue() {
   while (pendingMetricsCacheRefreshes.size > 0) {
     const chunk = takeMetricsCacheRefreshChunk();
     for (const item of chunk) {
-      updateMetricsCache(db, item.provinceId, item.keyHash);
+      updateMetricsCache(db, item.provinceId, item.keyHash, item.receivedAt);
     }
     if (pendingMetricsCacheRefreshes.size > 0) await yieldMetricsCacheRefreshQueue();
   }
@@ -1208,7 +1239,7 @@ export function storeSoT(data: SoTData, savedBy: string, keyHash: string, isSelf
         insArmy.run(milId, `out_${i + 1}`, a.acres, a.daysLeft);
       });
     }
-    queueMetricsCacheRefresh(provId, keyHash);
+    queueMetricsCacheRefresh(provId, keyHash, receivedAt);
   })();
 }
 
@@ -1235,7 +1266,7 @@ export function storeInfiltrate(data: InfiltrateData, savedBy: string, keyHash: 
       INSERT OR IGNORE INTO province_resources (province_id, key_hash, thieves, source, saved_by, accuracy, received_at)
       VALUES (?, ?, ?, 'infiltrate', ?, ?, COALESCE(?, datetime('now')))
     `).run(provId, keyHash, data.thieves, savedBy, data.accuracy, receivedAt ?? null);
-    queueMetricsCacheRefresh(provId, keyHash);
+    queueMetricsCacheRefresh(provId, keyHash, receivedAt);
   })();
 }
 
@@ -1453,7 +1484,7 @@ export function storeSoS(data: SoSData, savedBy: string, keyHash: string, isSelf
     for (const s of data.sciences) {
       ins.run(sosId, s.science, s.books, s.effect);
     }
-    queueMetricsCacheRefresh(provId, keyHash);
+    queueMetricsCacheRefresh(provId, keyHash, receivedAt);
   })();
 }
 
@@ -1485,7 +1516,7 @@ export function storeSurvey(data: SurveyData, savedBy: string, keyHash: string, 
     for (const b of data.buildings) {
       ins.run(surveyId, b.building, b.built, b.inProgress);
     }
-    queueMetricsCacheRefresh(provId, keyHash);
+    queueMetricsCacheRefresh(provId, keyHash, receivedAt);
   })();
 }
 
@@ -1566,7 +1597,7 @@ export function storeState(data: StateData, savedBy: string, keyHash: string, re
       INSERT OR IGNORE INTO province_troops (province_id, key_hash, peasants, source, saved_by, accuracy, received_at)
       VALUES (?, ?, ?, 'state', ?, 100, COALESCE(?, datetime('now')))
     `).run(provId, keyHash, data.peasants, savedBy, receivedAt ?? null);
-    queueMetricsCacheRefresh(provId, keyHash);
+    queueMetricsCacheRefresh(provId, keyHash, receivedAt);
   })();
 }
 
