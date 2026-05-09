@@ -5,6 +5,7 @@ import { BAD_SPELL_NAMES, COMBAT_EVENT_TYPES } from "./effects";
 import { parseUtopiaDate, formatUtopiaDate } from "./ui";
 import { computeWizardCount } from "./nw";
 import { computeDtpaValue, computeMtpaValue, computeMwpaValue, computeOtpaValue, rawPerAcreValue } from "./metrics";
+import { createMetricsCacheQueue } from "./metrics-cache";
 import type {
   SoTData,
   SurveyData,
@@ -27,17 +28,10 @@ import type { KingdomNewsData, KingdomNewsEvent } from "./parsers/kingdom_news";
 
 const DB_PATH = process.env.INTEL_DB_PATH || path.join(process.cwd(), "intel.db");
 const TTL_DAYS = 7;
-const METRICS_CACHE_BATCH_DELAY_MS = 250;
-const METRICS_CACHE_CHUNK_SIZE = 5;
-const METRICS_CACHE_CHUNK_YIELD_MS = 0;
 const METRICS_CACHE_LOOKBACK_SQL = "-1 hour";
 
 let _db: Database.Database | null = null;
 const BAD_SPELL_SQL_LIST = BAD_SPELL_NAMES.map((name) => `'${name.replaceAll("'", "''")}'`).join(", ");
-let metricsCacheRefreshEnabled = true;
-let metricsCacheFlushTimer: ReturnType<typeof setTimeout> | null = null;
-let metricsCacheFlushPromise: Promise<void> | null = null;
-const pendingMetricsCacheRefreshes = new Map<string, { provinceId: number; keyHash: string; receivedAt: string | null }>();
 
 export function getDb(): Database.Database {
   if (!_db) {
@@ -87,7 +81,6 @@ const latestSlotCte = (extraWhere = "") => {
 `;};
 
 export function updateMetricsCache(db: Database.Database, provinceId: number, keyHash: string, receivedAt?: string | null): void {
-  if (!metricsCacheRefreshEnabled) return;
   const p = { province_id: provinceId, key_hash: keyHash, metrics_received_at: receivedAt ?? null };
   // Preserve existing cached values when a metric is not currently reconstructable
   // from retained historical intel. This keeps cache refreshes from erasing a
@@ -410,93 +403,14 @@ export function updateMetricsCache(db: Database.Database, provinceId: number, ke
   );
 }
 
-export function setMetricsCacheRefreshEnabled(enabled: boolean): () => void {
-  const previous = metricsCacheRefreshEnabled;
-  metricsCacheRefreshEnabled = enabled;
-  return () => {
-    metricsCacheRefreshEnabled = previous;
-  };
-}
-
-function metricsCacheKey(provinceId: number, keyHash: string) {
-  return `${provinceId}\0${keyHash}`;
-}
-
-function metricsCacheTriggerReceivedAt(receivedAt?: string | null) {
-  return receivedAt ?? new Date().toISOString();
-}
-
-function metricsCacheReceivedAtMs(receivedAt: string | null) {
-  if (!receivedAt) return Number.NEGATIVE_INFINITY;
-  const normalized = receivedAt.includes("T") ? receivedAt : `${receivedAt.replace(" ", "T")}Z`;
-  const ms = Date.parse(normalized);
-  return Number.isNaN(ms) ? Number.NEGATIVE_INFINITY : ms;
-}
-
-function scheduleMetricsCacheFlush() {
-  if (metricsCacheFlushPromise) return;
-  if (metricsCacheFlushTimer) return;
-  metricsCacheFlushTimer = setTimeout(() => {
-    metricsCacheFlushTimer = null;
-    void flushMetricsCacheRefreshQueue();
-  }, METRICS_CACHE_BATCH_DELAY_MS);
-  metricsCacheFlushTimer.unref?.();
-}
-
-function queueMetricsCacheRefresh(provinceId: number, keyHash: string, receivedAt?: string | null) {
-  if (!metricsCacheRefreshEnabled) return;
-  const key = metricsCacheKey(provinceId, keyHash);
-  const triggerReceivedAt = metricsCacheTriggerReceivedAt(receivedAt);
-  const pending = pendingMetricsCacheRefreshes.get(key);
-  if (!pending || metricsCacheReceivedAtMs(triggerReceivedAt) > metricsCacheReceivedAtMs(pending.receivedAt)) {
-    pendingMetricsCacheRefreshes.set(key, { provinceId, keyHash, receivedAt: triggerReceivedAt });
-  }
-  scheduleMetricsCacheFlush();
-}
-
-function takeMetricsCacheRefreshChunk() {
-  const chunk: { provinceId: number; keyHash: string; receivedAt: string | null }[] = [];
-  for (const [key, item] of pendingMetricsCacheRefreshes) {
-    pendingMetricsCacheRefreshes.delete(key);
-    chunk.push(item);
-    if (chunk.length >= METRICS_CACHE_CHUNK_SIZE) break;
-  }
-  return chunk;
-}
-
-function yieldMetricsCacheRefreshQueue() {
-  return new Promise<void>((resolve) => {
-    setTimeout(resolve, METRICS_CACHE_CHUNK_YIELD_MS);
-  });
-}
-
-async function drainMetricsCacheRefreshQueue() {
-  const db = getDb();
-  while (pendingMetricsCacheRefreshes.size > 0) {
-    const chunk = takeMetricsCacheRefreshChunk();
-    for (const item of chunk) {
-      updateMetricsCache(db, item.provinceId, item.keyHash, item.receivedAt);
-    }
-    if (pendingMetricsCacheRefreshes.size > 0) await yieldMetricsCacheRefreshQueue();
-  }
-}
-
-export async function flushMetricsCacheRefreshQueue(): Promise<void> {
-  if (metricsCacheFlushTimer) {
-    clearTimeout(metricsCacheFlushTimer);
-    metricsCacheFlushTimer = null;
-  }
-  if (metricsCacheFlushPromise) return metricsCacheFlushPromise;
-  if (pendingMetricsCacheRefreshes.size === 0) return;
-
-  metricsCacheFlushPromise = drainMetricsCacheRefreshQueue().catch((err) => {
-    console.error("[intel] metrics cache refresh failed", err);
-  }).finally(() => {
-    metricsCacheFlushPromise = null;
-  });
-
-  return metricsCacheFlushPromise;
-}
+const {
+  queue: queueMetricsCacheRefresh,
+  flush: flushMetricsCacheRefreshQueue,
+  setEnabled: setMetricsCacheRefreshEnabled,
+} = createMetricsCacheQueue(async (provinceId, keyHash, receivedAt) => {
+  updateMetricsCache(getDb(), provinceId, keyHash, receivedAt);
+});
+export { flushMetricsCacheRefreshQueue, setMetricsCacheRefreshEnabled };
 
 export function initSchema(db: Database.Database) {
   db.exec(`
