@@ -631,6 +631,40 @@ export async function bindKeyToKingdom(conn: PoolConnection, keyHash: string, ki
 
 // ── Store functions ───────────────────────────────────────────────────────────
 
+export async function storeRob(data: RobData, savedBy: string, keyHash: string, receivedAt?: string): Promise<void> {
+  await ensureReady();
+  await withTransaction(async (conn) => {
+    const provId = await ensureProvince(conn, data.name, "");
+    await recordSubmission(conn, keyHash, provId);
+    const [result] = await conn.execute(
+      `INSERT IGNORE INTO rob_ops
+         (province_id, key_hash, op, target_name, target_slot, target_kingdom,
+          outcome, amount_stolen, thieves_lost, thieves, stealth,
+          troops_assassinated, kidnapped, acres_burned, effect_duration,
+          saved_by, received_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+      [
+        provId, keyHash, data.op,
+        data.targetName, data.targetSlot, data.targetKingdom,
+        data.outcome, data.amountStolen, data.thievesLost,
+        data.thieves, data.stealth,
+        data.troopsAssassinated, data.kidnapped, data.acresBurned, data.effectDuration,
+        savedBy, receivedAt ?? null,
+      ],
+    ) as [ResultSetHeader, unknown];
+    if (result.affectedRows === 0) return;
+
+    if (data.thieves != null) {
+      await conn.execute(
+        `INSERT IGNORE INTO province_resources
+           (province_id, key_hash, thieves, source, saved_by, accuracy, received_at)
+         VALUES (?, ?, ?, 'rob', ?, 100, COALESCE(?, NOW()))`,
+        [provId, keyHash, data.thieves, savedBy, receivedAt ?? null],
+      );
+    }
+  });
+}
+
 export async function storeAttack(data: AttackData, savedBy: string, keyHash: string, receivedAt?: string): Promise<void> {
   await ensureReady();
   await withTransaction(async (conn) => {

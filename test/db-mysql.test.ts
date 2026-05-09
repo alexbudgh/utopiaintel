@@ -1,7 +1,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import type { RowDataPacket } from "mysql2/promise";
-import { pool, initDb, ensureProvince, recordSubmission, bindKeyToKingdom, withTransaction, storeAttack, storeTrainArmy, storeBuild, storeInfiltrate, storeSoD } from "../lib/db-mysql";
+import { pool, initDb, ensureProvince, recordSubmission, bindKeyToKingdom, withTransaction, storeRob, storeAttack, storeTrainArmy, storeBuild, storeInfiltrate, storeSoD } from "../lib/db-mysql";
 
 after(async () => {
   await pool.end();
@@ -326,4 +326,68 @@ test("storeAttack: uses empty kingdom for attacker (self)", async () => {
     ["kh"],
   );
   assert.equal(row.kingdom, "");
+});
+
+// ── storeRob ──────────────────────────────────────────────────────────────────
+
+const baseRob = {
+  name: "Thief", kingdom: "",
+  op: "towers" as const,
+  targetName: "Victim", targetSlot: 3, targetKingdom: "8:6",
+  outcome: "success" as const,
+  amountStolen: 5000, thievesLost: 2,
+  thieves: null, stealth: null,
+  troopsAssassinated: null, kidnapped: null, acresBurned: null, effectDuration: null,
+};
+
+test("storeRob: inserts a rob_ops row with correct fields", async () => {
+  await truncateAll();
+  interface RobRow extends RowDataPacket {
+    op: string; outcome: string; amount_stolen: number; thieves_lost: number;
+    target_name: string; target_kingdom: string;
+  }
+
+  await storeRob(baseRob, "scout1", "keyhash1");
+
+  const [[row]] = await pool.query<RobRow[]>(
+    "SELECT op, outcome, amount_stolen, thieves_lost, target_name, target_kingdom FROM rob_ops WHERE key_hash = ?",
+    ["keyhash1"],
+  );
+  assert.equal(row.op, "towers");
+  assert.equal(row.outcome, "success");
+  assert.equal(row.amount_stolen, 5000);
+  assert.equal(row.thieves_lost, 2);
+  assert.equal(row.target_name, "Victim");
+  assert.equal(row.target_kingdom, "8:6");
+});
+
+test("storeRob: also stores thieves in province_resources when present", async () => {
+  await truncateAll();
+  interface ResRow extends RowDataPacket { thieves: number; source: string }
+
+  await storeRob({ ...baseRob, thieves: 3500, stealth: 80 }, "scout1", "keyhash1");
+
+  const [[row]] = await pool.query<ResRow[]>(
+    "SELECT thieves, source FROM province_resources WHERE key_hash = ?",
+    ["keyhash1"],
+  );
+  assert.equal(row.thieves, 3500);
+  assert.equal(row.source, "rob");
+});
+
+test("storeRob: duplicate op does not insert province_resources", async () => {
+  await truncateAll();
+  interface CountRow extends RowDataPacket { n: number }
+
+  const data = { ...baseRob, thieves: 3500 };
+  await storeRob(data, "scout1", "keyhash1", "2025-06-01 12:00:00");
+  // Same receivedAt → same unique key → INSERT IGNORE skips the rob_ops row
+  // → affectedRows === 0 → province_resources should NOT get a second write
+  await storeRob(data, "scout1", "keyhash1", "2025-06-01 12:00:00");
+
+  const [[{ n }]] = await pool.query<CountRow[]>(
+    "SELECT COUNT(*) AS n FROM province_resources WHERE key_hash = ?",
+    ["keyhash1"],
+  );
+  assert.equal(n, 1);
 });
