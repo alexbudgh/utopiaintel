@@ -8,7 +8,7 @@ module.exports = {
       INTEL_DB_PATH: "/home/ec2-user/utopiaintel-data/intel.db",
       // DB_DRIVER: "mysql"  → MySQL only
       // DB_DRIVER: "dual"  → writes to both SQLite + MySQL, reads from SQLite
-      DB_DRIVER: "dual",
+      DB_DRIVER: "mysql",
       DB_HOST: process.env.DB_HOST ?? "localhost",
       DB_PORT: "3306",
       DB_USER: "utopiaintel",
