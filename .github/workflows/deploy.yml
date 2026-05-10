@@ -42,9 +42,10 @@ jobs:
       - name: Deploy
         env:
           AXIOM_TOKEN: ${{ secrets.AXIOM_TOKEN }}
+          DB_HOST: ${{ secrets.DB_HOST }}
         run: |
           rsync -avz --exclude=intel.db .next/standalone/ deploy:~/utopiaintel/
           rsync -avz .next/static/ deploy:~/utopiaintel/.next/static/
           rsync -avz public/ deploy:~/utopiaintel/public/
           scp ecosystem.config.js deploy:~/utopiaintel/
-          ssh deploy "AXIOM_TOKEN='${AXIOM_TOKEN}' AXIOM_DATASET='utopiaintel' pm2 reload ~/utopiaintel/ecosystem.config.js"
+          ssh deploy "AXIOM_TOKEN='${AXIOM_TOKEN}' AXIOM_DATASET='utopiaintel' DB_HOST='${DB_HOST}' pm2 reload ~/utopiaintel/ecosystem.config.js"
