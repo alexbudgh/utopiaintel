@@ -16,7 +16,7 @@
 import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
-import { pool, ensureReady } from "../lib/db-mysql";
+import { pool, ensureReady } from "../lib/db-mysql-pool";
 import type { PoolConnection, ResultSetHeader } from "mysql2/promise";
 
 const SQLITE_PATH = process.env.INTEL_DB_PATH ?? path.join(process.cwd(), "intel.db");
@@ -254,6 +254,7 @@ async function main() {
     console.log(`Throttle: ${options.delayMs}ms after each MySQL insert batch/query`);
   }
 
+  console.log("Connecting to MySQL and ensuring schema...");
   await ensureReady();
   const conn = await pool.getConnection();
   await ensureWatermarkTable(conn);
