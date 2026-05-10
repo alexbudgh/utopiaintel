@@ -222,11 +222,65 @@ function createMysqlDbApi(): AsyncDbApi {
   return _mysqlApi;
 }
 
+// ── Dual-write implementation ────────────────────────────────────────────────
+// Reads from SQLite; shadows every write to MySQL. MySQL errors are logged but
+// never propagate — SQLite remains the source of truth.
+
+let _dualApi: AsyncDbApi | null = null;
+
+function createDualDbApi(): AsyncDbApi {
+  if (!_dualApi) {
+    const sqlite = createSqliteDbApi();
+    const mysql = createMysqlDbApi();
+    const shadow = <T>(name: string, p: Promise<T>): void => {
+      p.catch((e) => console.error(`[dual-write] ${name}:`, e));
+    };
+    _dualApi = {
+      // Reads — SQLite only
+      getBoundKingdom:           (...a) => sqlite.getBoundKingdom(...a),
+      getKingdoms:               (...a) => sqlite.getKingdoms(...a),
+      getLatestKingdomSnapshot:  (...a) => sqlite.getLatestKingdomSnapshot(...a),
+      getKingdomSnapshotHistory: (...a) => sqlite.getKingdomSnapshotHistory(...a),
+      getRecentOps:              (...a) => sqlite.getRecentOps(...a),
+      getKingdomProvinces:       (...a) => sqlite.getKingdomProvinces(...a),
+      getKingdomRitual:          (...a) => sqlite.getKingdomRitual(...a),
+      getKingdomDragon:          (...a) => sqlite.getKingdomDragon(...a),
+      getProvinceDetail:         (...a) => sqlite.getProvinceDetail(...a),
+      getKingdomNews:            (...a) => sqlite.getKingdomNews(...a),
+      getLatestWarDate:          (...a) => sqlite.getLatestWarDate(...a),
+      getKingdomNewsSummary:     (...a) => sqlite.getKingdomNewsSummary(...a),
+      getProvinceHistory:        (...a) => sqlite.getProvinceHistory(...a),
+      cleanupExpired:            ()     => { shadow("cleanupExpired", mysql.cleanupExpired()); return sqlite.cleanupExpired(); },
+      // Writes — SQLite primary, MySQL shadow
+      storeSoT:        (...a) => { shadow("storeSoT",        mysql.storeSoT(...a));        return sqlite.storeSoT(...a); },
+      storeSoD:        (...a) => { shadow("storeSoD",        mysql.storeSoD(...a));        return sqlite.storeSoD(...a); },
+      storeInfiltrate: (...a) => { shadow("storeInfiltrate", mysql.storeInfiltrate(...a)); return sqlite.storeInfiltrate(...a); },
+      storeSoM:        (...a) => { shadow("storeSoM",        mysql.storeSoM(...a));        return sqlite.storeSoM(...a); },
+      storeSoS:        (...a) => { shadow("storeSoS",        mysql.storeSoS(...a));        return sqlite.storeSoS(...a); },
+      storeSurvey:     (...a) => { shadow("storeSurvey",     mysql.storeSurvey(...a));     return sqlite.storeSurvey(...a); },
+      storeTrainArmy:  (...a) => { shadow("storeTrainArmy",  mysql.storeTrainArmy(...a));  return sqlite.storeTrainArmy(...a); },
+      storeBuild:      (...a) => { shadow("storeBuild",      mysql.storeBuild(...a));      return sqlite.storeBuild(...a); },
+      storeRob:        (...a) => { shadow("storeRob",        mysql.storeRob(...a));        return sqlite.storeRob(...a); },
+      storeIntelOp:    (...a) => { shadow("storeIntelOp",    mysql.storeIntelOp(...a));    return sqlite.storeIntelOp(...a); },
+      storeSorcery:    (...a) => { shadow("storeSorcery",    mysql.storeSorcery(...a));    return sqlite.storeSorcery(...a); },
+      storeAttack:     (...a) => { shadow("storeAttack",     mysql.storeAttack(...a));     return sqlite.storeAttack(...a); },
+      storeKingdom:    (...a) => { shadow("storeKingdom",    mysql.storeKingdom(...a));    return sqlite.storeKingdom(...a); },
+      storeState:      (...a) => { shadow("storeState",      mysql.storeState(...a));      return sqlite.storeState(...a); },
+      storeKingdomNews:(...a) => { shadow("storeKingdomNews",mysql.storeKingdomNews(...a));return sqlite.storeKingdomNews(...a); },
+    };
+  }
+  return _dualApi;
+}
+
 // ── Factory ──────────────────────────────────────────────────────────────────
-// Set DB_DRIVER=mysql to use MySQL. Defaults to SQLite.
+// DB_DRIVER=dual  → writes to both, reads from SQLite
+// DB_DRIVER=mysql → MySQL only
+// (default)       → SQLite only
 
 export function getDbApi(): AsyncDbApi {
-  return process.env.DB_DRIVER === "mysql" ? createMysqlDbApi() : createSqliteDbApi();
+  if (process.env.DB_DRIVER === "dual") return createDualDbApi();
+  if (process.env.DB_DRIVER === "mysql") return createMysqlDbApi();
+  return createSqliteDbApi();
 }
 
 // ── Driver-aware metrics cache utilities ─────────────────────────────────────
@@ -234,12 +288,21 @@ export function getDbApi(): AsyncDbApi {
 // active driver's queue is targeted.
 
 export function setMetricsCacheRefreshEnabled(enabled: boolean): () => void {
+  if (process.env.DB_DRIVER === "dual") {
+    const restoreCacheRefreshSqlite = sqliteSetMetricsCacheRefreshEnabled(enabled);
+    const restoreCacheRefreshMysql = mysqlSetMetricsCacheRefreshEnabled(enabled);
+    return () => { restoreCacheRefreshSqlite(); restoreCacheRefreshMysql(); };
+  }
   return process.env.DB_DRIVER === "mysql"
     ? mysqlSetMetricsCacheRefreshEnabled(enabled)
     : sqliteSetMetricsCacheRefreshEnabled(enabled);
 }
 
 export async function flushMetricsCacheRefreshQueue(): Promise<void> {
+  if (process.env.DB_DRIVER === "dual") {
+    await Promise.all([sqliteFlushMetricsCacheRefreshQueue(), mysqlFlushMetricsCacheRefreshQueue()]);
+    return;
+  }
   return process.env.DB_DRIVER === "mysql"
     ? mysqlFlushMetricsCacheRefreshQueue()
     : sqliteFlushMetricsCacheRefreshQueue();
