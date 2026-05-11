@@ -2937,7 +2937,7 @@ export function createDbApi(db: Database.Database): DbApi {
           WHERE io.key_hash = @keyHash AND io.outcome = 'failure'
           UNION ALL
           SELECT ro.op, 'thievery', ro.received_at, ro.saved_by,
-                 COALESCE(ro.target_name, p.name), COALESCE(ro.target_kingdom, p.kingdom, ''),
+                 COALESCE(ro.target_name, 'Unknown'), COALESCE(ro.target_kingdom, ''),
                  p.name, p.kingdom,
                  ro.outcome,
                  NULL,
@@ -2963,7 +2963,7 @@ export function createDbApi(db: Database.Database): DbApi {
           WHERE ro.key_hash = @keyHash
           UNION ALL
           SELECT so.spell, 'sorcery', so.received_at, so.saved_by,
-                 COALESCE(so.target_name, p.name), COALESCE(so.target_kingdom, p.kingdom, ''),
+                 COALESCE(so.target_name, 'Unknown'), COALESCE(so.target_kingdom, ''),
                  p.name, p.kingdom,
                  so.outcome,
                  NULL,
@@ -2983,7 +2983,7 @@ export function createDbApi(db: Database.Database): DbApi {
           WHERE so.key_hash = @keyHash
           UNION ALL
           SELECT ao.attack_type, 'attack', ao.received_at, ao.saved_by,
-                 COALESCE(ao.target_name, p.name), COALESCE(ao.target_kingdom, p.kingdom, ''),
+                 COALESCE(ao.target_name, 'Unknown'), COALESCE(ao.target_kingdom, ''),
                  p.name, p.kingdom,
                  ao.outcome,
                  NULL,
