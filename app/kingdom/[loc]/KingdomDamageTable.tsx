@@ -200,15 +200,13 @@ function EventRow({ e }: { e: IncomingDamageEvent }) {
 
 function ProvinceSection({ stat }: { stat: IncomingDamageProvinceStat }) {
   const [open, setOpen] = useState(false);
-  const damageEvents    = stat.events.filter((e) => !POSITIVE_EVENTS.has(e.eventType) && !NEUTRAL_EVENTS.has(e.eventType));
-  const positiveEvents  = stat.events.filter((e) => POSITIVE_EVENTS.has(e.eventType));
+  const damageEvents   = stat.events.filter((e) => !POSITIVE_EVENTS.has(e.eventType) && !NEUTRAL_EVENTS.has(e.eventType));
+  const positiveEvents = stat.events.filter((e) => POSITIVE_EVENTS.has(e.eventType));
 
-  const summaryParts: string[] = [];
-  for (const e of damageEvents.slice(0, 3)) {
-    const s = getSummaryStr(e);
-    if (s) summaryParts.push(s);
-    else summaryParts.push(`${e.count}× ${getLabel(e.eventType, e.resourceType)}`);
-  }
+  const topDamage     = damageEvents[0];
+  const topSummary    = topDamage ? (getSummaryStr(topDamage) ?? getLabel(topDamage.eventType, topDamage.resourceType)) : null;
+  const extraDamage   = damageEvents.length - 1;
+  const positiveCount = positiveEvents.reduce((s, e) => s + e.count, 0);
 
   return (
     <div className="border border-gray-800 rounded-lg overflow-hidden">
@@ -218,13 +216,10 @@ function ProvinceSection({ stat }: { stat: IncomingDamageProvinceStat }) {
         className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-900/50 hover:bg-gray-800/50 transition-colors text-left cursor-pointer"
       >
         <span className="text-sm text-gray-300">{stat.provinceName}</span>
-        <span className="flex items-center gap-3 text-xs">
-          {summaryParts.length > 0 && (
-            <span className="text-red-400">{summaryParts.join(" · ")}</span>
-          )}
-          {positiveEvents.length > 0 && (
-            <span className="text-green-600">{positiveEvents.map((e) => getLabel(e.eventType, e.resourceType)).join(", ")}</span>
-          )}
+        <span className="flex items-center gap-2 text-xs">
+          {topSummary && <span className="text-red-400">{topSummary}</span>}
+          {extraDamage > 0 && <span className="text-gray-600">+{extraDamage}</span>}
+          {positiveCount > 0 && <span className="text-green-700">{positiveCount} repelled</span>}
           <span className="text-gray-600">{open ? "▲" : "▼"}</span>
         </span>
       </button>
