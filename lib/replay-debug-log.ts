@@ -9,7 +9,7 @@ import { parseKingdomNews } from "./parsers/kingdom_news";
 import { parseSoT } from "./parsers/sot";
 import { getDbApi, setMetricsCacheRefreshEnabled, flushMetricsCacheRefreshQueue } from "./db-api";
 
-export type ReplayType = "kingdom" | "survey" | "sot" | "kingdom_news" | "state" | "som" | "sos" | "sod" | "infiltrate" | "train_army" | "build" | "rob" | "sorcery" | "attack";
+export type ReplayType = "kingdom" | "survey" | "sot" | "kingdom_news" | "province_news" | "state" | "som" | "sos" | "sod" | "infiltrate" | "train_army" | "build" | "rob" | "sorcery" | "attack";
 
 export interface DebugEntry {
   url: string;
@@ -34,7 +34,7 @@ export interface ReplaySummary {
   byType: Map<string, number>;
 }
 
-export const allowedReplayTypes = new Set<ReplayType>(["kingdom", "survey", "sot", "kingdom_news", "state", "som", "sos", "sod", "infiltrate", "train_army", "build", "rob", "sorcery", "attack"]);
+export const allowedReplayTypes = new Set<ReplayType>(["kingdom", "survey", "sot", "kingdom_news", "province_news", "state", "som", "sos", "sod", "infiltrate", "train_army", "build", "rob", "sorcery", "attack"]);
 
 export function normalizeReceivedAt(receivedAt: string): string {
   const date = new Date(receivedAt);
@@ -186,6 +186,11 @@ export async function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, o
   if (parsed.type === "attack") {
     await db.storeAttack(parsed.data, savedBy, keyHash, ra);
     return "attack";
+  }
+
+  if (parsed.type === "province_news") {
+    await db.storeProvinceNews(parsed.data, savedBy, keyHash, ra);
+    return "province_news";
   }
 
   return null;

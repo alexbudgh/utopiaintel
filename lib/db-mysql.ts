@@ -24,6 +24,7 @@ import type {
   AttackData,
 } from "./parsers/types";
 import type { KingdomNewsData, KingdomNewsEvent } from "./parsers/kingdom_news";
+import type { ProvinceNewsData } from "./parsers/province_news";
 import type { IntelOpAttempt } from "./intel-ops";
 import type {
   KingdomRow,
@@ -963,6 +964,34 @@ export async function storeKingdomNews(
           e.senderName, e.receiverName,
           e.relationKingdom,
           e.dragonType, e.dragonName,
+          receivedAt ?? null,
+        ],
+      );
+    }
+  });
+}
+
+export async function storeProvinceNews(
+  data: ProvinceNewsData,
+  savedBy: string,
+  keyHash: string,
+  receivedAt?: string,
+): Promise<void> {
+  await ensureReady();
+  const kingdom = await getBoundKingdom(keyHash);
+  if (!kingdom) return;
+  await withTransaction(async (conn) => {
+    const provinceId = await ensureProvince(conn, savedBy, kingdom);
+    await recordSubmission(conn, keyHash, provinceId);
+    for (const e of data.events) {
+      await conn.execute(
+        `INSERT IGNORE INTO province_news (
+           province_id, key_hash, game_date, game_date_ord, event_type, raw_text,
+           actor_name, actor_kingdom, acres, amount, resource_type, received_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+        [
+          provinceId, keyHash, e.gameDate, parseUtopiaDate(e.gameDate), e.eventType, e.rawText,
+          e.actorName, e.actorKingdom, e.acres, e.amount, e.resourceType,
           receivedAt ?? null,
         ],
       );

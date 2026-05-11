@@ -108,6 +108,7 @@ export function detectIntelType(url: string): IntelType | null {
 
   if (pathname === "/wol/game/kingdom" || pathname.startsWith("/wol/game/kingdom_details")) return "kingdom";
   if (pathname === "/wol/game/kingdom_news" || pathname.startsWith("/wol/game/kingdom_news/")) return "kingdom_news";
+  if (pathname === "/wol/game/province_news" || pathname.startsWith("/wol/game/province_news/")) return "province_news";
 
   return null;
 }

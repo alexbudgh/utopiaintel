@@ -448,6 +448,26 @@ export async function initDb(): Promise<void> {
 
     `CREATE INDEX IF NOT EXISTS idx_intel_ops_prov ON intel_ops(province_id, key_hash, received_at DESC)`,
 
+    `CREATE TABLE IF NOT EXISTS province_news (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      province_id INT NOT NULL,
+      key_hash VARCHAR(64) NOT NULL,
+      game_date VARCHAR(64) NOT NULL,
+      game_date_ord INT,
+      event_type VARCHAR(64) NOT NULL,
+      raw_text TEXT NOT NULL,
+      actor_name VARCHAR(255),
+      actor_kingdom VARCHAR(16),
+      acres INT,
+      amount BIGINT,
+      resource_type VARCHAR(32),
+      received_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_province_news (province_id, game_date(64), raw_text(400)),
+      CONSTRAINT fk_province_news_prov FOREIGN KEY (province_id) REFERENCES provinces(id)
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+
+    `CREATE INDEX IF NOT EXISTS idx_province_news_prov ON province_news(province_id, key_hash, game_date_ord DESC)`,
+
     // Unique submission indexes (baked in — no additive migrations needed)
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_overview_unique_submission ON province_overview(province_id, key_hash, source, saved_by, received_at)`,
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_totmil_unique_submission ON total_military_points(province_id, key_hash, source, saved_by, received_at)`,

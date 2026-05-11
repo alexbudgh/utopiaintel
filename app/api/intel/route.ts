@@ -59,6 +59,7 @@ function getLogProvince(result: ParseResult): string {
 function getLogKingdom(result: ParseResult): string {
   if (result.type === "kingdom") return `${result.data.name} (${result.data.location})`;
   if (result.type === "kingdom_news") return `${result.data.events.length} events`;
+  if (result.type === "province_news") return `${result.data.events.length} events`;
   return "kingdom" in result.data ? result.data.kingdom : "—";
 }
 
@@ -151,6 +152,9 @@ export const POST = withAxiom(async (request: AxiomRequest) => {
       await db.storeKingdomNews(result.data, keyHash, isExternalNews, undefined, urlKingdom);
       break;
     }
+    case "province_news":
+      await db.storeProvinceNews(result.data, savedBy, keyHash);
+      break;
     case "train_army":
       await db.storeTrainArmy(result.data, savedBy, keyHash);
       break;

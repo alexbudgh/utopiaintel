@@ -48,6 +48,8 @@ import type {
 } from "./parsers/types";
 import type { IntelOpAttempt } from "./intel-ops";
 import type { KingdomNewsData } from "./parsers/kingdom_news";
+import type { ProvinceNewsData } from "./parsers/province_news";
+import { storeProvinceNews as mysqlStoreProvinceNews } from "./db-mysql";
 import {
   getBoundKingdom as mysqlGetBoundKingdom,
   getLatestKingdomSnapshot as mysqlGetLatestKingdomSnapshot,
@@ -135,6 +137,7 @@ export interface AsyncDbApi {
   storeKingdom(data: KingdomData, savedBy: string, keyHash: string, receivedAt?: string): Promise<void>;
   storeState(data: StateData, savedBy: string, keyHash: string, receivedAt?: string): Promise<void>;
   storeKingdomNews(data: KingdomNewsData, keyHash: string, isSnatched?: boolean, receivedAt?: string, urlKingdom?: string | null): Promise<void>;
+  storeProvinceNews(data: ProvinceNewsData, savedBy: string, keyHash: string, receivedAt?: string): Promise<void>;
 }
 
 // ── SQLite shim ──────────────────────────────────────────────────────────────
@@ -176,6 +179,7 @@ function createSqliteDbApi(): AsyncDbApi {
       storeKingdom:    (d, sb, kh, ra)        => w(() => sqliteStoreKingdom(d, sb, kh, ra)),
       storeState:      (d, sb, kh, ra)        => w(() => sqliteStoreState(d, sb, kh, ra)),
       storeKingdomNews:(d, kh, sn, ra, uk)    => w(() => sqliteStoreKingdomNews(d, kh, sn, ra, uk)),
+      storeProvinceNews:() => Promise.resolve(),
     };
   }
   return _sqliteApi;
@@ -216,7 +220,8 @@ function createMysqlDbApi(): AsyncDbApi {
       storeAttack:     (d, sb, kh, ra)        => mysqlStoreAttack(d, sb, kh, ra),
       storeKingdom:    (d, sb, kh, ra)        => mysqlStoreKingdom(d, sb, kh, ra),
       storeState:      (d, sb, kh, ra)        => mysqlStoreState(d, sb, kh, ra),
-      storeKingdomNews:(d, kh, sn, ra, uk)    => mysqlStoreKingdomNews(d, kh, sn, ra, uk),
+      storeKingdomNews:  (d, kh, sn, ra, uk)    => mysqlStoreKingdomNews(d, kh, sn, ra, uk),
+      storeProvinceNews: (d, sb, kh, ra)         => mysqlStoreProvinceNews(d, sb, kh, ra),
     };
   }
   return _mysqlApi;
@@ -266,7 +271,8 @@ function createDualDbApi(): AsyncDbApi {
       storeAttack:     (...a) => { shadow("storeAttack",     mysql.storeAttack(...a));     return sqlite.storeAttack(...a); },
       storeKingdom:    (...a) => { shadow("storeKingdom",    mysql.storeKingdom(...a));    return sqlite.storeKingdom(...a); },
       storeState:      (...a) => { shadow("storeState",      mysql.storeState(...a));      return sqlite.storeState(...a); },
-      storeKingdomNews:(...a) => { shadow("storeKingdomNews",mysql.storeKingdomNews(...a));return sqlite.storeKingdomNews(...a); },
+      storeKingdomNews:  (...a) => { shadow("storeKingdomNews",  mysql.storeKingdomNews(...a));  return sqlite.storeKingdomNews(...a); },
+      storeProvinceNews: (...a) => { shadow("storeProvinceNews", mysql.storeProvinceNews(...a)); return sqlite.storeProvinceNews(...a); },
     };
   }
   return _dualApi;
@@ -275,12 +281,11 @@ function createDualDbApi(): AsyncDbApi {
 // ── Factory ──────────────────────────────────────────────────────────────────
 // DB_DRIVER=dual  → writes to both, reads from SQLite
 // DB_DRIVER=mysql → MySQL only
-// (default)       → SQLite only
 
 export function getDbApi(): AsyncDbApi {
   if (process.env.DB_DRIVER === "dual") return createDualDbApi();
   if (process.env.DB_DRIVER === "mysql") return createMysqlDbApi();
-  return createSqliteDbApi();
+  throw new Error("DB_DRIVER must be set to 'mysql' or 'dual'");
 }
 
 // ── Driver-aware metrics cache utilities ─────────────────────────────────────
