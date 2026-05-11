@@ -99,19 +99,22 @@ function EffectGroup({
 
 export default async function ProvincePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ loc: string; prov: string }>;
+  searchParams: Promise<{ from?: string; to?: string }>;
 }) {
   const { loc, prov } = await params;
+  const { from: newsFrom, to: newsTo } = await searchParams;
   const kingdom = decodeURIComponent(loc);
   const name = decodeURIComponent(prov);
   const key = (await cookies()).get("auth")?.value ?? "";
   const keyHash = hashKey(key);
   const db = getDbApi();
-  const [d, history, provinceNews] = await Promise.all([
+  const [d, history, { events: provinceNews, effectiveFrom: newsEffectiveFrom }] = await Promise.all([
     db.getProvinceDetail(name, kingdom, keyHash),
     db.getProvinceHistory(name, kingdom, keyHash),
-    db.getProvinceNews(name, kingdom, keyHash),
+    db.getProvinceNews(name, kingdom, keyHash, newsFrom, newsTo),
   ]);
   // Use direct council_state values when available (self-intel); otherwise estimate from unit counts + survey
   const directPop = d.resources?.totalPop != null || d.resources?.maxPop != null
@@ -457,7 +460,14 @@ export default async function ProvincePage({
       {/* Province News */}
       <div className="mt-4">
         <Card title="Province News">
-          <ProvinceNewsTable events={provinceNews} />
+          <ProvinceNewsTable
+            events={provinceNews}
+            loc={loc}
+            prov={prov}
+            from={newsFrom}
+            to={newsTo}
+            effectiveFrom={newsEffectiveFrom ?? undefined}
+          />
         </Card>
       </div>
     </main>

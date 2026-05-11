@@ -2538,19 +2538,49 @@ export async function getProvinceDetail(name: string, kingdom: string, keyHash: 
   };
 }
 
-export async function getProvinceNews(name: string, kingdom: string, keyHash: string, limit = 200): Promise<ProvinceNewsRow[]> {
+export async function getProvinceNews(
+  name: string,
+  kingdom: string,
+  keyHash: string,
+  from?: string,
+  to?: string,
+  limit = 500,
+): Promise<{ events: ProvinceNewsRow[]; effectiveFrom: string | null }> {
   await ensureReady();
+
+  let fromOrd: number;
+  let toOrd: number;
+  let effectiveFrom: string | null = from ?? null;
+
+  if (from || to) {
+    fromOrd = from ? parseUtopiaDate(from) : 0;
+    toOrd   = to   ? parseUtopiaDate(to)   : 999999;
+  } else {
+    const [[maxRow]] = await pool.execute<any[]>(
+      `SELECT MAX(pn.game_date_ord) AS m
+       FROM province_news pn JOIN provinces p ON pn.province_id = p.id
+       WHERE p.name = ? AND p.kingdom = ? AND pn.key_hash = ?`,
+      [name, kingdom, keyHash],
+    );
+    const maxOrd = (maxRow as any)?.m ?? 0;
+    fromOrd = maxOrd - 3 * UTOPIA_DAYS_PER_MONTH + 1;
+    toOrd   = 999999;
+    effectiveFrom = fromOrd > 0 ? formatUtopiaDate(fromOrd) : null;
+  }
+
   const [rows] = await pool.execute<any[]>(
     `SELECT pn.id, pn.game_date, pn.game_date_ord, pn.event_type, pn.raw_text,
             pn.actor_name, pn.actor_kingdom, pn.acres, pn.amount, pn.resource_type, pn.received_at
      FROM province_news pn
      JOIN provinces p ON pn.province_id = p.id
      WHERE p.name = ? AND p.kingdom = ? AND pn.key_hash = ?
+       AND pn.game_date_ord >= ? AND pn.game_date_ord <= ?
      ORDER BY pn.game_date_ord DESC, pn.id DESC
      LIMIT ?`,
-    [name, kingdom, keyHash, limit],
+    [name, kingdom, keyHash, fromOrd, toOrd, limit],
   );
-  return (rows as any[]).map((r) => ({
+
+  const events = (rows as any[]).map((r) => ({
     id: r.id,
     gameDate: r.game_date,
     gameDateOrd: r.game_date_ord,
@@ -2563,4 +2593,6 @@ export async function getProvinceNews(name: string, kingdom: string, keyHash: st
     resourceType: r.resource_type,
     receivedAt: r.received_at,
   }));
+
+  return { events, effectiveFrom };
 }

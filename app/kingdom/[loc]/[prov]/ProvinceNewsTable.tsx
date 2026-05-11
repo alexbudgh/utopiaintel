@@ -1,8 +1,104 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { ProvinceNewsRow } from "@/lib/db-api";
+
+// ── Date filter helpers (mirrors KingdomNewsTable) ────────────────────────────
+
+const UTOPIA_MONTHS = ["January","February","March","April","May","June","July"];
+interface DateParts { month: string; day: string; year: string }
+
+function parseDateParts(s?: string): DateParts {
+  if (!s) return { month: "", day: "", year: "" };
+  const m = /^(\w+)\s+(\d+)\s+of\s+YR(\d+)$/i.exec(s.trim());
+  if (!m) return { month: "", day: "", year: "" };
+  return { month: m[1], day: m[2], year: m[3] };
+}
+
+function formatDateParts({ month, day, year }: DateParts): string {
+  if (!month || !day || !year) return "";
+  return `${month} ${day} of YR${year}`;
+}
+
+function DateSelector({ value, onChange }: { value: DateParts; onChange: (v: DateParts) => void }) {
+  const sel = "rounded border border-gray-700 bg-gray-900 px-1.5 py-1 text-gray-300 focus:border-gray-500 focus:outline-none text-xs";
+  return (
+    <span className="inline-flex items-center gap-1">
+      <select value={value.month} onChange={(e) => onChange({ ...value, month: e.target.value })} className={sel}>
+        <option value="">Month</option>
+        {UTOPIA_MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
+      </select>
+      <input type="number" min={1} max={24} value={value.day}
+        onChange={(e) => onChange({ ...value, day: e.target.value })}
+        placeholder="Day" className={`${sel} w-14`} />
+      <span className="text-gray-600 text-[11px]">YR</span>
+      <input type="number" min={0} value={value.year}
+        onChange={(e) => onChange({ ...value, year: e.target.value })}
+        placeholder="Yr" className={`${sel} w-12`} />
+    </span>
+  );
+}
+
+function NewsDateFilter({ loc, prov, from, to, effectiveFrom }: {
+  loc: string; prov: string; from?: string; to?: string; effectiveFrom?: string;
+}) {
+  const router = useRouter();
+  const [fromParts, setFromParts] = useState<DateParts>(() => parseDateParts(from ?? effectiveFrom));
+  const [toParts,   setToParts]   = useState<DateParts>(() => parseDateParts(to));
+  const [toLatest,  setToLatest]  = useState(!to);
+  const btnBase = "rounded border px-2.5 py-1 transition-colors text-xs";
+
+  function apply(e: React.FormEvent) {
+    e.preventDefault();
+    const params = new URLSearchParams();
+    const f = formatDateParts(fromParts);
+    const t = toLatest ? "" : formatDateParts(toParts);
+    if (f) params.set("from", f);
+    if (t) params.set("to", t);
+    const qs = params.toString();
+    router.push(`/kingdom/${loc}/${prov}${qs ? `?${qs}` : ""}`);
+  }
+
+  function clear() {
+    setFromParts({ month: "", day: "", year: "" });
+    setToParts({   month: "", day: "", year: "" });
+    setToLatest(true);
+    router.push(`/kingdom/${loc}/${prov}`);
+  }
+
+  const hasFilter = !!(from || to);
+
+  return (
+    <form onSubmit={apply} className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+      <span className="text-gray-500">Date range:</span>
+      <DateSelector value={fromParts} onChange={setFromParts} />
+      <span className="text-gray-600">–</span>
+      {toLatest
+        ? <button type="button" onClick={() => setToLatest(false)}
+            className={`${btnBase} border-blue-700 bg-blue-950/40 text-blue-300 hover:border-blue-500`}>
+            Latest
+          </button>
+        : <>
+            <DateSelector value={toParts} onChange={setToParts} />
+            <button type="button" onClick={() => { setToParts({ month: "", day: "", year: "" }); setToLatest(true); }}
+              className={`${btnBase} border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300`}>
+              Latest
+            </button>
+          </>
+      }
+      <button type="submit" className={`${btnBase} border-gray-600 bg-gray-800 text-gray-300 hover:border-gray-400 hover:text-gray-100`}>
+        Filter
+      </button>
+      {hasFilter && (
+        <button type="button" onClick={clear} className="text-gray-500 hover:text-gray-300 transition-colors text-xs">
+          ✕ clear
+        </button>
+      )}
+    </form>
+  );
+}
 
 // ── Category definitions ──────────────────────────────────────────────────────
 
@@ -203,7 +299,14 @@ function attackVerb(eventType: string): string | null {
 const ALL_CATEGORIES = Object.keys(CATEGORY_TYPES) as Category[];
 const PAGE_SIZE = 50;
 
-export function ProvinceNewsTable({ events }: { events: ProvinceNewsRow[] }) {
+export function ProvinceNewsTable({ events, loc, prov, from, to, effectiveFrom }: {
+  events: ProvinceNewsRow[];
+  loc: string;
+  prov: string;
+  from?: string;
+  to?: string;
+  effectiveFrom?: string;
+}) {
   const [expanded, setExpanded] = useState(false);
   const [activeCategories, setActiveCategories] = useState<Set<Category>>(new Set(ALL_CATEGORIES));
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -246,19 +349,21 @@ export function ProvinceNewsTable({ events }: { events: ProvinceNewsRow[] }) {
     const summary = ALL_CATEGORIES.filter((c) => counts.has(c))
       .map((c) => `${counts.get(c)} ${c.toLowerCase()}`)
       .join(", ");
+    const dateLabel = from ?? effectiveFrom;
     return (
       <button
         type="button"
         onClick={() => setExpanded(true)}
-        className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
+        className="text-sm text-gray-500 hover:text-gray-300 transition-colors text-left"
       >
-        {events.length} events — {summary} · <span className="text-gray-600">show</span>
+        {events.length} events{dateLabel ? ` from ${dateLabel}` : ""} — {summary} · <span className="text-gray-600">show</span>
       </button>
     );
   }
 
   return (
     <>
+      <NewsDateFilter loc={loc} prov={prov} from={from} to={to} effectiveFrom={effectiveFrom} />
       <div className="mb-3 flex flex-wrap items-center gap-1.5">
         <button type="button" onClick={() => setExpanded(false)} className={`${pillBase} border-gray-700 bg-gray-900 text-gray-600 hover:text-gray-300`}>
           hide
