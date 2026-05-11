@@ -448,6 +448,7 @@ async function main() {
         const bldgRows = selectRows<BldgRow>(sqlite, "survey_buildings", "survey_intel_id, id");
         console.log(`survey_intel: ${surveyRowsToInsert.length} rows${checkpoint ? ` (${surveyRows.length} mapped)` : ""}, survey_buildings: ${bldgRows.length} rows`);
         const surveyMap = new Map<number, number>();
+        const newSurveyIds = new Set(surveyRowsToInsert.map(r => r.id));
         for (let i = 0; i < surveyRows.length; i++) {
           const r = surveyRows[i];
           const mysqlProvinceId = provMap.get(r.province_id)!;
@@ -467,7 +468,8 @@ async function main() {
         }
         await batchInsert(conn, "survey_buildings",
           ["survey_intel_id","building","built","in_progress"],
-          bldgRows.map(r => [surveyMap.get(r.survey_intel_id)!, r.building, r.built, r.in_progress]),
+          bldgRows.filter(r => newSurveyIds.has(r.survey_intel_id))
+                  .map(r => [surveyMap.get(r.survey_intel_id)!, r.building, r.built, r.in_progress]),
         );
         await recordRowsWatermark(conn, "survey_intel", surveyRowsToInsert);
         await recordRowsWatermark(conn, "survey_buildings", bldgRows);
@@ -482,6 +484,7 @@ async function main() {
         const sciRows = selectRows<SciRow>(sqlite, "sos_sciences", "sos_intel_id, id");
         console.log(`sos_intel: ${sosRowsToInsert.length} rows${checkpoint ? ` (${sosRows.length} mapped)` : ""}, sos_sciences: ${sciRows.length} rows`);
         const sosMap = new Map<number, number>();
+        const newSosIds = new Set(sosRowsToInsert.map(r => r.id));
         for (let i = 0; i < sosRows.length; i++) {
           const r = sosRows[i];
           const mysqlProvinceId = provMap.get(r.province_id)!;
@@ -501,7 +504,8 @@ async function main() {
         }
         await batchInsert(conn, "sos_sciences",
           ["sos_intel_id","science","books","effect"],
-          sciRows.map(r => [sosMap.get(r.sos_intel_id)!, r.science, r.books, r.effect]),
+          sciRows.filter(r => newSosIds.has(r.sos_intel_id))
+                 .map(r => [sosMap.get(r.sos_intel_id)!, r.science, r.books, r.effect]),
         );
         await recordRowsWatermark(conn, "sos_intel", sosRowsToInsert);
         await recordRowsWatermark(conn, "sos_sciences", sciRows);

@@ -430,8 +430,11 @@ export default async function ProvincePage({
                 </tr>
               </thead>
               <tbody>
-                {d.survey.buildings.map((b: BuildingRow) => {
-                  const builtPct = d.overview?.land ? (b.built / d.overview.land) * 100 : null;
+                {(() => {
+                  const surveyTotal = d.survey.buildings.reduce((s, b) => s + b.built, 0);
+                  const denominator = surveyTotal > 0 ? surveyTotal : (d.overview?.land ?? 0);
+                  return d.survey.buildings.map((b: BuildingRow) => {
+                  const builtPct = denominator > 0 ? (b.built / denominator) * 100 : null;
                   return (
                     <tr key={b.building} className="border-b border-gray-700/40">
                       <td className="py-0.5 text-gray-300">{b.building}</td>
@@ -440,7 +443,8 @@ export default async function ProvincePage({
                       <td className="py-0.5 text-right tabular-nums text-gray-400">{b.inProgress > 0 ? b.inProgress.toLocaleString() : "—"}</td>
                     </tr>
                   );
-                })}
+                  });
+                })()}
               </tbody>
             </table>
           ) : <NoData />}
