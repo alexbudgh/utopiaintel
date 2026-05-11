@@ -83,6 +83,13 @@ export interface ProvinceNewsData {
 const nil: Pick<ProvinceNewsEvent, "actorName" | "actorKingdom" | "acres" | "amount" | "resourceType"> =
   { actorName: null, actorKingdom: null, acres: null, amount: null, resourceType: null };
 
+function normUnit(raw: string): string {
+  const lower = raw.toLowerCase();
+  if (lower === "thieves" || lower === "thieve") return "Thief";
+  const singular = raw.length > 2 && raw.endsWith("s") ? raw.slice(0, -1) : raw;
+  return singular.charAt(0).toUpperCase() + singular.slice(1);
+}
+
 // ── Combat ────────────────────────────────────────────────────────────────────
 
 // Optional prefixes that can precede the "Forces from" line
@@ -352,7 +359,7 @@ function classifyEvent(text: string): Omit<ProvinceNewsEvent, "gameDate" | "rawT
   if (THIEVES_EXPOSED_RE.test(text)) return { ...nil, eventType: "spell_expose_thieves" };
 
   m = PROPAGANDA_RE.exec(text);
-  if (m) return { ...nil, eventType: "thief_propaganda", amount: parseNum(m[1]), resourceType: m[2] };
+  if (m) return { ...nil, eventType: "thief_propaganda", amount: parseNum(m[1]), resourceType: normUnit(m[2]) };
 
   // ── Sorcery ──
   m = SPELL_DETECTED_RE.exec(text);

@@ -31,7 +31,7 @@ const OP_AMOUNT_LABEL: Record<string, string> = {
   kidnap:             "Peasants",
   arson:              "Acres",
   greater_arson:      "Acres",
-  propaganda:         "Deserters",
+  propaganda:         "Stolen",
   detected:           "Caught",
 };
 
@@ -44,19 +44,104 @@ function Num({ n, color }: { n: number; color?: string }) {
   return <span className={color ?? "text-gray-300"}>{n.toLocaleString()}</span>;
 }
 
+function ProvName({ e, kingdom, linkable }: { e: OpProvEntry; kingdom: string; linkable: boolean }) {
+  return (
+    <>
+      {e.slot != null && <span className="text-gray-600 font-mono mr-1 text-[10px]">{e.slot}</span>}
+      {linkable ? (
+        <Link
+          href={`/kingdom/${encodeURIComponent(kingdom)}/${encodeURIComponent(e.provinceName)}`}
+          className="text-gray-300 hover:text-blue-300 transition-colors"
+        >
+          {e.provinceName}
+        </Link>
+      ) : (
+        <span className="text-gray-300">{e.provinceName}</span>
+      )}
+    </>
+  );
+}
+
 function ProvTable({
   entries,
   kingdom,
   op,
   linkable,
+  showUnitType,
 }: {
   entries: OpProvEntry[];
   kingdom: string;
   op: string;
   linkable: boolean;
+  showUnitType?: boolean;
 }) {
   const amtLabel = amountLabel(op);
   const isEffect = !OP_AMOUNT_LABEL[op];
+  const amtColor = linkable ? "text-red-300" : "text-green-300";
+  const amtColorTotal = linkable ? "text-red-400" : "text-green-400";
+
+  if (showUnitType) {
+    // Propaganda layout: Province | Unit | Stolen, plus failures footer.
+    const successRows = entries.filter((e) => e.unitType !== null);
+    const totalStolen = successRows.reduce((s, e) => s + e.amount, 0);
+    const totalFailures = entries.reduce((s, e) => s + Math.max(0, e.attempts - e.successes), 0);
+    const totalThievesLost = entries.reduce((s, e) => s + e.thievesLost, 0);
+    const thievesWord = totalThievesLost === 1 ? "thief" : "thieves";
+
+    return (
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="text-gray-600 border-b border-gray-800">
+            <th className="text-left py-1 pr-2 font-normal">Province</th>
+            <th className="text-left py-1 px-1 font-normal">Unit</th>
+            <th className="text-right py-1 px-1 font-normal">Attempts</th>
+            <th className="text-right py-1 pl-1 font-normal">{amtLabel}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {successRows.map((e) => (
+            <tr key={`${e.provinceName}|${e.unitType}`} className="border-b border-gray-800/30">
+              <td className="py-1 pr-2 whitespace-nowrap">
+                <ProvName e={e} kingdom={kingdom} linkable={linkable} />
+              </td>
+              <td className="py-1 px-1 whitespace-nowrap text-yellow-600">{e.unitType}</td>
+              <td className="text-right font-mono py-1 px-1 text-gray-500">
+                <Num n={e.successes} />
+              </td>
+              <td className="text-right font-mono py-1 pl-1">
+                <Num n={e.amount} color={amtColor} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          {successRows.length > 1 && (
+            <tr className="border-t border-gray-700 text-gray-300 font-medium bg-gray-800/50">
+              <td className="py-1 pr-2">Total</td>
+              <td />
+              <td className="text-right font-mono py-1 px-1">
+                <Num n={successRows.reduce((s, e) => s + e.successes, 0)} />
+              </td>
+              <td className="text-right font-mono py-1 pl-1">
+                <Num n={totalStolen} color={amtColorTotal} />
+              </td>
+            </tr>
+          )}
+          {totalFailures > 0 && (
+            <tr className="border-t border-gray-800/40 text-red-400">
+              <td className="py-1 pr-2">—</td>
+              <td className="py-1 px-1">failed</td>
+              <td className="text-right font-mono py-1 px-1">{totalFailures}</td>
+              <td className="py-1 pl-1">
+                {totalThievesLost > 0 ? `${totalThievesLost} ${thievesWord} lost` : ""}
+              </td>
+            </tr>
+          )}
+        </tfoot>
+      </table>
+    );
+  }
+
   const total = entries.reduce(
     (acc, e) => ({ attempts: acc.attempts + e.attempts, successes: acc.successes + e.successes, amount: acc.amount + e.amount }),
     { attempts: 0, successes: 0, amount: 0 },
@@ -67,28 +152,16 @@ function ProvTable({
       <thead>
         <tr className="text-gray-600 border-b border-gray-800">
           <th className="text-left py-1 pr-2 font-normal">Province</th>
-          <th className="text-right py-1 px-1 font-normal">Att.</th>
-          <th className="text-right py-1 px-1 font-normal">Succ.</th>
+          <th className="text-right py-1 px-1 font-normal">Attempts</th>
+          <th className="text-right py-1 px-1 font-normal">Successes</th>
           {!isEffect && <th className="text-right py-1 pl-1 font-normal">{amtLabel}</th>}
         </tr>
       </thead>
       <tbody>
         {entries.map((e) => (
-          <tr key={e.provinceName} className="border-b border-gray-800/30">
+          <tr key={`${e.provinceName}|${e.unitType ?? ""}`} className="border-b border-gray-800/30">
             <td className="py-1 pr-2 whitespace-nowrap">
-              {e.slot != null && (
-                <span className="text-gray-600 font-mono mr-1 text-[10px]">{e.slot}</span>
-              )}
-              {linkable ? (
-                <Link
-                  href={`/kingdom/${encodeURIComponent(kingdom)}/${encodeURIComponent(e.provinceName)}`}
-                  className="text-gray-300 hover:text-blue-300 transition-colors"
-                >
-                  {e.provinceName}
-                </Link>
-              ) : (
-                <span className="text-gray-300">{e.provinceName}</span>
-              )}
+              <ProvName e={e} kingdom={kingdom} linkable={linkable} />
             </td>
             <td className="text-right font-mono py-1 px-1 text-gray-500">
               <Num n={e.attempts} />
@@ -98,7 +171,7 @@ function ProvTable({
             </td>
             {!isEffect && (
               <td className="text-right font-mono py-1 pl-1">
-                <Num n={e.amount} color={linkable ? "text-red-300" : "text-green-300"} />
+                <Num n={e.amount} color={amtColor} />
               </td>
             )}
           </tr>
@@ -106,13 +179,13 @@ function ProvTable({
       </tbody>
       {entries.length > 1 && (
         <tfoot>
-          <tr className="border-t border-gray-700 text-gray-500">
-            <td className="py-1 pr-2 text-[10px]">Total</td>
+          <tr className="border-t border-gray-700 text-gray-300 font-medium bg-gray-800/50">
+            <td className="py-1 pr-2">Total</td>
             <td className="text-right font-mono py-1 px-1"><Num n={total.attempts} /></td>
             <td className="text-right font-mono py-1 px-1"><Num n={total.successes} color="text-gray-400" /></td>
             {!isEffect && (
               <td className="text-right font-mono py-1 pl-1">
-                <Num n={total.amount} color={linkable ? "text-red-400" : "text-green-400"} />
+                <Num n={total.amount} color={amtColorTotal} />
               </td>
             )}
           </tr>
@@ -163,7 +236,7 @@ function OpSection({ bd, kingdom }: { bd: OpTypeBreakdown; kingdom: string }) {
               <div className="text-[10px] uppercase tracking-wide text-green-700 font-medium mb-2">
                 We did to them
               </div>
-              <ProvTable entries={bd.outgoing} kingdom={kingdom} op={bd.op} linkable={false} />
+              <ProvTable entries={bd.outgoing} kingdom={kingdom} op={bd.op} linkable={false} showUnitType={bd.op === "propaganda"} />
             </div>
           )}
           {bd.incoming.length > 0 && (
@@ -171,7 +244,7 @@ function OpSection({ bd, kingdom }: { bd: OpTypeBreakdown; kingdom: string }) {
               <div className={`text-[10px] uppercase tracking-wide font-medium mb-2 ${bd.op === "detected" ? "text-orange-700" : "text-red-700"}`}>
                 {bd.op === "detected" ? "Their thieves caught" : "They did to us"}
               </div>
-              <ProvTable entries={bd.incoming} kingdom={kingdom} op={bd.op} linkable={true} />
+              <ProvTable entries={bd.incoming} kingdom={kingdom} op={bd.op} linkable={true} showUnitType={bd.op === "propaganda"} />
             </div>
           )}
         </div>

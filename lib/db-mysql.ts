@@ -2653,12 +2653,13 @@ export async function getKingdomOpsStats(
          WHEN r.outcome='success' THEN 1
          ELSE 0
        END) AS amount,
-       MAX(r.deserter_type) AS unit_type
+       r.deserter_type AS unit_type,
+       SUM(r.thieves_lost) AS thieves_lost
      FROM rob_ops r
      JOIN provinces p ON p.id = r.province_id
      WHERE r.key_hash = ? AND r.target_kingdom = ?
        ${fromTime ? "AND r.received_at >= ?" : ""}
-     GROUP BY r.op, r.province_id, p.name`,
+     GROUP BY r.op, r.province_id, p.name, r.deserter_type`,
     outParams,
   );
 
@@ -2713,22 +2714,36 @@ export async function getKingdomOpsStats(
     return m[eventType] ?? null;
   }
 
-  // Build outgoing: Map<op, Map<province_name, OpProvEntry>>
+  // Normalize plural → singular, title-case for propaganda unit types (handles existing DB data).
+  function normUnit(raw: string | null): string | null {
+    if (!raw) return null;
+    const lower = raw.toLowerCase();
+    if (lower === "thieves" || lower === "thieve") return "Thief";
+    const singular = raw.length > 2 && raw.endsWith("s") ? raw.slice(0, -1) : raw;
+    return singular.charAt(0).toUpperCase() + singular.slice(1);
+  }
+
+  // Build outgoing: Map<op, Map<key, OpProvEntry>>
+  // Key is "province_name|unit_type" so propaganda entries split per unit type.
   const outByOp = new Map<string, Map<string, OpProvEntry>>();
   for (const r of outRows as any[]) {
     if (!r.province_name) continue;
     if (!outByOp.has(r.op)) outByOp.set(r.op, new Map());
-    outByOp.get(r.op)!.set(r.province_name, {
+    const unitType = normUnit((r.unit_type as string | null) ?? null);
+    const key = `${r.province_name}|${unitType ?? ""}`;
+    outByOp.get(r.op)!.set(key, {
       provinceName: r.province_name,
       slot: null,
       attempts: Number(r.attempts),
       successes: Number(r.successes),
       amount: Number(r.amount),
-      unitType: (r.unit_type as string | null) ?? null,
+      unitType,
+      thievesLost: Number(r.thieves_lost ?? 0),
     });
   }
 
-  // Build incoming: Map<op, Map<province_name, OpProvEntry>> — accumulate across resource_type groups
+  // Build incoming: Map<op, Map<key, OpProvEntry>>
+  // Key is "province_name|unit_type" so propaganda entries split per unit type.
   const inByOp = new Map<string, Map<string, OpProvEntry>>();
   for (const r of inRows as any[]) {
     if (!r.province_name) continue;
@@ -2738,20 +2753,21 @@ export async function getKingdomOpsStats(
     const provMap = inByOp.get(op)!;
     const isDetection = op === "detected";
     const amt = r.event_type === "arson" ? Number(r.acres_amount) : Number(r.amount);
-    const unitType = r.event_type === "thief_propaganda" ? (r.resource_type as string | null) ?? null : null;
-    const existing = provMap.get(r.province_name);
+    const unitType = r.event_type === "thief_propaganda" ? normUnit((r.resource_type as string | null) ?? null) : null;
+    const key = `${r.province_name}|${unitType ?? ""}`;
+    const existing = provMap.get(key);
     if (existing) {
       existing.attempts += Number(r.cnt);
       existing.amount   += amt;
-      if (!existing.unitType && unitType) existing.unitType = unitType;
     } else {
-      provMap.set(r.province_name, {
+      provMap.set(key, {
         provinceName: r.province_name,
         slot: slotMap.get(r.province_name) ?? null,
         attempts: Number(r.cnt),
         successes: isDetection ? 0 : Number(r.cnt),
         amount: amt,
         unitType,
+        thievesLost: 0,
       });
     }
   }

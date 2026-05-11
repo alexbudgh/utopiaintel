@@ -2658,6 +2658,7 @@ export interface OpProvEntry {
   successes: number;
   amount: number;       // gold/food/runes/troops/acres/deserters/count
   unitType: string | null; // propaganda: deserter unit type
+  thievesLost: number;  // outgoing only; 0 for incoming
 }
 
 export interface OpTypeBreakdown {

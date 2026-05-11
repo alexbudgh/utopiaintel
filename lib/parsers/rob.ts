@@ -17,6 +17,13 @@ const ACRES_BURNED_RE = new RegExp(`burned down (${INT}) acres? of buildings`);
 const PROPAGANDA_RE      = new RegExp(`We have converted (${INT}) (?:of the enemy's )?(\\w+) (?:troops to our army|from the enemy)`);
 const PROPAGANDA_ZERO_RE = /but no enemy (\w+) were converted/;
 
+function normUnit(raw: string): string {
+  const lower = raw.toLowerCase();
+  if (lower === "thieves" || lower === "thieve") return "Thief";
+  const singular = raw.length > 2 && raw.endsWith("s") ? raw.slice(0, -1) : raw;
+  return singular.charAt(0).toUpperCase() + singular.slice(1);
+}
+
 export function getRobOp(url: string): RobOp | null {
   try {
     const o = new URL(url).searchParams.get("o")?.toUpperCase();
@@ -94,10 +101,10 @@ export function parseRob(text: string, url: string, selfProv: string): RobData |
       }
     } else if (op === "propaganda") {
       const m = PROPAGANDA_RE.exec(text);
-      if (m) { deserters = parseNum(m[1]); deserterType = m[2]; }
+      if (m) { deserters = parseNum(m[1]); deserterType = normUnit(m[2]); }
       else {
         const z = PROPAGANDA_ZERO_RE.exec(text);
-        if (z) { deserters = 0; deserterType = z[1]; }
+        if (z) { deserters = 0; deserterType = normUnit(z[1]); }
       }
     }
     const lostMatch = THIEVES_LOST_SUCCESS_RE.exec(text);
