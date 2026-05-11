@@ -7,6 +7,7 @@ import { parseIntel } from "./parsers";
 import { getIntelPathname, matchesGamePath, extractProvinceOperationsInfo } from "./parsers/detect";
 import { parseKingdomNews } from "./parsers/kingdom_news";
 import { parseSoT } from "./parsers/sot";
+import { parseProvinceNews } from "./parsers/province_news";
 import { getDbApi, setMetricsCacheRefreshEnabled, flushMetricsCacheRefreshQueue } from "./db-api";
 
 export type ReplayType = "kingdom" | "survey" | "sot" | "kingdom_news" | "province_news" | "state" | "som" | "sos" | "sod" | "infiltrate" | "train_army" | "build" | "rob" | "sorcery" | "attack";
@@ -112,6 +113,10 @@ export async function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, o
   if (parsed.type === "sot") {
     const isSelfThrone = matchesGamePath(getIntelPathname(entry.url), "throne");
     await db.storeSoT(parsed.data, savedBy, keyHash, isSelfThrone, ra);
+    if (isSelfThrone) {
+      const newsData = parseProvinceNews(entry.data_simple);
+      if (newsData) await db.storeProvinceNews(newsData, savedBy, keyHash, ra);
+    }
     return "sot";
   }
 

@@ -2615,29 +2615,32 @@ export async function getKingdomOpsStats(
   let toOrd: number;
   let effectiveFrom: string | null = from ?? null;
 
+  const [[maxRow]] = await pool.execute<MaxRow[]>(
+    "SELECT MAX(game_date_ord) AS m FROM province_news WHERE key_hash = ?",
+    [keyHash],
+  );
+  const maxOrd = (maxRow as any)?.m ?? 0;
+
   if (from || to) {
     fromOrd = from ? parseUtopiaDate(from) : 0;
     toOrd   = to   ? parseUtopiaDate(to)   : 999999;
   } else {
-    const [[maxRow]] = await pool.execute<MaxRow[]>(
-      "SELECT MAX(game_date_ord) AS m FROM province_news WHERE key_hash = ?",
-      [keyHash],
-    );
-    const maxOrd = (maxRow as any)?.m ?? 0;
     fromOrd = maxOrd - 3 * UTOPIA_DAYS_PER_MONTH + 1;
     toOrd   = 999999;
     effectiveFrom = fromOrd > 0 ? formatUtopiaDate(fromOrd) : null;
   }
 
-  const [[refRow]] = await pool.execute<any[]>(
-    "SELECT MIN(received_at) AS ref_time FROM province_news WHERE key_hash = ? AND game_date_ord >= ?",
-    [keyHash, fromOrd],
-  );
-  const fromTime: string | null = (refRow as any)?.ref_time ?? null;
+  // Approximate wall-clock cutoff for rob_ops (which lack game_date_ord).
+  // 1 Utopia tick = 1 real hour, so fromOrd ticks before maxOrd ≈ (maxOrd - fromOrd) hours ago.
+  // This avoids the MIN(received_at) anchor which breaks after replaying debug logs.
+  const ordDelta = maxOrd > 0 && fromOrd > 0 ? Math.max(0, maxOrd - fromOrd) : null;
+  const robFromTime = ordDelta !== null
+    ? new Date(Date.now() - ordDelta * 3_600_000).toISOString().slice(0, 19).replace("T", " ")
+    : null;
 
   // Outgoing: our provinces' activity against kingdom, grouped by (op, our_province)
   const outParams: (string | number)[] = [keyHash, kingdom];
-  if (fromTime) outParams.push(fromTime);
+  if (robFromTime) outParams.push(robFromTime);
   const [outRows] = await pool.execute<any[]>(
     `SELECT
        r.op,
@@ -2658,7 +2661,7 @@ export async function getKingdomOpsStats(
      FROM rob_ops r
      JOIN provinces p ON p.id = r.province_id
      WHERE r.key_hash = ? AND r.target_kingdom = ?
-       ${fromTime ? "AND r.received_at >= ?" : ""}
+       ${robFromTime ? "AND r.received_at >= ?" : ""}
      GROUP BY r.op, r.province_id, p.name, r.deserter_type`,
     outParams,
   );

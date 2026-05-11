@@ -6,6 +6,7 @@ import { buildIntelOpAttempt } from "@/lib/intel-ops";
 import { parseIntel } from "@/lib/parsers";
 import { getIntelPathname, matchesGamePath, extractProvinceOperationsInfo } from "@/lib/parsers/detect";
 import { parseKingdomNews } from "@/lib/parsers/kingdom_news";
+import { parseProvinceNews } from "@/lib/parsers/province_news";
 import { parseSoT } from "@/lib/parsers/sot";
 import { getDbApi } from "@/lib/db-api";
 
@@ -121,6 +122,10 @@ export const POST = withAxiom(async (request: AxiomRequest) => {
   switch (result.type) {
     case "sot":
       await db.storeSoT(result.data, savedBy, keyHash, isSelfThrone);
+      if (isSelfThrone) {
+        const newsData = parseProvinceNews(fields.data_simple);
+        if (newsData) await db.storeProvinceNews(newsData, savedBy, keyHash);
+      }
       break;
     case "survey":
       await db.storeSurvey(result.data, savedBy, keyHash, isSelfInternal);
