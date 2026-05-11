@@ -13,6 +13,7 @@ import { estimatePop } from "@/lib/population";
 import { overpopulationTone } from "@/lib/overpopulation";
 import type { ArmyRow, BuildingRow, ScienceRow } from "@/lib/db";
 import AutoRefresh from "./AutoRefresh";
+import { ProvinceNewsTable } from "./ProvinceNewsTable";
 
 function Badge({ label }: { label: string }) {
   return <span className="text-xs text-gray-500 font-mono">{label}</span>;
@@ -107,9 +108,10 @@ export default async function ProvincePage({
   const key = (await cookies()).get("auth")?.value ?? "";
   const keyHash = hashKey(key);
   const db = getDbApi();
-  const [d, history] = await Promise.all([
+  const [d, history, provinceNews] = await Promise.all([
     db.getProvinceDetail(name, kingdom, keyHash),
     db.getProvinceHistory(name, kingdom, keyHash),
+    db.getProvinceNews(name, kingdom, keyHash),
   ]);
   // Use direct council_state values when available (self-intel); otherwise estimate from unit counts + survey
   const directPop = d.resources?.totalPop != null || d.resources?.maxPop != null
@@ -451,6 +453,13 @@ export default async function ProvincePage({
         </Card>
       </div>
       <ProvinceHistoryChart history={history} />
+
+      {/* Province News */}
+      <div className="mt-4">
+        <Card title="Province News">
+          <ProvinceNewsTable events={provinceNews} />
+        </Card>
+      </div>
     </main>
   );
 }

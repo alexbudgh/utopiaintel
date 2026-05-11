@@ -2633,6 +2633,20 @@ export function cleanupExpired() {
   return createDbApi(getDb()).cleanupExpired();
 }
 
+export interface ProvinceNewsRow {
+  id: number;
+  gameDate: string;
+  gameDateOrd: number | null;
+  eventType: string;
+  rawText: string;
+  actorName: string | null;
+  actorKingdom: string | null;
+  acres: number | null;
+  amount: number | null;
+  resourceType: string | null;
+  receivedAt: string;
+}
+
 export interface ProvinceHistoryPoint {
   receivedAt: string;
   networth: number | null;

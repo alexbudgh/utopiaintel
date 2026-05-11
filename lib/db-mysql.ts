@@ -47,6 +47,7 @@ import type {
   ProvinceHistoryAttack,
   ProvinceHistoryThieveryOp,
   ProvinceHistorySorceryOp,
+  ProvinceNewsRow,
 } from "./db";
 
 // ── Named-param helper ───────────────────────────────────────────────────────
@@ -2535,4 +2536,31 @@ export async function getProvinceDetail(name: string, kingdom: string, keyHash: 
     province: { ...prov, slot: slotRow?.slot ?? null },
     overview, totalMilitary, homeMilitary, sot, resources, status, effects, militaryIntel, survey, sciences,
   };
+}
+
+export async function getProvinceNews(name: string, kingdom: string, keyHash: string, limit = 200): Promise<ProvinceNewsRow[]> {
+  await ensureReady();
+  const [rows] = await pool.execute<any[]>(
+    `SELECT pn.id, pn.game_date, pn.game_date_ord, pn.event_type, pn.raw_text,
+            pn.actor_name, pn.actor_kingdom, pn.acres, pn.amount, pn.resource_type, pn.received_at
+     FROM province_news pn
+     JOIN provinces p ON pn.province_id = p.id
+     WHERE p.name = ? AND p.kingdom = ? AND pn.key_hash = ?
+     ORDER BY pn.game_date_ord DESC, pn.id DESC
+     LIMIT ?`,
+    [name, kingdom, keyHash, limit],
+  );
+  return (rows as any[]).map((r) => ({
+    id: r.id,
+    gameDate: r.game_date,
+    gameDateOrd: r.game_date_ord,
+    eventType: r.event_type,
+    rawText: r.raw_text,
+    actorName: r.actor_name,
+    actorKingdom: r.actor_kingdom,
+    acres: r.acres,
+    amount: r.amount,
+    resourceType: r.resource_type,
+    receivedAt: r.received_at,
+  }));
 }
