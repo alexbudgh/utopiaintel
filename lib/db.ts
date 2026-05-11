@@ -2647,53 +2647,27 @@ export interface ProvinceNewsRow {
   receivedAt: string;
 }
 
-export interface OpsProvinceStat {
+// One province's contribution within a single op-type breakdown.
+// Outgoing: province = one of ours; attempts includes failures.
+// Incoming: province = one of theirs; attempts === successes (failures not recorded).
+// "detected" op type: successes = 0, attempts = caught count.
+export interface OpProvEntry {
   provinceName: string;
   slot: number | null;
-  // Outgoing (rob_ops successes)
-  goldOut: number;
-  foodOut: number;
-  runesOut: number;
-  troopsOut: number;
-  kidnappedOut: number;
-  riotsOut: number;
-  turncoatOut: number;
-  sabwizOut: number;
-  destabOut: number;
-  totalOpsOut: number;
-  successOpsOut: number;
-  // Incoming (province_news — successful ops by them against us)
-  goldIn: number;
-  foodIn: number;
-  runesIn: number;
-  troopsIn: number;
-  kidnappedIn: number;
-  riotsIn: number;
-  turncoatIn: number;
-  sabwizIn: number;
-  arsonIn: number;
-  detectedIn: number;  // thief detected or foiled (attempted but caught)
+  attempts: number;
+  successes: number;
+  amount: number;       // gold/food/runes/troops/acres/deserters/count
+  unitType: string | null; // propaganda: deserter unit type
 }
 
-export interface OurProvinceStat {
-  provinceName: string;
-  slot: number | null;
-  goldOut: number;
-  foodOut: number;
-  runesOut: number;
-  troopsOut: number;
-  kidnappedOut: number;
-  riotsOut: number;
-  turncoatOut: number;
-  sabwizOut: number;
-  destabOut: number;
-  totalOpsOut: number;
-  successOpsOut: number;
+export interface OpTypeBreakdown {
+  op: string;
+  outgoing: OpProvEntry[];  // our provinces → sorted by amount desc
+  incoming: OpProvEntry[];  // their provinces → sorted by amount desc
 }
 
 export interface KingdomOpsStats {
-  byProvince: OpsProvinceStat[];      // rows = enemy provinces
-  byOurProvince: OurProvinceStat[];   // rows = our provinces that hit this kingdom
+  breakdowns: OpTypeBreakdown[];
   effectiveFrom: string | null;
 }
 

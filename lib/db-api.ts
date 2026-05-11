@@ -31,8 +31,8 @@ import type {
   KingdomNewsSummary,
   ProvinceHistoryPoint,
   ProvinceNewsRow,
-  OpsProvinceStat,
-  OurProvinceStat,
+  OpProvEntry,
+  OpTypeBreakdown,
   KingdomOpsStats,
 } from "./db";
 import type {
@@ -108,8 +108,8 @@ export type {
   KingdomNewsSummary,
   ProvinceHistoryPoint,
   ProvinceNewsRow,
-  OpsProvinceStat,
-  OurProvinceStat,
+  OpProvEntry,
+  OpTypeBreakdown,
   KingdomOpsStats,
 };
 
@@ -178,7 +178,7 @@ function createSqliteDbApi(): AsyncDbApi {
       getKingdomNewsSummary:     (kd, kh, f, t) => r(sync.getKingdomNewsSummary(kd, kh, f, t)),
       getProvinceHistory:        (nm, kd, kh)   => r(sync.getProvinceHistory(nm, kd, kh)),
       getProvinceNews:           ()             => Promise.resolve({ events: [], effectiveFrom: null }),
-      getKingdomOpsStats:        ()             => Promise.resolve({ byProvince: [], byOurProvince: [], effectiveFrom: null }),
+      getKingdomOpsStats:        ()             => Promise.resolve({ breakdowns: [], effectiveFrom: null }),
       cleanupExpired:            ()             => w(() => sync.cleanupExpired()),
       storeSoT:        (d, sb, kh, self, ra)  => w(() => sqliteStoreSoT(d, sb, kh, self, ra)),
       storeSoD:        (d, sb, kh, ra)        => w(() => sqliteStoreSoD(d, sb, kh, ra)),
