@@ -2677,6 +2677,7 @@ export interface IncomingDamageEvent {
   resourceType: string | null; // for resource_stolen (gold/food/runes) and propaganda (unit type)
   count: number;
   totalAmount: number; // uses acres field for arson; 0 for effect-only events
+  totalAlt: number;   // secondary amount (troops for spell_meteor, where amount = peasants)
 }
 
 export interface IncomingDamageProvinceStat {

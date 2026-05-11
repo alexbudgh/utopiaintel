@@ -42,7 +42,6 @@ export type ProvinceNewsEventType =
   | "spell_pitfalls"
   | "spell_chastity"
   | "spell_nightmares"
-  | "spell_animate_dead"
   | "spell_vermin"
   | "spell_storms"
   | "spell_expose_thieves"
@@ -192,8 +191,9 @@ const FIREBALL_RE = new RegExp(`^A massive fireball crashed into our lands and k
 const LIGHTNING_RE = new RegExp(`^A sudden lightning storm struck our towers and destroyed (${INT}) runes`);
 // Meteor Showers arrival: "Meteors rain across our lands, and are not expected to stop for N days."
 const METEOR_START_RE = new RegExp(`^Meteors rain across our lands, and are not expected to stop for (${INT}) days`);
-// Meteor Showers tick: "Meteors rain across the lands and kill N peasants/soldiers..."
-const METEOR_STRIKE_RE = new RegExp(`^Meteors rain across the lands and kill (${INT})`);
+// Meteor Showers tick: "Meteors rain across the lands and kill N peasants and N troops!"
+// amount = peasants, acres = troops
+const METEOR_STRIKE_RE = new RegExp(`^Meteors rain across the lands and kill (${INT}) peasants(?: and (${INT}))?`);
 // Blizzard: "Blizzards are besetting our works, and our building efficiency will be crippled by 10% for for N days!"
 const BLIZZARD_RE = new RegExp(`^Blizzards are besetting our works.*for for (${INT}) days`);
 // Gluttony: "A fit of gluttony has descended upon our people, and they will not be sated for N days."
@@ -219,8 +219,6 @@ const CHASTITY_RE = new RegExp(`^The womenfolk.s vow of chastity is reducing our
 const CHASTITY2_RE = new RegExp(`^Your peasants become unmotivated and less willing to join the army for (${INT}) days`);
 // Nightmares: "This morning, N of our men from our armies and thieves' guild turned up unfit."
 const NIGHTMARES_RE = new RegExp(`^This morning, (${INT}) of our men from our armies`);
-// Animate Dead / Soul Blight / similar "dark magic converts peasants to undead" spells
-const ANIMATE_DEAD_RE = new RegExp(`^(?:Dark magic consumed|The curse of Soul Blight claimed|The land was cursed,) (${INT}) peasants`);
 // "Our Wizards' ability to regain their mana has been disrupted! Our mana recovery will be affected for N days!" (Sabotage Wizards thievery)
 const SABOTAGE_WIZARDS_RE = new RegExp(`^Our Wizards. ability to regain their mana has been disrupted.*for (${INT}) days`);
 // Vermin: "Vermin have been discovered eating away our food supplies and could not be exterminated before they devoured N bushels!"
@@ -375,7 +373,7 @@ function classifyEvent(text: string): Omit<ProvinceNewsEvent, "gameDate" | "rawT
   if (m) return { ...nil, eventType: "spell_meteor_start", amount: parseNum(m[1]) };
 
   m = METEOR_STRIKE_RE.exec(text);
-  if (m) return { ...nil, eventType: "spell_meteor", amount: parseNum(m[1]) };
+  if (m) return { ...nil, eventType: "spell_meteor", amount: parseNum(m[1]), acres: m[2] ? parseNum(m[2]) : null };
 
   m = BLIZZARD_RE.exec(text);
   if (m) return { ...nil, eventType: "spell_blizzard", amount: parseNum(m[1]) };
@@ -414,8 +412,6 @@ function classifyEvent(text: string): Omit<ProvinceNewsEvent, "gameDate" | "rawT
   m = NIGHTMARES_RE.exec(text);
   if (m) return { ...nil, eventType: "spell_nightmares", amount: parseNum(m[1]) };
 
-  m = ANIMATE_DEAD_RE.exec(text);
-  if (m) return { ...nil, eventType: "spell_animate_dead", amount: parseNum(m[1]) };
 
   m = SABOTAGE_WIZARDS_RE.exec(text);
   if (m) return { ...nil, eventType: "thief_sabotage_wizards", amount: parseNum(m[1]) };

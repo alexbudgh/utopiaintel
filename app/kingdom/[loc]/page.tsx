@@ -12,7 +12,7 @@ import { GainsTable } from "./gains/GainsTable";
 import { ThieveryTable } from "./thievery/ThieveryTable";
 import { KingdomNewsTable } from "./KingdomNewsTable";
 import { KingdomOpsTable } from "./KingdomOpsTable";
-import { KingdomDamageTable } from "./KingdomDamageTable";
+import { ProvinceEventsTable } from "./ProvinceEventsTable";
 import { getGainsPageData } from "@/lib/gains-page";
 import type { ReactNode } from "react";
 
@@ -70,7 +70,7 @@ export default async function KingdomPage({
     );
   } else if (view === "events") {
     tabContent = (
-      <KingdomDamageTable stats={damageStats!} kingdom={kingdom} boundKingdom={boundKingdom} from={from} />
+      <ProvinceEventsTable stats={damageStats!} kingdom={kingdom} boundKingdom={boundKingdom} from={from} />
     );
   } else if (view === "news") {
     tabContent = (

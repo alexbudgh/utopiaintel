@@ -66,7 +66,6 @@ const LABELS: Record<string, string> = {
   spell_pitfalls:           "Pitfalls",
   spell_chastity:           "Chastity",
   spell_nightmares:         "Nightmares",
-  spell_animate_dead:       "Animate Dead",
   spell_vermin:             "Vermin",
   spell_storms:             "Storms",
   // Spells — positive
@@ -74,7 +73,7 @@ const LABELS: Record<string, string> = {
   // Attacks
   attack_trad_march:        "Attack (Traditional March)",
   attack_conquest:          "Attack (Conquest)",
-  attack_loot:              "Attack (Loot)",
+  attack_loot:              "Attack (Learn)",
   attack_plunder:           "Attack (Plunder)",
   attack_razed:             "Attack (Raze)",
   attack_ambush:            "Ambush",
@@ -125,20 +124,19 @@ function getSummaryStr(e: IncomingDamageEvent): string | null {
     case "peasants_kidnapped": return `${n} peasants kidnapped`;
     case "arson":              return `${n} acres burned`;
     case "thief_propaganda":   return `${n} deserters`;
-    case "spell_greed":        return `${n} gold stolen`;
     case "spell_fools_gold":   return `${n} gold destroyed`;
     case "spell_lightning":    return `${n} runes stolen`;
-    case "spell_gluttony":     return `${n} food consumed`;
-    case "spell_drought":
     case "spell_vermin":       return `${n} food destroyed`;
-    case "spell_fireball":
-    case "spell_meteor_start":
-    case "spell_meteor":
-    case "spell_blizzard":
-    case "spell_pitfalls":
-    case "spell_animate_dead": return `${n} troops`;
+    case "spell_fireball":     return `${n} peasants`;
+    case "spell_meteor": {
+      const parts = [`${n} peasants`];
+      if (e.totalAlt > 0) parts.push(`${e.totalAlt.toLocaleString()} troops`);
+      return parts.join(", ");
+    }
+    case "spell_nightmares":   return `${n} troops disrupted`;
     case "spell_tornado":
     case "spell_land_lust":    return `${n} acres`;
+    // Duration-based spells store days, not resource amounts — fall through to getAmountStr → "N days"
     default:                   return getAmountStr(e);
   }
 }
@@ -153,19 +151,18 @@ const AMOUNT_UNITS: Partial<Record<string, string>> = {
   thief_propaganda:       " deserters",
   spell_fireball:         " peasants",
   spell_lightning:        " runes",
-  spell_meteor_start:     " peasants",
-  spell_meteor:           " peasants",
-  spell_blizzard:         " peasants",
-  spell_gluttony:         " food",
-  spell_greed:            " gold",
-  spell_explosions:       " buildings",
+  spell_meteor_start:     " days",     // duration of shower, not troops
+  spell_meteor:           " peasants", // troops are in totalAlt
+  spell_blizzard:         " days",     // duration, not troops
+  spell_gluttony:         " days",     // duration of food drain, not food amount
+  spell_greed:            " days",     // duration of upkeep surcharge, not gold
+  spell_explosions:       " days",     // duration, not buildings
   spell_tornado:          " acres",    // uses acres field
   spell_land_lust:        " acres",    // uses acres field
-  spell_drought:          " food",
-  spell_pitfalls:         " troops",
-  spell_chastity:         " off specs",
-  spell_nightmares:       " peasants",
-  spell_animate_dead:     " troops",
+  spell_drought:          " days",     // duration of harvest penalty, not food
+  spell_pitfalls:         " days",     // duration, not troops
+  spell_chastity:         " days",     // duration, not pop
+  spell_nightmares:       " troops disrupted",
   spell_vermin:           " food",
   spell_fools_gold:       " gold",
   dragon_damage:          " troops",
@@ -173,6 +170,12 @@ const AMOUNT_UNITS: Partial<Record<string, string>> = {
 };
 
 function getAmountStr(e: IncomingDamageEvent): string | null {
+  if (e.totalAmount === 0 && e.totalAlt === 0) return null;
+  if (e.eventType === "spell_meteor") {
+    const parts = e.totalAmount > 0 ? [`${e.totalAmount.toLocaleString()} peasants`] : [];
+    if (e.totalAlt > 0) parts.push(`${e.totalAlt.toLocaleString()} troops`);
+    return parts.length > 0 ? parts.join(", ") : null;
+  }
   if (e.totalAmount === 0) return null;
   if (!(e.eventType in AMOUNT_UNITS)) return null;
   const unit = e.eventType === "resource_stolen"
@@ -245,7 +248,7 @@ function ProvinceSection({ stat }: { stat: IncomingDamageProvinceStat }) {
   );
 }
 
-export function KingdomDamageTable({
+export function ProvinceEventsTable({
   stats,
   kingdom,
   boundKingdom,

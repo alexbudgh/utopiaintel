@@ -2862,14 +2862,15 @@ export async function getIncomingDamageStats(
     const resourceType = r.resource_type as string | null;
     const count        = Number(r.cnt);
     const totalAmount  = eventType === "arson" ? Number(r.total_acres) : Number(r.total_amount);
+    const totalAlt     = eventType === "spell_meteor" ? Number(r.total_acres) : 0;
     const isNonDamage  = NON_DAMAGE_EVENT_TYPES.has(eventType);
 
     if (!byProvince.has(provinceName)) {
       byProvince.set(provinceName, { provinceName, totalImpact: 0, events: [] });
     }
     const stat = byProvince.get(provinceName)!;
-    stat.events.push({ eventType, resourceType, count, totalAmount });
-    if (!isNonDamage) stat.totalImpact += totalAmount || count;
+    stat.events.push({ eventType, resourceType, count, totalAmount, totalAlt });
+    if (!isNonDamage) stat.totalImpact += (totalAmount + totalAlt) || count;
   }
 
   // Within each province sort events: damage first by amount desc, then non-damage
