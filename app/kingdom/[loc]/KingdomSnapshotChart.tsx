@@ -1,6 +1,6 @@
 "use client";
 
-import { KingdomTabs } from "./KingdomTabs";
+import { KingdomViewShell } from "./KingdomTabs";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -284,9 +284,7 @@ export function KingdomHistoryView({
   }
 
   return (
-    <div>
-      <KingdomTabs kingdomHref={kingdomHref} active="history" />
-
+    <KingdomViewShell kingdom={primaryKingdom} active="history">
       <section className="mb-4 rounded-lg border border-gray-800 bg-gray-900/50 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -345,6 +343,6 @@ export function KingdomHistoryView({
           No accessible kingdom history is available for {primaryKingdom}.
         </div>
       )}
-    </div>
+    </KingdomViewShell>
   );
 }

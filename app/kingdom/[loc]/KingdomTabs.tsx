@@ -1,13 +1,14 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-export type KingdomView = "table" | "gains" | "thievery" | "news" | "history";
+export type KingdomView = "table" | "gains" | "thievery" | "news" | "history" | "ops";
 
 const TABS: { view: KingdomView; label: string; param?: string }[] = [
   { view: "table", label: "Province Table" },
   { view: "gains", label: "Gains", param: "gains" },
   { view: "thievery", label: "Thievery", param: "thievery" },
   { view: "news", label: "News", param: "news" },
+  { view: "ops", label: "Ops", param: "ops" },
   { view: "history", label: "History", param: "history" },
 ];
 
@@ -41,6 +42,28 @@ export function KingdomTabs({
       )}
       {children}
     </div>
+  );
+}
+
+// Wrapper used by every kingdom view. Renders the tab strip then the view's
+// content so that adding a new tab to TABS automatically appears everywhere.
+export function KingdomViewShell({
+  kingdom,
+  active,
+  tabExtras,
+  children,
+}: {
+  kingdom: string;
+  active: KingdomView;
+  tabExtras?: ReactNode;
+  children: ReactNode;
+}) {
+  const kingdomHref = `/kingdom/${encodeURIComponent(kingdom)}`;
+  return (
+    <>
+      <KingdomTabs kingdomHref={kingdomHref} active={active}>{tabExtras}</KingdomTabs>
+      {children}
+    </>
   );
 }
 

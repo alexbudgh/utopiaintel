@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { KingdomTabs, btnBase, btnActive, btnInactive } from "../KingdomTabs";
+import { KingdomViewShell, btnBase, btnActive, btnInactive } from "../KingdomTabs";
 import { Tooltip } from "@/app/components/Tooltip";
 import type { ProvinceRow } from "@/lib/db";
 import type { GainsPageData } from "@/lib/gains-page";
@@ -194,8 +194,6 @@ export function ThieveryTable({
     selfSnapshot?.warTarget === targetKingdom ||
     targetSnapshot?.warTarget === selfKingdom
   );
-  const kingdomHref = `/kingdom/${encodeURIComponent(targetKingdom)}`;
-
   const selfSorted = sortBySlot(selfProvinces);
   const targetSorted = sortBySlot(targetLatest);
 
@@ -204,8 +202,8 @@ export function ThieveryTable({
     .filter((v): v is number => v != null);
   const maxValue = allValues.length > 0 ? Math.max(...allValues) : 0;
 
-  const controls = (
-    <KingdomTabs kingdomHref={kingdomHref} active="thievery">
+  const tabExtras = (
+    <>
       <div className="w-px h-4 bg-gray-700 mx-1" />
       {(Object.keys(OPS) as Op[]).map((o) => (
         <button
@@ -237,15 +235,17 @@ export function ThieveryTable({
           ? <span className="text-amber-400">War rates active</span>
           : <span className="text-gray-500">Non-war rates</span>}
       </div>
-    </KingdomTabs>
+    </>
   );
 
-  const wrap = (content: React.ReactNode) =>
-    embedded ? (
-      <div>{controls}{content}</div>
-    ) : (
-      <main className="p-6">{controls}{content}</main>
+  const wrap = (content: React.ReactNode) => {
+    const shell = (
+      <KingdomViewShell kingdom={targetKingdom} active="thievery" tabExtras={tabExtras}>
+        {content}
+      </KingdomViewShell>
     );
+    return embedded ? shell : <main className="p-6">{shell}</main>;
+  };
 
   if (!selfKingdom) {
     return wrap(emptyState("No bound kingdom yet. Submit a self /throne page first so the site can identify your kingdom."));

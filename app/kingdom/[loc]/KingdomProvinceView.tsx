@@ -5,6 +5,7 @@ import type { KingdomDragon, KingdomRitual, KingdomSnapshot, ProvinceRow } from 
 import type { RelationContext } from "@/lib/relation-context";
 import { ProvinceTable } from "./ProvinceTable";
 import { KingdomShellWrapper, type KingdomPollPayload } from "./KingdomShellWrapper";
+import { KingdomViewShell } from "./KingdomTabs";
 
 export function KingdomProvinceView({
   kingdom,
@@ -45,7 +46,9 @@ export function KingdomProvinceView({
       initialProvinceCount={initialProvinces.length}
       onPollResult={onPollResult}
     >
-      <ProvinceTable kingdom={kingdom} provinces={provinces} />
+      <KingdomViewShell kingdom={kingdom} active="table">
+        <ProvinceTable kingdom={kingdom} provinces={provinces} />
+      </KingdomViewShell>
     </KingdomShellWrapper>
   );
 }

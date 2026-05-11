@@ -2647,6 +2647,56 @@ export interface ProvinceNewsRow {
   receivedAt: string;
 }
 
+export interface OpsProvinceStat {
+  provinceName: string;
+  slot: number | null;
+  // Outgoing (rob_ops successes)
+  goldOut: number;
+  foodOut: number;
+  runesOut: number;
+  troopsOut: number;
+  kidnappedOut: number;
+  riotsOut: number;
+  turncoatOut: number;
+  sabwizOut: number;
+  destabOut: number;
+  totalOpsOut: number;
+  successOpsOut: number;
+  // Incoming (province_news — successful ops by them against us)
+  goldIn: number;
+  foodIn: number;
+  runesIn: number;
+  troopsIn: number;
+  kidnappedIn: number;
+  riotsIn: number;
+  turncoatIn: number;
+  sabwizIn: number;
+  arsonIn: number;
+  detectedIn: number;  // thief detected or foiled (attempted but caught)
+}
+
+export interface OurProvinceStat {
+  provinceName: string;
+  slot: number | null;
+  goldOut: number;
+  foodOut: number;
+  runesOut: number;
+  troopsOut: number;
+  kidnappedOut: number;
+  riotsOut: number;
+  turncoatOut: number;
+  sabwizOut: number;
+  destabOut: number;
+  totalOpsOut: number;
+  successOpsOut: number;
+}
+
+export interface KingdomOpsStats {
+  byProvince: OpsProvinceStat[];      // rows = enemy provinces
+  byOurProvince: OurProvinceStat[];   // rows = our provinces that hit this kingdom
+  effectiveFrom: string | null;
+}
+
 export interface ProvinceHistoryPoint {
   receivedAt: string;
   networth: number | null;

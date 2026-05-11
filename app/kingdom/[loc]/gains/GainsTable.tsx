@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { KingdomTabs } from "../KingdomTabs";
+import { KingdomViewShell, btnBase, btnInactive } from "../KingdomTabs";
 import { Tooltip, type TooltipLine } from "@/app/components/Tooltip";
 import type { KingdomSnapshotProvince, ProvinceRow } from "@/lib/db";
 import { ATTACK_TIME_SCALING, estimateBreakability, estimateTraditionalMarchAcres } from "@/lib/gains";
@@ -808,13 +808,8 @@ export function GainsTable({
     : null;
   const enemyBattleGainsEffect = targetSnapshot?.warDoctrines.find((d) => d.effect === "Enemy Battle Gains")?.bonusPercent ?? null;
   const baseAttackTime = selfKingdom === targetKingdom ? 7 : 14;
-  const kingdomHref = `/kingdom/${encodeURIComponent(targetKingdom)}`;
-  const gainsHref = `${kingdomHref}?view=gains`;
-  const btnBase = "px-2.5 py-1 rounded text-xs border transition-colors";
-  const btnInactive = "border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300";
-
-  const controls = (
-    <KingdomTabs kingdomHref={kingdomHref} active="gains">
+  const tabExtras = (
+    <>
       <Tooltip
         content={[
           { text: "Traditional March land gains only.", tone: "strong" },
@@ -852,21 +847,17 @@ export function GainsTable({
         {" · "}
         Target snapshot: <span className="text-gray-300">{formatTimestamp(targetSnapshot?.receivedAt ?? null)}</span>
       </div>
-    </KingdomTabs>
+    </>
   );
 
-  const wrap = (content: React.ReactNode) =>
-    embedded ? (
-      <div>
-        {controls}
+  const wrap = (content: React.ReactNode) => {
+    const shell = (
+      <KingdomViewShell kingdom={targetKingdom} active="gains" tabExtras={tabExtras}>
         {content}
-      </div>
-    ) : (
-      <main className="p-6">
-        {controls}
-        {content}
-      </main>
+      </KingdomViewShell>
     );
+    return embedded ? shell : <main className="p-6">{shell}</main>;
+  };
 
   if (!selfKingdom) {
     return wrap(emptyState("No bound kingdom yet. Submit a self /throne page first so the site can identify your kingdom."));

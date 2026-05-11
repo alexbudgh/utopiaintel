@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { KingdomTabs, btnBase, btnActive, btnInactive } from "./KingdomTabs";
+import { KingdomViewShell, btnBase, btnActive, btnInactive } from "./KingdomTabs";
 import { useEffect, useState, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip as ChartTooltip, ReferenceLine, ResponsiveContainer, Legend } from "recharts";
 import { Tooltip as UiTooltip } from "@/app/components/Tooltip";
@@ -454,27 +454,23 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, effective
   const [showChart, setShowChart] = useState(false);
   const [provFilter, setProvFilter] = useState("");
   const [provSort, setProvSort] = useState<{ col: string; dir: 1 | -1 }>({ col: "net", dir: -1 });
-  const kingdomHref = `/kingdom/${encodeURIComponent(kingdom)}`;
-  const controls = (
-    <KingdomTabs kingdomHref={kingdomHref} active="news">
-      <button type="button" onClick={() => setShowChart((v) => !v)}
-        className={`${btnBase} ${showChart ? btnActive : btnInactive} ml-2`}>
-        Chart
-      </button>
-    </KingdomTabs>
+  const tabExtras = (
+    <button type="button" onClick={() => setShowChart((v) => !v)}
+      className={`${btnBase} ${showChart ? btnActive : btnInactive} ml-2`}>
+      Chart
+    </button>
   );
 
   if (events.length === 0) {
     return (
-      <>
-        {controls}
+      <KingdomViewShell kingdom={kingdom} active="news" tabExtras={tabExtras}>
         <NewsDateFilter kingdom={kingdom} from={from} to={to} effectiveFrom={effectiveFrom} latestWarDate={latestWarDate} />
         <div className="rounded-lg border border-gray-800 bg-gray-900/50 px-5 py-6 text-sm text-gray-400">
           {(from || to)
             ? "No events in the selected date range."
             : "No news events recorded yet. Browse the kingdom news page in Utopia to submit intel."}
         </div>
-      </>
+      </KingdomViewShell>
     );
   }
 
@@ -527,8 +523,7 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, effective
   }
 
   return (
-    <>
-      {controls}
+    <KingdomViewShell kingdom={kingdom} active="news" tabExtras={tabExtras}>
       <NewsDateFilter kingdom={kingdom} from={from} to={to} effectiveFrom={effectiveFrom} latestWarDate={latestWarDate} />
 
       {showChart && <NewsChart events={events} ourKingdom={summary.ourKingdom} />}
@@ -916,6 +911,6 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, effective
       })()}
         </>;
       })()}
-    </>
+    </KingdomViewShell>
   );
 }

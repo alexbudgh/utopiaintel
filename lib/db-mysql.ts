@@ -48,6 +48,9 @@ import type {
   ProvinceHistoryThieveryOp,
   ProvinceHistorySorceryOp,
   ProvinceNewsRow,
+  OpsProvinceStat,
+  OurProvinceStat,
+  KingdomOpsStats,
 } from "./db";
 
 // ── Named-param helper ───────────────────────────────────────────────────────
@@ -2595,4 +2598,174 @@ export async function getProvinceNews(
   }));
 
   return { events, effectiveFrom };
+}
+
+export async function getKingdomOpsStats(
+  kingdom: string,
+  keyHash: string,
+  from?: string,
+  to?: string,
+): Promise<KingdomOpsStats> {
+  await ensureReady();
+
+  interface MaxRow extends RowDataPacket { m: number | null }
+  let fromOrd: number;
+  let toOrd: number;
+  let effectiveFrom: string | null = from ?? null;
+
+  if (from || to) {
+    fromOrd = from ? parseUtopiaDate(from) : 0;
+    toOrd   = to   ? parseUtopiaDate(to)   : 999999;
+  } else {
+    // Anchor to the latest province_news we have (regardless of which kingdom's
+    // provinces are the actor — we want the most recent window overall).
+    const [[maxRow]] = await pool.execute<MaxRow[]>(
+      "SELECT MAX(game_date_ord) AS m FROM province_news WHERE key_hash = ?",
+      [keyHash],
+    );
+    const maxOrd = (maxRow as any)?.m ?? 0;
+    fromOrd = maxOrd - 3 * UTOPIA_DAYS_PER_MONTH + 1;
+    toOrd   = 999999;
+    effectiveFrom = fromOrd > 0 ? formatUtopiaDate(fromOrd) : null;
+  }
+
+  // received_at anchor for rob_ops (no game_date_ord column)
+  const [[refRow]] = await pool.execute<any[]>(
+    "SELECT MIN(received_at) AS ref_time FROM province_news WHERE key_hash = ? AND game_date_ord >= ?",
+    [keyHash, fromOrd],
+  );
+  const fromTime: string | null = (refRow as any)?.ref_time ?? null;
+
+  // What kingdom did to us: province_news rows where actor_kingdom = kingdom
+  const [newsRows] = await pool.execute<any[]>(
+    `SELECT pn.actor_name AS province_name,
+       SUM(IF(pn.event_type='resource_stolen' AND pn.resource_type='gold',  COALESCE(pn.amount,0), 0)) AS gold_in,
+       SUM(IF(pn.event_type='resource_stolen' AND pn.resource_type='food',  COALESCE(pn.amount,0), 0)) AS food_in,
+       SUM(IF(pn.event_type='resource_stolen' AND pn.resource_type='runes', COALESCE(pn.amount,0), 0)) AS runes_in,
+       SUM(IF(pn.event_type='troops_killed',      COALESCE(pn.amount,0), 0)) AS troops_in,
+       SUM(IF(pn.event_type='peasants_kidnapped', COALESCE(pn.amount,0), 0)) AS kidnapped_in,
+       SUM(IF(pn.event_type='rioting',            1, 0))                      AS riots_in,
+       SUM(IF(pn.event_type='turncoat_general',   1, 0))                      AS turncoat_in,
+       SUM(IF(pn.event_type='thief_sabotage_wizards', 1, 0))                  AS sabwiz_in,
+       SUM(IF(pn.event_type='arson',              COALESCE(pn.acres,0), 0))   AS arson_in,
+       SUM(IF(pn.event_type IN ('thief_detected','thief_detected_unknown','thief_foiled_shadowlight'), 1, 0)) AS detected_in
+     FROM province_news pn
+     WHERE pn.key_hash = ? AND pn.actor_kingdom = ?
+       AND pn.game_date_ord >= ? AND pn.game_date_ord <= ?
+     GROUP BY pn.actor_name`,
+    [keyHash, kingdom, fromOrd, toOrd],
+  );
+
+  // What we did to kingdom: rob_ops rows where target_kingdom = kingdom, grouped by target province
+  const opsParams: (string | number)[] = [keyHash, kingdom];
+  if (fromTime) opsParams.push(fromTime);
+  const [opsRows] = await pool.execute<any[]>(
+    `SELECT r.target_name AS province_name,
+       SUM(IF(r.op='vaults'             AND r.outcome='success', COALESCE(r.amount_stolen,0),       0)) AS gold_out,
+       SUM(IF(r.op='granaries'          AND r.outcome='success', COALESCE(r.amount_stolen,0),       0)) AS food_out,
+       SUM(IF(r.op='towers'             AND r.outcome='success', COALESCE(r.amount_stolen,0),       0)) AS runes_out,
+       SUM(IF(r.op='night_strike'       AND r.outcome='success', COALESCE(r.troops_assassinated,0), 0)) AS troops_out,
+       SUM(IF(r.op='kidnap'             AND r.outcome='success', COALESCE(r.kidnapped,0),           0)) AS kidnapped_out,
+       SUM(IF(r.op='incite_riots'       AND r.outcome='success', 1, 0))                                AS riots_out,
+       SUM(IF(r.op='bribe_generals'     AND r.outcome='success', 1, 0))                                AS turncoat_out,
+       SUM(IF(r.op='sabotage_wizards'   AND r.outcome='success', 1, 0))                                AS sabwiz_out,
+       SUM(IF(r.op='destabilize_guilds' AND r.outcome='success', 1, 0))                                AS destab_out,
+       COUNT(*) AS total_out,
+       SUM(IF(r.outcome='success', 1, 0)) AS success_out
+     FROM rob_ops r
+     WHERE r.key_hash = ? AND r.target_kingdom = ?
+       ${fromTime ? "AND r.received_at >= ?" : ""}
+     GROUP BY r.target_name`,
+    opsParams,
+  );
+
+  // Our provinces' activity against kingdom, grouped by our province
+  const ourParams: (string | number)[] = [keyHash, kingdom];
+  if (fromTime) ourParams.push(fromTime);
+  const [ourRows] = await pool.execute<any[]>(
+    `SELECT p.name AS province_name,
+       SUM(IF(r.op='vaults'             AND r.outcome='success', COALESCE(r.amount_stolen,0),       0)) AS gold_out,
+       SUM(IF(r.op='granaries'          AND r.outcome='success', COALESCE(r.amount_stolen,0),       0)) AS food_out,
+       SUM(IF(r.op='towers'             AND r.outcome='success', COALESCE(r.amount_stolen,0),       0)) AS runes_out,
+       SUM(IF(r.op='night_strike'       AND r.outcome='success', COALESCE(r.troops_assassinated,0), 0)) AS troops_out,
+       SUM(IF(r.op='kidnap'             AND r.outcome='success', COALESCE(r.kidnapped,0),           0)) AS kidnapped_out,
+       SUM(IF(r.op='incite_riots'       AND r.outcome='success', 1, 0))                                AS riots_out,
+       SUM(IF(r.op='bribe_generals'     AND r.outcome='success', 1, 0))                                AS turncoat_out,
+       SUM(IF(r.op='sabotage_wizards'   AND r.outcome='success', 1, 0))                                AS sabwiz_out,
+       SUM(IF(r.op='destabilize_guilds' AND r.outcome='success', 1, 0))                                AS destab_out,
+       COUNT(*) AS total_out,
+       SUM(IF(r.outcome='success', 1, 0)) AS success_out
+     FROM rob_ops r
+     JOIN provinces p ON p.id = r.province_id
+     WHERE r.key_hash = ? AND r.target_kingdom = ?
+       ${fromTime ? "AND r.received_at >= ?" : ""}
+     GROUP BY p.id, p.name`,
+    ourParams,
+  );
+
+  // Slot lookup via latest kingdom_provinces snapshot
+  const [slotSql, slotVals] = n(
+    `WITH ${latestSlotCte("AND ki.location = :kingdom")}
+     SELECT name, slot FROM latest_slot WHERE kingdom = :kingdom`,
+    { keyHash, kingdom },
+  );
+  const [slotRows] = await pool.execute<any[]>(slotSql, slotVals as import("mysql2").ExecuteValues);
+  const slotMap = new Map<string, number | null>();
+  for (const r of slotRows as any[]) slotMap.set(r.name, r.slot ?? null);
+
+  // Merge by province name
+  const byName = new Map<string, OpsProvinceStat>();
+  const zeroIn = { goldIn: 0, foodIn: 0, runesIn: 0, troopsIn: 0, kidnappedIn: 0, riotsIn: 0, turncoatIn: 0, sabwizIn: 0, arsonIn: 0, detectedIn: 0 };
+  const zeroOut = { goldOut: 0, foodOut: 0, runesOut: 0, troopsOut: 0, kidnappedOut: 0, riotsOut: 0, turncoatOut: 0, sabwizOut: 0, destabOut: 0, totalOpsOut: 0, successOpsOut: 0 };
+
+  for (const r of newsRows as any[]) {
+    if (!r.province_name) continue;
+    byName.set(r.province_name, {
+      provinceName: r.province_name, slot: slotMap.get(r.province_name) ?? null,
+      ...zeroOut,
+      goldIn: Number(r.gold_in), foodIn: Number(r.food_in), runesIn: Number(r.runes_in),
+      troopsIn: Number(r.troops_in), kidnappedIn: Number(r.kidnapped_in),
+      riotsIn: Number(r.riots_in), turncoatIn: Number(r.turncoat_in),
+      sabwizIn: Number(r.sabwiz_in), arsonIn: Number(r.arson_in),
+      detectedIn: Number(r.detected_in),
+    });
+  }
+  for (const r of opsRows as any[]) {
+    if (!r.province_name) continue;
+    const existing = byName.get(r.province_name);
+    const inPart = existing
+      ? { goldIn: existing.goldIn, foodIn: existing.foodIn, runesIn: existing.runesIn, troopsIn: existing.troopsIn, kidnappedIn: existing.kidnappedIn, riotsIn: existing.riotsIn, turncoatIn: existing.turncoatIn, sabwizIn: existing.sabwizIn, arsonIn: existing.arsonIn, detectedIn: existing.detectedIn }
+      : zeroIn;
+    byName.set(r.province_name, {
+      provinceName: r.province_name, slot: slotMap.get(r.province_name) ?? null,
+      goldOut: Number(r.gold_out), foodOut: Number(r.food_out), runesOut: Number(r.runes_out),
+      troopsOut: Number(r.troops_out), kidnappedOut: Number(r.kidnapped_out),
+      riotsOut: Number(r.riots_out), turncoatOut: Number(r.turncoat_out),
+      sabwizOut: Number(r.sabwiz_out), destabOut: Number(r.destab_out),
+      totalOpsOut: Number(r.total_out), successOpsOut: Number(r.success_out),
+      ...inPart,
+    });
+  }
+
+  const byProvince = [...byName.values()].sort((a, b) => {
+    if (a.slot != null && b.slot != null) return a.slot - b.slot;
+    if (a.slot != null) return -1;
+    if (b.slot != null) return 1;
+    return a.provinceName.localeCompare(b.provinceName);
+  });
+
+  const byOurProvince: OurProvinceStat[] = (ourRows as any[])
+    .filter(r => r.province_name)
+    .map(r => ({
+      provinceName: r.province_name as string,
+      slot: null,
+      goldOut: Number(r.gold_out), foodOut: Number(r.food_out), runesOut: Number(r.runes_out),
+      troopsOut: Number(r.troops_out), kidnappedOut: Number(r.kidnapped_out),
+      riotsOut: Number(r.riots_out), turncoatOut: Number(r.turncoat_out),
+      sabwizOut: Number(r.sabwiz_out), destabOut: Number(r.destab_out),
+      totalOpsOut: Number(r.total_out), successOpsOut: Number(r.success_out),
+    }))
+    .sort((a, b) => b.goldOut - a.goldOut);
+
+  return { byProvince, byOurProvince, effectiveFrom };
 }
