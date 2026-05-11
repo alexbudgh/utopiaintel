@@ -135,7 +135,7 @@ function OpSection({ bd, kingdom }: { bd: OpTypeBreakdown; kingdom: string }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-900/50 hover:bg-gray-800/50 transition-colors text-left"
+        className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-900/50 hover:bg-gray-800/50 transition-colors text-left cursor-pointer"
       >
         <span className="text-sm text-gray-300">{label}</span>
         <span className="flex items-center gap-3 text-xs">
