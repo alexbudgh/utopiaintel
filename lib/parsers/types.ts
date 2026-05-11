@@ -190,7 +190,7 @@ export type RobOp =
   | "towers" | "vaults" | "granaries"
   | "night_strike" | "kidnap" | "bribe_generals" | "incite_riots"
   | "sabotage_wizards" | "arson" | "greater_arson" | "destabilize_guilds"
-  | "bribe_thieves";
+  | "bribe_thieves" | "propaganda";
 
 export interface RobData extends ProvinceId {
   op: RobOp;
@@ -206,6 +206,8 @@ export interface RobData extends ProvinceId {
   kidnapped: number | null;           // kidnap
   acresBurned: number | null;         // arson, greater_arson
   effectDuration: number | null;      // incite_riots, sabotage_wizards, destabilize_guilds
+  deserters: number | null;           // propaganda
+  deserterType: string | null;        // propaganda — unit type (wizards, soldiers, etc.)
 }
 
 export type AttackType =

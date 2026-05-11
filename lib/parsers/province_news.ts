@@ -171,7 +171,7 @@ const TURNCOAT_THIEVES_RE = /^We have discovered turncoats amongst our thieves/;
 // "Many of our thieves have been exposed by magic! This will result in slower recovery for N days." (Expose Thieves spell)
 const THIEVES_EXPOSED_RE = /^Many of our thieves have been exposed by magic/;
 // "N wizards of our wizards abandoned us hoping for a better life!" (Propaganda thievery — may also affect other unit types)
-const PROPAGANDA_RE = new RegExp(`^(${INT}) \\w+ of our \\w+ abandoned us hoping for a better life`);
+const PROPAGANDA_RE = new RegExp(`^(${INT}) (\\w+) of our \\w+ abandoned us hoping for a better life`);
 
 // ── Sorcery ───────────────────────────────────────────────────────────────────
 
@@ -352,7 +352,7 @@ function classifyEvent(text: string): Omit<ProvinceNewsEvent, "gameDate" | "rawT
   if (THIEVES_EXPOSED_RE.test(text)) return { ...nil, eventType: "spell_expose_thieves" };
 
   m = PROPAGANDA_RE.exec(text);
-  if (m) return { ...nil, eventType: "thief_propaganda", amount: parseNum(m[1]) };
+  if (m) return { ...nil, eventType: "thief_propaganda", amount: parseNum(m[1]), resourceType: m[2] };
 
   // ── Sorcery ──
   m = SPELL_DETECTED_RE.exec(text);

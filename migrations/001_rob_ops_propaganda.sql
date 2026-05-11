@@ -1,0 +1,2 @@
+ALTER TABLE rob_ops ADD COLUMN deserters INT NULL;
+ALTER TABLE rob_ops ADD COLUMN deserter_type VARCHAR(50) NULL;

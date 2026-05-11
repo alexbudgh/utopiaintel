@@ -509,14 +509,16 @@ export async function storeRob(data: RobData, savedBy: string, keyHash: string, 
          (province_id, key_hash, op, target_name, target_slot, target_kingdom,
           outcome, amount_stolen, thieves_lost, thieves, stealth,
           troops_assassinated, kidnapped, acres_burned, effect_duration,
+          deserters, deserter_type,
           saved_by, received_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
       [
         provId, keyHash, data.op,
         data.targetName, data.targetSlot, data.targetKingdom,
         data.outcome, data.amountStolen, data.thievesLost,
         data.thieves, data.stealth,
         data.troopsAssassinated, data.kidnapped, data.acresBurned, data.effectDuration,
+        data.deserters, data.deserterType,
         savedBy, receivedAt ?? null,
       ],
     ) as [ResultSetHeader, unknown];

@@ -1,4 +1,5 @@
 import { getReplayTypes, hashReplayKey, replayDebugLogs } from "../lib/replay-debug-log";
+import { pool } from "../lib/db-mysql-pool";
 
 function usage() {
   throw new Error(
@@ -48,6 +49,7 @@ async function main() {
     .join(" ");
 
   console.log(`lines=${summary.linesSeen} replayed=${summary.replayed} ${byType}`.trim());
+  await pool.end();
 }
 
 void main();

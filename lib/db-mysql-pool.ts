@@ -1,4 +1,6 @@
 import mysql from "mysql2/promise";
+import fs from "fs";
+import path from "path";
 
 export const pool = mysql.createPool({
   host:     process.env.DB_HOST     ?? "localhost",
@@ -377,6 +379,8 @@ export async function initDb(): Promise<void> {
       kidnapped INT,
       acres_burned INT,
       effect_duration INT,
+      deserters INT,
+      deserter_type VARCHAR(50),
       saved_by VARCHAR(255),
       received_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT fk_rob_prov FOREIGN KEY (province_id) REFERENCES provinces(id)
@@ -495,5 +499,35 @@ export async function initDb(): Promise<void> {
     await pool.query("SET GLOBAL group_concat_max_len = 65536");
   } catch {
     // May not have SUPER privilege; ignore
+  }
+
+}
+
+export async function runMigrations(): Promise<void> {
+  await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (
+    id VARCHAR(128) NOT NULL PRIMARY KEY,
+    applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+
+  const [rows] = await pool.query<any[]>("SELECT id FROM schema_migrations");
+  const applied = new Set((rows as any[]).map((r) => r.id as string));
+
+  const migrationsDir = path.join(process.cwd(), "migrations");
+  let files: string[];
+  try {
+    files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).sort();
+  } catch {
+    return;
+  }
+
+  for (const file of files) {
+    if (applied.has(file)) continue;
+    const sql = fs.readFileSync(path.join(migrationsDir, file), "utf8");
+    const stmts = sql.split(";").map((s) => s.trim()).filter(Boolean);
+    for (const stmt of stmts) {
+      await pool.query(stmt);
+    }
+    await pool.query("INSERT INTO schema_migrations (id) VALUES (?)", [file]);
+    console.log(`[migrations] Applied ${file}`);
   }
 }

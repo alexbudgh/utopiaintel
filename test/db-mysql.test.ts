@@ -339,6 +339,7 @@ const baseRob = {
   amountStolen: 5000, thievesLost: 2,
   thieves: null, stealth: null,
   troopsAssassinated: null, kidnapped: null, acresBurned: null, effectDuration: null,
+  deserters: null, deserterType: null,
 };
 
 test("storeRob: inserts a rob_ops row with correct fields", async () => {
@@ -1296,6 +1297,8 @@ test("getRecentOps: thievery op appears with correct category", async () => {
       thievesLost: 0,
       thieves: null,
       stealth: null,
+      deserters: null,
+      deserterType: null,
     },
     "thief1", "keyhash1", "2025-06-01 12:00:00",
   );

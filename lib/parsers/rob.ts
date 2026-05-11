@@ -14,6 +14,8 @@ const ASSASSINATED_RE = new RegExp(`assassinated (${INT}) enemy troops`);
 const KIDNAPPED_RE    = new RegExp(`return with (${INT}) of them`);
 const EFFECT_DAYS_RE  = /expected to last (\d+) days?/;
 const ACRES_BURNED_RE = new RegExp(`burned down (${INT}) acres? of buildings`);
+const PROPAGANDA_RE      = new RegExp(`We have converted (${INT}) (?:of the enemy's )?(\\w+) (?:troops to our army|from the enemy)`);
+const PROPAGANDA_ZERO_RE = /but no enemy (\w+) were converted/;
 
 export function getRobOp(url: string): RobOp | null {
   try {
@@ -30,6 +32,7 @@ export function getRobOp(url: string): RobOp | null {
     if (o === "GREATER_ARSON") return "greater_arson";
     if (o === "DESTABILIZE_GUILDS") return "destabilize_guilds";
     if (o === "BRIBE_THIEVES") return "bribe_thieves";
+    if (o === "PROPAGANDA") return "propaganda";
     return null;
   } catch {
     return null;
@@ -56,6 +59,8 @@ export function parseRob(text: string, url: string, selfProv: string): RobData |
   let kidnapped: number | null = null;
   let acresBurned: number | null = null;
   let effectDuration: number | null = null;
+  let deserters: number | null = null;
+  let deserterType: string | null = null;
 
   if (isSuccess) {
     if (op === "towers" || op === "vaults" || op === "granaries") {
@@ -87,6 +92,13 @@ export function parseRob(text: string, url: string, selfProv: string): RobData |
         const m = EFFECT_DAYS_RE.exec(text);
         if (m) effectDuration = parseInt(m[1], 10);
       }
+    } else if (op === "propaganda") {
+      const m = PROPAGANDA_RE.exec(text);
+      if (m) { deserters = parseNum(m[1]); deserterType = m[2]; }
+      else {
+        const z = PROPAGANDA_ZERO_RE.exec(text);
+        if (z) { deserters = 0; deserterType = z[1]; }
+      }
     }
     const lostMatch = THIEVES_LOST_SUCCESS_RE.exec(text);
     if (lostMatch) thievesLost = parseNum(lostMatch[1]);
@@ -111,5 +123,7 @@ export function parseRob(text: string, url: string, selfProv: string): RobData |
     kidnapped,
     acresBurned,
     effectDuration,
+    deserters,
+    deserterType,
   };
 }
