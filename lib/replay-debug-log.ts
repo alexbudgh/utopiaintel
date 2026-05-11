@@ -7,7 +7,6 @@ import { parseIntel } from "./parsers";
 import { getIntelPathname, matchesGamePath, extractProvinceOperationsInfo } from "./parsers/detect";
 import { parseKingdomNews } from "./parsers/kingdom_news";
 import { parseSoT } from "./parsers/sot";
-import { getDb } from "./db";
 import { getDbApi, setMetricsCacheRefreshEnabled, flushMetricsCacheRefreshQueue } from "./db-api";
 
 export type ReplayType = "kingdom" | "survey" | "sot" | "kingdom_news" | "state" | "som" | "sos" | "sod" | "infiltrate" | "train_army" | "build" | "rob" | "sorcery" | "attack";
@@ -58,18 +57,6 @@ export function hashReplayKey(rawKey: string): string {
   return hashKey(rawKey);
 }
 
-export function getSingleKeyHash() {
-  const db = getDb();
-  const keys = db.prepare(
-    "SELECT DISTINCT key_hash FROM intel_partitions ORDER BY key_hash"
-  ).all() as { key_hash: string }[];
-
-  if (keys.length !== 1) {
-    throw new Error(`Replay is ambiguous: debug entries do not include key_hash and intel_partitions contains ${keys.length} keys. Pass --assume-key-hash=... or log key_hash in intel_debug.jsonl.`);
-  }
-  return keys[0].key_hash;
-}
-
 export function shouldReplayEntry(entry: DebugEntry, filterKeyHash?: string): boolean {
   if (!filterKeyHash) return true;
   return entry.key_hash === filterKeyHash;
@@ -78,7 +65,7 @@ export function shouldReplayEntry(entry: DebugEntry, filterKeyHash?: string): bo
 export function resolveReplayKeyHash(entry: DebugEntry, assumeKeyHash?: string): string {
   if (entry.key_hash) return entry.key_hash;
   if (assumeKeyHash) return assumeKeyHash;
-  return getSingleKeyHash();
+  throw new Error("Cannot resolve key_hash: entry has no key_hash and --assume-key-hash was not provided.");
 }
 
 export async function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options: { keyHash?: string; assumeKeyHash?: string; dryRun?: boolean } = {}): Promise<string | null> {
