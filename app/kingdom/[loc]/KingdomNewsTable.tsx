@@ -11,7 +11,7 @@ import { parseUtopiaDate } from "@/lib/ui";
 
 const TYPE_GROUPS: { label: string; types: string[] }[] = [
   { label: "Combat",    types: ["march", "ambush", "raze", "pillage", "loot", "failed_attack"] },
-  { label: "Relations", types: ["war_declared", "ceasefire_proposed", "ceasefire_accepted", "ceasefire_broken", "ceasefire_withdrawn"] },
+  { label: "Relations", types: ["war_declared", "war_declared_on_us", "ceasefire_proposed", "ceasefire_accepted", "ceasefire_broken", "ceasefire_withdrawn"] },
   { label: "Dragon",    types: ["dragon_by_us", "dragon_against_us", "dragon_slain"] },
   { label: "Ritual",    types: ["ritual_started"] },
   { label: "Aid",       types: ["aid"] },
@@ -142,6 +142,15 @@ function EventDescription({ event }: { event: KingdomNewsRow }) {
       <span>
         <span className="text-gray-500">We declared war on </span>
         <KdLink name={null} kingdom={relationKingdom} />
+      </span>
+    );
+  }
+
+  if (eventType === "war_declared_on_us") {
+    return (
+      <span>
+        <KdLink name={null} kingdom={relationKingdom} />
+        <span className="text-gray-500"> declared war on us</span>
       </span>
     );
   }
@@ -325,7 +334,7 @@ function eventDirection(event: KingdomNewsRow, kingdom: string): "out" | "in" | 
   // Relation/dragon events initiated by us
   if (["war_declared", "ceasefire_proposed", "ceasefire_withdrawn", "dragon_by_us", "ritual_started"].includes(eventType)) return "out";
   // Relation/dragon events initiated by them
-  if (["ceasefire_accepted", "ceasefire_broken", "dragon_against_us", "dragon_slain"].includes(eventType)) return "in";
+  if (["war_declared_on_us", "ceasefire_accepted", "ceasefire_broken", "dragon_against_us", "dragon_slain"].includes(eventType)) return "in";
   return null;
 }
 

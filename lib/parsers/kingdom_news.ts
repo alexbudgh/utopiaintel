@@ -287,7 +287,7 @@ function classifyEvent(text: string): Omit<KingdomNewsEvent, "gameDate" | "rawTe
 
   m = WAR_DECLARED_ON_US_RE.exec(text);
   if (m) return {
-    eventType: "war_declared",
+    eventType: "war_declared_on_us",
     attackerName: null, attackerKingdom: null,
     defenderName: null, defenderKingdom: null,
     acres: null, books: null,
