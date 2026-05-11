@@ -7,6 +7,7 @@ import path from "node:path";
 test("replayEntry inserts original received_at directly", async () => {
   const dir = await mkdtemp(path.join(tmpdir(), "utopiaintel-replay-timestamp-"));
   process.env.INTEL_DB_PATH = path.join(dir, "intel.db");
+  process.env.DB_DRIVER = "sqlite";
 
   try {
     const { replayEntry, normalizeReceivedAt } = await import("../lib/replay-debug-log");

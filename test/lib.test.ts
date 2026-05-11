@@ -354,8 +354,8 @@ test("normalizeReceivedAt normalizes ISO timestamps to sqlite UTC format", () =>
 });
 
 test("getReplayTypes falls back to all allowed types when input is empty or invalid", () => {
-  assert.equal(getReplayTypes(undefined).size, 14);
-  assert.equal(getReplayTypes("nope").size, 14);
+  assert.equal(getReplayTypes(undefined).size, 15);
+  assert.equal(getReplayTypes("nope").size, 15);
 });
 
 test("getReplayTypes filters to valid replay types", () => {

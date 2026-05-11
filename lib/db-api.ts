@@ -292,9 +292,10 @@ function createDualDbApi(): AsyncDbApi {
 // DB_DRIVER=mysql → MySQL only
 
 export function getDbApi(): AsyncDbApi {
-  if (process.env.DB_DRIVER === "dual") return createDualDbApi();
-  if (process.env.DB_DRIVER === "mysql") return createMysqlDbApi();
-  throw new Error("DB_DRIVER must be set to 'mysql' or 'dual'");
+  if (process.env.DB_DRIVER === "dual")   return createDualDbApi();
+  if (process.env.DB_DRIVER === "mysql")  return createMysqlDbApi();
+  if (process.env.DB_DRIVER === "sqlite") return createSqliteDbApi();
+  throw new Error("DB_DRIVER must be set to 'mysql', 'dual', or 'sqlite' (tests only)");
 }
 
 // ── Driver-aware metrics cache utilities ─────────────────────────────────────
