@@ -46,7 +46,7 @@ export function KingdomProvinceView({
       initialProvinceCount={initialProvinces.length}
       onPollResult={onPollResult}
     >
-      <KingdomViewShell kingdom={kingdom} active="table">
+      <KingdomViewShell kingdom={kingdom} boundKingdom={boundKingdom} active="table">
         <ProvinceTable kingdom={kingdom} provinces={provinces} />
       </KingdomViewShell>
     </KingdomShellWrapper>

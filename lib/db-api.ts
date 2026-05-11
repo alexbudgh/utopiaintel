@@ -34,6 +34,9 @@ import type {
   OpProvEntry,
   OpTypeBreakdown,
   KingdomOpsStats,
+  IncomingDamageEvent,
+  IncomingDamageProvinceStat,
+  IncomingDamageStats,
 } from "./db";
 import type {
   SoTData,
@@ -57,6 +60,7 @@ import {
   storeProvinceNews as mysqlStoreProvinceNews,
   getProvinceNews as mysqlGetProvinceNews,
   getKingdomOpsStats as mysqlGetKingdomOpsStats,
+  getIncomingDamageStats as mysqlGetIncomingDamageStats,
 } from "./db-mysql";
 import {
   getBoundKingdom as mysqlGetBoundKingdom,
@@ -111,6 +115,9 @@ export type {
   OpProvEntry,
   OpTypeBreakdown,
   KingdomOpsStats,
+  IncomingDamageEvent,
+  IncomingDamageProvinceStat,
+  IncomingDamageStats,
 };
 
 // ── Interface ────────────────────────────────────────────────────────────────
@@ -134,6 +141,7 @@ export interface AsyncDbApi {
   getProvinceHistory(name: string, kingdom: string, keyHash: string): Promise<ProvinceHistoryPoint[]>;
   getProvinceNews(name: string, kingdom: string, keyHash: string, from?: string, to?: string): Promise<{ events: ProvinceNewsRow[]; effectiveFrom: string | null }>;
   getKingdomOpsStats(kingdom: string, keyHash: string, from?: string, to?: string): Promise<KingdomOpsStats>;
+  getIncomingDamageStats(keyHash: string, from?: string, to?: string): Promise<IncomingDamageStats>;
   cleanupExpired(): Promise<void>;
   // Writes
   storeSoT(data: SoTData, savedBy: string, keyHash: string, isSelfThrone?: boolean, receivedAt?: string): Promise<void>;
@@ -179,6 +187,7 @@ function createSqliteDbApi(): AsyncDbApi {
       getProvinceHistory:        (nm, kd, kh)   => r(sync.getProvinceHistory(nm, kd, kh)),
       getProvinceNews:           ()             => Promise.resolve({ events: [], effectiveFrom: null }),
       getKingdomOpsStats:        ()             => Promise.resolve({ breakdowns: [], effectiveFrom: null }),
+      getIncomingDamageStats:    ()             => Promise.resolve({ provinces: [], effectiveFrom: null }),
       cleanupExpired:            ()             => w(() => sync.cleanupExpired()),
       storeSoT:        (d, sb, kh, self, ra)  => w(() => sqliteStoreSoT(d, sb, kh, self, ra)),
       storeSoD:        (d, sb, kh, ra)        => w(() => sqliteStoreSoD(d, sb, kh, ra)),
@@ -221,6 +230,7 @@ function createMysqlDbApi(): AsyncDbApi {
       getProvinceHistory:        (nm, kd, kh)        => mysqlGetProvinceHistory(nm, kd, kh),
       getProvinceNews:           (nm, kd, kh, f, t)   => mysqlGetProvinceNews(nm, kd, kh, f, t),
       getKingdomOpsStats:        (kd, kh, f, t)        => mysqlGetKingdomOpsStats(kd, kh, f, t),
+      getIncomingDamageStats:    (kh, f, t)            => mysqlGetIncomingDamageStats(kh, f, t),
       cleanupExpired:            ()                  => mysqlCleanupExpired(),
       getKingdomProvinces:       (kd, kh)       => mysqlGetKingdomProvinces(kd, kh),
       getProvinceDetail:         (nm, kd, kh)   => mysqlGetProvinceDetail(nm, kd, kh),
@@ -273,8 +283,9 @@ function createDualDbApi(): AsyncDbApi {
       getLatestWarDate:          (...a) => sqlite.getLatestWarDate(...a),
       getKingdomNewsSummary:     (...a) => sqlite.getKingdomNewsSummary(...a),
       getProvinceHistory:        (...a) => sqlite.getProvinceHistory(...a),
-      getProvinceNews:           (...a) => mysql.getProvinceNews(...a),  // MySQL only
-      getKingdomOpsStats:        (...a) => mysql.getKingdomOpsStats(...a), // MySQL only
+      getProvinceNews:           (...a) => mysql.getProvinceNews(...a),       // MySQL only
+      getKingdomOpsStats:        (...a) => mysql.getKingdomOpsStats(...a),   // MySQL only
+      getIncomingDamageStats:    (...a) => mysql.getIncomingDamageStats(...a), // MySQL only
       cleanupExpired:            ()     => { shadow("cleanupExpired", mysql.cleanupExpired()); return sqlite.cleanupExpired(); },
       // Writes — SQLite primary, MySQL shadow
       storeSoT:        (...a) => { shadow("storeSoT",        mysql.storeSoT(...a));        return sqlite.storeSoT(...a); },

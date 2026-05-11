@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-export type KingdomView = "table" | "gains" | "thievery" | "news" | "history" | "ops";
+export type KingdomView = "table" | "gains" | "thievery" | "news" | "history" | "ops" | "events";
 
 const TABS: { view: KingdomView; label: string; param?: string }[] = [
   { view: "table", label: "Province Table" },
@@ -9,6 +9,7 @@ const TABS: { view: KingdomView; label: string; param?: string }[] = [
   { view: "thievery", label: "Thievery", param: "thievery" },
   { view: "news", label: "News", param: "news" },
   { view: "ops", label: "Ops", param: "ops" },
+  { view: "events", label: "Province Events", param: "events" },
   { view: "history", label: "History", param: "history" },
 ];
 
@@ -19,15 +20,18 @@ const btnInactive = "border-gray-700 text-gray-500 hover:border-gray-500 hover:t
 export function KingdomTabs({
   kingdomHref,
   active,
+  showEventsTab,
   children,
 }: {
   kingdomHref: string;
   active: KingdomView;
+  showEventsTab?: boolean;
   children?: ReactNode;
 }) {
+  const visibleTabs = TABS.filter((t) => t.view !== "events" || showEventsTab);
   return (
     <div className="mb-4 flex items-center gap-1.5 flex-wrap">
-      {TABS.map(({ view, label, param }) =>
+      {visibleTabs.map(({ view, label, param }) =>
         view === active ? (
           <span key={view} className={`${btnBase} ${btnActive}`}>{label}</span>
         ) : (
@@ -49,19 +53,22 @@ export function KingdomTabs({
 // content so that adding a new tab to TABS automatically appears everywhere.
 export function KingdomViewShell({
   kingdom,
+  boundKingdom,
   active,
   tabExtras,
   children,
 }: {
   kingdom: string;
+  boundKingdom?: string | null;
   active: KingdomView;
   tabExtras?: ReactNode;
   children: ReactNode;
 }) {
   const kingdomHref = `/kingdom/${encodeURIComponent(kingdom)}`;
+  const showEventsTab = !!boundKingdom && kingdom === boundKingdom;
   return (
     <>
-      <KingdomTabs kingdomHref={kingdomHref} active={active}>{tabExtras}</KingdomTabs>
+      <KingdomTabs kingdomHref={kingdomHref} active={active} showEventsTab={showEventsTab}>{tabExtras}</KingdomTabs>
       {children}
     </>
   );

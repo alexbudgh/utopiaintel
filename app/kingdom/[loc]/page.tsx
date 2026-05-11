@@ -12,6 +12,7 @@ import { GainsTable } from "./gains/GainsTable";
 import { ThieveryTable } from "./thievery/ThieveryTable";
 import { KingdomNewsTable } from "./KingdomNewsTable";
 import { KingdomOpsTable } from "./KingdomOpsTable";
+import { KingdomDamageTable } from "./KingdomDamageTable";
 import { getGainsPageData } from "@/lib/gains-page";
 import type { ReactNode } from "react";
 
@@ -60,15 +61,20 @@ export default async function KingdomPage({
   const newsSummary = view === "news" ? await db.getKingdomNewsSummary(kingdom, keyHash, from, to) : null;
   const latestWarDate = view === "news" ? await db.getLatestWarDate(kingdom, keyHash) : null;
   const opsStats = view === "ops" ? await db.getKingdomOpsStats(kingdom, keyHash, from, to) : null;
+  const damageStats = view === "events" ? await db.getIncomingDamageStats(keyHash, from, to) : null;
   let tabContent: ReactNode | null = null;
 
   if (view === "ops") {
     tabContent = (
-      <KingdomOpsTable stats={opsStats!} kingdom={kingdom} from={from} to={to} />
+      <KingdomOpsTable stats={opsStats!} kingdom={kingdom} boundKingdom={boundKingdom} from={from} to={to} />
+    );
+  } else if (view === "events") {
+    tabContent = (
+      <KingdomDamageTable stats={damageStats!} kingdom={kingdom} boundKingdom={boundKingdom} from={from} />
     );
   } else if (view === "news") {
     tabContent = (
-      <KingdomNewsTable events={newsEvents!} summary={newsSummary!} kingdom={kingdom} from={from} to={to} effectiveFrom={newsEffectiveFrom ?? undefined} latestWarDate={latestWarDate ?? undefined} warTarget={snapshot?.warTarget ?? undefined} />
+      <KingdomNewsTable events={newsEvents!} summary={newsSummary!} kingdom={kingdom} boundKingdom={boundKingdom} from={from} to={to} effectiveFrom={newsEffectiveFrom ?? undefined} latestWarDate={latestWarDate ?? undefined} warTarget={snapshot?.warTarget ?? undefined} />
     );
   } else if (view === "gains") {
     tabContent = <GainsTable initial={gainsInitial!} embedded />;
@@ -81,6 +87,7 @@ export default async function KingdomPage({
         primaryHistory={snapshotHistory}
         compareKingdom={compareKingdom}
         compareHistory={compareHistory}
+        boundKingdom={boundKingdom}
       />
     );
   }

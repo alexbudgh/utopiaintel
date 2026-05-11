@@ -852,7 +852,7 @@ export function GainsTable({
 
   const wrap = (content: React.ReactNode) => {
     const shell = (
-      <KingdomViewShell kingdom={targetKingdom} active="gains" tabExtras={tabExtras}>
+      <KingdomViewShell kingdom={targetKingdom} boundKingdom={selfKingdom} active="gains" tabExtras={tabExtras}>
         {content}
       </KingdomViewShell>
     );

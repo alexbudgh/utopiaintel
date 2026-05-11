@@ -256,10 +256,12 @@ function OpSection({ bd, kingdom }: { bd: OpTypeBreakdown; kingdom: string }) {
 export function KingdomOpsTable({
   stats,
   kingdom,
+  boundKingdom,
   from,
 }: {
   stats: KingdomOpsStats;
   kingdom: string;
+  boundKingdom?: string | null;
   from?: string;
   to?: string;
 }) {
@@ -267,7 +269,7 @@ export function KingdomOpsTable({
   const kingdomHref = `/kingdom/${encodeURIComponent(kingdom)}`;
 
   return (
-    <KingdomViewShell kingdom={kingdom} active="ops">
+    <KingdomViewShell kingdom={kingdom} boundKingdom={boundKingdom} active="ops">
       {stats.effectiveFrom && (
         <p className="text-xs text-gray-500 mb-3">
           Showing from <span className="text-gray-400">{stats.effectiveFrom}</span>

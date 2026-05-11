@@ -448,7 +448,7 @@ function NewsDateFilter({ kingdom, from, to, effectiveFrom, latestWarDate }: { k
   );
 }
 
-export function KingdomNewsTable({ events, summary, kingdom, from, to, effectiveFrom, latestWarDate, warTarget }: { events: KingdomNewsRow[]; summary: KingdomNewsSummary; kingdom: string; from?: string; to?: string; effectiveFrom?: string; latestWarDate?: string; warTarget?: string }) {
+export function KingdomNewsTable({ events, summary, kingdom, boundKingdom, from, to, effectiveFrom, latestWarDate, warTarget }: { events: KingdomNewsRow[]; summary: KingdomNewsSummary; kingdom: string; boundKingdom?: string | null; from?: string; to?: string; effectiveFrom?: string; latestWarDate?: string; warTarget?: string }) {
   const [activeGroups, setActiveGroups] = useState<Set<string>>(DEFAULT_GROUPS);
   const [visibleCount, setVisibleCount] = useState(50);
   const [showChart, setShowChart] = useState(false);
@@ -463,7 +463,7 @@ export function KingdomNewsTable({ events, summary, kingdom, from, to, effective
 
   if (events.length === 0) {
     return (
-      <KingdomViewShell kingdom={kingdom} active="news" tabExtras={tabExtras}>
+      <KingdomViewShell kingdom={kingdom} boundKingdom={boundKingdom} active="news" tabExtras={tabExtras}>
         <NewsDateFilter kingdom={kingdom} from={from} to={to} effectiveFrom={effectiveFrom} latestWarDate={latestWarDate} />
         <div className="rounded-lg border border-gray-800 bg-gray-900/50 px-5 py-6 text-sm text-gray-400">
           {(from || to)

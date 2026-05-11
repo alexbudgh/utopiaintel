@@ -27,7 +27,9 @@ interface KingdomSnapshotChartProps extends SharedChartProps {
   initiallyOpen?: boolean;
 }
 
-interface KingdomHistoryViewProps extends SharedChartProps {}
+interface KingdomHistoryViewProps extends SharedChartProps {
+  boundKingdom?: string | null;
+}
 
 const METRICS: {
   key: MetricKey;
@@ -268,6 +270,7 @@ export function KingdomHistoryView({
   primaryHistory,
   compareKingdom,
   compareHistory = [],
+  boundKingdom,
 }: KingdomHistoryViewProps) {
   const router = useRouter();
   const [compareInput, setCompareInput] = useState(compareKingdom ?? "");
@@ -284,7 +287,7 @@ export function KingdomHistoryView({
   }
 
   return (
-    <KingdomViewShell kingdom={primaryKingdom} active="history">
+    <KingdomViewShell kingdom={primaryKingdom} boundKingdom={boundKingdom} active="history">
       <section className="mb-4 rounded-lg border border-gray-800 bg-gray-900/50 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>

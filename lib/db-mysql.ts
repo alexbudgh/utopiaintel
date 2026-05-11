@@ -51,6 +51,9 @@ import type {
   OpProvEntry,
   OpTypeBreakdown,
   KingdomOpsStats,
+  IncomingDamageEvent,
+  IncomingDamageProvinceStat,
+  IncomingDamageStats,
 } from "./db";
 
 // ── Named-param helper ───────────────────────────────────────────────────────
@@ -2795,4 +2798,93 @@ export async function getKingdomOpsStats(
   });
 
   return { breakdowns, effectiveFrom };
+}
+
+// Non-damage events — excluded from totalImpact used for province sort ordering
+const NON_DAMAGE_EVENT_TYPES = new Set([
+  // Positive
+  "aid_received", "monthly_dedication", "war_victory_reward", "utopian_lords_reward",
+  "new_scientist", "exploration",
+  // Neutral/defensive/informational
+  "thief_detected", "thief_detected_unknown", "thief_foiled", "thief_foiled_shadowlight",
+  "attack_failed", "spell_detected",
+  "war_ended", "war_loss_penalty", "starvation", "ritual_shortened", "plague_ended",
+  "inactivity_penalty", "desertions", "other",
+]);
+
+export async function getIncomingDamageStats(
+  keyHash: string,
+  from?: string,
+  to?: string,
+): Promise<IncomingDamageStats> {
+  await ensureReady();
+
+  interface MaxRow extends RowDataPacket { m: number | null }
+  let fromOrd: number;
+  let toOrd: number;
+  let effectiveFrom: string | null = from ?? null;
+
+  if (from || to) {
+    fromOrd = from ? parseUtopiaDate(from) : 0;
+    toOrd   = to   ? parseUtopiaDate(to)   : 999999;
+  } else {
+    const [[maxRow]] = await pool.execute<MaxRow[]>(
+      "SELECT MAX(game_date_ord) AS m FROM province_news WHERE key_hash = ?",
+      [keyHash],
+    );
+    const maxOrd = (maxRow as any)?.m ?? 0;
+    fromOrd = maxOrd - 3 * UTOPIA_DAYS_PER_MONTH + 1;
+    toOrd   = 999999;
+    effectiveFrom = fromOrd > 0 ? formatUtopiaDate(fromOrd) : null;
+  }
+
+  const [rows] = await pool.execute<any[]>(
+    `SELECT
+       p.name AS province_name,
+       pn.event_type,
+       pn.resource_type,
+       COUNT(*) AS cnt,
+       SUM(COALESCE(pn.amount, 0)) AS total_amount,
+       SUM(COALESCE(pn.acres, 0)) AS total_acres
+     FROM province_news pn
+     JOIN provinces p ON p.id = pn.province_id
+     WHERE pn.key_hash = ?
+       AND pn.game_date_ord >= ? AND pn.game_date_ord <= ?
+     GROUP BY p.name, pn.event_type, pn.resource_type`,
+    [keyHash, fromOrd, toOrd],
+  );
+
+  // Group by province, compute per-province totalImpact from damage events only
+  const byProvince = new Map<string, IncomingDamageProvinceStat>();
+  for (const r of rows as any[]) {
+    const provinceName = r.province_name as string;
+    const eventType    = r.event_type as string;
+    const resourceType = r.resource_type as string | null;
+    const count        = Number(r.cnt);
+    const totalAmount  = eventType === "arson" ? Number(r.total_acres) : Number(r.total_amount);
+    const isNonDamage  = NON_DAMAGE_EVENT_TYPES.has(eventType);
+
+    if (!byProvince.has(provinceName)) {
+      byProvince.set(provinceName, { provinceName, totalImpact: 0, events: [] });
+    }
+    const stat = byProvince.get(provinceName)!;
+    stat.events.push({ eventType, resourceType, count, totalAmount });
+    if (!isNonDamage) stat.totalImpact += totalAmount || count;
+  }
+
+  // Within each province sort events: damage first by amount desc, then non-damage
+  for (const stat of byProvince.values()) {
+    stat.events.sort((a: IncomingDamageEvent, b: IncomingDamageEvent) => {
+      const aIsNonDmg = NON_DAMAGE_EVENT_TYPES.has(a.eventType) ? 1 : 0;
+      const bIsNonDmg = NON_DAMAGE_EVENT_TYPES.has(b.eventType) ? 1 : 0;
+      if (aIsNonDmg !== bIsNonDmg) return aIsNonDmg - bIsNonDmg;
+      return b.totalAmount - a.totalAmount || b.count - a.count;
+    });
+  }
+
+  const provinces = [...byProvince.values()].sort(
+    (a, b) => b.totalImpact - a.totalImpact,
+  );
+
+  return { provinces, effectiveFrom };
 }

@@ -240,7 +240,7 @@ export function ThieveryTable({
 
   const wrap = (content: React.ReactNode) => {
     const shell = (
-      <KingdomViewShell kingdom={targetKingdom} active="thievery" tabExtras={tabExtras}>
+      <KingdomViewShell kingdom={targetKingdom} boundKingdom={selfKingdom} active="thievery" tabExtras={tabExtras}>
         {content}
       </KingdomViewShell>
     );

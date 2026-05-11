@@ -2672,6 +2672,24 @@ export interface KingdomOpsStats {
   effectiveFrom: string | null;
 }
 
+export interface IncomingDamageEvent {
+  eventType: string;
+  resourceType: string | null; // for resource_stolen (gold/food/runes) and propaganda (unit type)
+  count: number;
+  totalAmount: number; // uses acres field for arson; 0 for effect-only events
+}
+
+export interface IncomingDamageProvinceStat {
+  provinceName: string;
+  totalImpact: number; // sum of damage amounts (for sort ordering)
+  events: IncomingDamageEvent[];
+}
+
+export interface IncomingDamageStats {
+  provinces: IncomingDamageProvinceStat[];
+  effectiveFrom: string | null;
+}
+
 export interface ProvinceHistoryPoint {
   receivedAt: string;
   networth: number | null;
