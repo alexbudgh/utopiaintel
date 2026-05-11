@@ -71,6 +71,7 @@ const RITUAL_ACTIVE_RE  = /^A ritual is covering our lands! \((.+?)\)/;
 
 const AID_RE                    = /^(.+?) has sent an aid shipment to (.+?)\.$/;
 const WAR_DECLARED_RE           = new RegExp(`^We have declared WAR on ([^(]+?)\\s*${KDLOC}!`);
+const WAR_DECLARED_ON_US_RE     = new RegExp(`^([^(]+?)\\s*${KDLOC} has declared WAR with our kingdom!`);
 const CEASEFIRE_PROPOSED_RE     = new RegExp(`^We have proposed a ceasefire offer to ([^(]+?)\\s*${KDLOC}\\.`);
 const CEASEFIRE_ACCEPTED_RE     = new RegExp(`^([^(]+?)\\s*${KDLOC} has accepted our ceasefire proposal!`);
 const CEASEFIRE_BROKEN_RE       = new RegExp(`^([^(]+?)\\s*${KDLOC} has broken their ceasefire agreement with us!`);
@@ -275,6 +276,16 @@ function classifyEvent(text: string): Omit<KingdomNewsEvent, "gameDate" | "rawTe
   };
 
   m = WAR_DECLARED_RE.exec(text);
+  if (m) return {
+    eventType: "war_declared",
+    attackerName: null, attackerKingdom: null,
+    defenderName: null, defenderKingdom: null,
+    acres: null, books: null,
+    senderName: null, receiverName: null, relationKingdom: m[2],
+    dragonType: null, dragonName: null,
+  };
+
+  m = WAR_DECLARED_ON_US_RE.exec(text);
   if (m) return {
     eventType: "war_declared",
     attackerName: null, attackerKingdom: null,
