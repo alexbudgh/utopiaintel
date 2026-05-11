@@ -1,8 +1,73 @@
 import { INT, KDLOC, GAME_DATE_RE, parseNum } from "./util";
 
+export type ProvinceNewsEventType =
+  // Combat
+  | "attack_trad_march"
+  | "attack_conquest"
+  | "attack_razed"
+  | "attack_massacre"
+  | "attack_loot"
+  | "attack_plunder"
+  | "attack_ambush"
+  | "attack_failed"
+  // Thievery
+  | "thief_detected"
+  | "thief_detected_unknown"
+  | "thief_foiled"
+  | "thief_foiled_shadowlight"
+  | "thief_propaganda"
+  | "arson"
+  | "resource_stolen"
+  | "troops_killed"
+  | "peasants_kidnapped"
+  | "desertions"
+  | "rioting"
+  | "turncoat_general"
+  | "turncoat_thieves"
+  | "thief_sabotage_wizards"
+  // Sorcery
+  | "spell_detected"
+  | "spell_fireball"
+  | "spell_lightning"
+  | "spell_meteor_start"
+  | "spell_meteor"
+  | "spell_blizzard"
+  | "spell_gluttony"
+  | "spell_greed"
+  | "spell_explosions"
+  | "spell_tornado"
+  | "spell_land_lust"
+  | "spell_mystic_vortex"
+  | "spell_drought"
+  | "spell_pitfalls"
+  | "spell_chastity"
+  | "spell_nightmares"
+  | "spell_animate_dead"
+  | "spell_vermin"
+  | "spell_storms"
+  | "spell_expose_thieves"
+  | "spell_fools_gold"
+  // Dragon
+  | "dragon_damage"
+  // Aid
+  | "aid_received"
+  // Misc
+  | "exploration"
+  | "monthly_dedication"
+  | "war_ended"
+  | "war_loss_penalty"
+  | "war_victory_reward"
+  | "starvation"
+  | "ritual_shortened"
+  | "plague_ended"
+  | "utopian_lords_reward"
+  | "new_scientist"
+  | "inactivity_penalty"
+  | "other";
+
 export interface ProvinceNewsEvent {
   gameDate: string;
-  eventType: string;
+  eventType: ProvinceNewsEventType;
   rawText: string;
   actorName: string | null;
   actorKingdom: string | null;
@@ -20,21 +85,47 @@ const nil: Pick<ProvinceNewsEvent, "actorName" | "actorKingdom" | "acres" | "amo
 
 // ── Combat ────────────────────────────────────────────────────────────────────
 
-// "Forces from N - Name (X:Y) came through and ravaged our lands! They captured N acres!"
+// Optional prefixes that can precede the "Forces from" line
+const ATTACK_PREFIX = `(?:(?:Enemy forces|Multiple enemy generals)[^.]+\\.\\s+)?`;
+
+// "Forces from N - Name (X:Y) came through and ravaged our lands! They captured N acres!" (standard march)
 const ATTACK_CAPTURED_RE = new RegExp(
-  `^(?:Enemy forces[^.]+\\.\\s+)?Forces from \\d+ - ([^(]+?)\\s*${KDLOC} came through and ravaged our lands! They captured (${INT}) acres!`,
+  `^${ATTACK_PREFIX}Forces from \\d+ - ([^(]+?)\\s*${KDLOC} came through and ravaged our lands! They captured (${INT}) acres`,
+);
+// "Forces from N - Name (X:Y) came through... They were able to capture N acres before we could turn them away!" (conquest)
+const ATTACK_CONQUEST_RE = new RegExp(
+  `^${ATTACK_PREFIX}Forces from \\d+ - ([^(]+?)\\s*${KDLOC} came through and ravaged our lands! They were able to capture (${INT}) acres`,
+);
+// Unknown-province variants
+const ATTACK_CAPTURED_UNKNOWN_RE = new RegExp(
+  `^${ATTACK_PREFIX}Forces from An unknown province from ([^(]+?)\\s*${KDLOC} came through and ravaged our lands! They captured (${INT}) acres`,
+);
+const ATTACK_CONQUEST_UNKNOWN_RE = new RegExp(
+  `^${ATTACK_PREFIX}Forces from An unknown province from ([^(]+?)\\s*${KDLOC} came through and ravaged our lands! They were able to capture (${INT}) acres`,
+);
+// "Forces from N - Name (X:Y) came through and ravaged our lands! They looted N books!" (Learn/Loot)
+const ATTACK_LOOT_RE = new RegExp(
+  `^${ATTACK_PREFIX}Forces from \\d+ - ([^(]+?)\\s*${KDLOC} came through and ravaged our lands! They looted (${INT}) books`,
+);
+// "Forces from N - Name (X:Y) came through and ravaged our lands! They looted N gold coins..." (Plunder)
+const ATTACK_PLUNDER_RE = new RegExp(
+  `^${ATTACK_PREFIX}Forces from \\d+ - ([^(]+?)\\s*${KDLOC} came through and ravaged our lands! They looted (${INT}) gold`,
 );
 // "Forces from N - Name (X:Y) came through and ravaged our lands! Their armies razed N acres of buildings!"
 const ATTACK_RAZED_RE = new RegExp(
-  `^Forces from \\d+ - ([^(]+?)\\s*${KDLOC} came through and ravaged our lands! Their armies razed (${INT}) acres of buildings!`,
+  `^${ATTACK_PREFIX}Forces from \\d+ - ([^(]+?)\\s*${KDLOC} came through and ravaged our lands! Their armies razed (${INT}) acres of buildings!`,
 );
 // "Forces from N - Name (X:Y) attempted to attack us, but failed miserably!"
 const ATTACK_FAILED_RE = new RegExp(
   `^Forces from \\d+ - ([^(]+?)\\s*${KDLOC} attempted to attack us`,
 );
-// "Forces from N - Name (X:Y) came through... Their armies killed N of our..."
+// "Forces from N - Name (X:Y) came through... Their armies killed N of our..." (Massacre)
 const ATTACK_MASSACRE_RE = new RegExp(
-  `^(?:Enemy forces[^.]+\\.\\s+)?Forces from \\d+ - ([^(]+?)\\s*${KDLOC} came through and ravaged our lands! Their armies killed`,
+  `^${ATTACK_PREFIX}Forces from \\d+ - ([^(]+?)\\s*${KDLOC} came through and ravaged our lands! Their armies killed`,
+);
+// "Forces from N - Name (X:Y) ambushed one of our armies. They recaptured N acres from our army!" (Ambush)
+const ATTACK_AMBUSH_RE = new RegExp(
+  `^Forces from \\d+ - ([^(]+?)\\s*${KDLOC} ambushed one of our armies. They recaptured (${INT}) acres`,
 );
 
 // ── Thievery ──────────────────────────────────────────────────────────────────
@@ -94,8 +185,8 @@ const FIREBALL_RE = new RegExp(`^A massive fireball crashed into our lands and k
 const LIGHTNING_RE = new RegExp(`^A sudden lightning storm struck our towers and destroyed (${INT}) runes`);
 // Meteor Showers arrival: "Meteors rain across our lands, and are not expected to stop for N days."
 const METEOR_START_RE = new RegExp(`^Meteors rain across our lands, and are not expected to stop for (${INT}) days`);
-// Meteor Showers tick: "Meteors rain across the lands and kill N peasants..."
-const METEOR_STRIKE_RE = new RegExp(`^Meteors rain across the lands and kill (${INT}) peasants?`);
+// Meteor Showers tick: "Meteors rain across the lands and kill N peasants/soldiers..."
+const METEOR_STRIKE_RE = new RegExp(`^Meteors rain across the lands and kill (${INT})`);
 // Blizzard: "Blizzards are besetting our works, and our building efficiency will be crippled by 10% for for N days!"
 const BLIZZARD_RE = new RegExp(`^Blizzards are besetting our works.*for for (${INT}) days`);
 // Gluttony: "A fit of gluttony has descended upon our people, and they will not be sated for N days."
@@ -188,11 +279,29 @@ function classifyEvent(text: string): Omit<ProvinceNewsEvent, "gameDate" | "rawT
   let m: RegExpExecArray | null;
 
   // ── Combat ──
+  m = ATTACK_CAPTURED_UNKNOWN_RE.exec(text);
+  if (m) return { eventType: "attack_trad_march", actorName: null, actorKingdom: m[2], acres: parseNum(m[3]), amount: null, resourceType: null };
+
+  m = ATTACK_CONQUEST_UNKNOWN_RE.exec(text);
+  if (m) return { eventType: "attack_conquest", actorName: null, actorKingdom: m[2], acres: parseNum(m[3]), amount: null, resourceType: null };
+
   m = ATTACK_CAPTURED_RE.exec(text);
-  if (m) return { eventType: "attack_captured", actorName: m[1].trim(), actorKingdom: m[2], acres: parseNum(m[3]), amount: null, resourceType: null };
+  if (m) return { eventType: "attack_trad_march", actorName: m[1].trim(), actorKingdom: m[2], acres: parseNum(m[3]), amount: null, resourceType: null };
+
+  m = ATTACK_CONQUEST_RE.exec(text);
+  if (m) return { eventType: "attack_conquest", actorName: m[1].trim(), actorKingdom: m[2], acres: parseNum(m[3]), amount: null, resourceType: null };
+
+  m = ATTACK_LOOT_RE.exec(text);
+  if (m) return { eventType: "attack_loot", actorName: m[1].trim(), actorKingdom: m[2], acres: null, amount: parseNum(m[3]), resourceType: "books" };
+
+  m = ATTACK_PLUNDER_RE.exec(text);
+  if (m) return { eventType: "attack_plunder", actorName: m[1].trim(), actorKingdom: m[2], acres: null, amount: parseNum(m[3]), resourceType: "gold" };
 
   m = ATTACK_RAZED_RE.exec(text);
   if (m) return { eventType: "attack_razed", actorName: m[1].trim(), actorKingdom: m[2], acres: parseNum(m[3]), amount: null, resourceType: null };
+
+  m = ATTACK_AMBUSH_RE.exec(text);
+  if (m) return { eventType: "attack_ambush", actorName: m[1].trim(), actorKingdom: m[2], acres: parseNum(m[3]), amount: null, resourceType: null };
 
   m = ATTACK_FAILED_RE.exec(text);
   if (m) return { eventType: "attack_failed", actorName: m[1].trim(), actorKingdom: m[2], acres: null, amount: null, resourceType: null };
