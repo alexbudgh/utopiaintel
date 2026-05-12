@@ -174,14 +174,11 @@ function getSummaryStr(e: IncomingProvinceEvent): string | null {
 // Maps event types to the unit suffix for their amount field.
 // resource_type is used as the unit when the string is "".
 const AMOUNT_UNITS: Partial<Record<string, string>> = {
-  resource_stolen:        "",          // unit from resource_type
-  aid_received:           "",          // unit from resource_type
   attack_learn:           " books",
   attack_trad_march:      " acres",
   attack_conquest:        " acres",
   attack_razed:           " buildings",
   attack_ambush:          " acres",
-  attack_plunder:         "",          // unit from resource_type
   troops_killed:          " troops",
   peasants_kidnapped:     " peasants",
   arson:                  " acres",
@@ -189,7 +186,6 @@ const AMOUNT_UNITS: Partial<Record<string, string>> = {
   spell_fireball:         " peasants",
   spell_lightning:        " runes",
   spell_meteor_start:     " days",     // duration of shower, not troops
-  spell_meteor:           "",          // unit from resource_type
   spell_blizzard:         " days",     // duration, not troops
   spell_gluttony:         " days",     // duration of food drain, not food amount
   spell_greed:            " days",     // duration of upkeep surcharge, not gold
@@ -207,13 +203,13 @@ const AMOUNT_UNITS: Partial<Record<string, string>> = {
   exploration:            " acres",
 };
 
-
 function isResourceBasedEvent(e: IncomingProvinceEvent): boolean {
   switch (e.eventType) {
     case "resource_stolen":
     case "attack_plunder":
     case "aid_received":
     case "spell_meteor":
+    case "monthly_dedication":
       return true;
   }
   return false;
@@ -221,7 +217,7 @@ function isResourceBasedEvent(e: IncomingProvinceEvent): boolean {
 
 function getAmountStr(e: IncomingProvinceEvent): string | null {
   if (e.totalAmount === 0) return null;
-  if (!(e.eventType in AMOUNT_UNITS)) return null;
+  if (!isResourceBasedEvent(e) && !(e.eventType in AMOUNT_UNITS)) return null;
   const unit = isResourceBasedEvent(e)
     ? ` ${e.resourceType ?? ""}`
     : AMOUNT_UNITS[e.eventType]!;
