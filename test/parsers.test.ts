@@ -1558,6 +1558,16 @@ test("parseProvinceNews — Meteor splits peasants and troops", () => {
   );
 });
 
+test("parseProvinceNews — arson singular acre maps to arson", () => {
+  const r = parseProvinceNews([
+    "The Province Reporter",
+    mkProvinceLine("April 7 of YR9", "1 acre of buildings burned down!"),
+  ].join("\n"));
+  assert.ok(r);
+  assert.equal(r.events[0].eventType, "arson");
+  assert.equal(r.events[0].amount, 1);
+});
+
 test("parseProvinceNews — arson maps to arson with no actor", () => {
   const r = parseProvinceNews([
     "The Province Reporter",

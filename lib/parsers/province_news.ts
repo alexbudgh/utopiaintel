@@ -153,7 +153,7 @@ const SHADOWLIGHT_FOILED_RE = new RegExp(
 const THIEF_FOILED_RE = /^Thieves attempted to /;
 
 // "N acres of buildings burned down!" (arson thievery — actor not visible in province news)
-const ARSON_RE = new RegExp(`^(${INT}) acres of buildings burned down`);
+const ARSON_RE = new RegExp(`^(${INT}) acres? of buildings burned down`);
 
 // N gold/runes/food/horses stolen (thief op outcomes, no actor visible in province news)
 // "N gold coins were stolen from our coffers!" (Rob the Vaults thievery)
