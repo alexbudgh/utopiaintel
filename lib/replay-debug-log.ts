@@ -13,6 +13,11 @@ import { parseKingdomNews } from "./parsers/kingdom_news";
 import { parseSoT } from "./parsers/sot";
 import { parseProvinceNews } from "./parsers/province_news";
 import {
+  isProvinceLogsUrl,
+  parseProvinceLogs,
+  storeProvinceLogResult,
+} from "./province-logs";
+import {
   getDbApi,
   setMetricsCacheRefreshEnabled,
   flushMetricsCacheRefreshQueue,
@@ -33,7 +38,8 @@ export type ReplayType =
   | "build"
   | "rob"
   | "sorcery"
-  | "attack";
+  | "attack"
+  | "province_logs";
 
 export interface DebugEntry {
   url: string;
@@ -74,6 +80,7 @@ export const allowedReplayTypes = new Set<ReplayType>([
   "rob",
   "sorcery",
   "attack",
+  "province_logs",
 ]);
 
 export function normalizeReceivedAt(receivedAt: string): string {
@@ -120,8 +127,12 @@ export async function replayEntry(
   entry: DebugEntry,
   allowed: Set<ReplayType>,
   options: { keyHash?: string; assumeKeyHash?: string; dryRun?: boolean } = {},
-): Promise<string | null> {
+): Promise<string | string[] | null> {
   if (!shouldReplayEntry(entry, options.keyHash)) return null;
+  if (isProvinceLogsUrl(entry.url)) {
+    return replayProvinceLogsEntry(entry, allowed, options);
+  }
+
   const parsed = parseIntel(entry.url, entry.data_simple, entry.prov);
   const intelOpAttempt = buildIntelOpAttempt(
     entry.url,
@@ -287,6 +298,32 @@ export async function replayEntry(
   return null;
 }
 
+async function replayProvinceLogsEntry(
+  entry: DebugEntry,
+  allowed: Set<ReplayType>,
+  options: { assumeKeyHash?: string; dryRun?: boolean } = {},
+): Promise<string[] | null> {
+  const parsed = parseProvinceLogs(entry.data_simple, entry.prov);
+  const filtered = parsed.filter(
+    (result) =>
+      allowed.has("province_logs") || allowed.has(result.type as ReplayType),
+  );
+  if (!filtered.length) return null;
+  if (options.dryRun) return filtered.map((result) => result.type);
+
+  const keyHash = resolveReplayKeyHash(entry, options.assumeKeyHash);
+  const savedBy = entry.prov;
+  const db = getDbApi();
+  const storedTypes: string[] = [];
+
+  for (const result of filtered) {
+    await storeProvinceLogResult(db, result, savedBy, keyHash);
+    storedTypes.push(result.type);
+  }
+
+  return storedTypes;
+}
+
 export async function replayDebugLogs({
   files,
   replayTypes,
@@ -320,8 +357,11 @@ export async function replayDebugLogs({
           dryRun,
         });
         if (!type) continue;
-        replayed += 1;
-        byType.set(type, (byType.get(type) ?? 0) + 1);
+        const types = Array.isArray(type) ? type : [type];
+        replayed += types.length;
+        for (const t of types) {
+          byType.set(t, (byType.get(t) ?? 0) + 1);
+        }
       }
     }
   } finally {

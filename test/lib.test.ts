@@ -6,12 +6,14 @@ import { computeAmbushRawOff } from "../lib/ambush";
 import { formatNum, fullValueTooltip, parseUtopiaDate } from "../lib/ui";
 import { getRaceByName, normalizeScienceName } from "../lib/game";
 import {
+  allowedReplayTypes,
   getReplayTypes,
   hashReplayKey,
   normalizeReceivedAt,
   resolveReplayKeyHash,
   shouldReplayEntry,
 } from "../lib/replay-debug-log";
+import { isProvinceLogsUrl, parseProvinceLogs } from "../lib/province-logs";
 
 // ---------------------------------------------------------------------------
 // computeWizardCount
@@ -473,8 +475,8 @@ test("normalizeReceivedAt normalizes ISO timestamps to sqlite UTC format", () =>
 });
 
 test("getReplayTypes falls back to all allowed types when input is empty or invalid", () => {
-  assert.equal(getReplayTypes(undefined).size, 15);
-  assert.equal(getReplayTypes("nope").size, 15);
+  assert.equal(getReplayTypes(undefined).size, allowedReplayTypes.size);
+  assert.equal(getReplayTypes("nope").size, allowedReplayTypes.size);
 });
 
 test("getReplayTypes filters to valid replay types", () => {
@@ -528,6 +530,71 @@ test("shouldReplayEntry filters keyed entries only when a filter key is provided
     shouldReplayEntry({ url: "", prov: "", data_simple: "" }, "match"),
     false,
   );
+});
+
+test("isProvinceLogsUrl recognizes normal and sitter province logs", () => {
+  assert.equal(
+    isProvinceLogsUrl("https://utopia-game.com/wol/game/province_logs"),
+    true,
+  );
+  assert.equal(
+    isProvinceLogsUrl("https://utopia-game.com/wol/game/province_logs/1/3"),
+    true,
+  );
+  assert.equal(
+    isProvinceLogsUrl("https://utopia-game.com/wol/sit/game/province_logs"),
+    true,
+  );
+  assert.equal(
+    isProvinceLogsUrl("https://utopia-game.com/wol/game/province_news"),
+    false,
+  );
+});
+
+test("parseProvinceLogs expands log rows into normal op data", () => {
+  const rows = parseProvinceLogs(
+    `The Province Logs
+< March YR1 EditionMay YR1 Edition >April YR1 Edition
+April 1 of YR1\tEarly indications show that our operation was a success and we have 100% confidence in the information retrieved. Our thieves have infiltrated the military ranks of Bolvar Fordragon (5:1). We were able to determine there is currently 72,315 defense points defending their lands. (Bolvar Fordragon (5:1), sent 128)
+April 1 of YR1\tEarly indications show that our operation was a success and we have 100% confidence in the information retrieved. Our thieves listen in on a report from the Military Elders of Knight cage the Commandant, we have 1 generals available to lead our armies. At this time, approximately 76.5% of our maximum population is allocated to non-peasant roles. Our wage rate is 200.0% of normal levels, and our military is functioning at 112.5% efficiency. Our net military details are as follows: Offensive Military Effectiveness is 143.5% with 2,388 Net Offensive Points at Home and our Defensive Military Effectiveness is 120.4% with 48,302 Net Defensive Points at Home. We have currently 19 soldiers, 0 offensive specialists, 3,985 defensive specialists, 67 elites and 234 war horses at home. (Bolvar Fordragon (5:1), sent 128)
+April 1 of YR1\tYour forces arrive at Bolvar Fordragon (5:1). A tough battle took place, but we have managed a victory! Your army has taken 63 acres! 34 acres of buildings survived and can be refitted to fit our needs. We also gained 162 specialist training credits. 235 peasants settled on your new lands.
+We lost 112 Knights and 109 horses in this battle.
+We killed about 33 enemy troops. We also imprisoned 64 additional troops in our Dungeons.
+Our forces will be available again in 13.16 days (on April 14 of YR1). (Bolvar Fordragon (5:1), sent 49241)
+April 1 of YR1\tYour wizards gather 745 runes and begin casting, and the spell succeeds. Our lands have been blessed by nature for 23 days, and will be protected from drought and storms.`,
+    "Ghost Workers Riot Over Pay",
+  );
+
+  assert.deepEqual(
+    rows.map((row) => row.type),
+    ["sod", "som", "attack", "sorcery"],
+  );
+  assert.equal(rows[0].receivedAt, "2000-01-11 00:00:00");
+  assert.equal(rows[1].receivedAt, "2000-01-11 00:00:01");
+
+  const sod = rows[0];
+  assert.equal(sod.type, "sod");
+  assert.equal(sod.data.name, "Bolvar Fordragon");
+  assert.equal(sod.data.kingdom, "5:1");
+  assert.equal(sod.data.defPoints, 72315);
+
+  const som = rows[1];
+  assert.equal(som.type, "som");
+  assert.equal(som.data.name, "Bolvar Fordragon");
+  assert.equal(som.data.netOffense, 2388);
+  assert.equal(som.data.netDefense, 48302);
+  assert.equal(som.data.armies[0].generals, 1);
+
+  const attack = rows[2];
+  assert.equal(attack.type, "attack");
+  assert.equal(attack.data.targetName, "Bolvar Fordragon");
+  assert.equal(attack.data.acresTaken, 63);
+
+  const sorcery = rows[3];
+  assert.equal(sorcery.type, "sorcery");
+  assert.equal(sorcery.data.name, "Ghost Workers Riot Over Pay");
+  assert.equal(sorcery.data.spell, "NATURES_BLESSING");
+  assert.equal(sorcery.data.durationDays, 23);
 });
 
 test("resolveReplayKeyHash prefers entry key_hash, then assumed key", () => {

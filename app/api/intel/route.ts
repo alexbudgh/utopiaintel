@@ -13,6 +13,11 @@ import { parseKingdomNews } from "@/lib/parsers/kingdom_news";
 import { parseProvinceNews } from "@/lib/parsers/province_news";
 import { parseSoT } from "@/lib/parsers/sot";
 import { getDbApi } from "@/lib/db-api";
+import {
+  isProvinceLogsUrl,
+  parseProvinceLogs,
+  storeProvinceLogResult,
+} from "@/lib/province-logs";
 
 interface IntelFields {
   data_html: string;
@@ -56,6 +61,15 @@ const TABLES: Record<string, string[]> = {
   rob: ["rob_ops"],
   sorcery: ["sorcery_ops"],
   attack: ["attack_ops"],
+  province_logs: [
+    "attack_ops",
+    "rob_ops",
+    "sorcery_ops",
+    "intel_ops",
+    "military_intel",
+    "home_military_points",
+    "province_resources",
+  ],
 };
 
 // Run TTL cleanup roughly once per 100 requests
@@ -117,6 +131,40 @@ export const POST = withAxiom(async (request: AxiomRequest) => {
     result,
   );
   const db = getDbApi();
+  if (isProvinceLogsUrl(fields.url)) {
+    const results = parseProvinceLogs(fields.data_simple, fields.prov);
+    for (const logResult of results) {
+      await storeProvinceLogResult(db, logResult, fields.prov, keyHash);
+    }
+
+    const byType = results.reduce<Record<string, number>>((acc, item) => {
+      acc[item.type] = (acc[item.type] ?? 0) + 1;
+      return acc;
+    }, {});
+    intelLog(
+      `from=${fields.prov}  key=${keyHash.slice(0, 8)}  province_logs  ${results.length} ops  → ${TABLES.province_logs.join(", ")}`,
+    );
+    request.log.info("intel", {
+      type: "province_logs",
+      parsedOps: results.length,
+      byType,
+      savedBy: fields.prov,
+      keyHash: keyHash.slice(0, 8),
+    });
+
+    if (++requestCount % 100 === 0) {
+      void db.cleanupExpired();
+    }
+
+    return NextResponse.json({
+      success: true,
+      parsed: results.length > 0,
+      type: "province_logs",
+      parsedOps: results.length,
+      byType,
+    });
+  }
+
   if (intelOpAttempt)
     await db.storeIntelOp(intelOpAttempt, fields.prov, keyHash);
 
