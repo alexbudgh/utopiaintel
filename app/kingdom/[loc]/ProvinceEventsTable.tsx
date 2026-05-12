@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { KingdomViewShell } from "./KingdomTabs";
 import { UtopiaDateRangeFilter } from "./UtopiaDateRangeFilter";
-import type { IncomingDamageEvent, IncomingDamageProvinceStat, IncomingDamageStats } from "@/lib/db-api";
+import type { IncomingProvinceEvent, IncomingDamageProvinceStat, IncomingDamageStats } from "@/lib/db-api";
 
 // Explicitly good events
 const POSITIVE_EVENTS = new Set([
@@ -142,7 +142,7 @@ function getResourceLabel(resourceType: string): string {
   return resourceType.charAt(0).toUpperCase() + resourceType.slice(1);
 }
 
-function getSummaryStr(e: IncomingDamageEvent): string | null {
+function getSummaryStr(e: IncomingProvinceEvent): string | null {
   if (e.totalAmount === 0) return null;
   const n = e.totalAmount.toLocaleString();
   const res = e.resourceType ?? "";
@@ -206,7 +206,7 @@ const AMOUNT_UNITS: Partial<Record<string, string>> = {
   exploration:            " acres",
 };
 
-function getAmountStr(e: IncomingDamageEvent): string | null {
+function getAmountStr(e: IncomingProvinceEvent): string | null {
   if (e.totalAmount === 0) return null;
   if (!(e.eventType in AMOUNT_UNITS)) return null;
   const unit = e.eventType === "resource_stolen" || e.eventType === "attack_plunder" || e.eventType === "spell_meteor"
@@ -219,7 +219,7 @@ type ViewMode = "province" | "op";
 
 interface OperationRow {
   provinceName: string;
-  events: IncomingDamageEvent[];
+  events: IncomingProvinceEvent[];
   totalCount: number;
   totalAmount: number;
   amountsByResource: Map<string, number>;
@@ -237,7 +237,7 @@ interface OperationGroup {
   totalAmount: number;
 }
 
-function eventKey(e: IncomingDamageEvent): string {
+function eventKey(e: IncomingProvinceEvent): string {
   const displayEventType = DISPLAY_EVENT_GROUPS[e.eventType] ?? e.eventType;
   if (
     displayEventType !== e.eventType ||
@@ -362,7 +362,7 @@ function buildOperationGroups(stats: IncomingDamageStats): OperationGroup[] {
   });
 }
 
-function EventRow({ e }: { e: IncomingDamageEvent }) {
+function EventRow({ e }: { e: IncomingProvinceEvent }) {
   const isPositive = POSITIVE_EVENTS.has(e.eventType);
   const isNeutral  = NEUTRAL_EVENTS.has(e.eventType);
   const label      = getLabel(e.eventType, e.resourceType);
