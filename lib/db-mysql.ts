@@ -1192,7 +1192,7 @@ export async function getLatestWarDate(kingdom: string, keyHash: string): Promis
 
   const [rows] = await pool.execute<DateRow[]>(
     `SELECT game_date FROM kingdom_news_sharded
-     WHERE key_hash = ? AND kingdom = ? AND event_type = 'war_declared'
+     WHERE key_hash = ? AND kingdom = ? AND event_type IN ('war_declared', 'war_declared_on_us')
      ORDER BY game_date_ord DESC, id DESC
      LIMIT 1`,
     [keyHash, kingdom],

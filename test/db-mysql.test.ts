@@ -1161,18 +1161,21 @@ test("getLatestWarDate: returns null when no war_declared event", async () => {
   assert.equal(result, null);
 });
 
-test("getLatestWarDate: returns game_date of latest war_declared event", async () => {
+test("getLatestWarDate: returns game_date of latest war declaration event", async () => {
   await truncateAll();
   await withTransaction((conn) => bindKeyToKingdom(conn, "keyhash1", "7:5", "throne"));
 
   const warNews = {
     targetKingdom: null,
-    events: [{ ...baseNewsData.events[0], eventType: "war_declared", rawText: "War declared!", gameDate: "January 3 of YR1" }],
+    events: [
+      { ...baseNewsData.events[0], eventType: "war_declared", rawText: "War declared!", gameDate: "January 3 of YR1" },
+      { ...baseNewsData.events[0], eventType: "war_declared_on_us", rawText: "War declared on us!", gameDate: "January 5 of YR1" },
+    ],
   };
   await storeKingdomNews(warNews, "keyhash1", false, "2025-06-01 12:00:00");
 
   const result = await getLatestWarDate("7:5", "keyhash1");
-  assert.equal(result, "January 3 of YR1");
+  assert.equal(result, "January 5 of YR1");
 });
 
 // ── getKingdomNews ────────────────────────────────────────────────────────────

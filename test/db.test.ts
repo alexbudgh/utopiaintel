@@ -1604,7 +1604,7 @@ test("getKingdomDragon: no-dragon SoT from another province clears kingdom badge
   });
 });
 
-test("getLatestWarDate: returns the most recent war_declared event", async () => {
+test("getLatestWarDate: returns the most recent war declaration event", async () => {
   await withRealDb(({ getLatestWarDate }, db) => {
     db.prepare("INSERT INTO provinces (name, kingdom) VALUES ('Alpha', '7:5')").run();
     const { id: provId } = db.prepare("SELECT id FROM provinces WHERE name = 'Alpha' AND kingdom = '7:5'").get() as { id: number };
@@ -1619,8 +1619,9 @@ test("getLatestWarDate: returns the most recent war_declared event", async () =>
     insertNews.run(KEY_A, "7:5", "March 3 of YR9", parseUtopiaDate("March 3 of YR9"), "war_declared", "older war", "2026-04-04 18:00:00");
     insertNews.run(KEY_A, "7:5", "March 5 of YR9", parseUtopiaDate("March 5 of YR9"), "ceasefire_proposed", "not a war", "2026-04-04 18:05:00");
     insertNews.run(KEY_A, "7:5", "March 7 of YR9", parseUtopiaDate("March 7 of YR9"), "war_declared", "newer war", "2026-04-04 18:10:00");
+    insertNews.run(KEY_A, "7:5", "March 9 of YR9", parseUtopiaDate("March 9 of YR9"), "war_declared_on_us", "newest war", "2026-04-04 18:15:00");
 
-    assert.equal(getLatestWarDate("7:5", KEY_A), "March 7 of YR9");
+    assert.equal(getLatestWarDate("7:5", KEY_A), "March 9 of YR9");
   });
 });
 

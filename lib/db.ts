@@ -3200,7 +3200,7 @@ export function createDbApi(db: Database.Database): DbApi {
       if (!hasAccess) return null;
       const row = db.prepare(`
         SELECT game_date FROM kingdom_news_sharded
-        WHERE key_hash = ? AND kingdom = ? AND event_type = 'war_declared'
+        WHERE key_hash = ? AND kingdom = ? AND event_type IN ('war_declared', 'war_declared_on_us')
         ORDER BY game_date_ord DESC, id DESC
         LIMIT 1
       `).get(keyHash, kingdom) as { game_date: string } | undefined;
