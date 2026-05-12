@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { KingdomViewShell } from "./KingdomTabs";
+import { UtopiaDateRangeFilter } from "./UtopiaDateRangeFilter";
 import type { KingdomOpsStats, OpProvEntry, OpTypeBreakdown } from "@/lib/db-api";
 
 const OP_LABELS: Record<string, string> = {
@@ -258,35 +258,26 @@ export function KingdomOpsTable({
   kingdom,
   boundKingdom,
   from,
+  to,
+  latestWarDate,
 }: {
   stats: KingdomOpsStats;
   kingdom: string;
   boundKingdom?: string | null;
   from?: string;
   to?: string;
+  latestWarDate?: string;
 }) {
-  const router = useRouter();
-  const kingdomHref = `/kingdom/${encodeURIComponent(kingdom)}`;
-
   return (
     <KingdomViewShell kingdom={kingdom} boundKingdom={boundKingdom} active="ops">
-      {stats.effectiveFrom && (
-        <p className="text-xs text-gray-500 mb-3">
-          Showing from <span className="text-gray-400">{stats.effectiveFrom}</span>
-          {from && (
-            <>
-              {" · "}
-              <button
-                type="button"
-                onClick={() => router.push(kingdomHref + "?view=ops")}
-                className="underline hover:text-gray-300"
-              >
-                clear filter
-              </button>
-            </>
-          )}
-        </p>
-      )}
+      <UtopiaDateRangeFilter
+        kingdom={kingdom}
+        view="ops"
+        from={from}
+        to={to}
+        effectiveFrom={stats.effectiveFrom ?? undefined}
+        latestWarDate={latestWarDate}
+      />
 
       {stats.breakdowns.length === 0 ? (
         <p className="text-sm text-gray-500">No ops data in this range.</p>

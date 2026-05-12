@@ -59,14 +59,14 @@ export default async function KingdomPage({
   const newsEvents = newsResult?.events ?? null;
   const newsEffectiveFrom = newsResult?.effectiveFrom ?? null;
   const newsSummary = view === "news" ? await db.getKingdomNewsSummary(kingdom, keyHash, from, to) : null;
-  const latestWarDate = view === "news" || view === "events" ? await db.getLatestWarDate(kingdom, keyHash) : null;
+  const latestWarDate = view === "news" || view === "events" || view === "ops" ? await db.getLatestWarDate(kingdom, keyHash) : null;
   const opsStats = view === "ops" ? await db.getKingdomOpsStats(kingdom, keyHash, from, to) : null;
   const damageStats = view === "events" ? await db.getIncomingDamageStats(keyHash, from, to) : null;
   let tabContent: ReactNode | null = null;
 
   if (view === "ops") {
     tabContent = (
-      <KingdomOpsTable stats={opsStats!} kingdom={kingdom} boundKingdom={boundKingdom} from={from} to={to} />
+      <KingdomOpsTable stats={opsStats!} kingdom={kingdom} boundKingdom={boundKingdom} from={from} to={to} latestWarDate={latestWarDate ?? undefined} />
     );
   } else if (view === "events") {
     tabContent = (
