@@ -320,6 +320,7 @@ export function KingdomOpsTable({
   boundKingdom,
   from,
   to,
+  timeMode,
   latestWarDate,
 }: {
   stats: KingdomOpsStats;
@@ -327,6 +328,7 @@ export function KingdomOpsTable({
   boundKingdom?: string | null;
   from?: string;
   to?: string;
+  timeMode?: "real" | "utopia";
   latestWarDate?: string;
 }) {
   return (
@@ -340,6 +342,8 @@ export function KingdomOpsTable({
         view="ops"
         from={from}
         to={to}
+        timeMode={timeMode}
+        allowTimeMode
         effectiveFrom={stats.effectiveFrom ?? undefined}
         latestWarDate={latestWarDate}
       />

@@ -1,5 +1,5 @@
 import { buildIntelOpAttempt } from "./intel-ops";
-import type { AsyncDbApi } from "./db-api";
+import type { AsyncDbApi, GameDateStamp } from "./db-api";
 import { parseAttack } from "./parsers/attack";
 import { parseInfiltrate } from "./parsers/infiltrate";
 import { parseRob, getRobOp } from "./parsers/rob";
@@ -18,12 +18,27 @@ import { parseUtopiaDate } from "./ui";
 import { parseFloat_, parseNum } from "./parsers/util";
 
 export type ProvinceLogResult =
-  | { type: "attack"; data: AttackData; receivedAt: string }
-  | { type: "rob"; data: RobData; receivedAt: string }
-  | { type: "sorcery"; data: SorceryData; receivedAt: string }
-  | { type: "som"; data: SoMData; receivedAt: string }
-  | { type: "sod"; data: SoDData; receivedAt: string }
-  | { type: "infiltrate"; data: InfiltrateData; receivedAt: string };
+  | {
+      type: "attack";
+      data: AttackData;
+      receivedAt: string;
+      gameDate: GameDateStamp;
+    }
+  | { type: "rob"; data: RobData; receivedAt: string; gameDate: GameDateStamp }
+  | {
+      type: "sorcery";
+      data: SorceryData;
+      receivedAt: string;
+      gameDate: GameDateStamp;
+    }
+  | { type: "som"; data: SoMData; receivedAt: string; gameDate: GameDateStamp }
+  | { type: "sod"; data: SoDData; receivedAt: string; gameDate: GameDateStamp }
+  | {
+      type: "infiltrate";
+      data: InfiltrateData;
+      receivedAt: string;
+      gameDate: GameDateStamp;
+    };
 
 type ProvinceLogIntelData = SoMData | SoDData | InfiltrateData;
 
@@ -73,14 +88,23 @@ function splitProvinceLogLines(text: string): ProvinceLogLine[] {
   return results;
 }
 
-function timestampForLogLine(gameDate: string, index: number): string | null {
+function timestampForLogLine(
+  gameDate: string,
+  index: number,
+): {
+  receivedAt: string;
+  gameDate: GameDateStamp;
+} | null {
   const ord = parseUtopiaDate(gameDate);
   if (ord < 0) return null;
   const date = new Date(Date.UTC(2000, 0, 1, 0, 0, 0));
   date.setUTCHours(date.getUTCHours() + ord);
   date.setUTCSeconds(index);
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`;
+  return {
+    receivedAt: `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`,
+    gameDate: { gameDate, gameDateOrd: ord },
+  };
 }
 
 function fakeRobUrl(op: string): string {
@@ -236,36 +260,37 @@ export function parseProvinceLogs(
   const results: ProvinceLogResult[] = [];
 
   for (const line of splitProvinceLogLines(text)) {
-    const receivedAt = timestampForLogLine(line.gameDate, line.index);
-    if (!receivedAt) continue;
+    const dates = timestampForLogLine(line.gameDate, line.index);
+    if (!dates) continue;
+    const { receivedAt, gameDate } = dates;
 
     const textWithoutSuffix = stripTargetSuffix(line.text);
     const attack = parseAttack(textWithoutSuffix, selfProv);
     if (attack) {
-      results.push({ type: "attack", data: attack, receivedAt });
+      results.push({ type: "attack", data: attack, receivedAt, gameDate });
       continue;
     }
 
     const rob = parseRobFromLog(line.text, selfProv);
     if (rob) {
-      results.push({ type: "rob", data: rob, receivedAt });
+      results.push({ type: "rob", data: rob, receivedAt, gameDate });
       continue;
     }
 
     const sorcery = parseSorceryFromLog(line.text, selfProv);
     if (sorcery) {
-      results.push({ type: "sorcery", data: sorcery, receivedAt });
+      results.push({ type: "sorcery", data: sorcery, receivedAt, gameDate });
       continue;
     }
 
     const intel = parseIntelFromLog(line.text);
     if (!intel) continue;
     if ("armies" in intel) {
-      results.push({ type: "som", data: intel, receivedAt });
+      results.push({ type: "som", data: intel, receivedAt, gameDate });
     } else if ("defPoints" in intel) {
-      results.push({ type: "sod", data: intel, receivedAt });
+      results.push({ type: "sod", data: intel, receivedAt, gameDate });
     } else if ("thieves" in intel) {
-      results.push({ type: "infiltrate", data: intel, receivedAt });
+      results.push({ type: "infiltrate", data: intel, receivedAt, gameDate });
     }
   }
 
@@ -304,15 +329,39 @@ export async function storeProvinceLogResult(
 ) {
   const intelOpAttempt = buildProvinceLogIntelOp(result);
   if (intelOpAttempt) {
-    await db.storeIntelOp(intelOpAttempt, savedBy, keyHash, result.receivedAt);
+    await db.storeIntelOp(
+      intelOpAttempt,
+      savedBy,
+      keyHash,
+      result.receivedAt,
+      result.gameDate,
+    );
   }
 
   if (result.type === "attack") {
-    await db.storeAttack(result.data, savedBy, keyHash, result.receivedAt);
+    await db.storeAttack(
+      result.data,
+      savedBy,
+      keyHash,
+      result.receivedAt,
+      result.gameDate,
+    );
   } else if (result.type === "rob") {
-    await db.storeRob(result.data, savedBy, keyHash, result.receivedAt);
+    await db.storeRob(
+      result.data,
+      savedBy,
+      keyHash,
+      result.receivedAt,
+      result.gameDate,
+    );
   } else if (result.type === "sorcery") {
-    await db.storeSorcery(result.data, savedBy, keyHash, result.receivedAt);
+    await db.storeSorcery(
+      result.data,
+      savedBy,
+      keyHash,
+      result.receivedAt,
+      result.gameDate,
+    );
   } else if (result.type === "som") {
     await db.storeSoM(result.data, savedBy, keyHash, false, result.receivedAt);
   } else if (result.type === "sod") {

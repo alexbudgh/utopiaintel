@@ -190,6 +190,7 @@ export interface AsyncDbApi {
     keyHash: string,
     from?: string,
     to?: string,
+    timeMode?: TimeRangeMode,
   ): Promise<KingdomOpsStats>;
   getIncomingDamageStats(
     keyHash: string,
@@ -255,24 +256,28 @@ export interface AsyncDbApi {
     savedBy: string,
     keyHash: string,
     receivedAt?: string,
+    gameDate?: GameDateStamp,
   ): Promise<void>;
   storeIntelOp(
     data: IntelOpAttempt,
     savedBy: string,
     keyHash: string,
     receivedAt?: string,
+    gameDate?: GameDateStamp,
   ): Promise<void>;
   storeSorcery(
     data: SorceryData,
     savedBy: string,
     keyHash: string,
     receivedAt?: string,
+    gameDate?: GameDateStamp,
   ): Promise<void>;
   storeAttack(
     data: AttackData,
     savedBy: string,
     keyHash: string,
     receivedAt?: string,
+    gameDate?: GameDateStamp,
   ): Promise<void>;
   storeKingdom(
     data: KingdomData,
@@ -300,6 +305,13 @@ export interface AsyncDbApi {
     receivedAt?: string,
   ): Promise<void>;
 }
+
+export interface GameDateStamp {
+  gameDate: string;
+  gameDateOrd: number;
+}
+
+export type TimeRangeMode = "real" | "utopia";
 
 // ── SQLite shim ──────────────────────────────────────────────────────────────
 
@@ -392,8 +404,8 @@ function createMysqlDbApi(): AsyncDbApi {
       getProvinceHistory: (nm, kd, kh) => mysqlGetProvinceHistory(nm, kd, kh),
       getProvinceNews: (nm, kd, kh, f, t) =>
         mysqlGetProvinceNews(nm, kd, kh, f, t),
-      getKingdomOpsStats: (kd, kh, f, t) =>
-        mysqlGetKingdomOpsStats(kd, kh, f, t),
+      getKingdomOpsStats: (kd, kh, f, t, tm) =>
+        mysqlGetKingdomOpsStats(kd, kh, f, t, tm),
       getIncomingDamageStats: (kh, f, t) =>
         mysqlGetIncomingDamageStats(kh, f, t),
       cleanupExpired: () => mysqlCleanupExpired(),
@@ -408,10 +420,10 @@ function createMysqlDbApi(): AsyncDbApi {
         mysqlStoreSurvey(d, sb, kh, self, ra),
       storeTrainArmy: (d, sb, kh, ra) => mysqlStoreTrainArmy(d, sb, kh, ra),
       storeBuild: (d, sb, kh, ra) => mysqlStoreBuild(d, sb, kh, ra),
-      storeRob: (d, sb, kh, ra) => mysqlStoreRob(d, sb, kh, ra),
-      storeIntelOp: (d, sb, kh, ra) => mysqlStoreIntelOp(d, sb, kh, ra),
-      storeSorcery: (d, sb, kh, ra) => mysqlStoreSorcery(d, sb, kh, ra),
-      storeAttack: (d, sb, kh, ra) => mysqlStoreAttack(d, sb, kh, ra),
+      storeRob: (d, sb, kh, ra, gd) => mysqlStoreRob(d, sb, kh, ra, gd),
+      storeIntelOp: (d, sb, kh, ra, gd) => mysqlStoreIntelOp(d, sb, kh, ra, gd),
+      storeSorcery: (d, sb, kh, ra, gd) => mysqlStoreSorcery(d, sb, kh, ra, gd),
+      storeAttack: (d, sb, kh, ra, gd) => mysqlStoreAttack(d, sb, kh, ra, gd),
       storeKingdom: (d, sb, kh, ra) => mysqlStoreKingdom(d, sb, kh, ra),
       storeState: (d, sb, kh, ra) => mysqlStoreState(d, sb, kh, ra),
       storeKingdomNews: (d, kh, sn, ra, uk) =>

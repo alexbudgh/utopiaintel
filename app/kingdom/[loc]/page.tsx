@@ -25,11 +25,13 @@ export default async function KingdomPage({
     view?: string;
     from?: string;
     to?: string;
+    timeMode?: string;
     compare?: string;
   }>;
 }) {
   const { loc } = await params;
-  const { view, from, to, compare } = await searchParams;
+  const { view, from, to, timeMode, compare } = await searchParams;
+  const opsTimeMode = timeMode === "real" ? "real" : "utopia";
   const kingdom = decodeURIComponent(loc);
   const compareKingdom = compare?.trim() ? compare.trim() : null;
   const hdrs = await headers();
@@ -83,7 +85,7 @@ export default async function KingdomPage({
       : null;
   const opsStats =
     view === "ops"
-      ? await db.getKingdomOpsStats(kingdom, keyHash, from, to)
+      ? await db.getKingdomOpsStats(kingdom, keyHash, from, to, opsTimeMode)
       : null;
   const damageStats =
     view === "events"
@@ -99,6 +101,7 @@ export default async function KingdomPage({
         boundKingdom={boundKingdom}
         from={from}
         to={to}
+        timeMode={opsTimeMode}
         latestWarDate={latestWarDate ?? undefined}
       />
     );

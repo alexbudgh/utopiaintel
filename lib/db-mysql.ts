@@ -37,6 +37,7 @@ import type {
 import type { KingdomNewsData, KingdomNewsEvent } from "./parsers/kingdom_news";
 import type { ProvinceNewsData } from "./parsers/province_news";
 import type { IntelOpAttempt } from "./intel-ops";
+import type { GameDateStamp, TimeRangeMode } from "./db-api";
 import type {
   KingdomRow,
   KingdomSnapshot,
@@ -113,6 +114,34 @@ const SAME_TICK_EXPR = (a: string, b: string) =>
 const BAD_SPELL_SQL_LIST = BAD_SPELL_NAMES.map(
   (name) => `'${name.replaceAll("'", "''")}'`,
 ).join(", ");
+
+async function backfillOpGameDate(
+  conn: PoolConnection,
+  table: "attack_ops" | "intel_ops" | "rob_ops" | "sorcery_ops",
+  provinceId: number,
+  keyHash: string,
+  receivedAt: string | undefined,
+  gameDate: GameDateStamp | undefined,
+) {
+  if (!receivedAt || !gameDate) return;
+  await conn.execute(
+    `
+      UPDATE ${table}
+      SET game_date = COALESCE(game_date, ?),
+          game_date_ord = COALESCE(game_date_ord, ?)
+      WHERE province_id = ? AND key_hash = ? AND received_at = ?
+    `,
+    [gameDate.gameDate, gameDate.gameDateOrd, provinceId, keyHash, receivedAt],
+  );
+}
+
+function normalizeRealDateTime(value: string | undefined): string | null {
+  if (!value) return null;
+  const normalized = value.trim().replace("T", " ");
+  if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(?::\d{2})?$/.test(normalized))
+    return null;
+  return normalized.length === 16 ? `${normalized}:00` : normalized;
+}
 
 // latestSlotCte uses :keyHash (and optionally :kingdom) — callers pass through n().
 // Inner subquery is non-correlated (GROUP BY location, slot) so the optimizer can
@@ -612,6 +641,7 @@ export async function storeSorcery(
   savedBy: string,
   keyHash: string,
   receivedAt?: string,
+  gameDate?: GameDateStamp,
 ): Promise<void> {
   await ensureReady();
   await withTransaction(async (conn) => {
@@ -621,8 +651,8 @@ export async function storeSorcery(
       `INSERT IGNORE INTO sorcery_ops
          (province_id, key_hash, spell, outcome, runes_spent, wizards_lost,
           duration_days, target_name, target_slot, target_kingdom,
-          wizards, runes, mana, saved_by, received_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+          wizards, runes, mana, game_date, game_date_ord, saved_by, received_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
       [
         provId,
         keyHash,
@@ -637,11 +667,23 @@ export async function storeSorcery(
         data.wizards,
         data.runes,
         data.mana,
+        gameDate?.gameDate ?? null,
+        gameDate?.gameDateOrd ?? null,
         savedBy,
         receivedAt ?? null,
       ],
     )) as [ResultSetHeader, unknown];
-    if (result.affectedRows === 0) return;
+    if (result.affectedRows === 0) {
+      await backfillOpGameDate(
+        conn,
+        "sorcery_ops",
+        provId,
+        keyHash,
+        receivedAt,
+        gameDate,
+      );
+      return;
+    }
 
     if (data.wizards != null || data.runes != null) {
       await conn.execute(
@@ -667,6 +709,7 @@ export async function storeRob(
   savedBy: string,
   keyHash: string,
   receivedAt?: string,
+  gameDate?: GameDateStamp,
 ): Promise<void> {
   await ensureReady();
   await withTransaction(async (conn) => {
@@ -677,9 +720,9 @@ export async function storeRob(
          (province_id, key_hash, op, target_name, target_slot, target_kingdom,
           outcome, amount_stolen, thieves_lost, thieves, stealth,
           troops_assassinated, kidnapped, acres_burned, effect_duration,
-          deserters, deserter_type,
+          deserters, deserter_type, game_date, game_date_ord,
           saved_by, received_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
       [
         provId,
         keyHash,
@@ -698,11 +741,23 @@ export async function storeRob(
         data.effectDuration,
         data.deserters,
         data.deserterType,
+        gameDate?.gameDate ?? null,
+        gameDate?.gameDateOrd ?? null,
         savedBy,
         receivedAt ?? null,
       ],
     )) as [ResultSetHeader, unknown];
-    if (result.affectedRows === 0) return;
+    if (result.affectedRows === 0) {
+      await backfillOpGameDate(
+        conn,
+        "rob_ops",
+        provId,
+        keyHash,
+        receivedAt,
+        gameDate,
+      );
+      return;
+    }
 
     if (data.thieves != null) {
       await conn.execute(
@@ -720,17 +775,19 @@ export async function storeAttack(
   savedBy: string,
   keyHash: string,
   receivedAt?: string,
+  gameDate?: GameDateStamp,
 ): Promise<void> {
   await ensureReady();
   await withTransaction(async (conn) => {
     const provId = await ensureProvince(conn, data.name, "");
     await recordSubmission(conn, keyHash, provId);
-    await conn.execute(
+    const [result] = (await conn.execute(
       `INSERT IGNORE INTO attack_ops
          (province_id, key_hash, attack_type, outcome, target_name, target_kingdom,
           acres_taken, buildings_survived, specialist_credits, peasants_settled,
-          massacred, enemy_killed, enemy_imprisoned, return_days, saved_by, received_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+          massacred, enemy_killed, enemy_imprisoned, return_days,
+          game_date, game_date_ord, saved_by, received_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
       [
         provId,
         keyHash,
@@ -746,10 +803,22 @@ export async function storeAttack(
         data.enemyKilled,
         data.enemyImprisoned,
         data.returnDays,
+        gameDate?.gameDate ?? null,
+        gameDate?.gameDateOrd ?? null,
         savedBy,
         receivedAt ?? null,
       ],
-    );
+    )) as [ResultSetHeader, unknown];
+    if (result.affectedRows === 0) {
+      await backfillOpGameDate(
+        conn,
+        "attack_ops",
+        provId,
+        keyHash,
+        receivedAt,
+        gameDate,
+      );
+    }
   });
 }
 
@@ -904,18 +973,19 @@ export async function storeIntelOp(
   savedBy: string,
   keyHash: string,
   receivedAt?: string,
+  gameDate?: GameDateStamp,
 ): Promise<void> {
   await ensureReady();
   await withTransaction(async (conn) => {
     const provId = await ensureProvince(conn, savedBy, "");
     await recordSubmission(conn, keyHash, provId);
     const target = await resolveIntelOpTarget(conn, data, keyHash);
-    await conn.execute(
+    const [result] = (await conn.execute(
       `INSERT IGNORE INTO intel_ops
          (province_id, key_hash, op, intel_type, outcome,
           target_name, target_slot, target_kingdom, accuracy, thieves_lost,
-          saved_by, received_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+          game_date, game_date_ord, saved_by, received_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
       [
         provId,
         keyHash,
@@ -927,10 +997,22 @@ export async function storeIntelOp(
         target.targetKingdom,
         data.accuracy,
         data.thievesLost,
+        gameDate?.gameDate ?? null,
+        gameDate?.gameDateOrd ?? null,
         savedBy,
         receivedAt ?? null,
       ],
-    );
+    )) as [ResultSetHeader, unknown];
+    if (result.affectedRows === 0) {
+      await backfillOpGameDate(
+        conn,
+        "intel_ops",
+        provId,
+        keyHash,
+        receivedAt,
+        gameDate,
+      );
+    }
   });
 }
 
@@ -3879,47 +3961,71 @@ export async function getKingdomOpsStats(
   keyHash: string,
   from?: string,
   to?: string,
+  timeMode: TimeRangeMode = "utopia",
 ): Promise<KingdomOpsStats> {
   await ensureReady();
 
   interface MaxRow extends RowDataPacket {
     m: number | null;
   }
-  let fromOrd: number;
-  let toOrd: number;
   let effectiveFrom: string | null = from ?? null;
+  let fromOrd = 0;
+  let toOrd = 999999;
+  let robFromTime: string | null = null;
+  let realFrom: string | null = null;
+  let realTo: string | null = null;
 
-  const [[maxRow]] = await pool.execute<MaxRow[]>(
-    "SELECT MAX(game_date_ord) AS m FROM province_news WHERE key_hash = ?",
-    [keyHash],
-  );
-  const maxOrd = (maxRow as any)?.m ?? 0;
-
-  if (from || to) {
-    fromOrd = from ? parseUtopiaDate(from) : 0;
-    toOrd = to ? parseUtopiaDate(to) : 999999;
+  if (timeMode === "real") {
+    realFrom = normalizeRealDateTime(from);
+    realTo = normalizeRealDateTime(to);
   } else {
-    fromOrd = maxOrd - 3 * UTOPIA_DAYS_PER_MONTH + 1;
-    toOrd = 999999;
-    effectiveFrom = fromOrd > 0 ? formatUtopiaDate(fromOrd) : null;
+    const [[maxRow]] = await pool.execute<MaxRow[]>(
+      "SELECT MAX(game_date_ord) AS m FROM province_news WHERE key_hash = ?",
+      [keyHash],
+    );
+    const maxOrd = (maxRow as any)?.m ?? 0;
+
+    if (from || to) {
+      fromOrd = from ? parseUtopiaDate(from) : 0;
+      toOrd = to ? parseUtopiaDate(to) : 999999;
+    } else {
+      fromOrd = maxOrd - 3 * UTOPIA_DAYS_PER_MONTH + 1;
+      toOrd = 999999;
+      effectiveFrom = fromOrd > 0 ? formatUtopiaDate(fromOrd) : null;
+    }
+
+    // Approximate wall-clock cutoff for rows that lack game_date_ord.
+    // 1 Utopia tick = 1 real hour, so fromOrd ticks before maxOrd ≈
+    // (maxOrd - fromOrd) hours ago. This keeps live ops without game dates
+    // visible while province-log rows use their exact Utopia date.
+    const ordDelta =
+      maxOrd > 0 && fromOrd > 0 ? Math.max(0, maxOrd - fromOrd) : null;
+    robFromTime =
+      ordDelta !== null
+        ? new Date(Date.now() - ordDelta * 3_600_000)
+            .toISOString()
+            .slice(0, 19)
+            .replace("T", " ")
+        : null;
   }
 
-  // Approximate wall-clock cutoff for rob_ops (which lack game_date_ord).
-  // 1 Utopia tick = 1 real hour, so fromOrd ticks before maxOrd ≈ (maxOrd - fromOrd) hours ago.
-  // This avoids the MIN(received_at) anchor which breaks after replaying debug logs.
-  const ordDelta =
-    maxOrd > 0 && fromOrd > 0 ? Math.max(0, maxOrd - fromOrd) : null;
-  const robFromTime =
-    ordDelta !== null
-      ? new Date(Date.now() - ordDelta * 3_600_000)
-          .toISOString()
-          .slice(0, 19)
-          .replace("T", " ")
-      : null;
+  const robDateClause =
+    timeMode === "real"
+      ? `${realFrom ? "AND r.received_at >= ?" : ""} ${realTo ? "AND r.received_at <= ?" : ""}`
+      : `AND (
+           (r.game_date_ord IS NOT NULL AND r.game_date_ord >= ? AND r.game_date_ord <= ?)
+           OR (r.game_date_ord IS NULL${robFromTime ? " AND r.received_at >= ?" : ""})
+         )`;
 
   // Outgoing: our provinces' activity against kingdom, grouped by (op, our_province)
   const outParams: (string | number)[] = [keyHash, kingdom];
-  if (robFromTime) outParams.push(robFromTime);
+  if (timeMode === "real") {
+    if (realFrom) outParams.push(realFrom);
+    if (realTo) outParams.push(realTo);
+  } else {
+    outParams.push(fromOrd, toOrd);
+    if (robFromTime) outParams.push(robFromTime);
+  }
   const [outRows] = await pool.execute<any[]>(
     `SELECT
        r.op,
@@ -3940,12 +4046,23 @@ export async function getKingdomOpsStats(
      FROM rob_ops r
      JOIN provinces p ON p.id = r.province_id
      WHERE r.key_hash = ? AND r.target_kingdom = ?
-       ${robFromTime ? "AND r.received_at >= ?" : ""}
+       ${robDateClause}
      GROUP BY r.op, r.province_id, p.name, r.deserter_type`,
     outParams,
   );
 
   // Incoming: province_news from this kingdom grouped by (event_type, resource_type, actor_name)
+  const inParams: (string | number)[] = [keyHash, kingdom];
+  const inDateClause =
+    timeMode === "real"
+      ? `${realFrom ? "AND pn.received_at >= ?" : ""} ${realTo ? "AND pn.received_at <= ?" : ""}`
+      : "AND pn.game_date_ord >= ? AND pn.game_date_ord <= ?";
+  if (timeMode === "real") {
+    if (realFrom) inParams.push(realFrom);
+    if (realTo) inParams.push(realTo);
+  } else {
+    inParams.push(fromOrd, toOrd);
+  }
   const [inRows] = await pool.execute<any[]>(
     `SELECT
        pn.event_type,
@@ -3955,9 +4072,9 @@ export async function getKingdomOpsStats(
        SUM(COALESCE(pn.amount, 0)) AS amount
      FROM province_news pn
      WHERE pn.key_hash = ? AND pn.actor_kingdom = ?
-       AND pn.game_date_ord >= ? AND pn.game_date_ord <= ?
+       ${inDateClause}
      GROUP BY pn.event_type, pn.resource_type, pn.actor_name`,
-    [keyHash, kingdom, fromOrd, toOrd],
+    inParams,
   );
 
   // Slot lookup for enemy province names

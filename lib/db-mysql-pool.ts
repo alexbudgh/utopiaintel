@@ -381,6 +381,8 @@ export async function initDb(): Promise<void> {
       effect_duration INT,
       deserters INT,
       deserter_type VARCHAR(50),
+      game_date VARCHAR(64),
+      game_date_ord INT,
       saved_by VARCHAR(255),
       received_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT fk_rob_prov FOREIGN KEY (province_id) REFERENCES provinces(id)
@@ -403,6 +405,8 @@ export async function initDb(): Promise<void> {
       wizards INT,
       runes INT,
       mana INT,
+      game_date VARCHAR(64),
+      game_date_ord INT,
       saved_by VARCHAR(255),
       received_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT fk_sorcery_prov FOREIGN KEY (province_id) REFERENCES provinces(id)
@@ -426,6 +430,8 @@ export async function initDb(): Promise<void> {
       enemy_killed INT,
       enemy_imprisoned INT,
       return_days DOUBLE,
+      game_date VARCHAR(64),
+      game_date_ord INT,
       saved_by VARCHAR(255),
       received_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT fk_attack_prov FOREIGN KEY (province_id) REFERENCES provinces(id)
@@ -445,6 +451,8 @@ export async function initDb(): Promise<void> {
       target_kingdom VARCHAR(16),
       accuracy INT,
       thieves_lost INT NOT NULL DEFAULT 0,
+      game_date VARCHAR(64),
+      game_date_ord INT,
       saved_by VARCHAR(255),
       received_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT fk_intel_ops_prov FOREIGN KEY (province_id) REFERENCES provinces(id)
