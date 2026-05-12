@@ -175,6 +175,7 @@ function getSummaryStr(e: IncomingProvinceEvent): string | null {
 // resource_type is used as the unit when the string is "".
 const AMOUNT_UNITS: Partial<Record<string, string>> = {
   resource_stolen:        "",          // unit from resource_type
+  aid_received:           "",          // unit from resource_type
   attack_learn:           " books",
   attack_trad_march:      " acres",
   attack_conquest:        " acres",
@@ -206,10 +207,22 @@ const AMOUNT_UNITS: Partial<Record<string, string>> = {
   exploration:            " acres",
 };
 
+
+function isResourceBasedEvent(e: IncomingProvinceEvent): boolean {
+  switch (e.eventType) {
+    case "resource_stolen":
+    case "attack_plunder":
+    case "aid_received":
+    case "spell_meteor":
+      return true;
+  }
+  return false;
+}
+
 function getAmountStr(e: IncomingProvinceEvent): string | null {
   if (e.totalAmount === 0) return null;
   if (!(e.eventType in AMOUNT_UNITS)) return null;
-  const unit = e.eventType === "resource_stolen" || e.eventType === "attack_plunder" || e.eventType === "spell_meteor"
+  const unit = isResourceBasedEvent(e)
     ? ` ${e.resourceType ?? ""}`
     : AMOUNT_UNITS[e.eventType]!;
   return `${e.totalAmount.toLocaleString()}${unit}`;
