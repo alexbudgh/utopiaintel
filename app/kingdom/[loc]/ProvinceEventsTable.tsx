@@ -159,7 +159,7 @@ function getSummaryStr(e: IncomingDamageEvent): string | null {
     case "arson":              return `${n} acres burned`;
     case "thief_propaganda":   return `${n} deserters`;
     case "spell_fools_gold":   return `${n} gold destroyed`;
-    case "spell_lightning":    return `${n} runes stolen`;
+    case "spell_lightning":    return `${n} runes destroyed`;
     case "spell_vermin":       return `${n} food destroyed`;
     case "spell_fireball":     return `${n} peasants`;
     case "spell_meteor":       return `${n} ${res}`;
