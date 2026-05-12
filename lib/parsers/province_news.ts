@@ -191,9 +191,10 @@ const FIREBALL_RE = new RegExp(`^A massive fireball crashed into our lands and k
 const LIGHTNING_RE = new RegExp(`^A sudden lightning storm struck our towers and destroyed (${INT}) runes`);
 // Meteor Showers arrival: "Meteors rain across our lands, and are not expected to stop for N days."
 const METEOR_START_RE = new RegExp(`^Meteors rain across our lands, and are not expected to stop for (${INT}) days`);
-// Meteor Showers tick: "Meteors rain across the lands and kill N peasants and N troops!"
-// amount = peasants, acres = troops
-const METEOR_STRIKE_RE = new RegExp(`^Meteors rain across the lands and kill (${INT}) peasants(?: and (${INT}))?`);
+// Meteor Showers tick: "Meteors rain across the lands and kill N peasants[, N Skeletons and N Zombies]!"
+// Many variants: peasants only, troops only, or any combination of race-specific unit types.
+// amount = peasants killed, acres = all other unit types summed
+const METEOR_STRIKE_RE = /^Meteors rain across the lands and kill (.+?)!/;
 // Blizzard: "Blizzards are besetting our works, and our building efficiency will be crippled by 10% for for N days!"
 const BLIZZARD_RE = new RegExp(`^Blizzards are besetting our works.*for for (${INT}) days`);
 // Gluttony: "A fit of gluttony has descended upon our people, and they will not be sated for N days."
@@ -373,7 +374,14 @@ function classifyEvent(text: string): Omit<ProvinceNewsEvent, "gameDate" | "rawT
   if (m) return { ...nil, eventType: "spell_meteor_start", amount: parseNum(m[1]) };
 
   m = METEOR_STRIKE_RE.exec(text);
-  if (m) return { ...nil, eventType: "spell_meteor", amount: parseNum(m[1]), acres: m[2] ? parseNum(m[2]) : null };
+  if (m) {
+    const killStr = m[1];
+    const peasantM = /^([\d,]+) peasants?/.exec(killStr);
+    const peasants = peasantM ? parseNum(peasantM[1]) : 0;
+    // \d[\d,]* to avoid matching isolated commas (e.g. "peasants, 1")
+    const total = [...killStr.matchAll(/\d[\d,]*/g)].reduce((s, n) => s + parseNum(n[0]), 0);
+    return { ...nil, eventType: "spell_meteor", amount: peasants, acres: total - peasants || null };
+  }
 
   m = BLIZZARD_RE.exec(text);
   if (m) return { ...nil, eventType: "spell_blizzard", amount: parseNum(m[1]) };
