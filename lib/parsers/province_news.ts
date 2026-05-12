@@ -152,9 +152,8 @@ const SHADOWLIGHT_FOILED_RE = new RegExp(
 // "Thieves attempted to assassinate our troops, but failed." etc.
 const THIEF_FOILED_RE = /^Thieves attempted to /;
 
-// "Name (province) descends in flames! N buildings are reduced to ash and rubble."
-// (Arson thievery — province name is the attacker, no (X:Y) in this event format)
-const ARSON_RE = new RegExp(`^(.+?) descends in flames! (${INT}) buildings are reduced to ash and rubble\\.`);
+// "N acres of buildings burned down!" (arson thievery — actor not visible in province news)
+const ARSON_RE = new RegExp(`^(${INT}) acres of buildings burned down`);
 
 // N gold/runes/food/horses stolen (thief op outcomes, no actor visible in province news)
 // "N gold coins were stolen from our coffers!" (Rob the Vaults thievery)
@@ -235,6 +234,8 @@ const STORMS_RE = /^Storms are ravaging our lands/;
 // "[DragonName] ravages our troops! N soldiers slain." or "[Name] strikes! N soldiers at home fall to tooth and claw."
 const DRAGON_DAMAGE_RE = new RegExp(`^(.+?) (?:ravages our troops!|strikes!) (${INT}) soldiers`);
 const DRAGON_DAMAGE_CLAW_RE = /^strikes! \d+ soldiers at home fall to tooth and claw/;
+// "[DragonName] descends in flames! N buildings are reduced to ash and rubble." (Topaz dragon)
+const DRAGON_BURNS_RE = new RegExp(`^(.+?) descends in flames! (${INT}) buildings are reduced to ash and rubble\\.`);
 
 // ── Aid ───────────────────────────────────────────────────────────────────────
 
@@ -372,7 +373,7 @@ function classifyEvent(text: string): ClassifiedProvinceNewsEvent | ClassifiedPr
   if (THIEF_FOILED_RE.test(text)) return { ...nil, eventType: "thief_foiled" };
 
   m = ARSON_RE.exec(text);
-  if (m) return { eventType: "arson", actorName: m[1].trim(), actorKingdom: null, amount: parseNum(m[2]), resourceType: "acres" };
+  if (m) return { ...nil, eventType: "arson", amount: parseNum(m[1]), resourceType: "acres" };
 
   m = FOOLS_GOLD_RE.exec(text);
   if (m) return { ...nil, eventType: "spell_fools_gold", amount: parseNum(m[1]), resourceType: "gold" };
@@ -474,6 +475,9 @@ function classifyEvent(text: string): ClassifiedProvinceNewsEvent | ClassifiedPr
   if (DRAGON_DAMAGE_CLAW_RE.test(text)) return { ...nil, eventType: "dragon_damage" };
   m = DRAGON_DAMAGE_RE.exec(text);
   if (m) return { eventType: "dragon_damage", actorName: m[1].trim(), actorKingdom: null, amount: parseNum(m[2]), resourceType: null };
+
+  m = DRAGON_BURNS_RE.exec(text);
+  if (m) return { eventType: "dragon_damage", actorName: m[1].trim(), actorKingdom: null, amount: parseNum(m[2]), resourceType: "buildings" };
 
   // ── Aid ──
   m = AID_RECEIVED_RE.exec(text);

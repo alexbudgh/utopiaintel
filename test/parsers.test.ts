@@ -1558,6 +1558,30 @@ test("parseProvinceNews — Meteor splits peasants and troops", () => {
   );
 });
 
+test("parseProvinceNews — arson maps to arson with no actor", () => {
+  const r = parseProvinceNews([
+    "The Province Reporter",
+    mkProvinceLine("April 7 of YR9", "10 acres of buildings burned down!"),
+  ].join("\n"));
+  assert.ok(r);
+  assert.equal(r.events[0].eventType, "arson");
+  assert.equal(r.events[0].amount, 10);
+  assert.equal(r.events[0].resourceType, "acres");
+  assert.equal(r.events[0].actorName, null);
+});
+
+test("parseProvinceNews — Topaz dragon building destruction maps to dragon_damage", () => {
+  const r = parseProvinceNews([
+    "The Province Reporter",
+    mkProvinceLine("April 8 of YR9", "Dragon Seen In Skies descends in flames! 20 buildings are reduced to ash and rubble."),
+  ].join("\n"));
+  assert.ok(r);
+  assert.equal(r.events[0].eventType, "dragon_damage");
+  assert.equal(r.events[0].actorName, "Dragon Seen In Skies");
+  assert.equal(r.events[0].amount, 20);
+  assert.equal(r.events[0].resourceType, "buildings");
+});
+
 // ---------------------------------------------------------------------------
 // parseState
 // ---------------------------------------------------------------------------
