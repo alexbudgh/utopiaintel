@@ -1102,30 +1102,6 @@ export function ProvinceTable({
         ) : (
           <button onClick={() => setSaveInputOpen(true)} className={`${btnBase} ${btnInactive}`}>Save…</button>
         )}
-        <Link
-          href={`/kingdom/${encodeURIComponent(kingdom)}?view=gains`}
-          className={`${btnBase} ${btnInactive}`}
-        >
-          Gains
-        </Link>
-        <Link
-          href={`/kingdom/${encodeURIComponent(kingdom)}?view=thievery`}
-          className={`${btnBase} ${btnInactive}`}
-        >
-          Thievery
-        </Link>
-        <Link
-          href={`/kingdom/${encodeURIComponent(kingdom)}?view=news`}
-          className={`${btnBase} ${btnInactive}`}
-        >
-          News
-        </Link>
-        <Link
-          href={`/kingdom/${encodeURIComponent(kingdom)}?view=history`}
-          className={`${btnBase} ${btnInactive}`}
-        >
-          History
-        </Link>
       </div>
 
       {dropdownOpen && colsBtnRef.current && createPortal(
