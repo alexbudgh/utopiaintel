@@ -6,7 +6,7 @@ export type ProvinceNewsEventType =
   | "attack_conquest"
   | "attack_razed"
   | "attack_massacre"
-  | "attack_loot"
+  | "attack_learn"
   | "attack_plunder"
   | "attack_ambush"
   | "attack_failed"
@@ -71,7 +71,6 @@ export interface ProvinceNewsEvent {
   rawText: string;
   actorName: string | null;
   actorKingdom: string | null;
-  acres: number | null;
   amount: number | null;
   resourceType: string | null;
 }
@@ -80,8 +79,10 @@ export interface ProvinceNewsData {
   events: ProvinceNewsEvent[];
 }
 
-const nil: Pick<ProvinceNewsEvent, "actorName" | "actorKingdom" | "acres" | "amount" | "resourceType"> =
-  { actorName: null, actorKingdom: null, acres: null, amount: null, resourceType: null };
+type ClassifiedProvinceNewsEvent = Omit<ProvinceNewsEvent, "gameDate" | "rawText">;
+
+const nil: Pick<ProvinceNewsEvent, "actorName" | "actorKingdom" | "amount" | "resourceType"> =
+  { actorName: null, actorKingdom: null, amount: null, resourceType: null };
 
 function normUnit(raw: string): string {
   const lower = raw.toLowerCase();
@@ -110,13 +111,14 @@ const ATTACK_CAPTURED_UNKNOWN_RE = new RegExp(
 const ATTACK_CONQUEST_UNKNOWN_RE = new RegExp(
   `^${ATTACK_PREFIX}Forces from An unknown province from ([^(]+?)\\s*${KDLOC} came through and ravaged our lands! They were able to capture (${INT}) acres`,
 );
-// "Forces from N - Name (X:Y) came through and ravaged our lands! They looted N books!" (Learn/Loot)
-const ATTACK_LOOT_RE = new RegExp(
+// "Forces from N - Name (X:Y) came through and ravaged our lands! They looted N books!" (Learn)
+const ATTACK_LEARN_RE = new RegExp(
   `^${ATTACK_PREFIX}Forces from \\d+ - ([^(]+?)\\s*${KDLOC} came through and ravaged our lands! They looted (${INT}) books`,
 );
-// "Forces from N - Name (X:Y) came through and ravaged our lands! They looted N gold coins..." (Plunder)
+// "Forces from N - Name (X:Y) came through and ravaged our lands! They looted N gold coins..."
+// Plunder may include gold, bushels, and runes in one line.
 const ATTACK_PLUNDER_RE = new RegExp(
-  `^${ATTACK_PREFIX}Forces from \\d+ - ([^(]+?)\\s*${KDLOC} came through and ravaged our lands! They looted (${INT}) gold`,
+  `^${ATTACK_PREFIX}Forces from \\d+ - ([^(]+?)\\s*${KDLOC} came through and ravaged our lands! They looted (.+?)!`,
 );
 // "Forces from N - Name (X:Y) came through and ravaged our lands! Their armies razed N acres of buildings!"
 const ATTACK_RAZED_RE = new RegExp(
@@ -194,7 +196,7 @@ const LIGHTNING_RE = new RegExp(`^A sudden lightning storm struck our towers and
 const METEOR_START_RE = new RegExp(`^Meteors rain across our lands, and are not expected to stop for (${INT}) days`);
 // Meteor Showers tick: "Meteors rain across the lands and kill N peasants[, N Skeletons and N Zombies]!"
 // Many variants: peasants only, troops only, or any combination of race-specific unit types.
-// amount = peasants killed, acres = all other unit types summed
+// Meteor troop casualties include race-specific unit labels; store their sum as troops.
 const METEOR_STRIKE_RE = /^Meteors rain across the lands and kill (.+?)!/;
 // Blizzard: "Blizzards are besetting our works, and our building efficiency will be crippled by 10% for for N days!"
 const BLIZZARD_RE = new RegExp(`^Blizzards are besetting our works.*for for (${INT}) days`);
@@ -282,52 +284,95 @@ const INACTIVITY_RE = /^Due to your lackluster activity/;
 // "N wizards of our wizards abandoned us hoping for a better life!"
 // (already declared above)
 
-function classifyEvent(text: string): Omit<ProvinceNewsEvent, "gameDate" | "rawText"> {
+function parsePlunderResources(
+  text: string,
+  actorName: string,
+  actorKingdom: string,
+): ClassifiedProvinceNewsEvent[] {
+  const resources: ClassifiedProvinceNewsEvent[] = [];
+  const base = {
+    eventType: "attack_plunder" as const,
+    actorName,
+    actorKingdom,
+  };
+
+  const goldM = new RegExp(`(${INT}) gold coins?`).exec(text);
+  if (goldM) resources.push({ ...base, amount: parseNum(goldM[1]), resourceType: "gold" });
+
+  const foodM = new RegExp(`(${INT}) bushels?`).exec(text);
+  if (foodM) resources.push({ ...base, amount: parseNum(foodM[1]), resourceType: "food" });
+
+  const runesM = new RegExp(`(${INT}) runes?`).exec(text);
+  if (runesM) resources.push({ ...base, amount: parseNum(runesM[1]), resourceType: "runes" });
+
+  return resources.length > 0 ? resources : [{ ...base, amount: null, resourceType: null }];
+}
+
+function parseMeteorCasualties(text: string): ClassifiedProvinceNewsEvent[] {
+  const resources: ClassifiedProvinceNewsEvent[] = [];
+  const peasantM = /^([\d,]+) peasants?/.exec(text);
+  const peasants = peasantM ? parseNum(peasantM[1]) : 0;
+  const total = [...text.matchAll(/\d[\d,]*/g)].reduce((s, n) => s + parseNum(n[0]), 0);
+  const troops = total - peasants;
+
+  if (peasants > 0) {
+    resources.push({ ...nil, eventType: "spell_meteor", amount: peasants, resourceType: "peasants" });
+  }
+  if (troops > 0) {
+    resources.push({ ...nil, eventType: "spell_meteor", amount: troops, resourceType: "troops" });
+  }
+
+  return resources.length > 0
+    ? resources
+    : [{ ...nil, eventType: "spell_meteor" }];
+}
+
+function classifyEvent(text: string): ClassifiedProvinceNewsEvent | ClassifiedProvinceNewsEvent[] {
   let m: RegExpExecArray | null;
 
   // ── Combat ──
   m = ATTACK_CAPTURED_UNKNOWN_RE.exec(text);
-  if (m) return { eventType: "attack_trad_march", actorName: null, actorKingdom: m[2], acres: parseNum(m[3]), amount: null, resourceType: null };
+  if (m) return { eventType: "attack_trad_march", actorName: null, actorKingdom: m[2], amount: parseNum(m[3]), resourceType: "acres" };
 
   m = ATTACK_CONQUEST_UNKNOWN_RE.exec(text);
-  if (m) return { eventType: "attack_conquest", actorName: null, actorKingdom: m[2], acres: parseNum(m[3]), amount: null, resourceType: null };
+  if (m) return { eventType: "attack_conquest", actorName: null, actorKingdom: m[2], amount: parseNum(m[3]), resourceType: "acres" };
 
   m = ATTACK_CAPTURED_RE.exec(text);
-  if (m) return { eventType: "attack_trad_march", actorName: m[1].trim(), actorKingdom: m[2], acres: parseNum(m[3]), amount: null, resourceType: null };
+  if (m) return { eventType: "attack_trad_march", actorName: m[1].trim(), actorKingdom: m[2], amount: parseNum(m[3]), resourceType: "acres" };
 
   m = ATTACK_CONQUEST_RE.exec(text);
-  if (m) return { eventType: "attack_conquest", actorName: m[1].trim(), actorKingdom: m[2], acres: parseNum(m[3]), amount: null, resourceType: null };
+  if (m) return { eventType: "attack_conquest", actorName: m[1].trim(), actorKingdom: m[2], amount: parseNum(m[3]), resourceType: "acres" };
 
-  m = ATTACK_LOOT_RE.exec(text);
-  if (m) return { eventType: "attack_loot", actorName: m[1].trim(), actorKingdom: m[2], acres: null, amount: parseNum(m[3]), resourceType: "books" };
+  m = ATTACK_LEARN_RE.exec(text);
+  if (m) return { eventType: "attack_learn", actorName: m[1].trim(), actorKingdom: m[2], amount: parseNum(m[3]), resourceType: "books" };
 
   m = ATTACK_PLUNDER_RE.exec(text);
-  if (m) return { eventType: "attack_plunder", actorName: m[1].trim(), actorKingdom: m[2], acres: null, amount: parseNum(m[3]), resourceType: "gold" };
+  if (m) return parsePlunderResources(m[3], m[1].trim(), m[2]);
 
   m = ATTACK_RAZED_RE.exec(text);
-  if (m) return { eventType: "attack_razed", actorName: m[1].trim(), actorKingdom: m[2], acres: parseNum(m[3]), amount: null, resourceType: null };
+  if (m) return { eventType: "attack_razed", actorName: m[1].trim(), actorKingdom: m[2], amount: parseNum(m[3]), resourceType: "buildings" };
 
   m = ATTACK_AMBUSH_RE.exec(text);
-  if (m) return { eventType: "attack_ambush", actorName: m[1].trim(), actorKingdom: m[2], acres: parseNum(m[3]), amount: null, resourceType: null };
+  if (m) return { eventType: "attack_ambush", actorName: m[1].trim(), actorKingdom: m[2], amount: parseNum(m[3]), resourceType: "acres" };
 
   m = ATTACK_FAILED_RE.exec(text);
-  if (m) return { eventType: "attack_failed", actorName: m[1].trim(), actorKingdom: m[2], acres: null, amount: null, resourceType: null };
+  if (m) return { eventType: "attack_failed", actorName: m[1].trim(), actorKingdom: m[2], amount: null, resourceType: null };
 
   m = ATTACK_MASSACRE_RE.exec(text);
-  if (m) return { eventType: "attack_massacre", actorName: m[1].trim(), actorKingdom: m[2], acres: null, amount: null, resourceType: null };
+  if (m) return { eventType: "attack_massacre", actorName: m[1].trim(), actorKingdom: m[2], amount: null, resourceType: null };
 
   // ── Thievery ──
   m = SHADOWLIGHT_FOILED_RE.exec(text);
-  if (m) return { eventType: "thief_foiled_shadowlight", actorName: m[1].trim(), actorKingdom: m[2], acres: null, amount: null, resourceType: null };
+  if (m) return { eventType: "thief_foiled_shadowlight", actorName: m[1].trim(), actorKingdom: m[2], amount: null, resourceType: null };
 
   m = THIEF_DETECTED_RE.exec(text);
-  if (m) return { eventType: "thief_detected", actorName: m[1].trim(), actorKingdom: m[2], acres: null, amount: null, resourceType: null };
+  if (m) return { eventType: "thief_detected", actorName: m[1].trim(), actorKingdom: m[2], amount: null, resourceType: null };
 
   if (THIEF_UNKNOWN_RE.test(text)) return { ...nil, eventType: "thief_detected_unknown" };
   if (THIEF_FOILED_RE.test(text)) return { ...nil, eventType: "thief_foiled" };
 
   m = ARSON_RE.exec(text);
-  if (m) return { eventType: "arson", actorName: m[1].trim(), actorKingdom: null, acres: parseNum(m[2]), amount: null, resourceType: null };
+  if (m) return { eventType: "arson", actorName: m[1].trim(), actorKingdom: null, amount: parseNum(m[2]), resourceType: "acres" };
 
   m = FOOLS_GOLD_RE.exec(text);
   if (m) return { ...nil, eventType: "spell_fools_gold", amount: parseNum(m[1]), resourceType: "gold" };
@@ -363,7 +408,7 @@ function classifyEvent(text: string): Omit<ProvinceNewsEvent, "gameDate" | "rawT
 
   // ── Sorcery ──
   m = SPELL_DETECTED_RE.exec(text);
-  if (m) return { eventType: "spell_detected", actorName: m[1].trim(), actorKingdom: m[2], acres: null, amount: null, resourceType: null };
+  if (m) return { eventType: "spell_detected", actorName: m[1].trim(), actorKingdom: m[2], amount: null, resourceType: null };
 
   m = FIREBALL_RE.exec(text);
   if (m) return { ...nil, eventType: "spell_fireball", amount: parseNum(m[1]) };
@@ -376,12 +421,7 @@ function classifyEvent(text: string): Omit<ProvinceNewsEvent, "gameDate" | "rawT
 
   m = METEOR_STRIKE_RE.exec(text);
   if (m) {
-    const killStr = m[1];
-    const peasantM = /^([\d,]+) peasants?/.exec(killStr);
-    const peasants = peasantM ? parseNum(peasantM[1]) : 0;
-    // \d[\d,]* to avoid matching isolated commas (e.g. "peasants, 1")
-    const total = [...killStr.matchAll(/\d[\d,]*/g)].reduce((s, n) => s + parseNum(n[0]), 0);
-    return { ...nil, eventType: "spell_meteor", amount: peasants, acres: total - peasants || null };
+    return parseMeteorCasualties(m[1]);
   }
 
   m = BLIZZARD_RE.exec(text);
@@ -397,12 +437,12 @@ function classifyEvent(text: string): Omit<ProvinceNewsEvent, "gameDate" | "rawT
   if (m) return { ...nil, eventType: "spell_explosions", amount: parseNum(m[1]) };
 
   m = TORNADO_RE.exec(text);
-  if (m) return { ...nil, eventType: "spell_tornado", acres: parseNum(m[1]) };
+  if (m) return { ...nil, eventType: "spell_tornado", amount: parseNum(m[1]), resourceType: "buildings" };
 
   if (TORNADO_NODMG_RE.test(text)) return { ...nil, eventType: "spell_tornado" };
 
   m = LAND_LUST_RE.exec(text);
-  if (m) return { ...nil, eventType: "spell_land_lust", acres: parseNum(m[1]) };
+  if (m) return { ...nil, eventType: "spell_land_lust", amount: parseNum(m[1]), resourceType: "acres" };
 
   if (MYSTIC_VORTEX_RE.test(text)) return { ...nil, eventType: "spell_mystic_vortex" };
 
@@ -433,24 +473,24 @@ function classifyEvent(text: string): Omit<ProvinceNewsEvent, "gameDate" | "rawT
   // ── Dragon ──
   if (DRAGON_DAMAGE_CLAW_RE.test(text)) return { ...nil, eventType: "dragon_damage" };
   m = DRAGON_DAMAGE_RE.exec(text);
-  if (m) return { eventType: "dragon_damage", actorName: m[1].trim(), actorKingdom: null, acres: null, amount: parseNum(m[2]), resourceType: null };
+  if (m) return { eventType: "dragon_damage", actorName: m[1].trim(), actorKingdom: null, amount: parseNum(m[2]), resourceType: null };
 
   // ── Aid ──
   m = AID_RECEIVED_RE.exec(text);
   if (m) {
     const parsed = parseAidResource(m[1].trim());
-    return { eventType: "aid_received", actorName: m[2].trim(), actorKingdom: m[3], acres: null, amount: parsed?.amount ?? null, resourceType: parsed?.resourceType ?? null };
+    return { eventType: "aid_received", actorName: m[2].trim(), actorKingdom: m[3], amount: parsed?.amount ?? null, resourceType: parsed?.resourceType ?? null };
   }
 
   // ── Misc ──
   m = EXPLORATION_RE.exec(text);
-  if (m) return { ...nil, eventType: "exploration", acres: parseNum(m[1]) };
+  if (m) return { ...nil, eventType: "exploration", amount: parseNum(m[1]), resourceType: "acres" };
 
   m = MONTHLY_DEDICATION_RE.exec(text);
   if (m) return { ...nil, eventType: "monthly_dedication", amount: parseNum(m[1]), resourceType: "gold" };
 
   m = WAR_ENDED_RE.exec(text);
-  if (m) return { ...nil, eventType: "war_ended", acres: parseNum(m[1]) };
+  if (m) return { ...nil, eventType: "war_ended", amount: parseNum(m[1]), resourceType: "acres" };
 
   if (WAR_LOSS_RE.test(text)) return { ...nil, eventType: "war_loss_penalty" };
   if (WAR_VICTORY_RE.test(text)) return { ...nil, eventType: "war_victory_reward" };
@@ -487,7 +527,9 @@ export function parseProvinceNews(text: string): ProvinceNewsData | null {
     if (!GAME_DATE_RE.test(gameDate) || !rawText) continue;
 
     const classified = classifyEvent(rawText);
-    events.push({ gameDate, rawText, ...classified });
+    for (const event of Array.isArray(classified) ? classified : [classified]) {
+      events.push({ gameDate, rawText, ...event });
+    }
   }
 
   if (events.length === 0) return null;

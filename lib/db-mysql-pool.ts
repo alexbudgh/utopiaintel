@@ -460,13 +460,13 @@ export async function initDb(): Promise<void> {
       game_date_ord INT,
       event_type VARCHAR(64) NOT NULL,
       raw_text TEXT NOT NULL,
+      raw_hash CHAR(64) NOT NULL,
       actor_name VARCHAR(255),
       actor_kingdom VARCHAR(16),
-      acres INT,
       amount BIGINT,
-      resource_type VARCHAR(32),
+      resource_type VARCHAR(32) NOT NULL DEFAULT '',
       received_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE KEY uq_province_news (province_id, game_date(64), raw_text(400)),
+      UNIQUE KEY uq_province_news (key_hash, province_id, game_date(64), raw_hash, event_type, resource_type),
       CONSTRAINT fk_province_news_prov FOREIGN KEY (province_id) REFERENCES provinces(id)
     ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
 

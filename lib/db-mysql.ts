@@ -1,4 +1,5 @@
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
+import { createHash } from "node:crypto";
 import { pool, ensureReady, initDb } from "./db-mysql-pool";
 export { pool, ensureReady, initDb };
 import { BAD_SPELL_NAMES, COMBAT_EVENT_TYPES } from "./effects";
@@ -993,14 +994,15 @@ export async function storeProvinceNews(
     const provinceId = await ensureProvince(conn, savedBy, kingdom);
     await recordSubmission(conn, keyHash, provinceId);
     for (const e of data.events) {
+      const rawHash = createHash("sha256").update(e.rawText).digest("hex");
       await conn.execute(
         `INSERT IGNORE INTO province_news (
-           province_id, key_hash, game_date, game_date_ord, event_type, raw_text,
-           actor_name, actor_kingdom, acres, amount, resource_type, received_at
+           province_id, key_hash, game_date, game_date_ord, event_type, raw_text, raw_hash,
+           actor_name, actor_kingdom, amount, resource_type, received_at
          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
         [
-          provinceId, keyHash, e.gameDate, parseUtopiaDate(e.gameDate), e.eventType, e.rawText,
-          e.actorName, e.actorKingdom, e.acres, e.amount, e.resourceType,
+          provinceId, keyHash, e.gameDate, parseUtopiaDate(e.gameDate), e.eventType, e.rawText, rawHash,
+          e.actorName, e.actorKingdom, e.amount, e.resourceType ?? "",
           receivedAt ?? null,
         ],
       );
@@ -2578,7 +2580,8 @@ export async function getProvinceNews(
 
   const [rows] = await pool.execute<any[]>(
     `SELECT pn.id, pn.game_date, pn.game_date_ord, pn.event_type, pn.raw_text,
-            pn.actor_name, pn.actor_kingdom, pn.acres, pn.amount, pn.resource_type, pn.received_at
+            pn.actor_name, pn.actor_kingdom, pn.amount, NULLIF(pn.resource_type, '') AS resource_type,
+            pn.received_at
      FROM province_news pn
      JOIN provinces p ON pn.province_id = p.id
      WHERE p.name = ? AND p.kingdom = ? AND pn.key_hash = ?
@@ -2596,7 +2599,6 @@ export async function getProvinceNews(
     rawText: r.raw_text,
     actorName: r.actor_name,
     actorKingdom: r.actor_kingdom,
-    acres: r.acres,
     amount: r.amount,
     resourceType: r.resource_type,
     receivedAt: r.received_at,
@@ -2673,11 +2675,10 @@ export async function getKingdomOpsStats(
   const [inRows] = await pool.execute<any[]>(
     `SELECT
        pn.event_type,
-       pn.resource_type,
+       NULLIF(pn.resource_type, '') AS resource_type,
        pn.actor_name AS province_name,
        COUNT(*) AS cnt,
-       SUM(COALESCE(pn.amount, 0)) AS amount,
-       SUM(COALESCE(pn.acres, 0)) AS acres_amount
+       SUM(COALESCE(pn.amount, 0)) AS amount
      FROM province_news pn
      WHERE pn.key_hash = ? AND pn.actor_kingdom = ?
        AND pn.game_date_ord >= ? AND pn.game_date_ord <= ?
@@ -2758,7 +2759,7 @@ export async function getKingdomOpsStats(
     if (!inByOp.has(op)) inByOp.set(op, new Map());
     const provMap = inByOp.get(op)!;
     const isDetection = op === "detected";
-    const amt = r.event_type === "arson" ? Number(r.acres_amount) : Number(r.amount);
+    const amt = Number(r.amount);
     const unitType = r.event_type === "thief_propaganda" ? normUnit((r.resource_type as string | null) ?? null) : null;
     const key = `${r.province_name}|${unitType ?? ""}`;
     const existing = provMap.get(key);
@@ -2842,10 +2843,9 @@ export async function getIncomingDamageStats(
     `SELECT
        p.name AS province_name,
        pn.event_type,
-       pn.resource_type,
+       NULLIF(pn.resource_type, '') AS resource_type,
        COUNT(*) AS cnt,
-       SUM(COALESCE(pn.amount, 0)) AS total_amount,
-       SUM(COALESCE(pn.acres, 0)) AS total_acres
+       SUM(COALESCE(pn.amount, 0)) AS total_amount
      FROM province_news pn
      JOIN provinces p ON p.id = pn.province_id
      WHERE pn.key_hash = ?
@@ -2861,16 +2861,15 @@ export async function getIncomingDamageStats(
     const eventType    = r.event_type as string;
     const resourceType = r.resource_type as string | null;
     const count        = Number(r.cnt);
-    const totalAmount  = eventType === "arson" ? Number(r.total_acres) : Number(r.total_amount);
-    const totalAlt     = eventType === "spell_meteor" ? Number(r.total_acres) : 0;
+    const totalAmount  = Number(r.total_amount);
     const isNonDamage  = NON_DAMAGE_EVENT_TYPES.has(eventType);
 
     if (!byProvince.has(provinceName)) {
       byProvince.set(provinceName, { provinceName, totalImpact: 0, events: [] });
     }
     const stat = byProvince.get(provinceName)!;
-    stat.events.push({ eventType, resourceType, count, totalAmount, totalAlt });
-    if (!isNonDamage) stat.totalImpact += (totalAmount + totalAlt) || count;
+    stat.events.push({ eventType, resourceType, count, totalAmount });
+    if (!isNonDamage) stat.totalImpact += totalAmount || count;
   }
 
   // Within each province sort events: damage first by amount desc, then non-damage

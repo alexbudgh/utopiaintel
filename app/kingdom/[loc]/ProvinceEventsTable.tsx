@@ -33,6 +33,29 @@ const NEUTRAL_EVENTS = new Set([
   "other",
 ]);
 
+const CONSOLIDATED_RESOURCE_EVENTS = new Set([
+  "attack_plunder",
+  "aid_received",
+]);
+
+const DISPLAY_EVENT_GROUPS: Record<string, string> = {
+  thief_detected_unknown: "thief_detected",
+  thief_foiled_shadowlight: "thief_foiled",
+};
+
+const RESOURCE_ORDER = [
+  "gold",
+  "food",
+  "runes",
+  "soldiers",
+  "peasants",
+  "troops",
+  "acres",
+  "buildings",
+  "books",
+  "horses",
+];
+
 const LABELS: Record<string, string> = {
   // Thievery — incoming damage
   troops_killed:            "Night Strike",
@@ -74,7 +97,7 @@ const LABELS: Record<string, string> = {
   // Attacks
   attack_trad_march:        "Attack (Traditional March)",
   attack_conquest:          "Attack (Conquest)",
-  attack_loot:              "Attack (Learn)",
+  attack_learn:             "Attack (Learn)",
   attack_plunder:           "Attack (Plunder)",
   attack_razed:             "Attack (Raze)",
   attack_ambush:            "Ambush",
@@ -115,12 +138,22 @@ function getLabel(eventType: string, resourceType: string | null): string {
   return base;
 }
 
+function getResourceLabel(resourceType: string): string {
+  return resourceType.charAt(0).toUpperCase() + resourceType.slice(1);
+}
+
 function getSummaryStr(e: IncomingDamageEvent): string | null {
   if (e.totalAmount === 0) return null;
   const n = e.totalAmount.toLocaleString();
   const res = e.resourceType ?? "";
   switch (e.eventType) {
     case "resource_stolen":    return `${n} ${res} stolen`;
+    case "attack_learn":       return `${n} books learned`;
+    case "attack_trad_march":  return `${n} acres taken`;
+    case "attack_conquest":    return `${n} acres taken`;
+    case "attack_razed":       return `${n} buildings razed`;
+    case "attack_ambush":      return `${n} acres recaptured`;
+    case "attack_plunder":     return `${n} ${res} plundered`;
     case "troops_killed":      return `${n} troops killed`;
     case "peasants_kidnapped": return `${n} peasants kidnapped`;
     case "arson":              return `${n} acres burned`;
@@ -129,13 +162,9 @@ function getSummaryStr(e: IncomingDamageEvent): string | null {
     case "spell_lightning":    return `${n} runes stolen`;
     case "spell_vermin":       return `${n} food destroyed`;
     case "spell_fireball":     return `${n} peasants`;
-    case "spell_meteor": {
-      const parts = [`${n} peasants`];
-      if (e.totalAlt > 0) parts.push(`${e.totalAlt.toLocaleString()} troops`);
-      return parts.join(", ");
-    }
+    case "spell_meteor":       return `${n} ${res}`;
     case "spell_nightmares":   return `${n} troops disrupted`;
-    case "spell_tornado":
+    case "spell_tornado":      return `${n} buildings`;
     case "spell_land_lust":    return `${n} acres`;
     // Duration-based spells store days, not resource amounts — fall through to getAmountStr → "N days"
     default:                   return getAmountStr(e);
@@ -146,20 +175,26 @@ function getSummaryStr(e: IncomingDamageEvent): string | null {
 // resource_type is used as the unit when the string is "".
 const AMOUNT_UNITS: Partial<Record<string, string>> = {
   resource_stolen:        "",          // unit from resource_type
+  attack_learn:           " books",
+  attack_trad_march:      " acres",
+  attack_conquest:        " acres",
+  attack_razed:           " buildings",
+  attack_ambush:          " acres",
+  attack_plunder:         "",          // unit from resource_type
   troops_killed:          " troops",
   peasants_kidnapped:     " peasants",
-  arson:                  " acres",    // uses acres field in query
+  arson:                  " acres",
   thief_propaganda:       " deserters",
   spell_fireball:         " peasants",
   spell_lightning:        " runes",
   spell_meteor_start:     " days",     // duration of shower, not troops
-  spell_meteor:           " peasants", // troops are in totalAlt
+  spell_meteor:           "",          // unit from resource_type
   spell_blizzard:         " days",     // duration, not troops
   spell_gluttony:         " days",     // duration of food drain, not food amount
   spell_greed:            " days",     // duration of upkeep surcharge, not gold
   spell_explosions:       " days",     // duration, not buildings
-  spell_tornado:          " acres",    // uses acres field
-  spell_land_lust:        " acres",    // uses acres field
+  spell_tornado:          " buildings",
+  spell_land_lust:        " acres",
   spell_drought:          " days",     // duration of harvest penalty, not food
   spell_pitfalls:         " days",     // duration, not troops
   spell_chastity:         " days",     // duration, not pop
@@ -168,19 +203,13 @@ const AMOUNT_UNITS: Partial<Record<string, string>> = {
   spell_vermin:           " food",
   spell_fools_gold:       " gold",
   dragon_damage:          " troops",
-  exploration:            " acres",    // uses acres field
+  exploration:            " acres",
 };
 
 function getAmountStr(e: IncomingDamageEvent): string | null {
-  if (e.totalAmount === 0 && e.totalAlt === 0) return null;
-  if (e.eventType === "spell_meteor") {
-    const parts = e.totalAmount > 0 ? [`${e.totalAmount.toLocaleString()} peasants`] : [];
-    if (e.totalAlt > 0) parts.push(`${e.totalAlt.toLocaleString()} troops`);
-    return parts.length > 0 ? parts.join(", ") : null;
-  }
   if (e.totalAmount === 0) return null;
   if (!(e.eventType in AMOUNT_UNITS)) return null;
-  const unit = e.eventType === "resource_stolen"
+  const unit = e.eventType === "resource_stolen" || e.eventType === "attack_plunder" || e.eventType === "spell_meteor"
     ? ` ${e.resourceType ?? ""}`
     : AMOUNT_UNITS[e.eventType]!;
   return `${e.totalAmount.toLocaleString()}${unit}`;
@@ -190,7 +219,10 @@ type ViewMode = "province" | "op";
 
 interface OperationRow {
   provinceName: string;
-  event: IncomingDamageEvent;
+  events: IncomingDamageEvent[];
+  totalCount: number;
+  totalAmount: number;
+  amountsByResource: Map<string, number>;
 }
 
 interface OperationGroup {
@@ -198,17 +230,50 @@ interface OperationGroup {
   eventType: string;
   resourceType: string | null;
   rows: OperationRow[];
+  rowByProvince: Map<string, OperationRow>;
+  resourceTypes: string[];
+  totalsByResource: Map<string, number>;
   totalCount: number;
   totalAmount: number;
-  totalAlt: number;
 }
 
 function eventKey(e: IncomingDamageEvent): string {
-  return `${e.eventType}|${e.resourceType ?? ""}`;
+  const displayEventType = DISPLAY_EVENT_GROUPS[e.eventType] ?? e.eventType;
+  if (
+    displayEventType !== e.eventType ||
+    Object.values(DISPLAY_EVENT_GROUPS).includes(displayEventType)
+  ) {
+    return displayEventType;
+  }
+  if (CONSOLIDATED_RESOURCE_EVENTS.has(displayEventType)) return displayEventType;
+  return `${displayEventType}|${e.resourceType ?? ""}`;
 }
 
-function impactValue(e: IncomingDamageEvent): number {
-  return e.totalAmount + e.totalAlt || e.count;
+function impactValue(row: OperationRow): number {
+  return row.totalAmount || row.totalCount;
+}
+
+function sortResourceTypes(resources: Iterable<string>): string[] {
+  return [...resources].sort((a, b) => {
+    const ai = RESOURCE_ORDER.indexOf(a);
+    const bi = RESOURCE_ORDER.indexOf(b);
+    if (ai !== -1 || bi !== -1) {
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    }
+    return a.localeCompare(b);
+  });
+}
+
+function formatResourceTotals(totals: Map<string, number>): string | null {
+  const parts = sortResourceTypes(totals.keys())
+    .map((resourceType) => {
+      const total = totals.get(resourceType) ?? 0;
+      return total > 0 ? `${total.toLocaleString()} ${resourceType}` : null;
+    })
+    .filter((part): part is string => part != null);
+  return parts.length > 0 ? parts.join(", ") : null;
 }
 
 function buildOperationGroups(stats: IncomingDamageStats): OperationGroup[] {
@@ -219,30 +284,61 @@ function buildOperationGroups(stats: IncomingDamageStats): OperationGroup[] {
       const key = eventKey(event);
       let group = byOperation.get(key);
       if (!group) {
+        const displayEventType = DISPLAY_EVENT_GROUPS[event.eventType] ?? event.eventType;
         group = {
           key,
-          eventType: event.eventType,
-          resourceType: event.resourceType,
+          eventType: displayEventType,
+          resourceType: displayEventType === event.eventType && !CONSOLIDATED_RESOURCE_EVENTS.has(event.eventType)
+            ? event.resourceType
+            : null,
           rows: [],
+          rowByProvince: new Map(),
+          resourceTypes: [],
+          totalsByResource: new Map(),
           totalCount: 0,
           totalAmount: 0,
-          totalAlt: 0,
         };
         byOperation.set(key, group);
       }
 
-      group.rows.push({ provinceName: stat.provinceName, event });
+      let row = group.rowByProvince.get(stat.provinceName);
+      if (!row) {
+        row = {
+          provinceName: stat.provinceName,
+          events: [],
+          totalCount: 0,
+          totalAmount: 0,
+          amountsByResource: new Map(),
+        };
+        group.rowByProvince.set(stat.provinceName, row);
+        group.rows.push(row);
+      }
+
+      row.events.push(event);
+      row.totalCount += event.count;
+      row.totalAmount += event.totalAmount;
       group.totalCount += event.count;
       group.totalAmount += event.totalAmount;
-      group.totalAlt += event.totalAlt;
+
+      if (event.resourceType) {
+        row.amountsByResource.set(
+          event.resourceType,
+          (row.amountsByResource.get(event.resourceType) ?? 0) + event.totalAmount,
+        );
+        group.totalsByResource.set(
+          event.resourceType,
+          (group.totalsByResource.get(event.resourceType) ?? 0) + event.totalAmount,
+        );
+      }
     }
   }
 
   const groups = [...byOperation.values()];
   for (const group of groups) {
+    group.resourceTypes = sortResourceTypes(group.totalsByResource.keys());
     group.rows.sort((a, b) => (
-      impactValue(b.event) - impactValue(a.event) ||
-      b.event.count - a.event.count ||
+      impactValue(b) - impactValue(a) ||
+      b.totalCount - a.totalCount ||
       a.provinceName.localeCompare(b.provinceName)
     ));
   }
@@ -257,7 +353,7 @@ function buildOperationGroups(stats: IncomingDamageStats): OperationGroup[] {
     if (aIsNeutral !== bIsNeutral) return aIsNeutral - bIsNeutral;
 
     return (
-      b.totalAmount + b.totalAlt - (a.totalAmount + a.totalAlt) ||
+      b.totalAmount - a.totalAmount ||
       b.totalCount - a.totalCount ||
       getLabel(a.eventType, a.resourceType).localeCompare(
         getLabel(b.eventType, b.resourceType),
@@ -334,14 +430,17 @@ function OperationTable({ group }: { group: OperationGroup }) {
   const [open, setOpen] = useState(false);
   const isPositive = POSITIVE_EVENTS.has(group.eventType);
   const isNeutral = NEUTRAL_EVENTS.has(group.eventType);
+  const isConsolidated = CONSOLIDATED_RESOURCE_EVENTS.has(group.eventType);
+  const hasResourceColumns = isConsolidated && group.resourceTypes.length > 0;
   const label = getLabel(group.eventType, group.resourceType);
-  const summary = getSummaryStr({
-    eventType: group.eventType,
-    resourceType: group.resourceType,
-    count: group.totalCount,
-    totalAmount: group.totalAmount,
-    totalAlt: group.totalAlt,
-  });
+  const summary = hasResourceColumns
+    ? formatResourceTotals(group.totalsByResource)
+    : getSummaryStr({
+      eventType: group.eventType,
+      resourceType: group.resourceType,
+      count: group.totalCount,
+      totalAmount: group.totalAmount,
+    });
   const summaryColor = isPositive
     ? "text-green-500"
     : isNeutral
@@ -358,7 +457,9 @@ function OperationTable({ group }: { group: OperationGroup }) {
         <h2 className="text-sm text-gray-300">{label}</h2>
         <span className="flex items-center gap-3 text-xs">
           <span className="text-gray-600">{group.rows.length.toLocaleString()} provinces</span>
-          <span className="font-mono text-gray-500">{group.totalCount.toLocaleString()} ops</span>
+          <span className="font-mono text-gray-500">
+            {group.totalCount.toLocaleString()} {isConsolidated ? "entries" : "ops"}
+          </span>
           {summary && <span className={summaryColor}>{summary}</span>}
           <span className="text-gray-600">{open ? "▲" : "▼"}</span>
         </span>
@@ -369,13 +470,24 @@ function OperationTable({ group }: { group: OperationGroup }) {
             <thead>
               <tr className="text-gray-600 border-b border-gray-800 text-xs">
                 <th className="text-left py-1 pr-4 font-normal">Province</th>
-                <th className="text-right py-1 px-2 font-normal">Count</th>
-                <th className="text-right py-1 pl-2 font-normal">Impact</th>
+                {hasResourceColumns ? (
+                  group.resourceTypes.map((resourceType) => (
+                    <th key={resourceType} className="text-right py-1 px-2 font-normal">
+                      {getResourceLabel(resourceType)}
+                    </th>
+                  ))
+                ) : (
+                  <>
+                    <th className="text-right py-1 px-2 font-normal">Count</th>
+                    <th className="text-right py-1 pl-2 font-normal">Impact</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody>
-              {group.rows.map(({ provinceName, event }) => {
-                const amountStr = getAmountStr(event);
+              {group.rows.map((row) => {
+                const event = row.events[0];
+                const amountStr = event ? getAmountStr(event) : null;
                 const impactColor = isPositive
                   ? "text-green-500"
                   : isNeutral
@@ -385,18 +497,61 @@ function OperationTable({ group }: { group: OperationGroup }) {
                       : "text-gray-700";
 
                 return (
-                  <tr key={provinceName} className="border-b border-gray-800/30">
-                    <td className="py-1 pr-4 text-xs text-gray-300">{provinceName}</td>
-                    <td className="text-right font-mono text-xs py-1 px-2 text-gray-500">
-                      {event.count.toLocaleString()}
-                    </td>
-                    <td className={`text-right font-mono text-xs py-1 pl-2 ${impactColor}`}>
-                      {amountStr ?? "—"}
-                    </td>
+                  <tr key={row.provinceName} className="border-b border-gray-800/30">
+                    <td className="py-1 pr-4 text-xs text-gray-300">{row.provinceName}</td>
+                    {hasResourceColumns ? (
+                      group.resourceTypes.map((resourceType) => {
+                        const amount = row.amountsByResource.get(resourceType) ?? 0;
+                        return (
+                          <td
+                            key={resourceType}
+                            className={`text-right font-mono text-xs py-1 px-2 ${impactColor}`}
+                          >
+                            {amount > 0 ? amount.toLocaleString() : "—"}
+                          </td>
+                        );
+                      })
+                    ) : (
+                      <>
+                        <td className="text-right font-mono text-xs py-1 px-2 text-gray-500">
+                          {row.totalCount.toLocaleString()}
+                        </td>
+                        <td className={`text-right font-mono text-xs py-1 pl-2 ${impactColor}`}>
+                          {amountStr ?? "—"}
+                        </td>
+                      </>
+                    )}
                   </tr>
                 );
               })}
             </tbody>
+            <tfoot>
+              <tr className="border-t border-gray-700 text-xs">
+                <td className="py-1.5 pr-4 font-medium text-gray-400">Total</td>
+                {hasResourceColumns ? (
+                  group.resourceTypes.map((resourceType) => {
+                    const amount = group.totalsByResource.get(resourceType) ?? 0;
+                    return (
+                      <td
+                        key={resourceType}
+                        className={`text-right font-mono py-1.5 px-2 font-medium ${summaryColor}`}
+                      >
+                        {amount > 0 ? amount.toLocaleString() : "—"}
+                      </td>
+                    );
+                  })
+                ) : (
+                  <>
+                    <td className="text-right font-mono py-1.5 px-2 font-medium text-gray-500">
+                      {group.totalCount.toLocaleString()}
+                    </td>
+                    <td className={`text-right font-mono py-1.5 pl-2 font-medium ${summaryColor}`}>
+                      {summary ?? "—"}
+                    </td>
+                  </>
+                )}
+              </tr>
+            </tfoot>
           </table>
         </div>
       )}

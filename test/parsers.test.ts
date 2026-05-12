@@ -1503,6 +1503,61 @@ test("parseProvinceNews — Sloth notification maps to Sloth", () => {
   assert.equal(r.events[0].amount, 5);
 });
 
+test("parseProvinceNews — land attacks keep captured acres", () => {
+  const r = parseProvinceNews([
+    "The Province Reporter",
+    mkProvinceLine("April 3 of YR9", "Forces from 12 - Attacker (1:2) came through and ravaged our lands! They captured 94 acres! We lost 10 soldiers in this battle."),
+  ].join("\n"));
+  assert.ok(r);
+  assert.equal(r.events[0].eventType, "attack_trad_march");
+  assert.equal(r.events[0].amount, 94);
+  assert.equal(r.events[0].resourceType, "acres");
+});
+
+test("parseProvinceNews — Learn attacks use attack_learn", () => {
+  const r = parseProvinceNews([
+    "The Province Reporter",
+    mkProvinceLine("April 4 of YR9", "Forces from 8 - Learner (3:4) came through and ravaged our lands! They looted 4,479 books! Savages! We lost 10 soldiers in this battle."),
+  ].join("\n"));
+  assert.ok(r);
+  assert.equal(r.events[0].eventType, "attack_learn");
+  assert.equal(r.events[0].amount, 4479);
+  assert.equal(r.events[0].resourceType, "books");
+});
+
+test("parseProvinceNews — Plunder splits looted resources", () => {
+  const r = parseProvinceNews([
+    "The Province Reporter",
+    mkProvinceLine("April 5 of YR9", "Forces from 6 - Mortavelle (5:12) came through and ravaged our lands! They looted 103,542 gold coins, 117,958 bushels and 4,929 runes! We lost 10 soldiers in this battle."),
+  ].join("\n"));
+  assert.ok(r);
+  assert.equal(r.events.length, 3);
+  assert.deepEqual(
+    r.events.map((e) => [e.eventType, e.amount, e.resourceType]),
+    [
+      ["attack_plunder", 103542, "gold"],
+      ["attack_plunder", 117958, "food"],
+      ["attack_plunder", 4929, "runes"],
+    ],
+  );
+});
+
+test("parseProvinceNews — Meteor splits peasants and troops", () => {
+  const r = parseProvinceNews([
+    "The Province Reporter",
+    mkProvinceLine("April 6 of YR9", "Meteors rain across the lands and kill 321 peasants, 45 Skeletons and 12 Zombies!"),
+  ].join("\n"));
+  assert.ok(r);
+  assert.equal(r.events.length, 2);
+  assert.deepEqual(
+    r.events.map((e) => [e.eventType, e.amount, e.resourceType]),
+    [
+      ["spell_meteor", 321, "peasants"],
+      ["spell_meteor", 57, "troops"],
+    ],
+  );
+});
+
 // ---------------------------------------------------------------------------
 // parseState
 // ---------------------------------------------------------------------------

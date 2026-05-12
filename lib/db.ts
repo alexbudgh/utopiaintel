@@ -2641,7 +2641,6 @@ export interface ProvinceNewsRow {
   rawText: string;
   actorName: string | null;
   actorKingdom: string | null;
-  acres: number | null;
   amount: number | null;
   resourceType: string | null;
   receivedAt: string;
@@ -2674,10 +2673,9 @@ export interface KingdomOpsStats {
 
 export interface IncomingDamageEvent {
   eventType: string;
-  resourceType: string | null; // for resource_stolen (gold/food/runes) and propaganda (unit type)
+  resourceType: string | null; // resources, books, or propaganda unit type
   count: number;
-  totalAmount: number; // uses acres field for arson; 0 for effect-only events
-  totalAlt: number;   // secondary amount (troops for spell_meteor, where amount = peasants)
+  totalAmount: number; // primary numeric impact; 0 for effect-only events
 }
 
 export interface IncomingDamageProvinceStat {

@@ -107,7 +107,7 @@ type Category = "Combat" | "Thievery" | "Sorcery" | "Dragon" | "Aid" | "Misc";
 const CATEGORY_TYPES: Record<Category, string[]> = {
   Combat: [
     "attack_trad_march", "attack_conquest", "attack_razed", "attack_massacre",
-    "attack_loot", "attack_plunder", "attack_ambush", "attack_failed",
+    "attack_learn", "attack_plunder", "attack_ambush", "attack_failed",
   ],
   Thievery: [
     "thief_detected", "thief_detected_unknown", "thief_foiled",
@@ -150,7 +150,7 @@ const EVENT_LABEL: Record<string, string> = {
   attack_conquest:   "Conquest",
   attack_razed:      "Raze",
   attack_massacre:   "Massacre",
-  attack_loot:       "Learn",
+  attack_learn:      "Learn",
   attack_plunder:    "Plunder",
   attack_ambush:     "Ambush",
   attack_failed:     "Failed Attack",
@@ -248,32 +248,32 @@ function resLabel(rt: string | null): string {
 function n(v: number) { return v.toLocaleString(); }
 
 function formatDetail(row: ProvinceNewsRow): string | null {
-  const { eventType, acres, amount, resourceType } = row;
+  const { eventType, amount, resourceType } = row;
 
   switch (eventType) {
     // Combat
-    case "attack_trad_march":  return acres  != null ? `${n(acres)} acres taken`        : null;
-    case "attack_conquest":    return acres  != null ? `${n(acres)} acres (turned away)` : null;
-    case "attack_razed":       return acres  != null ? `${n(acres)} bldgs razed`         : null;
-    case "attack_ambush":      return acres  != null ? `${n(acres)} acres recaptured`    : null;
+    case "attack_trad_march":  return amount != null ? `${n(amount)} acres taken`        : null;
+    case "attack_conquest":    return amount != null ? `${n(amount)} acres (turned away)` : null;
+    case "attack_razed":       return amount != null ? `${n(amount)} bldgs razed`         : null;
+    case "attack_ambush":      return amount != null ? `${n(amount)} acres recaptured`    : null;
     case "attack_massacre":    return "troops massacred";
-    case "attack_loot":        return amount != null ? `${n(amount)} books looted`       : null;
-    case "attack_plunder":     return amount != null ? `${n(amount)} gc plundered`       : null;
+    case "attack_learn":       return amount != null ? `${n(amount)} books learned`      : null;
+    case "attack_plunder":     return amount != null ? `${n(amount)} ${resLabel(resourceType)} plundered` : null;
     case "attack_failed":      return "attack repelled";
     // Thievery
     case "resource_stolen":    return amount != null ? `${n(amount)} ${resLabel(resourceType)} stolen`  : null;
     case "troops_killed":      return amount != null ? `${n(amount)} troops killed`       : null;
     case "peasants_kidnapped": return amount != null ? `${n(amount)} kidnapped`           : null;
     case "desertions":         return amount != null ? `${n(amount)} men deserted`        : null;
-    case "arson":              return acres  != null ? `${n(acres)} bldgs burned`         : null;
+    case "arson":              return amount != null ? `${n(amount)} bldgs burned`        : null;
     case "thief_propaganda":   return amount != null ? `${n(amount)} abandoned`           : null;
     case "thief_sabotage_wizards": return amount != null ? `${n(amount)} ticks affected` : null;
     // Sorcery — damage
     case "spell_fireball":     return amount != null ? `${n(amount)} peasants killed`    : null;
     case "spell_lightning":    return amount != null ? `${n(amount)} runes destroyed`    : null;
-    case "spell_meteor":       return amount != null ? `${n(amount)} killed`             : null;
-    case "spell_land_lust":    return acres  != null ? `${n(acres)} acres vanished`      : null;
-    case "spell_tornado":      return acres  != null ? `${n(acres)} bldgs razed`         : null;
+    case "spell_meteor":       return amount != null ? `${n(amount)} ${resLabel(resourceType)} killed` : null;
+    case "spell_land_lust":    return amount != null ? `${n(amount)} acres vanished`     : null;
+    case "spell_tornado":      return amount != null ? `${n(amount)} bldgs razed`        : null;
     case "spell_fools_gold":   return amount != null ? `${n(amount)} gc → lead`          : null;
     case "spell_vermin":       return amount != null ? `${n(amount)} bushels devoured`   : null;
     case "spell_animate_dead": return amount != null ? `${n(amount)} peasants lost`      : null;
@@ -293,8 +293,8 @@ function formatDetail(row: ProvinceNewsRow): string | null {
     // Aid
     case "aid_received":       return amount != null ? `${n(amount)} ${resLabel(resourceType)} received` : null;
     // Misc
-    case "exploration":        return acres  != null ? `${n(acres)} acres settled`       : null;
-    case "war_ended":          return acres  != null ? `${n(acres)} acres returned`      : null;
+    case "exploration":        return amount != null ? `${n(amount)} acres settled`      : null;
+    case "war_ended":          return amount != null ? `${n(amount)} acres returned`     : null;
     case "monthly_dedication": return amount != null ? `${n(amount)} gc`                 : null;
     case "utopian_lords_reward": return amount != null ? `${n(amount)} ${resLabel(resourceType)}` : null;
     default:                   return null;
@@ -308,7 +308,7 @@ function attackVerb(eventType: string): string | null {
     case "attack_conquest":   return "conquered us";
     case "attack_razed":      return "razed us";
     case "attack_massacre":   return "massacred us";
-    case "attack_loot":       return "looted us";
+    case "attack_learn":      return "learned from us";
     case "attack_plunder":    return "plundered us";
     case "attack_ambush":     return "ambushed our army";
     case "attack_failed":     return "failed to attack us";
