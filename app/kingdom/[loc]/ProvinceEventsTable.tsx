@@ -186,6 +186,86 @@ function getAmountStr(e: IncomingDamageEvent): string | null {
   return `${e.totalAmount.toLocaleString()}${unit}`;
 }
 
+type ViewMode = "province" | "op";
+
+interface OperationRow {
+  provinceName: string;
+  event: IncomingDamageEvent;
+}
+
+interface OperationGroup {
+  key: string;
+  eventType: string;
+  resourceType: string | null;
+  rows: OperationRow[];
+  totalCount: number;
+  totalAmount: number;
+  totalAlt: number;
+}
+
+function eventKey(e: IncomingDamageEvent): string {
+  return `${e.eventType}|${e.resourceType ?? ""}`;
+}
+
+function impactValue(e: IncomingDamageEvent): number {
+  return e.totalAmount + e.totalAlt || e.count;
+}
+
+function buildOperationGroups(stats: IncomingDamageStats): OperationGroup[] {
+  const byOperation = new Map<string, OperationGroup>();
+
+  for (const stat of stats.provinces) {
+    for (const event of stat.events) {
+      const key = eventKey(event);
+      let group = byOperation.get(key);
+      if (!group) {
+        group = {
+          key,
+          eventType: event.eventType,
+          resourceType: event.resourceType,
+          rows: [],
+          totalCount: 0,
+          totalAmount: 0,
+          totalAlt: 0,
+        };
+        byOperation.set(key, group);
+      }
+
+      group.rows.push({ provinceName: stat.provinceName, event });
+      group.totalCount += event.count;
+      group.totalAmount += event.totalAmount;
+      group.totalAlt += event.totalAlt;
+    }
+  }
+
+  const groups = [...byOperation.values()];
+  for (const group of groups) {
+    group.rows.sort((a, b) => (
+      impactValue(b.event) - impactValue(a.event) ||
+      b.event.count - a.event.count ||
+      a.provinceName.localeCompare(b.provinceName)
+    ));
+  }
+
+  return groups.sort((a, b) => {
+    const aIsPositive = POSITIVE_EVENTS.has(a.eventType) ? 1 : 0;
+    const bIsPositive = POSITIVE_EVENTS.has(b.eventType) ? 1 : 0;
+    if (aIsPositive !== bIsPositive) return aIsPositive - bIsPositive;
+
+    const aIsNeutral = NEUTRAL_EVENTS.has(a.eventType) ? 1 : 0;
+    const bIsNeutral = NEUTRAL_EVENTS.has(b.eventType) ? 1 : 0;
+    if (aIsNeutral !== bIsNeutral) return aIsNeutral - bIsNeutral;
+
+    return (
+      b.totalAmount + b.totalAlt - (a.totalAmount + a.totalAlt) ||
+      b.totalCount - a.totalCount ||
+      getLabel(a.eventType, a.resourceType).localeCompare(
+        getLabel(b.eventType, b.resourceType),
+      )
+    );
+  });
+}
+
 function EventRow({ e }: { e: IncomingDamageEvent }) {
   const isPositive = POSITIVE_EVENTS.has(e.eventType);
   const isNeutral  = NEUTRAL_EVENTS.has(e.eventType);
@@ -250,6 +330,80 @@ function ProvinceSection({ stat }: { stat: IncomingDamageProvinceStat }) {
   );
 }
 
+function OperationTable({ group }: { group: OperationGroup }) {
+  const [open, setOpen] = useState(false);
+  const isPositive = POSITIVE_EVENTS.has(group.eventType);
+  const isNeutral = NEUTRAL_EVENTS.has(group.eventType);
+  const label = getLabel(group.eventType, group.resourceType);
+  const summary = getSummaryStr({
+    eventType: group.eventType,
+    resourceType: group.resourceType,
+    count: group.totalCount,
+    totalAmount: group.totalAmount,
+    totalAlt: group.totalAlt,
+  });
+  const summaryColor = isPositive
+    ? "text-green-500"
+    : isNeutral
+      ? "text-gray-500"
+      : "text-red-400";
+
+  return (
+    <div className="border border-gray-800 rounded-lg overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between gap-3 bg-gray-900/50 px-4 py-2.5 hover:bg-gray-800/50 transition-colors text-left cursor-pointer"
+      >
+        <h2 className="text-sm text-gray-300">{label}</h2>
+        <span className="flex items-center gap-3 text-xs">
+          <span className="text-gray-600">{group.rows.length.toLocaleString()} provinces</span>
+          <span className="font-mono text-gray-500">{group.totalCount.toLocaleString()} ops</span>
+          {summary && <span className={summaryColor}>{summary}</span>}
+          <span className="text-gray-600">{open ? "▲" : "▼"}</span>
+        </span>
+      </button>
+      {open && (
+        <div className="overflow-x-auto px-4 py-3 border-t border-gray-800">
+          <table className="w-full">
+            <thead>
+              <tr className="text-gray-600 border-b border-gray-800 text-xs">
+                <th className="text-left py-1 pr-4 font-normal">Province</th>
+                <th className="text-right py-1 px-2 font-normal">Count</th>
+                <th className="text-right py-1 pl-2 font-normal">Impact</th>
+              </tr>
+            </thead>
+            <tbody>
+              {group.rows.map(({ provinceName, event }) => {
+                const amountStr = getAmountStr(event);
+                const impactColor = isPositive
+                  ? "text-green-500"
+                  : isNeutral
+                    ? "text-gray-500"
+                    : amountStr
+                      ? "text-red-400"
+                      : "text-gray-700";
+
+                return (
+                  <tr key={provinceName} className="border-b border-gray-800/30">
+                    <td className="py-1 pr-4 text-xs text-gray-300">{provinceName}</td>
+                    <td className="text-right font-mono text-xs py-1 px-2 text-gray-500">
+                      {event.count.toLocaleString()}
+                    </td>
+                    <td className={`text-right font-mono text-xs py-1 pl-2 ${impactColor}`}>
+                      {amountStr ?? "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ProvinceEventsTable({
   stats,
   kingdom,
@@ -263,6 +417,8 @@ export function ProvinceEventsTable({
 }) {
   const router = useRouter();
   const kingdomHref = `/kingdom/${encodeURIComponent(kingdom)}`;
+  const [viewMode, setViewMode] = useState<ViewMode>("province");
+  const operationGroups = buildOperationGroups(stats);
 
   return (
     <KingdomViewShell kingdom={kingdom} boundKingdom={boundKingdom} active="events">
@@ -288,11 +444,38 @@ export function ProvinceEventsTable({
       {stats.provinces.length === 0 ? (
         <p className="text-sm text-gray-500">No incoming events in this range.</p>
       ) : (
-        <div className="flex flex-col gap-2">
-          {stats.provinces.map((p) => (
-            <ProvinceSection key={p.provinceName} stat={p} />
-          ))}
-        </div>
+        <>
+          <div className="mb-4 inline-flex rounded-md border border-gray-800 bg-gray-950 p-0.5">
+            {([
+              ["province", "By province"],
+              ["op", "By op"],
+            ] as const).map(([mode, label]) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setViewMode(mode)}
+                className={[
+                  "px-3 py-1.5 text-xs transition-colors",
+                  viewMode === mode
+                    ? "bg-gray-800 text-gray-200"
+                    : "text-gray-500 hover:text-gray-300",
+                ].join(" ")}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            {viewMode === "province"
+              ? stats.provinces.map((p) => (
+                <ProvinceSection key={p.provinceName} stat={p} />
+              ))
+              : operationGroups.map((group) => (
+                <OperationTable key={group.key} group={group} />
+              ))}
+          </div>
+        </>
       )}
     </KingdomViewShell>
   );
