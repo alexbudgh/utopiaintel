@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { KingdomViewShell, btnBase, btnActive, btnInactive } from "./KingdomTabs";
 import { useEffect, useState, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip as ChartTooltip, ReferenceLine, ResponsiveContainer, Legend } from "recharts";
 import { Tooltip as UiTooltip } from "@/app/components/Tooltip";
 import type { KingdomNewsRow, KingdomNewsSummary } from "@/lib/db";
 import { parseUtopiaDate } from "@/lib/ui";
+import { UtopiaDateRangeFilter } from "./UtopiaDateRangeFilter";
 
 const TYPE_GROUPS: { label: string; types: string[] }[] = [
   { label: "Combat",    types: ["march", "ambush", "raze", "pillage", "loot", "failed_attack"] },
@@ -338,116 +338,6 @@ function eventDirection(event: KingdomNewsRow, kingdom: string): "out" | "in" | 
   return null;
 }
 
-const UTOPIA_MONTHS = ["January","February","March","April","May","June","July"];
-
-interface DateParts { month: string; day: string; year: string }
-
-function parseDateParts(s?: string): DateParts {
-  if (!s) return { month: "", day: "", year: "" };
-  const m = /^(\w+)\s+(\d+)\s+of\s+YR(\d+)$/i.exec(s.trim());
-  if (!m) return { month: "", day: "", year: "" };
-  return { month: m[1], day: m[2], year: m[3] };
-}
-
-function formatDateParts({ month, day, year }: DateParts): string {
-  if (!month || !day || !year) return "";
-  return `${month} ${day} of YR${year}`;
-}
-
-function DateSelector({ value, onChange }: { value: DateParts; onChange: (v: DateParts) => void }) {
-  const sel = "rounded border border-gray-700 bg-gray-900 px-1.5 py-1 text-gray-300 focus:border-gray-500 focus:outline-none";
-  return (
-    <span className="inline-flex items-center gap-1">
-      <select value={value.month} onChange={(e) => onChange({ ...value, month: e.target.value })} className={sel}>
-        <option value="">Month</option>
-        {UTOPIA_MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
-      </select>
-      <input
-        type="number" min={1} max={24} value={value.day}
-        onChange={(e) => onChange({ ...value, day: e.target.value })}
-        placeholder="Day"
-        className={`${sel} w-14`}
-      />
-      <span className="text-gray-600 text-[11px]">YR</span>
-      <input
-        type="number" min={0} value={value.year}
-        onChange={(e) => onChange({ ...value, year: e.target.value })}
-        placeholder="Yr"
-        className={`${sel} w-12`}
-      />
-    </span>
-  );
-}
-
-function NewsDateFilter({ kingdom, from, to, effectiveFrom, latestWarDate }: { kingdom: string; from?: string; to?: string; effectiveFrom?: string; latestWarDate?: string }) {
-  const router = useRouter();
-  const [fromParts, setFromParts] = useState<DateParts>(() => parseDateParts(from ?? effectiveFrom));
-  const [toParts,   setToParts]   = useState<DateParts>(() => parseDateParts(to));
-  const [toLatest,  setToLatest]  = useState(!to);
-
-  function apply(e: React.FormEvent) {
-    e.preventDefault();
-    const params = new URLSearchParams({ view: "news" });
-    const f = formatDateParts(fromParts);
-    const t = toLatest ? "" : formatDateParts(toParts);
-    if (f) params.set("from", f);
-    if (t) params.set("to",   t);
-    router.push(`/kingdom/${encodeURIComponent(kingdom)}?${params.toString()}`);
-  }
-
-  function clear() {
-    setFromParts({ month: "", day: "", year: "" });
-    setToParts({   month: "", day: "", year: "" });
-    setToLatest(true);
-    router.push(`/kingdom/${encodeURIComponent(kingdom)}?view=news`);
-  }
-
-  const hasFilter = !!(from || to);
-  const btnBase = "rounded border px-2.5 py-1 transition-colors";
-
-  function setWarRange() {
-    if (!latestWarDate) return;
-    setFromParts(parseDateParts(latestWarDate));
-    setToParts({ month: "", day: "", year: "" });
-    setToLatest(true);
-  }
-
-  return (
-    <form onSubmit={apply} className="mb-3 flex flex-wrap items-center gap-2 text-xs">
-      {latestWarDate && (
-        <button type="button" onClick={setWarRange}
-          className={`${btnBase} border-amber-700/60 bg-amber-950/30 text-amber-400 hover:border-amber-500 hover:text-amber-300`}>
-          Since war
-        </button>
-      )}
-      <span className="text-gray-500">Date range:</span>
-      <DateSelector value={fromParts} onChange={setFromParts} />
-      <span className="text-gray-600">–</span>
-      {toLatest
-        ? <button type="button" onClick={() => setToLatest(false)}
-            className={`${btnBase} border-blue-700 bg-blue-950/40 text-blue-300 hover:border-blue-500`}>
-            Latest
-          </button>
-        : <>
-            <DateSelector value={toParts} onChange={setToParts} />
-            <button type="button" onClick={() => { setToParts({ month: "", day: "", year: "" }); setToLatest(true); }}
-              className={`${btnBase} border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300`}>
-              Latest
-            </button>
-          </>
-      }
-      <button type="submit" className={`${btnBase} border-gray-600 bg-gray-800 text-gray-300 hover:border-gray-400 hover:text-gray-100`}>
-        Filter
-      </button>
-      {hasFilter && (
-        <button type="button" onClick={clear} className="text-gray-500 hover:text-gray-300 transition-colors">
-          ✕ clear
-        </button>
-      )}
-    </form>
-  );
-}
-
 export function KingdomNewsTable({ events, summary, kingdom, boundKingdom, from, to, effectiveFrom, latestWarDate, warTarget }: { events: KingdomNewsRow[]; summary: KingdomNewsSummary; kingdom: string; boundKingdom?: string | null; from?: string; to?: string; effectiveFrom?: string; latestWarDate?: string; warTarget?: string }) {
   const [activeGroups, setActiveGroups] = useState<Set<string>>(DEFAULT_GROUPS);
   const [visibleCount, setVisibleCount] = useState(50);
@@ -464,7 +354,7 @@ export function KingdomNewsTable({ events, summary, kingdom, boundKingdom, from,
   if (events.length === 0) {
     return (
       <KingdomViewShell kingdom={kingdom} boundKingdom={boundKingdom} active="news" tabExtras={tabExtras}>
-        <NewsDateFilter kingdom={kingdom} from={from} to={to} effectiveFrom={effectiveFrom} latestWarDate={latestWarDate} />
+        <UtopiaDateRangeFilter kingdom={kingdom} view="news" from={from} to={to} effectiveFrom={effectiveFrom} latestWarDate={latestWarDate} />
         <div className="rounded-lg border border-gray-800 bg-gray-900/50 px-5 py-6 text-sm text-gray-400">
           {(from || to)
             ? "No events in the selected date range."
@@ -524,7 +414,7 @@ export function KingdomNewsTable({ events, summary, kingdom, boundKingdom, from,
 
   return (
     <KingdomViewShell kingdom={kingdom} active="news" tabExtras={tabExtras}>
-      <NewsDateFilter kingdom={kingdom} from={from} to={to} effectiveFrom={effectiveFrom} latestWarDate={latestWarDate} />
+      <UtopiaDateRangeFilter kingdom={kingdom} view="news" from={from} to={to} effectiveFrom={effectiveFrom} latestWarDate={latestWarDate} />
 
       {showChart && <NewsChart events={events} ourKingdom={summary.ourKingdom} />}
 

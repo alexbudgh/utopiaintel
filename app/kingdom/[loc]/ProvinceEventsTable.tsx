@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { KingdomViewShell } from "./KingdomTabs";
+import { UtopiaDateRangeFilter } from "./UtopiaDateRangeFilter";
 import type { IncomingDamageEvent, IncomingDamageProvinceStat, IncomingDamageStats } from "@/lib/db-api";
 
 // Explicitly good events
@@ -564,14 +564,16 @@ export function ProvinceEventsTable({
   kingdom,
   boundKingdom,
   from,
+  to,
+  latestWarDate,
 }: {
   stats: IncomingDamageStats;
   kingdom: string;
   boundKingdom?: string | null;
   from?: string;
+  to?: string;
+  latestWarDate?: string;
 }) {
-  const router = useRouter();
-  const kingdomHref = `/kingdom/${encodeURIComponent(kingdom)}`;
   const [viewMode, setViewMode] = useState<ViewMode>("province");
   const operationGroups = buildOperationGroups(stats);
 
@@ -582,19 +584,15 @@ export function ProvinceEventsTable({
         {stats.effectiveFrom && (
           <> Showing from <span className="text-gray-500">{stats.effectiveFrom}</span>.</>
         )}
-        {from && (
-          <>
-            {" · "}
-            <button
-              type="button"
-              onClick={() => router.push(kingdomHref + "?view=events")}
-              className="underline hover:text-gray-300"
-            >
-              clear filter
-            </button>
-          </>
-        )}
       </p>
+      <UtopiaDateRangeFilter
+        kingdom={kingdom}
+        view="events"
+        from={from}
+        to={to}
+        effectiveFrom={stats.effectiveFrom ?? undefined}
+        latestWarDate={latestWarDate}
+      />
 
       {stats.provinces.length === 0 ? (
         <p className="text-sm text-gray-500">No incoming events in this range.</p>
