@@ -6,15 +6,21 @@ const STEALTH_RE = /Stealth\s+(\d+)%/;
 const SUCCESS_TOWERS_RE = new RegExp(`steal (${INT}) runes`);
 const SUCCESS_VAULTS_RE = new RegExp(`returned with (${INT}) gold coins`);
 const SUCCESS_GRANARIES_RE = new RegExp(`returned with (${INT}) bushels`);
-const THIEVES_LOST_SUCCESS_RE = new RegExp(`We lost (${INT}) thie(?:f|ves) in the operation`);
-const THIEVES_LOST_FAILURE_RE = new RegExp(`mission was foiled\\. We lost (${INT}) thie`);
+const THIEVES_LOST_SUCCESS_RE = new RegExp(
+  `We lost (${INT}) thie(?:f|ves) in the operation`,
+);
+const THIEVES_LOST_FAILURE_RE = new RegExp(
+  `mission was foiled\\. We lost (${INT}) thie`,
+);
 const TARGET_KD_RE = new RegExp(`Target kingdom is [^(]+${KDLOC}`);
 const TARGET_PROV_RE = /Select province:\t(\d+) (.+?) ---/;
 const ASSASSINATED_RE = new RegExp(`assassinated (${INT}) enemy troops`);
-const KIDNAPPED_RE    = new RegExp(`return with (${INT}) of them`);
-const EFFECT_DAYS_RE  = /expected to last (\d+) days?/;
+const KIDNAPPED_RE = new RegExp(`return with (${INT}) of them`);
+const EFFECT_DAYS_RE = /expected to last (\d+) days?/;
 const ACRES_BURNED_RE = new RegExp(`burned down (${INT}) acres? of buildings`);
-const PROPAGANDA_RE      = new RegExp(`We have converted (${INT}) (?:of the enemy's )?(\\w+) (?:troops to our army|from the enemy)`);
+const PROPAGANDA_RE = new RegExp(
+  `We have converted (${INT}) (?:of the enemy's )?(\\w+) (?:troops to our army|from the enemy)`,
+);
 const PROPAGANDA_ZERO_RE = /but no enemy (\w+) were converted/;
 
 function normUnit(raw: string): string {
@@ -46,12 +52,17 @@ export function getRobOp(url: string): RobOp | null {
   }
 }
 
-export function parseRob(text: string, url: string, selfProv: string): RobData | null {
+export function parseRob(
+  text: string,
+  url: string,
+  selfProv: string,
+): RobData | null {
   const op = getRobOp(url);
   if (!op) return null;
 
   // Must have a result line — skip form-only page loads
-  const isSuccess = /Early indications show that our operation was a success/.test(text);
+  const isSuccess =
+    /Early indications show that our operation was a success/.test(text);
   const isFailure = /mission was foiled/.test(text);
   if (!isSuccess && !isFailure) return null;
 
@@ -71,9 +82,12 @@ export function parseRob(text: string, url: string, selfProv: string): RobData |
 
   if (isSuccess) {
     if (op === "towers" || op === "vaults" || op === "granaries") {
-      const re = op === "towers" ? SUCCESS_TOWERS_RE
-               : op === "vaults" ? SUCCESS_VAULTS_RE
-               : SUCCESS_GRANARIES_RE;
+      const re =
+        op === "towers"
+          ? SUCCESS_TOWERS_RE
+          : op === "vaults"
+            ? SUCCESS_VAULTS_RE
+            : SUCCESS_GRANARIES_RE;
       const m = re.exec(text);
       if (m) amountStolen = parseNum(m[1]);
     } else if (op === "night_strike") {
@@ -101,10 +115,15 @@ export function parseRob(text: string, url: string, selfProv: string): RobData |
       }
     } else if (op === "propaganda") {
       const m = PROPAGANDA_RE.exec(text);
-      if (m) { deserters = parseNum(m[1]); deserterType = normUnit(m[2]); }
-      else {
+      if (m) {
+        deserters = parseNum(m[1]);
+        deserterType = normUnit(m[2]);
+      } else {
         const z = PROPAGANDA_ZERO_RE.exec(text);
-        if (z) { deserters = 0; deserterType = normUnit(z[1]); }
+        if (z) {
+          deserters = 0;
+          deserterType = normUnit(z[1]);
+        }
       }
     }
     const lostMatch = THIEVES_LOST_SUCCESS_RE.exec(text);
@@ -116,7 +135,7 @@ export function parseRob(text: string, url: string, selfProv: string): RobData |
 
   return {
     name: selfProv,
-    kingdom: "",  // attacker — kingdom resolved via key binding at store time
+    kingdom: "", // attacker — kingdom resolved via key binding at store time
     op,
     targetName: targetProvMatch ? targetProvMatch[2].trim() : null,
     targetSlot: targetProvMatch ? parseInt(targetProvMatch[1], 10) : null,

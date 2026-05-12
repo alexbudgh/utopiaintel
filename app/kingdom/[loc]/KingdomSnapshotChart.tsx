@@ -3,7 +3,15 @@
 import { KingdomViewShell } from "./KingdomTabs";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import type { KingdomSnapshotHistoryPoint } from "@/lib/db";
 import { formatNum, formatTimestamp } from "@/lib/ui";
 
@@ -94,7 +102,10 @@ function buildMetricRows(
   return [...byIso.values()].sort((a, b) => a.iso.localeCompare(b.iso));
 }
 
-function latestMetricValue(history: KingdomSnapshotHistoryPoint[], metric: MetricKey): number | null {
+function latestMetricValue(
+  history: KingdomSnapshotHistoryPoint[],
+  metric: MetricKey,
+): number | null {
   for (let i = history.length - 1; i >= 0; i -= 1) {
     const value = history[i][metric];
     if (value != null) return value;
@@ -124,21 +135,26 @@ function MetricChart({
           <span>
             <span className="text-gray-400">{primary.kingdom}</span>{" "}
             <span className="text-gray-300 tabular-nums">
-              {formatNum(latestMetricValue(primary.history, metric.key))}{metric.suffix ?? ""}
+              {formatNum(latestMetricValue(primary.history, metric.key))}
+              {metric.suffix ?? ""}
             </span>
           </span>
           {compare && (
             <span>
               <span className="text-gray-400">{compare.kingdom}</span>{" "}
               <span className="text-gray-300 tabular-nums">
-                {formatNum(latestMetricValue(compare.history, metric.key))}{metric.suffix ?? ""}
+                {formatNum(latestMetricValue(compare.history, metric.key))}
+                {metric.suffix ?? ""}
               </span>
             </span>
           )}
         </div>
       </div>
       <ResponsiveContainer width="100%" height={220}>
-        <LineChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+        <LineChart
+          data={data}
+          margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
+        >
           <XAxis
             dataKey="label"
             tick={{ fill: "#6b7280", fontSize: 10 }}
@@ -154,14 +170,22 @@ function MetricChart({
             tickFormatter={(value) => formatNum(Number(value))}
           />
           <Tooltip
-            contentStyle={{ background: "#111827", border: "1px solid #374151", borderRadius: 6, fontSize: 11 }}
+            contentStyle={{
+              background: "#111827",
+              border: "1px solid #374151",
+              borderRadius: 6,
+              fontSize: 11,
+            }}
             labelFormatter={(_, payload) => {
               const point = payload?.[0]?.payload as ChartRow | undefined;
               return point ? formatTimestamp(point.iso) : "";
             }}
             formatter={(value, name) => {
               const n = Number(value);
-              return [`${n.toLocaleString()}${metric.suffix ?? ""}`, String(name)];
+              return [
+                `${n.toLocaleString()}${metric.suffix ?? ""}`,
+                String(name),
+              ];
             }}
           />
           <Legend wrapperStyle={{ fontSize: 11, color: "#9ca3af" }} />
@@ -198,22 +222,37 @@ function historySummary(history: KingdomSnapshotHistoryPoint[]): string {
   return `${history.length} snapshot${history.length === 1 ? "" : "s"} from ${formatTimestamp(history[0]?.receivedAt ?? null)} to ${formatTimestamp(history.at(-1)?.receivedAt ?? null)}`;
 }
 
-function ChartStack({ primaryKingdom, primaryHistory, compareKingdom, compareHistory }: SharedChartProps) {
+function ChartStack({
+  primaryKingdom,
+  primaryHistory,
+  compareKingdom,
+  compareHistory,
+}: SharedChartProps) {
   const primarySeries: SeriesConfig = {
     kingdom: primaryKingdom,
     history: primaryHistory,
     color: METRICS[0].color,
   };
-  const compareSeries = compareKingdom && compareHistory && compareHistory.length > 0
-    ? { kingdom: compareKingdom, history: compareHistory, color: SECONDARY_COLOR, dash: "5 3" }
-    : undefined;
+  const compareSeries =
+    compareKingdom && compareHistory && compareHistory.length > 0
+      ? {
+          kingdom: compareKingdom,
+          history: compareHistory,
+          color: SECONDARY_COLOR,
+          dash: "5 3",
+        }
+      : undefined;
 
   return (
     <div className="grid gap-3 lg:grid-cols-3">
       {METRICS.map((metric, index) => (
         <MetricChart
           key={metric.key}
-          primary={{ ...primarySeries, color: index === 0 ? "#60a5fa" : index === 1 ? "#34d399" : "#f59e0b" }}
+          primary={{
+            ...primarySeries,
+            color:
+              index === 0 ? "#60a5fa" : index === 1 ? "#34d399" : "#f59e0b",
+          }}
           compare={compareSeries}
           metric={metric}
         />
@@ -237,10 +276,16 @@ export function KingdomSnapshotChart({
     <section className="mb-4 rounded-lg border border-gray-800 bg-gray-900/50 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="text-sm font-semibold text-gray-100">Kingdom History</h2>
-          <div className="text-xs text-gray-500">{historySummary(primaryHistory)}</div>
+          <h2 className="text-sm font-semibold text-gray-100">
+            Kingdom History
+          </h2>
+          <div className="text-xs text-gray-500">
+            {historySummary(primaryHistory)}
+          </div>
           {compareKingdom && compareHistory.length > 0 && (
-            <div className="text-xs text-gray-500">Overlaying {compareKingdom}.</div>
+            <div className="text-xs text-gray-500">
+              Overlaying {compareKingdom}.
+            </div>
           )}
         </div>
         <button
@@ -283,28 +328,46 @@ export function KingdomHistoryView({
       router.push(`${kingdomHref}?view=history`);
       return;
     }
-    router.push(`${kingdomHref}?view=history&compare=${encodeURIComponent(target)}`);
+    router.push(
+      `${kingdomHref}?view=history&compare=${encodeURIComponent(target)}`,
+    );
   }
 
   return (
-    <KingdomViewShell kingdom={primaryKingdom} boundKingdom={boundKingdom} active="history">
+    <KingdomViewShell
+      kingdom={primaryKingdom}
+      boundKingdom={boundKingdom}
+      active="history"
+    >
       <section className="mb-4 rounded-lg border border-gray-800 bg-gray-900/50 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-gray-100">Snapshot History</h2>
-            <div className="text-xs text-gray-500">{historySummary(primaryHistory)}</div>
+            <h2 className="text-sm font-semibold text-gray-100">
+              Snapshot History
+            </h2>
+            <div className="text-xs text-gray-500">
+              {historySummary(primaryHistory)}
+            </div>
             {compareKingdom && compareHistory.length > 0 && (
               <div className="mt-1 text-xs text-gray-500">
-                Comparing against <span className="text-gray-300 font-mono">{compareKingdom}</span> with {historySummary(compareHistory)}.
+                Comparing against{" "}
+                <span className="text-gray-300 font-mono">
+                  {compareKingdom}
+                </span>{" "}
+                with {historySummary(compareHistory)}.
               </div>
             )}
             {compareKingdom && compareHistory.length === 0 && (
               <div className="mt-1 text-xs text-amber-300">
-                No accessible history found for <span className="font-mono">{compareKingdom}</span>.
+                No accessible history found for{" "}
+                <span className="font-mono">{compareKingdom}</span>.
               </div>
             )}
           </div>
-          <form onSubmit={applyCompare} className="flex flex-wrap items-center gap-2">
+          <form
+            onSubmit={applyCompare}
+            className="flex flex-wrap items-center gap-2"
+          >
             <input
               type="text"
               value={compareInput}

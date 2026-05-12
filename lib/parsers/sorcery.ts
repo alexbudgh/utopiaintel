@@ -1,13 +1,15 @@
 import type { SorceryData } from "./types";
 import { INT, KDLOC, parseNum } from "./util";
 
-const WIZARDS_RE    = new RegExp(`Wizards\\s+([\\d,]+)`);
+const WIZARDS_RE = new RegExp(`Wizards\\s+([\\d,]+)`);
 const RUNES_SELF_RE = new RegExp(`Wizards[^\\n]+\\n?[^\\n]*Runes\\s+([\\d,]+)`);
-const MANA_RE       = /Mana\s+(\d+)%/;
-const GATHER_RE     = new RegExp(`gather (${INT}) runes and begin casting`);
-const WIZARD_LOSS_RE = new RegExp(`(${INT}) wizards? (?:was|were) killed in an explosion`);
-const DURATION_RE   = /for (\d+) days/;
-const TARGET_KD_RE  = new RegExp(`Target kingdom is [^(]+${KDLOC}`);
+const MANA_RE = /Mana\s+(\d+)%/;
+const GATHER_RE = new RegExp(`gather (${INT}) runes and begin casting`);
+const WIZARD_LOSS_RE = new RegExp(
+  `(${INT}) wizards? (?:was|were) killed in an explosion`,
+);
+const DURATION_RE = /for (\d+) days/;
+const TARGET_KD_RE = new RegExp(`Target kingdom is [^(]+${KDLOC}`);
 const TARGET_PROV_RE = /Select target province:\t(\d+)\s+(?:-\s*)?(.+?) ---/;
 // Fallback: some spells embed target as "of ProvName (KD)" in the result sentence
 const TARGET_INLINE_RE = new RegExp(
@@ -15,7 +17,10 @@ const TARGET_INLINE_RE = new RegExp(
   "i",
 );
 
-function splitSlotPrefixedName(rawName: string): { name: string; slot: number | null } {
+function splitSlotPrefixedName(rawName: string): {
+  name: string;
+  slot: number | null;
+} {
   const name = rawName.trim();
   const match = /^(\d+)\s*-\s*(.+)$/.exec(name);
   if (!match) return { name, slot: null };
@@ -31,7 +36,11 @@ export function getSpell(url: string): string | null {
   }
 }
 
-export function parseSorcery(text: string, url: string, selfProv: string): SorceryData | null {
+export function parseSorcery(
+  text: string,
+  url: string,
+  selfProv: string,
+): SorceryData | null {
   const spell = getSpell(url);
   if (!spell) return null;
 
@@ -49,8 +58,12 @@ export function parseSorcery(text: string, url: string, selfProv: string): Sorce
   const durationMatch = DURATION_RE.exec(text);
   const targetKdMatch = TARGET_KD_RE.exec(text);
   const targetProvMatch = TARGET_PROV_RE.exec(text);
-  const targetInlineMatch = !targetProvMatch ? TARGET_INLINE_RE.exec(text) : null;
-  const targetInline = targetInlineMatch ? splitSlotPrefixedName(targetInlineMatch[1]) : null;
+  const targetInlineMatch = !targetProvMatch
+    ? TARGET_INLINE_RE.exec(text)
+    : null;
+  const targetInline = targetInlineMatch
+    ? splitSlotPrefixedName(targetInlineMatch[1])
+    : null;
 
   return {
     name: selfProv,
@@ -65,8 +78,12 @@ export function parseSorcery(text: string, url: string, selfProv: string): Sorce
       : targetInline
         ? targetInline.name
         : null,
-    targetSlot: targetProvMatch ? parseInt(targetProvMatch[1], 10) : targetInline?.slot ?? null,
-    targetKingdom: targetKdMatch ? targetKdMatch[1] : targetInlineMatch?.[2] ?? null,
+    targetSlot: targetProvMatch
+      ? parseInt(targetProvMatch[1], 10)
+      : (targetInline?.slot ?? null),
+    targetKingdom: targetKdMatch
+      ? targetKdMatch[1]
+      : (targetInlineMatch?.[2] ?? null),
     wizards: wizardsMatch ? parseNum(wizardsMatch[1]) : null,
     runes: runesSelfMatch ? parseNum(runesSelfMatch[1]) : null,
     mana: manaMatch ? parseInt(manaMatch[1], 10) : null,

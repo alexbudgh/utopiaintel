@@ -1,6 +1,13 @@
 import { OFF_SPEC_GROUP, DEF_SPEC_GROUP, ELITE_GROUP } from "../game";
 import type { SoMData, ArmyData } from "./types";
-import { INT, FLOAT, KDLOC, parseNum, parseFloat_, parseAccuracy } from "./util";
+import {
+  INT,
+  FLOAT,
+  KDLOC,
+  parseNum,
+  parseFloat_,
+  parseAccuracy,
+} from "./util";
 
 const PROVINCE_RE = new RegExp(
   `Our thieves listen in on a report from the Military Elders of\\s+([^\\r\\n(]+?)\\s*${KDLOC}\\s*\\.\\.\\.`,
@@ -13,14 +20,20 @@ const RETURN_RE = new RegExp(`(${FLOAT}) days left`, "g");
 const GENERALS_RE = /Generals\s+((?:\d\s+)+)/;
 const SOLDIERS_RE = new RegExp(`Soldiers\\s+((?:${INT}\\s+)+)`);
 const OFF_RE = new RegExp(`(?:${OFF_SPEC_GROUP})\\s+((?:${INT}\\s+)+)`, "gi");
-const DEF_RE = new RegExp(`(?:${DEF_SPEC_GROUP})\\s+((?:(?:-|${INT})\\s+)+)`, "gi");
+const DEF_RE = new RegExp(
+  `(?:${DEF_SPEC_GROUP})\\s+((?:(?:-|${INT})\\s+)+)`,
+  "gi",
+);
 const ELITE_RE = new RegExp(`(?:${ELITE_GROUP})\\s+((?:${INT}\\s+)+)`, "gi");
 const HORSES_RE = new RegExp(`War Horses\\s+((?:${INT}\\s+)+)`);
 const THIEVES_RE = new RegExp(`Thieves\\s+((?:${INT}\\s+)+)`);
 const LAND_RE = new RegExp(`Captured Land\\s+((?:(?:-|${INT})\\s+)+)`);
 
 function splitNums(s: string): number[] {
-  return s.trim().split(/\s+/).map((v) => (v === "-" ? 0 : parseNum(v)));
+  return s
+    .trim()
+    .split(/\s+/)
+    .map((v) => (v === "-" ? 0 : parseNum(v)));
 }
 
 export function parseSoM(text: string, selfProv?: string): SoMData | null {
@@ -50,23 +63,47 @@ export function parseSoM(text: string, selfProv?: string): SoMData | null {
 
   // Home army
   const home: ArmyData = {
-    armyType: "home", generals: 0, soldiers: 0, offSpecs: 0,
-    defSpecs: 0, elites: 0, warHorses: 0, thieves: 0, landGained: 0, returnDays: null,
+    armyType: "home",
+    generals: 0,
+    soldiers: 0,
+    offSpecs: 0,
+    defSpecs: 0,
+    elites: 0,
+    warHorses: 0,
+    thieves: 0,
+    landGained: 0,
+    returnDays: null,
   };
   armies.push(home);
 
   // Out armies
   for (let i = 0; i < returnTimes.length; i++) {
     armies.push({
-      armyType: `out_${i + 1}`, generals: 0, soldiers: 0, offSpecs: 0,
-      defSpecs: 0, elites: 0, warHorses: 0, thieves: 0, landGained: 0, returnDays: returnTimes[i],
+      armyType: `out_${i + 1}`,
+      generals: 0,
+      soldiers: 0,
+      offSpecs: 0,
+      defSpecs: 0,
+      elites: 0,
+      warHorses: 0,
+      thieves: 0,
+      landGained: 0,
+      returnDays: returnTimes[i],
     });
   }
 
   // Training army
   const training: ArmyData = {
-    armyType: "training", generals: 0, soldiers: 0, offSpecs: 0,
-    defSpecs: 0, elites: 0, warHorses: 0, thieves: 0, landGained: 0, returnDays: null,
+    armyType: "training",
+    generals: 0,
+    soldiers: 0,
+    offSpecs: 0,
+    defSpecs: 0,
+    elites: 0,
+    warHorses: 0,
+    thieves: 0,
+    landGained: 0,
+    returnDays: null,
   };
 
   // Parse each row — values are columns: home, out_1, out_2, ...

@@ -21,7 +21,8 @@ export default async function OpsPage() {
     db.getRecentOps(keyHash, 200),
   ]);
   const selfWarTarget = boundKingdom
-    ? ((await db.getLatestKingdomSnapshot(boundKingdom, keyHash))?.warTarget ?? null)
+    ? ((await db.getLatestKingdomSnapshot(boundKingdom, keyHash))?.warTarget ??
+      null)
     : null;
 
   return (
@@ -31,7 +32,9 @@ export default async function OpsPage() {
         boundKingdom={boundKingdom}
         selfWarTarget={selfWarTarget}
       />
-      <h1 className="text-xl font-semibold tracking-tight text-gray-100 mb-4">Recent Ops</h1>
+      <h1 className="text-xl font-semibold tracking-tight text-gray-100 mb-4">
+        Recent Ops
+      </h1>
       <RecentOpsView initialOps={initialOps} />
     </main>
   );

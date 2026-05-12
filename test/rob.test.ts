@@ -4,12 +4,15 @@ import { parseRob } from "../lib/parsers/rob";
 
 const PREAMBLE = `You descend into an underground area of your castle and enter the Guild of Thieves. An organization created under your leadership, the Guild trains the lowest classes of people to learn the tools of the trade. Trained by your military, your thieves stand ready at your service to do what is needed.`;
 
-const TOWERS_URL  = "https://utopia-game.com/wol/game/thievery?p=834&o=ROB_THE_TOWERS&q=52&c=4572";
-const VAULTS_URL  = "https://utopia-game.com/wol/game/thievery?p=408&o=ROB_THE_VAULTS&q=230&c=9990";
-const GRANARIES_URL = "https://utopia-game.com/wol/game/thievery?p=1102&o=ROB_THE_GRANARIES&q=100&c=6741";
+const TOWERS_URL =
+  "https://utopia-game.com/wol/game/thievery?p=834&o=ROB_THE_TOWERS&q=52&c=4572";
+const VAULTS_URL =
+  "https://utopia-game.com/wol/game/thievery?p=408&o=ROB_THE_VAULTS&q=230&c=9990";
+const GRANARIES_URL =
+  "https://utopia-game.com/wol/game/thievery?p=1102&o=ROB_THE_GRANARIES&q=100&c=6741";
 
-const TOWERS_STATS   = `Number of thieves\t582 (1.104 per acre)\tStealth\t66%`;
-const VAULTS_STATS   = `Number of thieves\t2,847 (5.444 per acre)\tStealth\t24%`;
+const TOWERS_STATS = `Number of thieves\t582 (1.104 per acre)\tStealth\t66%`;
+const VAULTS_STATS = `Number of thieves\t2,847 (5.444 per acre)\tStealth\t24%`;
 const GRANARIES_STATS = `Number of thieves\t2,851 (5.451 per acre)\tStealth\t39%`;
 
 const TARGET_FOOTER = `Target kingdom is Time For A Book (3:9)\nSelect province:\t18 A Song Of Ice and Fire --- ( 118% )\nSelect operation:\tRob the Towers`;
@@ -102,17 +105,22 @@ test("parseRob — form page (no result) returns null", () => {
 
 test("parseRob — wrong op returns null", () => {
   const text = `${PREAMBLE}\n\n${TOWERS_STATS}\n\n\nEarly indications show that our operation was a success. Our thieves were able to steal 882 runes.\n${TARGET_FOOTER}`;
-  const r = parseRob(text, "https://utopia-game.com/wol/game/thievery?o=SPY_ON_THRONE", "TestProvince");
+  const r = parseRob(
+    text,
+    "https://utopia-game.com/wol/game/thievery?o=SPY_ON_THRONE",
+    "TestProvince",
+  );
   assert.equal(r, null);
 });
 
-const STATS     = `Number of thieves\t2,421 (5.229 per acre)\tStealth\t54%`;
+const STATS = `Number of thieves\t2,421 (5.229 per acre)\tStealth\t54%`;
 const KD_FOOTER = `Target kingdom is Time For A Book (3:9)\nSelect province:\t16 On Basilisk Station --- ( 70% )`;
-const FOILED    = `Sources have indicated the mission was foiled. We lost 1 thief. If we are lucky, he will not rat on who sent him. I am sorry, we will train harder for the next mission.\n${KD_FOOTER}`;
+const FOILED = `Sources have indicated the mission was foiled. We lost 1 thief. If we are lucky, he will not rat on who sent him. I am sorry, we will train harder for the next mission.\n${KD_FOOTER}`;
 
 // Night Strike
 test("parseRob — night_strike success", () => {
-  const url = "https://utopia-game.com/wol/game/thievery?p=740&o=NIGHT_STRIKE&q=125&c=5435";
+  const url =
+    "https://utopia-game.com/wol/game/thievery?p=740&o=NIGHT_STRIKE&q=125&c=5435";
   const text = `${PREAMBLE}\n\n${STATS}\n\nEarly indications show that our operation was a success. Our thieves assassinated 63 enemy troops.\n${KD_FOOTER}`;
   const r = parseRob(text, url, "TestProvince");
   assert.ok(r);
@@ -125,7 +133,8 @@ test("parseRob — night_strike success", () => {
 });
 
 test("parseRob — night_strike failure", () => {
-  const url = "https://utopia-game.com/wol/game/thievery?p=502&o=NIGHT_STRIKE&q=123&c=1247";
+  const url =
+    "https://utopia-game.com/wol/game/thievery?p=502&o=NIGHT_STRIKE&q=123&c=1247";
   const text = `${PREAMBLE}\n\n${STATS}\n\n${FOILED}`;
   const r = parseRob(text, url, "TestProvince");
   assert.ok(r);
@@ -137,7 +146,8 @@ test("parseRob — night_strike failure", () => {
 
 // Kidnap
 test("parseRob — kidnap success", () => {
-  const url = "https://utopia-game.com/wol/game/thievery?p=289&o=KIDNAP&q=583&c=2725";
+  const url =
+    "https://utopia-game.com/wol/game/thievery?p=289&o=KIDNAP&q=583&c=2725";
   const text = `${PREAMBLE}\n\n${STATS}\n\nEarly indications show that our operation was a success. Our thieves kidnapped many people, but only were able to return with 116 of them.\n${KD_FOOTER}`;
   const r = parseRob(text, url, "TestProvince");
   assert.ok(r);
@@ -148,7 +158,8 @@ test("parseRob — kidnap success", () => {
 });
 
 test("parseRob — kidnap failure", () => {
-  const url = "https://utopia-game.com/wol/game/thievery?p=319&o=KIDNAP&q=580&c=8374";
+  const url =
+    "https://utopia-game.com/wol/game/thievery?p=319&o=KIDNAP&q=580&c=8374";
   const text = `${PREAMBLE}\n\n${STATS}\n\nSources have indicated the mission was foiled. We lost 7 thieves. If we are lucky, they will not rat on who sent them. I am sorry, we will train harder for the next mission.\n${KD_FOOTER}`;
   const r = parseRob(text, url, "TestProvince");
   assert.ok(r);
@@ -160,7 +171,8 @@ test("parseRob — kidnap failure", () => {
 
 // Bribe Generals
 test("parseRob — bribe_generals success", () => {
-  const url = "https://utopia-game.com/wol/game/thievery?p=808&o=BRIBE_GENERALS&q=25&c=9504";
+  const url =
+    "https://utopia-game.com/wol/game/thievery?p=808&o=BRIBE_GENERALS&q=25&c=9504";
   const text = `${PREAMBLE}\n\n${STATS}\n\nEarly indications show that our operation was a success. Our thieves have bribed an enemy general!\n${KD_FOOTER}`;
   const r = parseRob(text, url, "TestProvince");
   assert.ok(r);
@@ -170,7 +182,8 @@ test("parseRob — bribe_generals success", () => {
 });
 
 test("parseRob — bribe_generals failure", () => {
-  const url = "https://utopia-game.com/wol/game/thievery?p=808&o=BRIBE_GENERALS&q=25&c=7126";
+  const url =
+    "https://utopia-game.com/wol/game/thievery?p=808&o=BRIBE_GENERALS&q=25&c=7126";
   const text = `${PREAMBLE}\n\n${STATS}\n\nSources have indicated the mission was foiled. We lost 0 thieves. I am sorry, we will train harder for the next mission.\n${KD_FOOTER}`;
   const r = parseRob(text, url, "TestProvince");
   assert.ok(r);
@@ -181,7 +194,8 @@ test("parseRob — bribe_generals failure", () => {
 
 // Incite Riots
 test("parseRob — incite_riots success", () => {
-  const url = "https://utopia-game.com/wol/game/thievery?p=808&o=INCITE_RIOTS&q=795&c=6343";
+  const url =
+    "https://utopia-game.com/wol/game/thievery?p=808&o=INCITE_RIOTS&q=795&c=6343";
   const text = `${PREAMBLE}\n\n${STATS}\n\nEarly indications show that our operation was a success. Our thieves have caused rioting. It is expected to last 2 days.\n${KD_FOOTER}`;
   const r = parseRob(text, url, "TestProvince");
   assert.ok(r);
@@ -192,7 +206,8 @@ test("parseRob — incite_riots success", () => {
 });
 
 test("parseRob — incite_riots failure", () => {
-  const url = "https://utopia-game.com/wol/game/thievery?p=808&o=INCITE_RIOTS&q=121&c=1266";
+  const url =
+    "https://utopia-game.com/wol/game/thievery?p=808&o=INCITE_RIOTS&q=121&c=1266";
   const text = `${PREAMBLE}\n\n${STATS}\n\n${FOILED}`;
   const r = parseRob(text, url, "TestProvince");
   assert.ok(r);
@@ -204,7 +219,8 @@ test("parseRob — incite_riots failure", () => {
 
 // Sabotage Wizards
 test("parseRob — sabotage_wizards success (1 day, singular)", () => {
-  const url = "https://utopia-game.com/wol/game/thievery?p=1102&o=SABOTAGE_WIZARDS&q=795&c=7251";
+  const url =
+    "https://utopia-game.com/wol/game/thievery?p=1102&o=SABOTAGE_WIZARDS&q=795&c=7251";
   const text = `${PREAMBLE}\n\n${STATS}\n\nEarly indications show that our operation was a success. Our thieves have disrupted the enemy Wizards' ability to regain their mana. It is expected to last 1 day.\n${KD_FOOTER}`;
   const r = parseRob(text, url, "TestProvince");
   assert.ok(r);
@@ -214,7 +230,8 @@ test("parseRob — sabotage_wizards success (1 day, singular)", () => {
 });
 
 test("parseRob — sabotage_wizards success calmed (no lasting effect)", () => {
-  const url = "https://utopia-game.com/wol/game/thievery?p=1102&o=SABOTAGE_WIZARDS&q=121&c=8872";
+  const url =
+    "https://utopia-game.com/wol/game/thievery?p=1102&o=SABOTAGE_WIZARDS&q=121&c=8872";
   const text = `${PREAMBLE}\n\n${STATS}\n\nEarly indications show that our operation was a success. Our thieves have disrupted the enemy Wizards' ability to regain their mana. However, it was quickly calmed and will have no lasting effect..\n${KD_FOOTER}`;
   const r = parseRob(text, url, "TestProvince");
   assert.ok(r);
@@ -224,7 +241,8 @@ test("parseRob — sabotage_wizards success calmed (no lasting effect)", () => {
 });
 
 test("parseRob — sabotage_wizards failure", () => {
-  const url = "https://utopia-game.com/wol/game/thievery?p=1108&o=SABOTAGE_WIZARDS&q=121&c=3802";
+  const url =
+    "https://utopia-game.com/wol/game/thievery?p=1108&o=SABOTAGE_WIZARDS&q=121&c=3802";
   const text = `${PREAMBLE}\n\n${STATS}\n\n${FOILED}`;
   const r = parseRob(text, url, "TestProvince");
   assert.ok(r);
@@ -236,7 +254,8 @@ test("parseRob — sabotage_wizards failure", () => {
 
 // Arson
 test("parseRob — arson success (too few to burn)", () => {
-  const url = "https://utopia-game.com/wol/game/thievery?p=797&o=ARSON&q=121&c=4615";
+  const url =
+    "https://utopia-game.com/wol/game/thievery?p=797&o=ARSON&q=121&c=4615";
   const text = `${PREAMBLE}\n\n${STATS}\n\nEarly indications show that our operation was a success. Unfortunately, our thieves were too few in number to find any buildings to burn.\n${KD_FOOTER}`;
   const r = parseRob(text, url, "TestProvince");
   assert.ok(r);
@@ -247,7 +266,8 @@ test("parseRob — arson success (too few to burn)", () => {
 });
 
 test("parseRob — arson failure", () => {
-  const url = "https://utopia-game.com/wol/game/thievery?p=797&o=ARSON&q=121&c=9999";
+  const url =
+    "https://utopia-game.com/wol/game/thievery?p=797&o=ARSON&q=121&c=9999";
   const text = `${PREAMBLE}\n\n${STATS}\n\n${FOILED}`;
   const r = parseRob(text, url, "TestProvince");
   assert.ok(r);
@@ -259,7 +279,8 @@ test("parseRob — arson failure", () => {
 
 // Greater Arson
 test("parseRob — greater_arson success (too few to burn)", () => {
-  const url = "https://utopia-game.com/wol/game/thievery?p=364&o=GREATER_ARSON&q=300&c=4986";
+  const url =
+    "https://utopia-game.com/wol/game/thievery?p=364&o=GREATER_ARSON&q=300&c=4986";
   const text = `${PREAMBLE}\n\n${STATS}\n\nEarly indications show that our operation was a success. Unfortunately, our thieves were too few in number to find any buildings to burn.\n${KD_FOOTER}`;
   const r = parseRob(text, url, "TestProvince");
   assert.ok(r);
@@ -269,7 +290,8 @@ test("parseRob — greater_arson success (too few to burn)", () => {
 });
 
 test("parseRob — greater_arson failure", () => {
-  const url = "https://utopia-game.com/wol/game/thievery?p=364&o=GREATER_ARSON&q=800&c=7389";
+  const url =
+    "https://utopia-game.com/wol/game/thievery?p=364&o=GREATER_ARSON&q=800&c=7389";
   const text = `${PREAMBLE}\n\n${STATS}\n\nSources have indicated the mission was foiled. We lost 6 thieves. If we are lucky, they will not rat on who sent them. I am sorry, we will train harder for the next mission.\n${KD_FOOTER}`;
   const r = parseRob(text, url, "TestProvince");
   assert.ok(r);
@@ -280,7 +302,8 @@ test("parseRob — greater_arson failure", () => {
 
 // Destabilize Guilds
 test("parseRob — destabilize_guilds success", () => {
-  const url = "https://utopia-game.com/wol/game/thievery?p=1108&o=DESTABILIZE_GUILDS&q=1000&c=3311";
+  const url =
+    "https://utopia-game.com/wol/game/thievery?p=1108&o=DESTABILIZE_GUILDS&q=1000&c=3311";
   const text = `${PREAMBLE}\n\n${STATS}\n\nEarly indications show that our operation was a success. Our thieves have disrupted the enemy Guilds affecting their spellcasting effectiveness! It is expected to last 2 days.\n${KD_FOOTER}`;
   const r = parseRob(text, url, "TestProvince");
   assert.ok(r);
@@ -292,7 +315,8 @@ test("parseRob — destabilize_guilds success", () => {
 
 // Bribe Thieves
 test("parseRob — bribe_thieves success (thief lost before success line)", () => {
-  const url = "https://utopia-game.com/wol/game/thievery?p=320&o=BRIBE_THIEVES&q=500&c=5945";
+  const url =
+    "https://utopia-game.com/wol/game/thievery?p=320&o=BRIBE_THIEVES&q=500&c=5945";
   const text = `${PREAMBLE}\n\n${STATS}\n\nWe lost 1 thief in the operation.\nEarly indications show that our operation was a success. Our thieves have bribed members of our enemies' guild!\n${KD_FOOTER}`;
   const r = parseRob(text, url, "TestProvince");
   assert.ok(r);
@@ -302,7 +326,8 @@ test("parseRob — bribe_thieves success (thief lost before success line)", () =
 });
 
 test("parseRob — bribe_thieves failure", () => {
-  const url = "https://utopia-game.com/wol/game/thievery?p=320&o=BRIBE_THIEVES&q=134&c=4889";
+  const url =
+    "https://utopia-game.com/wol/game/thievery?p=320&o=BRIBE_THIEVES&q=134&c=4889";
   const text = `${PREAMBLE}\n\n${STATS}\n\n${FOILED}`;
   const r = parseRob(text, url, "TestProvince");
   assert.ok(r);

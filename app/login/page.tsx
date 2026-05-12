@@ -17,7 +17,9 @@ export default async function LoginPage({
         >
           ← home
         </Link>
-        <h1 className="mb-6 text-center text-3xl font-bold tracking-tight text-gray-100">Chaos Intel</h1>
+        <h1 className="mb-6 text-center text-3xl font-bold tracking-tight text-gray-100">
+          Chaos Intel
+        </h1>
         <form action={login} className="space-y-4">
           <div>
             <label htmlFor="key" className="block text-sm text-gray-400 mb-1">

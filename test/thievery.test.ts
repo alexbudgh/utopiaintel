@@ -172,7 +172,11 @@ test("computeCell — NW ratio defaults to 1.0 when defender NW is null", () => 
 
 test("computeCell — shielding reduces value", () => {
   const att = makeProvince({ networth: 100000 });
-  const def = makeProvince({ money: 100000, networth: 100000, shielding_effect: 20 });
+  const def = makeProvince({
+    money: 100000,
+    networth: 100000,
+    shielding_effect: 20,
+  });
   const r = computeCell(att, def, "vaults", false);
   assertApprox(r.shieldingFactor, 0.8, 1e-9);
   assertApprox(r.value!, 5200 * 0.8);
@@ -180,7 +184,11 @@ test("computeCell — shielding reduces value", () => {
 
 test("computeCell — watchtowers reduce value", () => {
   const att = makeProvince({ networth: 100000 });
-  const def = makeProvince({ money: 100000, networth: 100000, watch_towers_effect: 10 });
+  const def = makeProvince({
+    money: 100000,
+    networth: 100000,
+    watch_towers_effect: 10,
+  });
   const r = computeCell(att, def, "vaults", false);
   assertApprox(r.watchtowersFactor, 0.9, 1e-9);
   assertApprox(r.value!, 5200 * 0.9);
@@ -188,21 +196,34 @@ test("computeCell — watchtowers reduce value", () => {
 
 test("computeCell — shielding and watchtowers stack multiplicatively", () => {
   const att = makeProvince({ networth: 100000 });
-  const def = makeProvince({ money: 100000, networth: 100000, shielding_effect: 20, watch_towers_effect: 10 });
+  const def = makeProvince({
+    money: 100000,
+    networth: 100000,
+    shielding_effect: 20,
+    watch_towers_effect: 10,
+  });
   const r = computeCell(att, def, "vaults", false);
   assertApprox(r.value!, 5200 * 0.8 * 0.9);
 });
 
 test("computeCell — missing shielding data defaults shieldingFactor to 1.0", () => {
   const att = makeProvince({ networth: 100000 });
-  const def = makeProvince({ money: 100000, networth: 100000, shielding_effect: null });
+  const def = makeProvince({
+    money: 100000,
+    networth: 100000,
+    shielding_effect: null,
+  });
   const r = computeCell(att, def, "vaults", false);
   assert.equal(r.shieldingFactor, 1);
 });
 
 test("computeCell — missing watchtowers data defaults watchtowersFactor to 1.0", () => {
   const att = makeProvince({ networth: 100000 });
-  const def = makeProvince({ money: 100000, networth: 100000, watch_towers_effect: null });
+  const def = makeProvince({
+    money: 100000,
+    networth: 100000,
+    watch_towers_effect: null,
+  });
   const r = computeCell(att, def, "vaults", false);
   assert.equal(r.watchtowersFactor, 1);
 });
@@ -251,14 +272,32 @@ test("computeCell — Night Strike war formula applies per-unit caps and rates",
   const offSpecsCap = 50000 * NIGHT_STRIKE_UNITS.off_specs.warCap;
   const defSpecsCap = 40000 * NIGHT_STRIKE_UNITS.def_specs.warCap;
   const elitesCap = 30000 * NIGHT_STRIKE_UNITS.elites.warCap;
-  const soldiersActual = Math.min(soldiersCap, 10000 * NIGHT_STRIKE_UNITS.soldiers.warRate);
-  const offSpecsActual = Math.min(offSpecsCap, 10000 * NIGHT_STRIKE_UNITS.off_specs.warRate);
-  const defSpecsActual = Math.min(defSpecsCap, 10000 * NIGHT_STRIKE_UNITS.def_specs.warRate);
-  const elitesActual = Math.min(elitesCap, 10000 * NIGHT_STRIKE_UNITS.elites.warRate);
+  const soldiersActual = Math.min(
+    soldiersCap,
+    10000 * NIGHT_STRIKE_UNITS.soldiers.warRate,
+  );
+  const offSpecsActual = Math.min(
+    offSpecsCap,
+    10000 * NIGHT_STRIKE_UNITS.off_specs.warRate,
+  );
+  const defSpecsActual = Math.min(
+    defSpecsCap,
+    10000 * NIGHT_STRIKE_UNITS.def_specs.warRate,
+  );
+  const elitesActual = Math.min(
+    elitesCap,
+    10000 * NIGHT_STRIKE_UNITS.elites.warRate,
+  );
   assert.equal(r.kind, "night_strike");
   assert.ok(r.nightStrike);
-  assertApprox(r.nightStrike!.capValue!, soldiersCap + offSpecsCap + defSpecsCap + elitesCap);
-  assertApprox(r.nightStrike!.actualValue!, soldiersActual + offSpecsActual + defSpecsActual + elitesActual);
+  assertApprox(
+    r.nightStrike!.capValue!,
+    soldiersCap + offSpecsCap + defSpecsCap + elitesCap,
+  );
+  assertApprox(
+    r.nightStrike!.actualValue!,
+    soldiersActual + offSpecsActual + defSpecsActual + elitesActual,
+  );
   assertApprox(r.value!, r.nightStrike!.actualValue!);
 });
 
@@ -267,9 +306,14 @@ test("computeCell — Night Strike out-of-war soldier formula uses OOW values", 
   const def = makeProvince({ soldiers: 10000, networth: 100000 });
   const r = computeCell(att, def, "night_strike", false);
   const expectedCap = 10000 * NIGHT_STRIKE_UNITS.soldiers.oowCap!;
-  const expectedActual = Math.min(expectedCap, 1000 * NIGHT_STRIKE_UNITS.soldiers.oowRate!);
+  const expectedActual = Math.min(
+    expectedCap,
+    1000 * NIGHT_STRIKE_UNITS.soldiers.oowRate!,
+  );
   assert.equal(r.kind, "night_strike");
-  const soldiers = r.nightStrike!.breakdown.find((unit) => unit.key === "soldiers")!;
+  const soldiers = r.nightStrike!.breakdown.find(
+    (unit) => unit.key === "soldiers",
+  )!;
   assertApprox(soldiers.rawCap!, expectedCap);
   assertApprox(soldiers.rawActual!, expectedActual);
 });
@@ -284,15 +328,30 @@ test("computeCell — Night Strike OOW specialists use fallback values when guid
   });
   const r = computeCell(att, def, "night_strike", false);
   assert.equal(r.kind, "night_strike");
-  const offSpecs = r.nightStrike!.breakdown.find((unit) => unit.key === "off_specs")!;
-  const defSpecs = r.nightStrike!.breakdown.find((unit) => unit.key === "def_specs")!;
-  const elites = r.nightStrike!.breakdown.find((unit) => unit.key === "elites")!;
+  const offSpecs = r.nightStrike!.breakdown.find(
+    (unit) => unit.key === "off_specs",
+  )!;
+  const defSpecs = r.nightStrike!.breakdown.find(
+    (unit) => unit.key === "def_specs",
+  )!;
+  const elites = r.nightStrike!.breakdown.find(
+    (unit) => unit.key === "elites",
+  )!;
   const offSpecsCap = 10000 * NIGHT_STRIKE_UNITS.off_specs.warCap;
-  const offSpecsActual = Math.min(offSpecsCap, 1000 * NIGHT_STRIKE_UNITS.off_specs.oowRate!);
+  const offSpecsActual = Math.min(
+    offSpecsCap,
+    1000 * NIGHT_STRIKE_UNITS.off_specs.oowRate!,
+  );
   const defSpecsCap = 10000 * NIGHT_STRIKE_UNITS.def_specs.warCap;
-  const defSpecsActual = Math.min(defSpecsCap, 1000 * NIGHT_STRIKE_UNITS.def_specs.warRate);
+  const defSpecsActual = Math.min(
+    defSpecsCap,
+    1000 * NIGHT_STRIKE_UNITS.def_specs.warRate,
+  );
   const elitesCap = 10000 * NIGHT_STRIKE_UNITS.elites.warCap;
-  const elitesActual = Math.min(elitesCap, 1000 * NIGHT_STRIKE_UNITS.elites.warRate);
+  const elitesActual = Math.min(
+    elitesCap,
+    1000 * NIGHT_STRIKE_UNITS.elites.warRate,
+  );
   assert.equal(offSpecs.usedFallback, true);
   assertApprox(offSpecs.rawCap!, offSpecsCap);
   assertApprox(offSpecs.rawActual!, offSpecsActual);
@@ -313,8 +372,11 @@ test("computeCell — Night Strike applies NW ratio, shielding, and watchtowers 
     watch_towers_effect: 5,
   });
   const r = computeCell(att, def, "night_strike", false);
-  const soldiers = r.nightStrike!.breakdown.find((unit) => unit.key === "soldiers")!;
-  const expected = 10000 * NIGHT_STRIKE_UNITS.soldiers.oowCap! * 0.4 * 0.9 * 0.95;
+  const soldiers = r.nightStrike!.breakdown.find(
+    (unit) => unit.key === "soldiers",
+  )!;
+  const expected =
+    10000 * NIGHT_STRIKE_UNITS.soldiers.oowCap! * 0.4 * 0.9 * 0.95;
   assertApprox(soldiers.adjustedCap!, expected);
   assertApprox(r.value!, expected);
 });

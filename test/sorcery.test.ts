@@ -6,18 +6,24 @@ const PREAMBLE = `You enter the Magical Academy, where your wizards hone their s
 
 const STATS = `Wizards\t1,234\nRunes\t5,678\nMana\t87%`;
 
-const METEOR_URL  = "https://utopia-game.com/wol/game/sorcery?p=319&s=METEOR_SHOWERS";
-const GREED_URL   = "https://utopia-game.com/wol/game/sorcery?p=319&s=GREED";
-const FIREBALL_URL = "https://utopia-game.com/wol/game/sorcery?p=319&s=FIREBALL";
-const CHASTITY_URL = "https://utopia-game.com/wol/game/sorcery?p=319&s=CHASTITY";
-const SITTER_URL  = "https://utopia-game.com/wol/sit/game/sorcery?p=319&s=GREED";
+const METEOR_URL =
+  "https://utopia-game.com/wol/game/sorcery?p=319&s=METEOR_SHOWERS";
+const GREED_URL = "https://utopia-game.com/wol/game/sorcery?p=319&s=GREED";
+const FIREBALL_URL =
+  "https://utopia-game.com/wol/game/sorcery?p=319&s=FIREBALL";
+const CHASTITY_URL =
+  "https://utopia-game.com/wol/game/sorcery?p=319&s=CHASTITY";
+const SITTER_URL = "https://utopia-game.com/wol/sit/game/sorcery?p=319&s=GREED";
 
-const TARGET_KD   = `Target kingdom is Time For A Book (3:9)`;
+const TARGET_KD = `Target kingdom is Time For A Book (3:9)`;
 const TARGET_PROV = `Select target province:\t8 A Song Of Ice and Fire --- ( 118% )`;
 
 test("parseSorcery — success with target province", () => {
   const text = [
-    PREAMBLE, "", STATS, "",
+    PREAMBLE,
+    "",
+    STATS,
+    "",
     "You gather 2,500 runes and begin casting, and the spell succeeds. Gold rains down upon your kingdom.",
     `${TARGET_KD}\n${TARGET_PROV}`,
   ].join("\n");
@@ -40,7 +46,10 @@ test("parseSorcery — success with target province", () => {
 
 test("parseSorcery — success with duration", () => {
   const text = [
-    PREAMBLE, "", STATS, "",
+    PREAMBLE,
+    "",
+    STATS,
+    "",
     "You gather 1,800 runes and begin casting, and the spell succeeds. The spell will last for 5 days.",
     `${TARGET_KD}\n${TARGET_PROV}`,
   ].join("\n");
@@ -53,7 +62,10 @@ test("parseSorcery — success with duration", () => {
 
 test("parseSorcery — failure no explosion", () => {
   const text = [
-    PREAMBLE, "", STATS, "",
+    PREAMBLE,
+    "",
+    STATS,
+    "",
     "You gather 3,000 runes and begin casting, but the spell fails. Our wizards were unable to channel the required energy.",
     `${TARGET_KD}\n${TARGET_PROV}`,
   ].join("\n");
@@ -67,7 +79,10 @@ test("parseSorcery — failure no explosion", () => {
 
 test("parseSorcery — failure with wizard explosion", () => {
   const text = [
-    PREAMBLE, "", STATS, "",
+    PREAMBLE,
+    "",
+    STATS,
+    "",
     "You gather 4,200 runes and begin casting, but the spell fails. Something went terribly wrong with our spell. 12 wizards were killed in an explosion!",
     `${TARGET_KD}\n${TARGET_PROV}`,
   ].join("\n");
@@ -80,7 +95,10 @@ test("parseSorcery — failure with wizard explosion", () => {
 
 test("parseSorcery — 1 wizard lost in explosion", () => {
   const text = [
-    PREAMBLE, "", STATS, "",
+    PREAMBLE,
+    "",
+    STATS,
+    "",
     "You gather 1,100 runes and begin casting, but the spell fails. Something went terribly wrong with our spell. 1 wizard was killed in an explosion!",
     TARGET_KD,
   ].join("\n");
@@ -91,7 +109,10 @@ test("parseSorcery — 1 wizard lost in explosion", () => {
 
 test("parseSorcery — inline target via 'skies of'", () => {
   const text = [
-    PREAMBLE, "", STATS, "",
+    PREAMBLE,
+    "",
+    STATS,
+    "",
     "You gather 900 runes and begin casting, and the spell succeeds. Meteors rain down over the skies of A Song Of Ice and Fire (3:9).",
     TARGET_KD,
   ].join("\n");
@@ -104,7 +125,10 @@ test("parseSorcery — inline target via 'skies of'", () => {
 
 test("parseSorcery — inline target via 'womenfolk of'", () => {
   const text = [
-    PREAMBLE, "", STATS, "",
+    PREAMBLE,
+    "",
+    STATS,
+    "",
     "You gather 750 runes and begin casting, and the spell succeeds. The spell falls upon the womenfolk of A Song Of Ice and Fire (3:9).",
     TARGET_KD,
   ].join("\n");
@@ -116,10 +140,17 @@ test("parseSorcery — inline target via 'womenfolk of'", () => {
 
 test("parseSorcery — inline target with slot prefix", () => {
   const text = [
-    PREAMBLE, "", STATS, "",
+    PREAMBLE,
+    "",
+    STATS,
+    "",
     "You gather 500 runes and begin casting, and the spell succeeds. Our crystal eye reveals the province of 9 - All I see is darkness (3:9).",
   ].join("\n");
-  const r = parseSorcery(text, "https://utopia-game.com/wol/game/sorcery?p=319&s=CRYSTAL_EYE", "TestProvince");
+  const r = parseSorcery(
+    text,
+    "https://utopia-game.com/wol/game/sorcery?p=319&s=CRYSTAL_EYE",
+    "TestProvince",
+  );
   assert.ok(r);
   assert.equal(r.targetName, "All I see is darkness");
   assert.equal(r.targetSlot, 9);
@@ -128,11 +159,18 @@ test("parseSorcery — inline target with slot prefix", () => {
 
 test("parseSorcery — target province form with dash after slot", () => {
   const text = [
-    PREAMBLE, "", STATS, "",
+    PREAMBLE,
+    "",
+    STATS,
+    "",
     "You gather 500 runes and begin casting, and the spell succeeds. Our crystal eye reveals the province.",
     `${TARGET_KD}\nSelect target province:\t9 - All I see is darkness --- ( 118% )`,
   ].join("\n");
-  const r = parseSorcery(text, "https://utopia-game.com/wol/game/sorcery?p=319&s=CRYSTAL_EYE", "TestProvince");
+  const r = parseSorcery(
+    text,
+    "https://utopia-game.com/wol/game/sorcery?p=319&s=CRYSTAL_EYE",
+    "TestProvince",
+  );
   assert.ok(r);
   assert.equal(r.targetName, "All I see is darkness");
   assert.equal(r.targetSlot, 9);
@@ -141,7 +179,10 @@ test("parseSorcery — target province form with dash after slot", () => {
 
 test("parseSorcery — no target (self-buff spell)", () => {
   const text = [
-    PREAMBLE, "", STATS, "",
+    PREAMBLE,
+    "",
+    STATS,
+    "",
     "You gather 600 runes and begin casting, and the spell succeeds. Your kingdom is blessed.",
   ].join("\n");
   const r = parseSorcery(text, GREED_URL, "TestProvince");
@@ -153,7 +194,10 @@ test("parseSorcery — no target (self-buff spell)", () => {
 
 test("parseSorcery — commas in rune count", () => {
   const text = [
-    PREAMBLE, "", STATS, "",
+    PREAMBLE,
+    "",
+    STATS,
+    "",
     "You gather 12,500 runes and begin casting, and the spell succeeds.",
   ].join("\n");
   const r = parseSorcery(text, GREED_URL, "TestProvince");
@@ -163,7 +207,10 @@ test("parseSorcery — commas in rune count", () => {
 
 test("parseSorcery — sitter URL works", () => {
   const text = [
-    PREAMBLE, "", STATS, "",
+    PREAMBLE,
+    "",
+    STATS,
+    "",
     "You gather 1,000 runes and begin casting, and the spell succeeds.",
   ].join("\n");
   const r = parseSorcery(text, SITTER_URL, "TestProvince");
@@ -179,9 +226,16 @@ test("parseSorcery — form page (no result) returns null", () => {
 
 test("parseSorcery — no spell param returns null", () => {
   const text = [
-    PREAMBLE, "", STATS, "",
+    PREAMBLE,
+    "",
+    STATS,
+    "",
     "You gather 1,000 runes and begin casting, and the spell succeeds.",
   ].join("\n");
-  const r = parseSorcery(text, "https://utopia-game.com/wol/game/sorcery?p=319", "TestProvince");
+  const r = parseSorcery(
+    text,
+    "https://utopia-game.com/wol/game/sorcery?p=319",
+    "TestProvince",
+  );
   assert.equal(r, null);
 });

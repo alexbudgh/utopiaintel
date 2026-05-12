@@ -19,7 +19,11 @@ import { getIntelPathname, matchesGamePath } from "./detect";
 
 export type { ParseResult } from "./types";
 
-export function parseIntel(url: string, dataSimple: string, selfProv?: string): ParseResult | null {
+export function parseIntel(
+  url: string,
+  dataSimple: string,
+  selfProv?: string,
+): ParseResult | null {
   const type = detectIntelType(url);
   if (!type) return null;
   const pathname = getIntelPathname(url);
@@ -32,15 +36,24 @@ export function parseIntel(url: string, dataSimple: string, selfProv?: string): 
       return data ? { type: "sot", data } : null;
     }
     case "survey": {
-      const data = parseSurvey(dataSimple, matchesGamePath(pathname, "council_internal") ? selfProv : undefined);
+      const data = parseSurvey(
+        dataSimple,
+        matchesGamePath(pathname, "council_internal") ? selfProv : undefined,
+      );
       return data ? { type: "survey", data } : null;
     }
     case "som": {
-      const data = parseSoM(dataSimple, matchesGamePath(pathname, "council_military") ? selfProv : undefined);
+      const data = parseSoM(
+        dataSimple,
+        matchesGamePath(pathname, "council_military") ? selfProv : undefined,
+      );
       return data ? { type: "som", data } : null;
     }
     case "sos": {
-      const data = parseSoS(dataSimple, matchesGamePath(pathname, "council_science") ? selfProv : undefined);
+      const data = parseSoS(
+        dataSimple,
+        matchesGamePath(pathname, "council_science") ? selfProv : undefined,
+      );
       return data ? { type: "sos", data } : null;
     }
     case "sod": {

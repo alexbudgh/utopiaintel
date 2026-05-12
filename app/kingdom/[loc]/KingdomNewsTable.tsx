@@ -1,73 +1,156 @@
 "use client";
 
 import Link from "next/link";
-import { KingdomViewShell, btnBase, btnActive, btnInactive } from "./KingdomTabs";
+import {
+  KingdomViewShell,
+  btnBase,
+  btnActive,
+  btnInactive,
+} from "./KingdomTabs";
 import { useEffect, useState, useMemo } from "react";
-import { LineChart, Line, XAxis, YAxis, Tooltip as ChartTooltip, ReferenceLine, ResponsiveContainer, Legend } from "recharts";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip as ChartTooltip,
+  ReferenceLine,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
 import { Tooltip as UiTooltip } from "@/app/components/Tooltip";
 import type { KingdomNewsRow, KingdomNewsSummary } from "@/lib/db";
 import { parseUtopiaDate } from "@/lib/ui";
 import { UtopiaDateRangeFilter } from "./UtopiaDateRangeFilter";
 
 const TYPE_GROUPS: { label: string; types: string[] }[] = [
-  { label: "Combat",    types: ["march", "ambush", "raze", "pillage", "loot", "failed_attack"] },
-  { label: "Relations", types: ["war_declared", "war_declared_on_us", "ceasefire_proposed", "ceasefire_accepted", "ceasefire_broken", "ceasefire_withdrawn"] },
-  { label: "Dragon",    types: ["dragon_by_us", "dragon_against_us", "dragon_slain"] },
-  { label: "Ritual",    types: ["ritual_started"] },
-  { label: "Aid",       types: ["aid"] },
+  {
+    label: "Combat",
+    types: ["march", "ambush", "raze", "pillage", "loot", "failed_attack"],
+  },
+  {
+    label: "Relations",
+    types: [
+      "war_declared",
+      "war_declared_on_us",
+      "ceasefire_proposed",
+      "ceasefire_accepted",
+      "ceasefire_broken",
+      "ceasefire_withdrawn",
+    ],
+  },
+  {
+    label: "Dragon",
+    types: ["dragon_by_us", "dragon_against_us", "dragon_slain"],
+  },
+  { label: "Ritual", types: ["ritual_started"] },
+  { label: "Aid", types: ["aid"] },
 ];
 const ALL_GROUPS = new Set(TYPE_GROUPS.map((g) => g.label));
-const DEFAULT_GROUPS = new Set(TYPE_GROUPS.map((g) => g.label).filter((l) => l !== "Aid"));
+const DEFAULT_GROUPS = new Set(
+  TYPE_GROUPS.map((g) => g.label).filter((l) => l !== "Aid"),
+);
 
 const EVENT_LABEL: Record<string, string> = {
-  march:               "Trad. March",
-  ambush:              "Ambush",
-  raze:                "Raze",
-  pillage:             "Pillage",
-  loot:                "Loot",
-  failed_attack:       "Failed",
-  aid:                 "Aid",
-  war_declared:        "War",
-  ceasefire_proposed:  "NAP Proposed",
-  ceasefire_accepted:  "NAP Accepted",
-  ceasefire_broken:    "NAP Broken",
+  march: "Trad. March",
+  ambush: "Ambush",
+  raze: "Raze",
+  pillage: "Pillage",
+  loot: "Loot",
+  failed_attack: "Failed",
+  aid: "Aid",
+  war_declared: "War",
+  ceasefire_proposed: "NAP Proposed",
+  ceasefire_accepted: "NAP Accepted",
+  ceasefire_broken: "NAP Broken",
   ceasefire_withdrawn: "NAP Withdrawn",
-  dragon_by_us:        "Dragon",
-  dragon_against_us:   "Dragon",
-  dragon_slain:        "Dragon Slain",
-  ritual_started:      "Ritual",
+  dragon_by_us: "Dragon",
+  dragon_against_us: "Dragon",
+  dragon_slain: "Dragon Slain",
+  ritual_started: "Ritual",
 };
 
 const DIR_BADGE = {
-  out:     "border-green-500/40 bg-green-500/10 text-green-300",
-  in:      "border-red-500/40 bg-red-500/10 text-red-300",
+  out: "border-green-500/40 bg-green-500/10 text-green-300",
+  in: "border-red-500/40 bg-red-500/10 text-red-300",
   neutral: "border-gray-600 bg-gray-800/40 text-gray-400",
 };
 
 function EventDescription({ event }: { event: KingdomNewsRow }) {
-  const { eventType, attackerName, attackerKingdom, defenderName, defenderKingdom, acres, books, senderName, receiverName, relationKingdom, dragonType, dragonName } = event;
+  const {
+    eventType,
+    attackerName,
+    attackerKingdom,
+    defenderName,
+    defenderKingdom,
+    acres,
+    books,
+    senderName,
+    receiverName,
+    relationKingdom,
+    dragonType,
+    dragonName,
+  } = event;
 
-  function KdLink({ name, kingdom }: { name: string | null; kingdom: string | null }) {
-    if (!kingdom) return <span className="text-gray-300">{name ?? "Unknown"}</span>;
+  function KdLink({
+    name,
+    kingdom,
+  }: {
+    name: string | null;
+    kingdom: string | null;
+  }) {
+    if (!kingdom)
+      return <span className="text-gray-300">{name ?? "Unknown"}</span>;
     return (
-      <Link href={`/kingdom/${encodeURIComponent(kingdom)}`} className="text-blue-300 hover:text-blue-200 transition-colors">
-        {name ?? kingdom}{name && <span className="text-gray-500 font-mono text-[11px]"> ({kingdom})</span>}
+      <Link
+        href={`/kingdom/${encodeURIComponent(kingdom)}`}
+        className="text-blue-300 hover:text-blue-200 transition-colors"
+      >
+        {name ?? kingdom}
+        {name && (
+          <span className="text-gray-500 font-mono text-[11px]">
+            {" "}
+            ({kingdom})
+          </span>
+        )}
       </Link>
     );
   }
 
   // Province reference: shows "Unknown province (kd)" when name is null
-  function ProvLink({ name, kingdom }: { name: string | null; kingdom: string | null }) {
-    if (!kingdom) return <span className="text-gray-300">{name ?? "Unknown province"}</span>;
-    if (!name) return (
-      <span>
-        <span className="text-gray-500 italic">Unknown province</span>{" "}
-        <Link href={`/kingdom/${encodeURIComponent(kingdom)}`} className="text-blue-300 hover:text-blue-200 transition-colors font-mono text-[11px]">({kingdom})</Link>
-      </span>
-    );
+  function ProvLink({
+    name,
+    kingdom,
+  }: {
+    name: string | null;
+    kingdom: string | null;
+  }) {
+    if (!kingdom)
+      return (
+        <span className="text-gray-300">{name ?? "Unknown province"}</span>
+      );
+    if (!name)
+      return (
+        <span>
+          <span className="text-gray-500 italic">Unknown province</span>{" "}
+          <Link
+            href={`/kingdom/${encodeURIComponent(kingdom)}`}
+            className="text-blue-300 hover:text-blue-200 transition-colors font-mono text-[11px]"
+          >
+            ({kingdom})
+          </Link>
+        </span>
+      );
     return (
-      <Link href={`/kingdom/${encodeURIComponent(kingdom)}/${encodeURIComponent(name)}`} className="text-gray-300 hover:text-blue-200 transition-colors">
-        {name}<span className="text-gray-500 font-mono text-[11px]"> ({kingdom})</span>
+      <Link
+        href={`/kingdom/${encodeURIComponent(kingdom)}/${encodeURIComponent(name)}`}
+        className="text-gray-300 hover:text-blue-200 transition-colors"
+      >
+        {name}
+        <span className="text-gray-500 font-mono text-[11px]">
+          {" "}
+          ({kingdom})
+        </span>
       </Link>
     );
   }
@@ -78,7 +161,9 @@ function EventDescription({ event }: { event: KingdomNewsRow }) {
         <ProvLink name={attackerName} kingdom={attackerKingdom} />{" "}
         <span className="text-gray-500">→</span>{" "}
         <ProvLink name={defenderName} kingdom={defenderKingdom} />
-        {acres != null && <span className="text-gray-400"> · {acres.toLocaleString()}a</span>}
+        {acres != null && (
+          <span className="text-gray-400"> · {acres.toLocaleString()}a</span>
+        )}
       </span>
     );
   }
@@ -90,7 +175,9 @@ function EventDescription({ event }: { event: KingdomNewsRow }) {
         <ProvLink name={attackerName} kingdom={attackerKingdom} />{" "}
         <span className="text-gray-500">{verb}</span>{" "}
         <ProvLink name={defenderName} kingdom={defenderKingdom} />
-        {acres != null && <span className="text-gray-400"> · {acres.toLocaleString()}a</span>}
+        {acres != null && (
+          <span className="text-gray-400"> · {acres.toLocaleString()}a</span>
+        )}
       </span>
     );
   }
@@ -101,7 +188,9 @@ function EventDescription({ event }: { event: KingdomNewsRow }) {
         <ProvLink name={attackerName} kingdom={attackerKingdom} />{" "}
         <span className="text-gray-500">razed</span>{" "}
         <ProvLink name={defenderName} kingdom={defenderKingdom} />
-        {acres != null && <span className="text-gray-400"> · {acres.toLocaleString()}a</span>}
+        {acres != null && (
+          <span className="text-gray-400"> · {acres.toLocaleString()}a</span>
+        )}
       </span>
     );
   }
@@ -112,7 +201,12 @@ function EventDescription({ event }: { event: KingdomNewsRow }) {
         <ProvLink name={attackerName} kingdom={attackerKingdom} />{" "}
         <span className="text-gray-500">looted</span>{" "}
         <ProvLink name={defenderName} kingdom={defenderKingdom} />
-        {books != null && <span className="text-gray-400"> · {books.toLocaleString()} books</span>}
+        {books != null && (
+          <span className="text-gray-400">
+            {" "}
+            · {books.toLocaleString()} books
+          </span>
+        )}
       </span>
     );
   }
@@ -206,7 +300,9 @@ function EventDescription({ event }: { event: KingdomNewsRow }) {
     return (
       <span>
         <KdLink name={null} kingdom={relationKingdom} />{" "}
-        <span className="text-rose-300">{dragonType} Dragon {dragonName}</span>
+        <span className="text-rose-300">
+          {dragonType} Dragon {dragonName}
+        </span>
         <span className="text-gray-500"> against us</span>
       </span>
     );
@@ -234,8 +330,24 @@ function EventDescription({ event }: { event: KingdomNewsRow }) {
   return <span className="text-gray-400">{event.rawText}</span>;
 }
 
-const COMBAT_TYPES_SET = new Set(["march","ambush","raze","pillage","loot","failed_attack"]);
-const KD_COLORS = ["#60a5fa","#f87171","#34d399","#fbbf24","#a78bfa","#fb923c","#38bdf8","#f472b6"];
+const COMBAT_TYPES_SET = new Set([
+  "march",
+  "ambush",
+  "raze",
+  "pillage",
+  "loot",
+  "failed_attack",
+]);
+const KD_COLORS = [
+  "#60a5fa",
+  "#f87171",
+  "#34d399",
+  "#fbbf24",
+  "#a78bfa",
+  "#fb923c",
+  "#38bdf8",
+  "#f472b6",
+];
 
 function buildChartData(events: KingdomNewsRow[], ourKingdom: string) {
   // Collect all kingdoms and dates involved in combat
@@ -255,14 +367,19 @@ function buildChartData(events: KingdomNewsRow[], ourKingdom: string) {
     day.set(defenderKingdom, (day.get(defenderKingdom) ?? 0) - acres);
   }
 
-  const kingdoms = [...kdSet].sort((a, b) => a === ourKingdom ? -1 : b === ourKingdom ? 1 : a.localeCompare(b));
-  const dates = [...dateAcres.keys()].sort((a, b) => parseUtopiaDate(a) - parseUtopiaDate(b));
+  const kingdoms = [...kdSet].sort((a, b) =>
+    a === ourKingdom ? -1 : b === ourKingdom ? 1 : a.localeCompare(b),
+  );
+  const dates = [...dateAcres.keys()].sort(
+    (a, b) => parseUtopiaDate(a) - parseUtopiaDate(b),
+  );
 
   // Build cumulative running net per kingdom
   const running = new Map<string, number>(kingdoms.map((k) => [k, 0]));
   const chartData = dates.map((date) => {
     const day = dateAcres.get(date)!;
-    for (const kd of kingdoms) running.set(kd, (running.get(kd) ?? 0) + (day.get(kd) ?? 0));
+    for (const kd of kingdoms)
+      running.set(kd, (running.get(kd) ?? 0) + (day.get(kd) ?? 0));
     const point: Record<string, string | number> = { date };
     for (const kd of kingdoms) point[kd] = running.get(kd)!;
     return point;
@@ -271,28 +388,70 @@ function buildChartData(events: KingdomNewsRow[], ourKingdom: string) {
   return { chartData, kingdoms };
 }
 
-function NewsChart({ events, ourKingdom }: { events: KingdomNewsRow[]; ourKingdom: string }) {
-  const { chartData, kingdoms } = useMemo(() => buildChartData(events, ourKingdom), [events, ourKingdom]);
-  const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(() => new Set());
+function NewsChart({
+  events,
+  ourKingdom,
+}: {
+  events: KingdomNewsRow[];
+  ourKingdom: string;
+}) {
+  const { chartData, kingdoms } = useMemo(
+    () => buildChartData(events, ourKingdom),
+    [events, ourKingdom],
+  );
+  const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   useEffect(() => {
-    setHiddenSeries((prev) => new Set([...prev].filter((kd) => kingdoms.includes(kd))));
+    setHiddenSeries(
+      (prev) => new Set([...prev].filter((kd) => kingdoms.includes(kd))),
+    );
   }, [kingdoms]);
 
-  if (chartData.length === 0) return <div className="text-xs text-gray-500 py-4">No combat data to chart.</div>;
+  if (chartData.length === 0)
+    return (
+      <div className="text-xs text-gray-500 py-4">No combat data to chart.</div>
+    );
 
   return (
     <div className="mb-4 rounded-lg border border-gray-800 bg-gray-900/50 p-3">
       <ResponsiveContainer width="100%" height={220}>
-        <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-          <XAxis dataKey="date" tick={{ fill: "#6b7280", fontSize: 10 }} tickLine={false} axisLine={false} />
-          <YAxis tick={{ fill: "#6b7280", fontSize: 10 }} tickLine={false} axisLine={false} width={48}
-            tickFormatter={(v) => v === 0 ? "0" : `${v > 0 ? "+" : ""}${(v/1000).toFixed(0)}k`} />
+        <LineChart
+          data={chartData}
+          margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
+        >
+          <XAxis
+            dataKey="date"
+            tick={{ fill: "#6b7280", fontSize: 10 }}
+            tickLine={false}
+            axisLine={false}
+          />
+          <YAxis
+            tick={{ fill: "#6b7280", fontSize: 10 }}
+            tickLine={false}
+            axisLine={false}
+            width={48}
+            tickFormatter={(v) =>
+              v === 0 ? "0" : `${v > 0 ? "+" : ""}${(v / 1000).toFixed(0)}k`
+            }
+          />
           <ReferenceLine y={0} stroke="#374151" strokeDasharray="3 3" />
           <ChartTooltip
-            contentStyle={{ background: "#111827", border: "1px solid #374151", fontSize: 11, borderRadius: 6 }}
+            contentStyle={{
+              background: "#111827",
+              border: "1px solid #374151",
+              fontSize: 11,
+              borderRadius: 6,
+            }}
             labelStyle={{ color: "#9ca3af" }}
-            formatter={(val, name) => { const n = Number(val); return [`${n > 0 ? "+" : ""}${n.toLocaleString()}a`, String(name)]; }}
+            formatter={(val, name) => {
+              const n = Number(val);
+              return [
+                `${n > 0 ? "+" : ""}${n.toLocaleString()}a`,
+                String(name),
+              ];
+            }}
           />
           <Legend
             wrapperStyle={{ fontSize: 11, color: "#9ca3af", cursor: "pointer" }}
@@ -312,10 +471,16 @@ function NewsChart({ events, ourKingdom }: { events: KingdomNewsRow[]; ourKingdo
             }}
           />
           {kingdoms.map((kd, i) => (
-            <Line key={kd} type="monotone" dataKey={kd} stroke={KD_COLORS[i % KD_COLORS.length]}
-              dot={false} strokeWidth={kd === ourKingdom ? 2 : 1.5}
+            <Line
+              key={kd}
+              type="monotone"
+              dataKey={kd}
+              stroke={KD_COLORS[i % KD_COLORS.length]}
+              dot={false}
+              strokeWidth={kd === ourKingdom ? 2 : 1.5}
               hide={hiddenSeries.has(kd)}
-              strokeDasharray={kd === ourKingdom ? undefined : "4 2"} />
+              strokeDasharray={kd === ourKingdom ? undefined : "4 2"}
+            />
           ))}
         </LineChart>
       </ResponsiveContainer>
@@ -323,7 +488,10 @@ function NewsChart({ events, ourKingdom }: { events: KingdomNewsRow[]; ourKingdo
   );
 }
 
-function eventDirection(event: KingdomNewsRow, kingdom: string): "out" | "in" | null {
+function eventDirection(
+  event: KingdomNewsRow,
+  kingdom: string,
+): "out" | "in" | null {
   const { eventType, attackerKingdom, defenderKingdom } = event;
   // Combat/march events: check which side is ours
   if (attackerKingdom || defenderKingdom) {
@@ -332,31 +500,87 @@ function eventDirection(event: KingdomNewsRow, kingdom: string): "out" | "in" | 
     return null;
   }
   // Relation/dragon events initiated by us
-  if (["war_declared", "ceasefire_proposed", "ceasefire_withdrawn", "dragon_by_us", "ritual_started"].includes(eventType)) return "out";
+  if (
+    [
+      "war_declared",
+      "ceasefire_proposed",
+      "ceasefire_withdrawn",
+      "dragon_by_us",
+      "ritual_started",
+    ].includes(eventType)
+  )
+    return "out";
   // Relation/dragon events initiated by them
-  if (["war_declared_on_us", "ceasefire_accepted", "ceasefire_broken", "dragon_against_us", "dragon_slain"].includes(eventType)) return "in";
+  if (
+    [
+      "war_declared_on_us",
+      "ceasefire_accepted",
+      "ceasefire_broken",
+      "dragon_against_us",
+      "dragon_slain",
+    ].includes(eventType)
+  )
+    return "in";
   return null;
 }
 
-export function KingdomNewsTable({ events, summary, kingdom, boundKingdom, from, to, effectiveFrom, latestWarDate, warTarget }: { events: KingdomNewsRow[]; summary: KingdomNewsSummary; kingdom: string; boundKingdom?: string | null; from?: string; to?: string; effectiveFrom?: string; latestWarDate?: string; warTarget?: string }) {
+export function KingdomNewsTable({
+  events,
+  summary,
+  kingdom,
+  boundKingdom,
+  from,
+  to,
+  effectiveFrom,
+  latestWarDate,
+  warTarget,
+}: {
+  events: KingdomNewsRow[];
+  summary: KingdomNewsSummary;
+  kingdom: string;
+  boundKingdom?: string | null;
+  from?: string;
+  to?: string;
+  effectiveFrom?: string;
+  latestWarDate?: string;
+  warTarget?: string;
+}) {
   const [activeGroups, setActiveGroups] = useState<Set<string>>(DEFAULT_GROUPS);
   const [visibleCount, setVisibleCount] = useState(50);
   const [showChart, setShowChart] = useState(false);
   const [provFilter, setProvFilter] = useState("");
-  const [provSort, setProvSort] = useState<{ col: string; dir: 1 | -1 }>({ col: "net", dir: -1 });
+  const [provSort, setProvSort] = useState<{ col: string; dir: 1 | -1 }>({
+    col: "net",
+    dir: -1,
+  });
   const tabExtras = (
-    <button type="button" onClick={() => setShowChart((v) => !v)}
-      className={`${btnBase} ${showChart ? btnActive : btnInactive} ml-2`}>
+    <button
+      type="button"
+      onClick={() => setShowChart((v) => !v)}
+      className={`${btnBase} ${showChart ? btnActive : btnInactive} ml-2`}
+    >
       Chart
     </button>
   );
 
   if (events.length === 0) {
     return (
-      <KingdomViewShell kingdom={kingdom} boundKingdom={boundKingdom} active="news" tabExtras={tabExtras}>
-        <UtopiaDateRangeFilter kingdom={kingdom} view="news" from={from} to={to} effectiveFrom={effectiveFrom} latestWarDate={latestWarDate} />
+      <KingdomViewShell
+        kingdom={kingdom}
+        boundKingdom={boundKingdom}
+        active="news"
+        tabExtras={tabExtras}
+      >
+        <UtopiaDateRangeFilter
+          kingdom={kingdom}
+          view="news"
+          from={from}
+          to={to}
+          effectiveFrom={effectiveFrom}
+          latestWarDate={latestWarDate}
+        />
         <div className="rounded-lg border border-gray-800 bg-gray-900/50 px-5 py-6 text-sm text-gray-400">
-          {(from || to)
+          {from || to
             ? "No events in the selected date range."
             : "No news events recorded yet. Browse the kingdom news page in Utopia to submit intel."}
         </div>
@@ -364,34 +588,81 @@ export function KingdomNewsTable({ events, summary, kingdom, boundKingdom, from,
     );
   }
 
-  const oursKd = summary.byKingdom.find(k => k.kingdom === summary.ourKingdom);
+  const oursKd = summary.byKingdom.find(
+    (k) => k.kingdom === summary.ourKingdom,
+  );
   const net = oursKd
-    ? oursKd.totalMarchAcresGained + oursKd.totalAmbushAcresGained - oursKd.totalMarchAcresLost - oursKd.totalAmbushAcresLost
+    ? oursKd.totalMarchAcresGained +
+      oursKd.totalAmbushAcresGained -
+      oursKd.totalMarchAcresLost -
+      oursKd.totalAmbushAcresLost
     : 0;
   const hasSummary = summary.byKingdom.length > 0;
 
-  type ProvSortCol = "name" | "hitsMade" | "marchMade" | "ambushMade" | "razeMade" | "plunderMade" | "lootMade" | "failedMade"
-    | "marchAcresGained" | "ambushAcresGained" | "razeAcresDealt"
-    | "hitsTaken" | "marchTaken" | "ambushTaken" | "razeTaken" | "plunderTaken" | "lootTaken" | "failedTaken"
-    | "marchAcresLost" | "ambushAcresLost" | "razeAcresLost" | "net" | "booksLooted";
+  type ProvSortCol =
+    | "name"
+    | "hitsMade"
+    | "marchMade"
+    | "ambushMade"
+    | "razeMade"
+    | "plunderMade"
+    | "lootMade"
+    | "failedMade"
+    | "marchAcresGained"
+    | "ambushAcresGained"
+    | "razeAcresDealt"
+    | "hitsTaken"
+    | "marchTaken"
+    | "ambushTaken"
+    | "razeTaken"
+    | "plunderTaken"
+    | "lootTaken"
+    | "failedTaken"
+    | "marchAcresLost"
+    | "ambushAcresLost"
+    | "razeAcresLost"
+    | "net"
+    | "booksLooted";
 
-  function provSortVal(p: (typeof summary.byKingdom)[0]["provinces"][0], col: ProvSortCol): number | string {
-    if (col === "net") return p.marchAcresGained + p.ambushAcresGained - p.marchAcresLost - p.ambushAcresLost;
+  function provSortVal(
+    p: (typeof summary.byKingdom)[0]["provinces"][0],
+    col: ProvSortCol,
+  ): number | string {
+    if (col === "net")
+      return (
+        p.marchAcresGained +
+        p.ambushAcresGained -
+        p.marchAcresLost -
+        p.ambushAcresLost
+      );
     if (col === "name") return p.provinceName ?? "";
     return p[col];
   }
 
-  function sortedProvs(provinces: typeof summary.byKingdom[0]["provinces"]) {
+  function sortedProvs(provinces: (typeof summary.byKingdom)[0]["provinces"]) {
     return [...provinces].sort((a, b) => {
       const av = provSortVal(a, provSort.col as ProvSortCol);
       const bv = provSortVal(b, provSort.col as ProvSortCol);
-      if (typeof av === "string") return provSort.dir * (av as string).localeCompare(bv as string);
+      if (typeof av === "string")
+        return provSort.dir * (av as string).localeCompare(bv as string);
       return provSort.dir * ((av as number) - (bv as number));
     });
   }
 
-  function SortTh({ col, children, className, title, rowSpan, colSpan }: {
-    col: ProvSortCol; children: React.ReactNode; className?: string; title?: string; rowSpan?: number; colSpan?: number;
+  function SortTh({
+    col,
+    children,
+    className,
+    title,
+    rowSpan,
+    colSpan,
+  }: {
+    col: ProvSortCol;
+    children: React.ReactNode;
+    className?: string;
+    title?: string;
+    rowSpan?: number;
+    colSpan?: number;
   }) {
     const active = provSort.col === col;
     const arrow = active ? (provSort.dir === -1 ? " ↓" : " ↑") : "";
@@ -401,208 +672,665 @@ export function KingdomNewsTable({ events, summary, kingdom, boundKingdom, from,
         title={title}
         rowSpan={rowSpan}
         colSpan={colSpan}
-        onClick={() => setProvSort(s => s.col === col ? { col, dir: s.dir === -1 ? 1 : -1 } : { col, dir: -1 })}
+        onClick={() =>
+          setProvSort((s) =>
+            s.col === col
+              ? { col, dir: s.dir === -1 ? 1 : -1 }
+              : { col, dir: -1 },
+          )
+        }
       >
-        {children}{arrow}
+        {children}
+        {arrow}
       </th>
     );
   }
 
   function Num({ n, color }: { n: number; color: string }) {
-    return n > 0 ? <span className={color}>{n.toLocaleString()}</span> : <span className="text-gray-700">—</span>;
+    return n > 0 ? (
+      <span className={color}>{n.toLocaleString()}</span>
+    ) : (
+      <span className="text-gray-700">—</span>
+    );
   }
 
   return (
     <KingdomViewShell kingdom={kingdom} active="news" tabExtras={tabExtras}>
-      <UtopiaDateRangeFilter kingdom={kingdom} view="news" from={from} to={to} effectiveFrom={effectiveFrom} latestWarDate={latestWarDate} />
+      <UtopiaDateRangeFilter
+        kingdom={kingdom}
+        view="news"
+        from={from}
+        to={to}
+        effectiveFrom={effectiveFrom}
+        latestWarDate={latestWarDate}
+      />
 
-      {showChart && <NewsChart events={events} ourKingdom={summary.ourKingdom} />}
+      {showChart && (
+        <NewsChart events={events} ourKingdom={summary.ourKingdom} />
+      )}
 
       {hasSummary && (
         <div className="mb-4">
           {/* Headline stats */}
           <div className="mb-3 flex flex-wrap gap-3 text-xs text-gray-400">
-            <span>March lost <span className="text-red-300 font-medium">{summary.totalMarchAcresIn.toLocaleString()}a</span></span>
-            {(oursKd?.totalAmbushAcresLost ?? 0) > 0 && <><span>·</span><span>Ambush lost <span className="text-red-300 font-medium">{oursKd!.totalAmbushAcresLost.toLocaleString()}a</span></span></>}
-            {summary.totalRazeAcresIn > 0 && <><span>·</span><span>Razed <span className="text-red-300 font-medium">{summary.totalRazeAcresIn.toLocaleString()}a</span></span></>}
+            <span>
+              March lost{" "}
+              <span className="text-red-300 font-medium">
+                {summary.totalMarchAcresIn.toLocaleString()}a
+              </span>
+            </span>
+            {(oursKd?.totalAmbushAcresLost ?? 0) > 0 && (
+              <>
+                <span>·</span>
+                <span>
+                  Ambush lost{" "}
+                  <span className="text-red-300 font-medium">
+                    {oursKd!.totalAmbushAcresLost.toLocaleString()}a
+                  </span>
+                </span>
+              </>
+            )}
+            {summary.totalRazeAcresIn > 0 && (
+              <>
+                <span>·</span>
+                <span>
+                  Razed{" "}
+                  <span className="text-red-300 font-medium">
+                    {summary.totalRazeAcresIn.toLocaleString()}a
+                  </span>
+                </span>
+              </>
+            )}
             <span>·</span>
-            <span>March gained <span className="text-green-300 font-medium">{summary.totalMarchAcresOut.toLocaleString()}a</span></span>
-            {(oursKd?.totalAmbushAcresGained ?? 0) > 0 && <><span>·</span><span>Ambush gained <span className="text-green-300 font-medium">{oursKd!.totalAmbushAcresGained.toLocaleString()}a</span></span></>}
-            {summary.totalRazeAcresOut > 0 && <><span>·</span><span>Razed them <span className="text-green-300 font-medium">{summary.totalRazeAcresOut.toLocaleString()}a</span></span></>}
+            <span>
+              March gained{" "}
+              <span className="text-green-300 font-medium">
+                {summary.totalMarchAcresOut.toLocaleString()}a
+              </span>
+            </span>
+            {(oursKd?.totalAmbushAcresGained ?? 0) > 0 && (
+              <>
+                <span>·</span>
+                <span>
+                  Ambush gained{" "}
+                  <span className="text-green-300 font-medium">
+                    {oursKd!.totalAmbushAcresGained.toLocaleString()}a
+                  </span>
+                </span>
+              </>
+            )}
+            {summary.totalRazeAcresOut > 0 && (
+              <>
+                <span>·</span>
+                <span>
+                  Razed them{" "}
+                  <span className="text-green-300 font-medium">
+                    {summary.totalRazeAcresOut.toLocaleString()}a
+                  </span>
+                </span>
+              </>
+            )}
             <span>·</span>
-            <span>Net <span className={`font-medium ${net >= 0 ? "text-green-300" : "text-red-300"}`}>{net >= 0 ? "+" : ""}{net.toLocaleString()}a</span></span>
+            <span>
+              Net{" "}
+              <span
+                className={`font-medium ${net >= 0 ? "text-green-300" : "text-red-300"}`}
+              >
+                {net >= 0 ? "+" : ""}
+                {net.toLocaleString()}a
+              </span>
+            </span>
             <span>·</span>
-            <span><span className="text-gray-300 font-medium">{summary.uniqueAttackers}</span> unique attacker{summary.uniqueAttackers !== 1 ? "s" : ""}</span>
+            <span>
+              <span className="text-gray-300 font-medium">
+                {summary.uniqueAttackers}
+              </span>{" "}
+              unique attacker{summary.uniqueAttackers !== 1 ? "s" : ""}
+            </span>
           </div>
 
           {/* Per-kingdom tables */}
           <div className="flex flex-col gap-3">
             {summary.byKingdom.map((kd) => {
               const isOurs = kd.kingdom === summary.ourKingdom;
-              const kdNet = kd.totalMarchAcresGained + kd.totalAmbushAcresGained - kd.totalMarchAcresLost - kd.totalAmbushAcresLost;
+              const kdNet =
+                kd.totalMarchAcresGained +
+                kd.totalAmbushAcresGained -
+                kd.totalMarchAcresLost -
+                kd.totalAmbushAcresLost;
               const gc = isOurs ? "text-green-300" : "text-red-300";
               const lc = isOurs ? "text-red-300" : "text-green-300";
               return (
-                <div key={kd.kingdom} className="rounded-lg border border-gray-800 overflow-hidden">
+                <div
+                  key={kd.kingdom}
+                  className="rounded-lg border border-gray-800 overflow-hidden"
+                >
                   <div className="px-3 py-2 bg-gray-800/60 border-b border-gray-800">
                     <div className="flex items-baseline gap-3 mb-1">
-                      <Link href={`/kingdom/${encodeURIComponent(kd.kingdom)}`} className="hover:text-blue-300 transition-colors flex items-baseline gap-1.5">
-                        <span className="font-mono font-semibold text-sm text-gray-200">{kd.kingdom}</span>
-                        {kd.kingdomName && <span className="text-gray-400 text-sm">{kd.kingdomName}</span>}
+                      <Link
+                        href={`/kingdom/${encodeURIComponent(kd.kingdom)}`}
+                        className="hover:text-blue-300 transition-colors flex items-baseline gap-1.5"
+                      >
+                        <span className="font-mono font-semibold text-sm text-gray-200">
+                          {kd.kingdom}
+                        </span>
+                        {kd.kingdomName && (
+                          <span className="text-gray-400 text-sm">
+                            {kd.kingdomName}
+                          </span>
+                        )}
                         {isOurs && <span className="text-blue-400">★</span>}
-                        {warTarget && kd.kingdom === warTarget && <span className="text-orange-400">⚔</span>}
+                        {warTarget && kd.kingdom === warTarget && (
+                          <span className="text-orange-400">⚔</span>
+                        )}
                       </Link>
                       {kdNet !== 0 && (
                         <UiTooltip content="Net land change from attacks involving this kingdom in the selected news range.">
-                          <span className={`text-lg font-bold ${kdNet > 0 ? "text-green-300" : "text-red-300"}`}>
-                            {kdNet > 0 ? "+" : ""}{kdNet.toLocaleString()}a
+                          <span
+                            className={`text-lg font-bold ${kdNet > 0 ? "text-green-300" : "text-red-300"}`}
+                          >
+                            {kdNet > 0 ? "+" : ""}
+                            {kdNet.toLocaleString()}a
                           </span>
                         </UiTooltip>
                       )}
                       {kd.totalHitsMade > 0 && (
                         <UiTooltip content="Outgoing attacks made by this kingdom in the selected news range.">
-                          <span className={`text-sm font-medium ${gc}`}>↑ {kd.totalHitsMade}</span>
+                          <span className={`text-sm font-medium ${gc}`}>
+                            ↑ {kd.totalHitsMade}
+                          </span>
                         </UiTooltip>
                       )}
                       {kd.totalHitsTaken > 0 && (
                         <UiTooltip content="Incoming attacks taken by this kingdom in the selected news range.">
-                          <span className={`text-sm font-medium ${lc}`}>↓ {kd.totalHitsTaken}</span>
+                          <span className={`text-sm font-medium ${lc}`}>
+                            ↓ {kd.totalHitsTaken}
+                          </span>
                         </UiTooltip>
                       )}
                     </div>
                     <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500">
-                      {kd.totalHitsMade > 0 && <>
-                        <span><span className={gc}>{kd.totalMarchAcresGained.toLocaleString()}a march</span> gained</span>
-                        {kd.totalAmbushAcresGained > 0 && <span><span className={gc}>{kd.totalAmbushAcresGained.toLocaleString()}a ambush</span> gained</span>}
-                        {kd.totalRazeAcresDealt > 0 && <span><span className={gc}>{kd.totalRazeAcresDealt.toLocaleString()}a</span> razed</span>}
-                      </>}
-                      {kd.totalHitsMade > 0 && kd.totalHitsTaken > 0 && <span className="text-gray-700">·</span>}
-                      {kd.totalHitsTaken > 0 && <>
-                        <span><span className={lc}>{kd.totalMarchAcresLost.toLocaleString()}a march</span> lost</span>
-                        {kd.totalAmbushAcresLost > 0 && <span><span className={lc}>{kd.totalAmbushAcresLost.toLocaleString()}a ambush</span> lost</span>}
-                        {kd.totalRazeAcresLost > 0 && <span><span className={lc}>{kd.totalRazeAcresLost.toLocaleString()}a</span> razed away</span>}
-                      </>}
+                      {kd.totalHitsMade > 0 && (
+                        <>
+                          <span>
+                            <span className={gc}>
+                              {kd.totalMarchAcresGained.toLocaleString()}a march
+                            </span>{" "}
+                            gained
+                          </span>
+                          {kd.totalAmbushAcresGained > 0 && (
+                            <span>
+                              <span className={gc}>
+                                {kd.totalAmbushAcresGained.toLocaleString()}a
+                                ambush
+                              </span>{" "}
+                              gained
+                            </span>
+                          )}
+                          {kd.totalRazeAcresDealt > 0 && (
+                            <span>
+                              <span className={gc}>
+                                {kd.totalRazeAcresDealt.toLocaleString()}a
+                              </span>{" "}
+                              razed
+                            </span>
+                          )}
+                        </>
+                      )}
+                      {kd.totalHitsMade > 0 && kd.totalHitsTaken > 0 && (
+                        <span className="text-gray-700">·</span>
+                      )}
+                      {kd.totalHitsTaken > 0 && (
+                        <>
+                          <span>
+                            <span className={lc}>
+                              {kd.totalMarchAcresLost.toLocaleString()}a march
+                            </span>{" "}
+                            lost
+                          </span>
+                          {kd.totalAmbushAcresLost > 0 && (
+                            <span>
+                              <span className={lc}>
+                                {kd.totalAmbushAcresLost.toLocaleString()}a
+                                ambush
+                              </span>{" "}
+                              lost
+                            </span>
+                          )}
+                          {kd.totalRazeAcresLost > 0 && (
+                            <span>
+                              <span className={lc}>
+                                {kd.totalRazeAcresLost.toLocaleString()}a
+                              </span>{" "}
+                              razed away
+                            </span>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b border-gray-800 text-gray-500">
-                        <SortTh col="name" className="text-left border-r border-gray-800" rowSpan={2}>Province</SortTh>
-                        <th className="px-2 py-1 text-center font-normal border-l border-gray-800" colSpan={10}>Made →</th>
-                        <th className="px-2 py-1 text-center font-normal border-l border-gray-800" colSpan={10}>Taken ←</th>
-                        <SortTh col="net" className="text-right border-l border-gray-800" rowSpan={2}>Net</SortTh>
-                        <SortTh col="booksLooted" className="text-right" rowSpan={2}>Books</SortTh>
-                      </tr>
-                      <tr className="border-b border-gray-800 text-gray-500">
-                        <SortTh col="hitsMade"        className="text-right border-l border-gray-800">Total</SortTh>
-                        <SortTh col="marchMade"       className="text-right" title="Trad March">M</SortTh>
-                        <SortTh col="ambushMade"      className="text-right" title="Ambush">A</SortTh>
-                        <SortTh col="razeMade"        className="text-right" title="Raze">Rz</SortTh>
-                        <SortTh col="plunderMade"     className="text-right" title="Plunder">Pl</SortTh>
-                        <SortTh col="lootMade"        className="text-right" title="Learn">Lrn</SortTh>
-                        <SortTh col="failedMade"      className="text-right" title="Failed Attack">Fail</SortTh>
-                        <SortTh col="marchAcresGained"  className="text-right text-gray-600" title="March acres gained">M.a</SortTh>
-                        <SortTh col="ambushAcresGained" className="text-right text-gray-600" title="Ambush acres gained">A.a</SortTh>
-                        <SortTh col="razeAcresDealt"    className="text-right text-gray-600" title="Raze acres dealt">Rz.a</SortTh>
-                        <SortTh col="hitsTaken"       className="text-right border-l border-gray-800">Total</SortTh>
-                        <SortTh col="marchTaken"      className="text-right" title="Trad March">M</SortTh>
-                        <SortTh col="ambushTaken"     className="text-right" title="Ambush">A</SortTh>
-                        <SortTh col="razeTaken"       className="text-right" title="Raze">Rz</SortTh>
-                        <SortTh col="plunderTaken"    className="text-right" title="Plunder">Pl</SortTh>
-                        <SortTh col="lootTaken"       className="text-right" title="Learn">Lrn</SortTh>
-                        <SortTh col="failedTaken"     className="text-right" title="Failed Attack">Fail</SortTh>
-                        <SortTh col="marchAcresLost"  className="text-right text-gray-600" title="March acres lost">M.a</SortTh>
-                        <SortTh col="ambushAcresLost" className="text-right text-gray-600" title="Ambush acres lost">A.a</SortTh>
-                        <SortTh col="razeAcresLost"   className="text-right text-gray-600" title="Raze acres lost">Rz.a</SortTh>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedProvs(kd.provinces).map((p, i) => {
-                        const net = p.marchAcresGained + p.ambushAcresGained - p.marchAcresLost - p.ambushAcresLost;
-                        return (
-                        <tr key={i} className={i % 2 === 0 ? "bg-gray-900/40" : "bg-gray-900/20"}>
-                          <td className="px-3 py-1.5 text-gray-300 whitespace-nowrap">
-                            {p.slot != null && <span className="text-gray-500 font-mono mr-1.5">{p.slot}</span>}
-                            {p.provinceName
-                              ? <>
-                                  <button type="button" onClick={() => setProvFilter((v) => v === p.provinceName ? "" : p.provinceName!)}
-                                    className={`hover:text-blue-300 transition-colors ${provFilter === p.provinceName ? "text-blue-300 underline" : ""}`}>
-                                    {p.provinceName}
-                                  </button>
-                                  <Link href={`/kingdom/${encodeURIComponent(kd.kingdom)}/${encodeURIComponent(p.provinceName)}`}
-                                    className="ml-1.5 text-gray-600 hover:text-gray-400 transition-colors text-[10px]" title="Province detail">↗</Link>
-                                </>
-                              : <span className="text-gray-500 italic">Unknown</span>
-                            }
-                          </td>
-                          <td className="px-2 py-1.5 text-right font-mono border-l border-gray-800"><Num n={p.hitsMade}          color={gc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.marchMade}          color={gc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.ambushMade}         color={gc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.razeMade}           color={gc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.plunderMade}        color={gc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.lootMade}           color={gc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.failedMade}         color={gc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.marchAcresGained}   color={gc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.ambushAcresGained}  color={gc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.razeAcresDealt}     color={gc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono border-l border-gray-800"><Num n={p.hitsTaken}    color={lc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.marchTaken}         color={lc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.ambushTaken}        color={lc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.razeTaken}          color={lc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.plunderTaken}       color={lc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.lootTaken}          color={lc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.failedTaken}        color={lc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.marchAcresLost}     color={lc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.ambushAcresLost}    color={lc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={p.razeAcresLost}      color={lc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono border-l border-gray-800">
-                            {net !== 0
-                              ? <span className={net > 0 ? "text-green-300" : "text-red-300"}>{net > 0 ? "+" : ""}{net.toLocaleString()}</span>
-                              : <span className="text-gray-700">—</span>}
-                          </td>
-                          <td className="px-3 py-1.5 text-right font-mono"><Num n={p.booksLooted} color="text-amber-300" /></td>
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-gray-800 text-gray-500">
+                          <SortTh
+                            col="name"
+                            className="text-left border-r border-gray-800"
+                            rowSpan={2}
+                          >
+                            Province
+                          </SortTh>
+                          <th
+                            className="px-2 py-1 text-center font-normal border-l border-gray-800"
+                            colSpan={10}
+                          >
+                            Made →
+                          </th>
+                          <th
+                            className="px-2 py-1 text-center font-normal border-l border-gray-800"
+                            colSpan={10}
+                          >
+                            Taken ←
+                          </th>
+                          <SortTh
+                            col="net"
+                            className="text-right border-l border-gray-800"
+                            rowSpan={2}
+                          >
+                            Net
+                          </SortTh>
+                          <SortTh
+                            col="booksLooted"
+                            className="text-right"
+                            rowSpan={2}
+                          >
+                            Books
+                          </SortTh>
                         </tr>
-                        );
-                      })}
-                    </tbody>
-                    {kd.provinces.length > 1 && (() => {
-                      const kdTotalNet = kd.totalMarchAcresGained + kd.totalAmbushAcresGained - kd.totalMarchAcresLost - kd.totalAmbushAcresLost;
-                      return (
-                      <tfoot>
-                        <tr className="border-t border-gray-700 text-gray-400 font-medium bg-gray-900/60">
-                          <td className="px-3 py-1.5 text-gray-500 text-[11px]">Total</td>
-                          <td className="px-2 py-1.5 text-right font-mono border-l border-gray-800"><Num n={kd.totalHitsMade}          color={gc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalMarchMade}          color={gc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalAmbushMade}         color={gc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalRazeMade}           color={gc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalPlunderMade}        color={gc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalLootMade}           color={gc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalFailedMade}         color={gc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalMarchAcresGained}   color={gc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalAmbushAcresGained}  color={gc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalRazeAcresDealt}     color={gc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono border-l border-gray-800"><Num n={kd.totalHitsTaken}    color={lc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalMarchTaken}         color={lc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalAmbushTaken}        color={lc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalRazeTaken}          color={lc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalPlunderTaken}       color={lc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalLootTaken}          color={lc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalFailedTaken}        color={lc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalMarchAcresLost}     color={lc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalAmbushAcresLost}    color={lc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono"><Num n={kd.totalRazeAcresLost}      color={lc} /></td>
-                          <td className="px-2 py-1.5 text-right font-mono border-l border-gray-800">
-                            {kdTotalNet !== 0
-                              ? <span className={kdTotalNet > 0 ? "text-green-300" : "text-red-300"}>{kdTotalNet > 0 ? "+" : ""}{kdTotalNet.toLocaleString()}</span>
-                              : <span className="text-gray-700">—</span>}
-                          </td>
-                          <td className="px-3 py-1.5 text-right font-mono"><Num n={kd.provinces.reduce((s, p) => s + p.booksLooted, 0)} color="text-amber-300" /></td>
+                        <tr className="border-b border-gray-800 text-gray-500">
+                          <SortTh
+                            col="hitsMade"
+                            className="text-right border-l border-gray-800"
+                          >
+                            Total
+                          </SortTh>
+                          <SortTh
+                            col="marchMade"
+                            className="text-right"
+                            title="Trad March"
+                          >
+                            M
+                          </SortTh>
+                          <SortTh
+                            col="ambushMade"
+                            className="text-right"
+                            title="Ambush"
+                          >
+                            A
+                          </SortTh>
+                          <SortTh
+                            col="razeMade"
+                            className="text-right"
+                            title="Raze"
+                          >
+                            Rz
+                          </SortTh>
+                          <SortTh
+                            col="plunderMade"
+                            className="text-right"
+                            title="Plunder"
+                          >
+                            Pl
+                          </SortTh>
+                          <SortTh
+                            col="lootMade"
+                            className="text-right"
+                            title="Learn"
+                          >
+                            Lrn
+                          </SortTh>
+                          <SortTh
+                            col="failedMade"
+                            className="text-right"
+                            title="Failed Attack"
+                          >
+                            Fail
+                          </SortTh>
+                          <SortTh
+                            col="marchAcresGained"
+                            className="text-right text-gray-600"
+                            title="March acres gained"
+                          >
+                            M.a
+                          </SortTh>
+                          <SortTh
+                            col="ambushAcresGained"
+                            className="text-right text-gray-600"
+                            title="Ambush acres gained"
+                          >
+                            A.a
+                          </SortTh>
+                          <SortTh
+                            col="razeAcresDealt"
+                            className="text-right text-gray-600"
+                            title="Raze acres dealt"
+                          >
+                            Rz.a
+                          </SortTh>
+                          <SortTh
+                            col="hitsTaken"
+                            className="text-right border-l border-gray-800"
+                          >
+                            Total
+                          </SortTh>
+                          <SortTh
+                            col="marchTaken"
+                            className="text-right"
+                            title="Trad March"
+                          >
+                            M
+                          </SortTh>
+                          <SortTh
+                            col="ambushTaken"
+                            className="text-right"
+                            title="Ambush"
+                          >
+                            A
+                          </SortTh>
+                          <SortTh
+                            col="razeTaken"
+                            className="text-right"
+                            title="Raze"
+                          >
+                            Rz
+                          </SortTh>
+                          <SortTh
+                            col="plunderTaken"
+                            className="text-right"
+                            title="Plunder"
+                          >
+                            Pl
+                          </SortTh>
+                          <SortTh
+                            col="lootTaken"
+                            className="text-right"
+                            title="Learn"
+                          >
+                            Lrn
+                          </SortTh>
+                          <SortTh
+                            col="failedTaken"
+                            className="text-right"
+                            title="Failed Attack"
+                          >
+                            Fail
+                          </SortTh>
+                          <SortTh
+                            col="marchAcresLost"
+                            className="text-right text-gray-600"
+                            title="March acres lost"
+                          >
+                            M.a
+                          </SortTh>
+                          <SortTh
+                            col="ambushAcresLost"
+                            className="text-right text-gray-600"
+                            title="Ambush acres lost"
+                          >
+                            A.a
+                          </SortTh>
+                          <SortTh
+                            col="razeAcresLost"
+                            className="text-right text-gray-600"
+                            title="Raze acres lost"
+                          >
+                            Rz.a
+                          </SortTh>
                         </tr>
-                      </tfoot>
-                      );
-                    })()}
-                  </table>
+                      </thead>
+                      <tbody>
+                        {sortedProvs(kd.provinces).map((p, i) => {
+                          const net =
+                            p.marchAcresGained +
+                            p.ambushAcresGained -
+                            p.marchAcresLost -
+                            p.ambushAcresLost;
+                          return (
+                            <tr
+                              key={i}
+                              className={
+                                i % 2 === 0
+                                  ? "bg-gray-900/40"
+                                  : "bg-gray-900/20"
+                              }
+                            >
+                              <td className="px-3 py-1.5 text-gray-300 whitespace-nowrap">
+                                {p.slot != null && (
+                                  <span className="text-gray-500 font-mono mr-1.5">
+                                    {p.slot}
+                                  </span>
+                                )}
+                                {p.provinceName ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setProvFilter((v) =>
+                                          v === p.provinceName
+                                            ? ""
+                                            : p.provinceName!,
+                                        )
+                                      }
+                                      className={`hover:text-blue-300 transition-colors ${provFilter === p.provinceName ? "text-blue-300 underline" : ""}`}
+                                    >
+                                      {p.provinceName}
+                                    </button>
+                                    <Link
+                                      href={`/kingdom/${encodeURIComponent(kd.kingdom)}/${encodeURIComponent(p.provinceName)}`}
+                                      className="ml-1.5 text-gray-600 hover:text-gray-400 transition-colors text-[10px]"
+                                      title="Province detail"
+                                    >
+                                      ↗
+                                    </Link>
+                                  </>
+                                ) : (
+                                  <span className="text-gray-500 italic">
+                                    Unknown
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-mono border-l border-gray-800">
+                                <Num n={p.hitsMade} color={gc} />
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-mono">
+                                <Num n={p.marchMade} color={gc} />
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-mono">
+                                <Num n={p.ambushMade} color={gc} />
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-mono">
+                                <Num n={p.razeMade} color={gc} />
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-mono">
+                                <Num n={p.plunderMade} color={gc} />
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-mono">
+                                <Num n={p.lootMade} color={gc} />
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-mono">
+                                <Num n={p.failedMade} color={gc} />
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-mono">
+                                <Num n={p.marchAcresGained} color={gc} />
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-mono">
+                                <Num n={p.ambushAcresGained} color={gc} />
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-mono">
+                                <Num n={p.razeAcresDealt} color={gc} />
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-mono border-l border-gray-800">
+                                <Num n={p.hitsTaken} color={lc} />
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-mono">
+                                <Num n={p.marchTaken} color={lc} />
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-mono">
+                                <Num n={p.ambushTaken} color={lc} />
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-mono">
+                                <Num n={p.razeTaken} color={lc} />
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-mono">
+                                <Num n={p.plunderTaken} color={lc} />
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-mono">
+                                <Num n={p.lootTaken} color={lc} />
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-mono">
+                                <Num n={p.failedTaken} color={lc} />
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-mono">
+                                <Num n={p.marchAcresLost} color={lc} />
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-mono">
+                                <Num n={p.ambushAcresLost} color={lc} />
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-mono">
+                                <Num n={p.razeAcresLost} color={lc} />
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-mono border-l border-gray-800">
+                                {net !== 0 ? (
+                                  <span
+                                    className={
+                                      net > 0
+                                        ? "text-green-300"
+                                        : "text-red-300"
+                                    }
+                                  >
+                                    {net > 0 ? "+" : ""}
+                                    {net.toLocaleString()}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-700">—</span>
+                                )}
+                              </td>
+                              <td className="px-3 py-1.5 text-right font-mono">
+                                <Num n={p.booksLooted} color="text-amber-300" />
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      {kd.provinces.length > 1 &&
+                        (() => {
+                          const kdTotalNet =
+                            kd.totalMarchAcresGained +
+                            kd.totalAmbushAcresGained -
+                            kd.totalMarchAcresLost -
+                            kd.totalAmbushAcresLost;
+                          return (
+                            <tfoot>
+                              <tr className="border-t border-gray-700 text-gray-400 font-medium bg-gray-900/60">
+                                <td className="px-3 py-1.5 text-gray-500 text-[11px]">
+                                  Total
+                                </td>
+                                <td className="px-2 py-1.5 text-right font-mono border-l border-gray-800">
+                                  <Num n={kd.totalHitsMade} color={gc} />
+                                </td>
+                                <td className="px-2 py-1.5 text-right font-mono">
+                                  <Num n={kd.totalMarchMade} color={gc} />
+                                </td>
+                                <td className="px-2 py-1.5 text-right font-mono">
+                                  <Num n={kd.totalAmbushMade} color={gc} />
+                                </td>
+                                <td className="px-2 py-1.5 text-right font-mono">
+                                  <Num n={kd.totalRazeMade} color={gc} />
+                                </td>
+                                <td className="px-2 py-1.5 text-right font-mono">
+                                  <Num n={kd.totalPlunderMade} color={gc} />
+                                </td>
+                                <td className="px-2 py-1.5 text-right font-mono">
+                                  <Num n={kd.totalLootMade} color={gc} />
+                                </td>
+                                <td className="px-2 py-1.5 text-right font-mono">
+                                  <Num n={kd.totalFailedMade} color={gc} />
+                                </td>
+                                <td className="px-2 py-1.5 text-right font-mono">
+                                  <Num
+                                    n={kd.totalMarchAcresGained}
+                                    color={gc}
+                                  />
+                                </td>
+                                <td className="px-2 py-1.5 text-right font-mono">
+                                  <Num
+                                    n={kd.totalAmbushAcresGained}
+                                    color={gc}
+                                  />
+                                </td>
+                                <td className="px-2 py-1.5 text-right font-mono">
+                                  <Num n={kd.totalRazeAcresDealt} color={gc} />
+                                </td>
+                                <td className="px-2 py-1.5 text-right font-mono border-l border-gray-800">
+                                  <Num n={kd.totalHitsTaken} color={lc} />
+                                </td>
+                                <td className="px-2 py-1.5 text-right font-mono">
+                                  <Num n={kd.totalMarchTaken} color={lc} />
+                                </td>
+                                <td className="px-2 py-1.5 text-right font-mono">
+                                  <Num n={kd.totalAmbushTaken} color={lc} />
+                                </td>
+                                <td className="px-2 py-1.5 text-right font-mono">
+                                  <Num n={kd.totalRazeTaken} color={lc} />
+                                </td>
+                                <td className="px-2 py-1.5 text-right font-mono">
+                                  <Num n={kd.totalPlunderTaken} color={lc} />
+                                </td>
+                                <td className="px-2 py-1.5 text-right font-mono">
+                                  <Num n={kd.totalLootTaken} color={lc} />
+                                </td>
+                                <td className="px-2 py-1.5 text-right font-mono">
+                                  <Num n={kd.totalFailedTaken} color={lc} />
+                                </td>
+                                <td className="px-2 py-1.5 text-right font-mono">
+                                  <Num n={kd.totalMarchAcresLost} color={lc} />
+                                </td>
+                                <td className="px-2 py-1.5 text-right font-mono">
+                                  <Num n={kd.totalAmbushAcresLost} color={lc} />
+                                </td>
+                                <td className="px-2 py-1.5 text-right font-mono">
+                                  <Num n={kd.totalRazeAcresLost} color={lc} />
+                                </td>
+                                <td className="px-2 py-1.5 text-right font-mono border-l border-gray-800">
+                                  {kdTotalNet !== 0 ? (
+                                    <span
+                                      className={
+                                        kdTotalNet > 0
+                                          ? "text-green-300"
+                                          : "text-red-300"
+                                      }
+                                    >
+                                      {kdTotalNet > 0 ? "+" : ""}
+                                      {kdTotalNet.toLocaleString()}
+                                    </span>
+                                  ) : (
+                                    <span className="text-gray-700">—</span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-1.5 text-right font-mono">
+                                  <Num
+                                    n={kd.provinces.reduce(
+                                      (s, p) => s + p.booksLooted,
+                                      0,
+                                    )}
+                                    color="text-amber-300"
+                                  />
+                                </td>
+                              </tr>
+                            </tfoot>
+                          );
+                        })()}
+                    </table>
                   </div>
                 </div>
               );
@@ -615,20 +1343,36 @@ export function KingdomNewsTable({ events, summary, kingdom, boundKingdom, from,
         {TYPE_GROUPS.map((g) => {
           const active = activeGroups.has(g.label);
           return (
-            <button key={g.label} type="button"
-              onClick={() => { setVisibleCount(50); setActiveGroups((prev) => {
-                const next = new Set(prev);
-                if (next.has(g.label)) { next.delete(g.label); } else { next.add(g.label); }
-                return next;
-              }); }}
-              className={`${btnBase} ${active ? btnActive : btnInactive}`}>
+            <button
+              key={g.label}
+              type="button"
+              onClick={() => {
+                setVisibleCount(50);
+                setActiveGroups((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(g.label)) {
+                    next.delete(g.label);
+                  } else {
+                    next.add(g.label);
+                  }
+                  return next;
+                });
+              }}
+              className={`${btnBase} ${active ? btnActive : btnInactive}`}
+            >
               {g.label}
             </button>
           );
         })}
         {activeGroups.size < ALL_GROUPS.size && (
-          <button type="button" onClick={() => { setVisibleCount(50); setActiveGroups(new Set(ALL_GROUPS)); }}
-            className={`${btnBase} ${btnInactive}`}>
+          <button
+            type="button"
+            onClick={() => {
+              setVisibleCount(50);
+              setActiveGroups(new Set(ALL_GROUPS));
+            }}
+            className={`${btnBase} ${btnInactive}`}
+          >
             All
           </button>
         )}
@@ -636,13 +1380,21 @@ export function KingdomNewsTable({ events, summary, kingdom, boundKingdom, from,
           <input
             type="text"
             value={provFilter}
-            onChange={(e) => { setProvFilter(e.target.value); setVisibleCount(50); }}
+            onChange={(e) => {
+              setProvFilter(e.target.value);
+              setVisibleCount(50);
+            }}
             placeholder="Filter province…"
             className="rounded border border-gray-700 bg-gray-900 px-2.5 py-1 text-xs text-gray-300 placeholder-gray-600 focus:border-gray-500 focus:outline-none w-40"
           />
           {provFilter && (
-            <button type="button" onClick={() => setProvFilter("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300">×</button>
+            <button
+              type="button"
+              onClick={() => setProvFilter("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+            >
+              ×
+            </button>
           )}
         </span>
       </div>
@@ -650,7 +1402,12 @@ export function KingdomNewsTable({ events, summary, kingdom, boundKingdom, from,
       {(() => {
         const filtered = events.filter((e) => {
           const group = TYPE_GROUPS.find((g) => g.types.includes(e.eventType));
-          if (!(group ? activeGroups.has(group.label) : activeGroups.size === ALL_GROUPS.size)) return false;
+          if (
+            !(group
+              ? activeGroups.has(group.label)
+              : activeGroups.size === ALL_GROUPS.size)
+          )
+            return false;
           if (provFilter) {
             const pf = provFilter.toLowerCase();
             return (
@@ -664,142 +1421,363 @@ export function KingdomNewsTable({ events, summary, kingdom, boundKingdom, from,
         });
         const visible = filtered.slice(0, visibleCount);
         const hasMore = filtered.length > visibleCount;
-        return <>
-      <div className="space-y-1">
-        {visible.map((event) => {
-          const dir = eventDirection(event, kingdom);
-          const badge = DIR_BADGE[dir ?? "neutral"];
-          const label = EVENT_LABEL[event.eventType] ?? "Event";
-          return (
-            <div key={event.id} className="flex items-start gap-3 rounded px-3 py-2 text-sm bg-gray-900/30">
-              <span className="shrink-0 text-[11px] text-gray-500 font-mono pt-0.5 w-36">{event.gameDate}</span>
-              <span className="shrink-0 w-4 pt-0.5 text-center text-[12px] leading-none">
-                {dir === "out" && <span className="text-green-500" title="Outgoing">→</span>}
-                {dir === "in"  && <span className="text-red-400"   title="Incoming">←</span>}
-              </span>
-              <span className={`shrink-0 rounded border px-1.5 py-0.5 text-[11px] font-medium ${badge}`}>
-                {label}
-              </span>
-              <span className="min-w-0 text-[13px] leading-snug">
-                <EventDescription event={event} />
-              </span>
-            </div>
-          );
-        })}
-      </div>
-      {hasMore && (
-        <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
-          <button type="button" onClick={() => setVisibleCount((n) => n + 50)}
-            className="rounded border border-gray-700 bg-gray-900 px-3 py-1.5 text-gray-300 hover:border-gray-500 hover:text-gray-100 transition-colors">
-            Load more
-          </button>
-          <span>{visibleCount} of {filtered.length} events</span>
-        </div>
-      )}
-      {(() => {
-        const combat = filtered.filter((e) => COMBAT_TYPES_SET.has(e.eventType));
-        if (combat.length === 0) return null;
-        let hm = 0, mm = 0, am = 0, rm = 0, pm = 0, lm = 0, fm = 0;
-        let ht = 0, mt = 0, at = 0, rt = 0, pt = 0, lt = 0, ft = 0;
-        let marchOut = 0, ambushOut = 0, razeOut = 0;
-        let marchIn = 0, ambushIn = 0, razeIn = 0, books = 0;
-        for (const e of combat) {
-          const isOut = e.attackerKingdom === kingdom;
-          const acres = e.acres ?? 0;
-          if (isOut) {
-            hm++;
-            if      (e.eventType === "march")         { mm++; marchOut  += acres; }
-            else if (e.eventType === "ambush")        { am++; ambushOut += acres; }
-            else if (e.eventType === "raze")          { rm++; razeOut   += acres; }
-            else if (e.eventType === "pillage")       { pm++; }
-            else if (e.eventType === "loot")          { lm++; books += e.books ?? 0; }
-            else if (e.eventType === "failed_attack") { fm++; }
-          } else {
-            ht++;
-            if      (e.eventType === "march")         { mt++; marchIn  += acres; }
-            else if (e.eventType === "ambush")        { at++; ambushIn += acres; }
-            else if (e.eventType === "raze")          { rt++; razeIn   += acres; }
-            else if (e.eventType === "pillage")       { pt++; }
-            else if (e.eventType === "loot")          { lt++; }
-            else if (e.eventType === "failed_attack") { ft++; }
-          }
-        }
-        const net = marchOut + ambushOut - marchIn - ambushIn - razeIn;
         return (
-          <div className="mt-3 rounded-lg border border-gray-800 overflow-hidden text-xs">
-            <div className="px-3 py-1.5 bg-gray-800/60 border-b border-gray-800 text-gray-400 font-medium">
-              {provFilter ? `Totals — ${provFilter}` : "Totals"}
+          <>
+            <div className="space-y-1">
+              {visible.map((event) => {
+                const dir = eventDirection(event, kingdom);
+                const badge = DIR_BADGE[dir ?? "neutral"];
+                const label = EVENT_LABEL[event.eventType] ?? "Event";
+                return (
+                  <div
+                    key={event.id}
+                    className="flex items-start gap-3 rounded px-3 py-2 text-sm bg-gray-900/30"
+                  >
+                    <span className="shrink-0 text-[11px] text-gray-500 font-mono pt-0.5 w-36">
+                      {event.gameDate}
+                    </span>
+                    <span className="shrink-0 w-4 pt-0.5 text-center text-[12px] leading-none">
+                      {dir === "out" && (
+                        <span className="text-green-500" title="Outgoing">
+                          →
+                        </span>
+                      )}
+                      {dir === "in" && (
+                        <span className="text-red-400" title="Incoming">
+                          ←
+                        </span>
+                      )}
+                    </span>
+                    <span
+                      className={`shrink-0 rounded border px-1.5 py-0.5 text-[11px] font-medium ${badge}`}
+                    >
+                      {label}
+                    </span>
+                    <span className="min-w-0 text-[13px] leading-snug">
+                      <EventDescription event={event} />
+                    </span>
+                  </div>
+                );
+              })}
             </div>
-            <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-800 text-gray-500">
-                  <th className="px-2 py-1 text-center font-normal border-r border-gray-800" colSpan={10}>Made →</th>
-                  <th className="px-2 py-1 text-center font-normal border-r border-gray-800" colSpan={10}>Taken ←</th>
-                  <th className="px-2 py-1 text-right font-normal border-r border-gray-800">Net</th>
-                  <th className="px-2 py-1 text-right font-normal">Books</th>
-                </tr>
-                <tr className="border-b border-gray-800 text-gray-500">
-                  <th className="px-2 py-1 text-right font-normal">Total</th>
-                  <th className="px-2 py-1 text-right font-normal" title="Trad March">M</th>
-                  <th className="px-2 py-1 text-right font-normal" title="Ambush">A</th>
-                  <th className="px-2 py-1 text-right font-normal" title="Raze">Rz</th>
-                  <th className="px-2 py-1 text-right font-normal" title="Plunder">Pl</th>
-                  <th className="px-2 py-1 text-right font-normal" title="Learn">Lrn</th>
-                  <th className="px-2 py-1 text-right font-normal" title="Failed Attack">Fail</th>
-                  <th className="px-2 py-1 text-right font-normal text-gray-600" title="March acres gained">M.a</th>
-                  <th className="px-2 py-1 text-right font-normal text-gray-600" title="Ambush acres gained">A.a</th>
-                  <th className="px-2 py-1 text-right font-normal text-gray-600 border-r border-gray-800" title="Raze acres dealt">Rz.a</th>
-                  <th className="px-2 py-1 text-right font-normal">Total</th>
-                  <th className="px-2 py-1 text-right font-normal" title="Trad March">M</th>
-                  <th className="px-2 py-1 text-right font-normal" title="Ambush">A</th>
-                  <th className="px-2 py-1 text-right font-normal" title="Raze">Rz</th>
-                  <th className="px-2 py-1 text-right font-normal" title="Plunder">Pl</th>
-                  <th className="px-2 py-1 text-right font-normal" title="Learn">Lrn</th>
-                  <th className="px-2 py-1 text-right font-normal" title="Failed Attack">Fail</th>
-                  <th className="px-2 py-1 text-right font-normal text-gray-600" title="March acres lost">M.a</th>
-                  <th className="px-2 py-1 text-right font-normal text-gray-600" title="Ambush acres lost">A.a</th>
-                  <th className="px-2 py-1 text-right font-normal text-gray-600 border-r border-gray-800" title="Raze acres lost">Rz.a</th>
-                  <th className="px-2 py-1 text-right font-normal border-r border-gray-800"></th>
-                  <th className="px-2 py-1 text-right font-normal"></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="bg-gray-900/40">
-                  <td className="px-2 py-1.5 text-right font-mono"><Num n={hm} color="text-green-300" /></td>
-                  <td className="px-2 py-1.5 text-right font-mono"><Num n={mm} color="text-green-300" /></td>
-                  <td className="px-2 py-1.5 text-right font-mono"><Num n={am} color="text-green-300" /></td>
-                  <td className="px-2 py-1.5 text-right font-mono"><Num n={rm} color="text-green-300" /></td>
-                  <td className="px-2 py-1.5 text-right font-mono"><Num n={pm} color="text-green-300" /></td>
-                  <td className="px-2 py-1.5 text-right font-mono"><Num n={lm} color="text-green-300" /></td>
-                  <td className="px-2 py-1.5 text-right font-mono"><Num n={fm} color="text-green-300" /></td>
-                  <td className="px-2 py-1.5 text-right font-mono"><Num n={marchOut}  color="text-green-300" /></td>
-                  <td className="px-2 py-1.5 text-right font-mono"><Num n={ambushOut} color="text-green-300" /></td>
-                  <td className="px-2 py-1.5 text-right font-mono border-r border-gray-800"><Num n={razeOut}   color="text-green-300" /></td>
-                  <td className="px-2 py-1.5 text-right font-mono"><Num n={ht} color="text-red-300" /></td>
-                  <td className="px-2 py-1.5 text-right font-mono"><Num n={mt} color="text-red-300" /></td>
-                  <td className="px-2 py-1.5 text-right font-mono"><Num n={at} color="text-red-300" /></td>
-                  <td className="px-2 py-1.5 text-right font-mono"><Num n={rt} color="text-red-300" /></td>
-                  <td className="px-2 py-1.5 text-right font-mono"><Num n={pt} color="text-red-300" /></td>
-                  <td className="px-2 py-1.5 text-right font-mono"><Num n={lt} color="text-red-300" /></td>
-                  <td className="px-2 py-1.5 text-right font-mono"><Num n={ft} color="text-red-300" /></td>
-                  <td className="px-2 py-1.5 text-right font-mono"><Num n={marchIn}  color="text-red-300" /></td>
-                  <td className="px-2 py-1.5 text-right font-mono"><Num n={ambushIn} color="text-red-300" /></td>
-                  <td className="px-2 py-1.5 text-right font-mono border-r border-gray-800"><Num n={razeIn}   color="text-red-300" /></td>
-                  <td className="px-2 py-1.5 text-right font-mono border-r border-gray-800">
-                    {net !== 0
-                      ? <span className={net > 0 ? "text-green-300" : "text-red-300"}>{net > 0 ? "+" : ""}{net.toLocaleString()}</span>
-                      : <span className="text-gray-700">—</span>}
-                  </td>
-                  <td className="px-2 py-1.5 text-right font-mono"><Num n={books} color="text-amber-300" /></td>
-                </tr>
-              </tbody>
-            </table>
-            </div>
-          </div>
+            {hasMore && (
+              <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount((n) => n + 50)}
+                  className="rounded border border-gray-700 bg-gray-900 px-3 py-1.5 text-gray-300 hover:border-gray-500 hover:text-gray-100 transition-colors"
+                >
+                  Load more
+                </button>
+                <span>
+                  {visibleCount} of {filtered.length} events
+                </span>
+              </div>
+            )}
+            {(() => {
+              const combat = filtered.filter((e) =>
+                COMBAT_TYPES_SET.has(e.eventType),
+              );
+              if (combat.length === 0) return null;
+              let hm = 0,
+                mm = 0,
+                am = 0,
+                rm = 0,
+                pm = 0,
+                lm = 0,
+                fm = 0;
+              let ht = 0,
+                mt = 0,
+                at = 0,
+                rt = 0,
+                pt = 0,
+                lt = 0,
+                ft = 0;
+              let marchOut = 0,
+                ambushOut = 0,
+                razeOut = 0;
+              let marchIn = 0,
+                ambushIn = 0,
+                razeIn = 0,
+                books = 0;
+              for (const e of combat) {
+                const isOut = e.attackerKingdom === kingdom;
+                const acres = e.acres ?? 0;
+                if (isOut) {
+                  hm++;
+                  if (e.eventType === "march") {
+                    mm++;
+                    marchOut += acres;
+                  } else if (e.eventType === "ambush") {
+                    am++;
+                    ambushOut += acres;
+                  } else if (e.eventType === "raze") {
+                    rm++;
+                    razeOut += acres;
+                  } else if (e.eventType === "pillage") {
+                    pm++;
+                  } else if (e.eventType === "loot") {
+                    lm++;
+                    books += e.books ?? 0;
+                  } else if (e.eventType === "failed_attack") {
+                    fm++;
+                  }
+                } else {
+                  ht++;
+                  if (e.eventType === "march") {
+                    mt++;
+                    marchIn += acres;
+                  } else if (e.eventType === "ambush") {
+                    at++;
+                    ambushIn += acres;
+                  } else if (e.eventType === "raze") {
+                    rt++;
+                    razeIn += acres;
+                  } else if (e.eventType === "pillage") {
+                    pt++;
+                  } else if (e.eventType === "loot") {
+                    lt++;
+                  } else if (e.eventType === "failed_attack") {
+                    ft++;
+                  }
+                }
+              }
+              const net = marchOut + ambushOut - marchIn - ambushIn - razeIn;
+              return (
+                <div className="mt-3 rounded-lg border border-gray-800 overflow-hidden text-xs">
+                  <div className="px-3 py-1.5 bg-gray-800/60 border-b border-gray-800 text-gray-400 font-medium">
+                    {provFilter ? `Totals — ${provFilter}` : "Totals"}
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-gray-800 text-gray-500">
+                          <th
+                            className="px-2 py-1 text-center font-normal border-r border-gray-800"
+                            colSpan={10}
+                          >
+                            Made →
+                          </th>
+                          <th
+                            className="px-2 py-1 text-center font-normal border-r border-gray-800"
+                            colSpan={10}
+                          >
+                            Taken ←
+                          </th>
+                          <th className="px-2 py-1 text-right font-normal border-r border-gray-800">
+                            Net
+                          </th>
+                          <th className="px-2 py-1 text-right font-normal">
+                            Books
+                          </th>
+                        </tr>
+                        <tr className="border-b border-gray-800 text-gray-500">
+                          <th className="px-2 py-1 text-right font-normal">
+                            Total
+                          </th>
+                          <th
+                            className="px-2 py-1 text-right font-normal"
+                            title="Trad March"
+                          >
+                            M
+                          </th>
+                          <th
+                            className="px-2 py-1 text-right font-normal"
+                            title="Ambush"
+                          >
+                            A
+                          </th>
+                          <th
+                            className="px-2 py-1 text-right font-normal"
+                            title="Raze"
+                          >
+                            Rz
+                          </th>
+                          <th
+                            className="px-2 py-1 text-right font-normal"
+                            title="Plunder"
+                          >
+                            Pl
+                          </th>
+                          <th
+                            className="px-2 py-1 text-right font-normal"
+                            title="Learn"
+                          >
+                            Lrn
+                          </th>
+                          <th
+                            className="px-2 py-1 text-right font-normal"
+                            title="Failed Attack"
+                          >
+                            Fail
+                          </th>
+                          <th
+                            className="px-2 py-1 text-right font-normal text-gray-600"
+                            title="March acres gained"
+                          >
+                            M.a
+                          </th>
+                          <th
+                            className="px-2 py-1 text-right font-normal text-gray-600"
+                            title="Ambush acres gained"
+                          >
+                            A.a
+                          </th>
+                          <th
+                            className="px-2 py-1 text-right font-normal text-gray-600 border-r border-gray-800"
+                            title="Raze acres dealt"
+                          >
+                            Rz.a
+                          </th>
+                          <th className="px-2 py-1 text-right font-normal">
+                            Total
+                          </th>
+                          <th
+                            className="px-2 py-1 text-right font-normal"
+                            title="Trad March"
+                          >
+                            M
+                          </th>
+                          <th
+                            className="px-2 py-1 text-right font-normal"
+                            title="Ambush"
+                          >
+                            A
+                          </th>
+                          <th
+                            className="px-2 py-1 text-right font-normal"
+                            title="Raze"
+                          >
+                            Rz
+                          </th>
+                          <th
+                            className="px-2 py-1 text-right font-normal"
+                            title="Plunder"
+                          >
+                            Pl
+                          </th>
+                          <th
+                            className="px-2 py-1 text-right font-normal"
+                            title="Learn"
+                          >
+                            Lrn
+                          </th>
+                          <th
+                            className="px-2 py-1 text-right font-normal"
+                            title="Failed Attack"
+                          >
+                            Fail
+                          </th>
+                          <th
+                            className="px-2 py-1 text-right font-normal text-gray-600"
+                            title="March acres lost"
+                          >
+                            M.a
+                          </th>
+                          <th
+                            className="px-2 py-1 text-right font-normal text-gray-600"
+                            title="Ambush acres lost"
+                          >
+                            A.a
+                          </th>
+                          <th
+                            className="px-2 py-1 text-right font-normal text-gray-600 border-r border-gray-800"
+                            title="Raze acres lost"
+                          >
+                            Rz.a
+                          </th>
+                          <th className="px-2 py-1 text-right font-normal border-r border-gray-800"></th>
+                          <th className="px-2 py-1 text-right font-normal"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="bg-gray-900/40">
+                          <td className="px-2 py-1.5 text-right font-mono">
+                            <Num n={hm} color="text-green-300" />
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono">
+                            <Num n={mm} color="text-green-300" />
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono">
+                            <Num n={am} color="text-green-300" />
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono">
+                            <Num n={rm} color="text-green-300" />
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono">
+                            <Num n={pm} color="text-green-300" />
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono">
+                            <Num n={lm} color="text-green-300" />
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono">
+                            <Num n={fm} color="text-green-300" />
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono">
+                            <Num n={marchOut} color="text-green-300" />
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono">
+                            <Num n={ambushOut} color="text-green-300" />
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono border-r border-gray-800">
+                            <Num n={razeOut} color="text-green-300" />
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono">
+                            <Num n={ht} color="text-red-300" />
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono">
+                            <Num n={mt} color="text-red-300" />
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono">
+                            <Num n={at} color="text-red-300" />
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono">
+                            <Num n={rt} color="text-red-300" />
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono">
+                            <Num n={pt} color="text-red-300" />
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono">
+                            <Num n={lt} color="text-red-300" />
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono">
+                            <Num n={ft} color="text-red-300" />
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono">
+                            <Num n={marchIn} color="text-red-300" />
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono">
+                            <Num n={ambushIn} color="text-red-300" />
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono border-r border-gray-800">
+                            <Num n={razeIn} color="text-red-300" />
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono border-r border-gray-800">
+                            {net !== 0 ? (
+                              <span
+                                className={
+                                  net > 0 ? "text-green-300" : "text-red-300"
+                                }
+                              >
+                                {net > 0 ? "+" : ""}
+                                {net.toLocaleString()}
+                              </span>
+                            ) : (
+                              <span className="text-gray-700">—</span>
+                            )}
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono">
+                            <Num n={books} color="text-amber-300" />
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
+          </>
         );
-      })()}
-        </>;
       })()}
     </KingdomViewShell>
   );

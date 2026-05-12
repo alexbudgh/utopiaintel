@@ -4,7 +4,10 @@ import { computeWizardCount } from "./nw";
 
 // Pure metric value helpers. Callers are responsible for ensuring their inputs
 // come from a valid same-tick source set before using these.
-export function rawPerAcreValue(count: number | null | undefined, land: number | null | undefined): number | null {
+export function rawPerAcreValue(
+  count: number | null | undefined,
+  land: number | null | undefined,
+): number | null {
   if (count == null || !land) return null;
   return count / land;
 }
@@ -21,7 +24,10 @@ export function tpaRaceEffectValue(race: string | null): number {
   return 0;
 }
 
-export function wpaPersonalityEffectValue(personality: string | null, mana: number | null): number {
+export function wpaPersonalityEffectValue(
+  personality: string | null,
+  mana: number | null,
+): number {
   if (personality === "Necromancer") return 35;
   if (personality === "Heretic") return 15;
   if (personality === "Mystic" && mana != null && mana > 40) return 20;
@@ -35,14 +41,22 @@ export function wpaRaceEffectValue(race: string | null): number {
 }
 
 const HONOR_WPA_EFFECT: Record<string, number> = {
-  Knight: 3, Lady: 3,
-  Lord: 6, "Noble Lady": 6,
-  Baron: 9, Baroness: 9,
-  Viscount: 12, Viscountess: 12,
-  Count: 18, Countess: 18,
-  Marquis: 24, Marchioness: 24,
-  Duke: 30, Duchess: 30,
-  Prince: 36, Princess: 36,
+  Knight: 3,
+  Lady: 3,
+  Lord: 6,
+  "Noble Lady": 6,
+  Baron: 9,
+  Baroness: 9,
+  Viscount: 12,
+  Viscountess: 12,
+  Count: 18,
+  Countess: 18,
+  Marquis: 24,
+  Marchioness: 24,
+  Duke: 30,
+  Duchess: 30,
+  Prince: 36,
+  Princess: 36,
 };
 
 // Honor.md has separate WPA and TPA columns. They match today, but keep them
@@ -52,14 +66,20 @@ const HONOR_TPA_EFFECT: Record<string, number> = {
   ...HONOR_WPA_EFFECT,
 };
 
-export function wpaHonorEffectValue(honorTitle: string | null, personality: string | null): number {
-  const baseEffect = honorTitle ? HONOR_WPA_EFFECT[honorTitle] ?? 0 : 0;
+export function wpaHonorEffectValue(
+  honorTitle: string | null,
+  personality: string | null,
+): number {
+  const baseEffect = honorTitle ? (HONOR_WPA_EFFECT[honorTitle] ?? 0) : 0;
   const honorEffectMod = personality === "War Hero" ? 1.7 : 1;
   return baseEffect * honorEffectMod;
 }
 
-export function tpaHonorEffectValue(honorTitle: string | null, personality: string | null): number {
-  const baseEffect = honorTitle ? HONOR_TPA_EFFECT[honorTitle] ?? 0 : 0;
+export function tpaHonorEffectValue(
+  honorTitle: string | null,
+  personality: string | null,
+): number {
+  const baseEffect = honorTitle ? (HONOR_TPA_EFFECT[honorTitle] ?? 0) : 0;
   const honorEffectMod = personality === "War Hero" ? 1.7 : 1;
   return baseEffect * honorEffectMod;
 }
@@ -72,19 +92,27 @@ export function computeMtpaValue(
   personality: string | null,
 ): number | null {
   if (rtpa == null || crimeEffect == null) return null;
-  return rtpa
-    * (1 + crimeEffect / 100)
-    * (1 + tpaRaceEffectValue(race) / 100)
-    * (1 + tpaHonorEffectValue(honorTitle, personality) / 100)
-    * (1 + tpaPersonalityEffectValue(personality) / 100);
+  return (
+    rtpa *
+    (1 + crimeEffect / 100) *
+    (1 + tpaRaceEffectValue(race) / 100) *
+    (1 + tpaHonorEffectValue(honorTitle, personality) / 100) *
+    (1 + tpaPersonalityEffectValue(personality) / 100)
+  );
 }
 
-export function computeOtpaValue(mtpa: number | null, thievesDensEffect: number | null): number | null {
+export function computeOtpaValue(
+  mtpa: number | null,
+  thievesDensEffect: number | null,
+): number | null {
   if (mtpa == null || thievesDensEffect == null) return null;
   return mtpa * (1 + thievesDensEffect / 100);
 }
 
-export function computeDtpaValue(mtpa: number | null, watchTowersEffect: number | null): number | null {
+export function computeDtpaValue(
+  mtpa: number | null,
+  watchTowersEffect: number | null,
+): number | null {
   if (mtpa == null || watchTowersEffect == null) return null;
   return mtpa * (1 + watchTowersEffect / 100);
 }
@@ -98,15 +126,19 @@ export function computeMwpaValue(
   mana: number | null,
 ): number | null {
   if (rwpa == null || channelingEffect == null) return null;
-  return rwpa
-    * (1 + channelingEffect / 100)
-    * (1 + wpaRaceEffectValue(race) / 100)
-    * (1 + wpaHonorEffectValue(honorTitle, personality) / 100)
-    * (1 + wpaPersonalityEffectValue(personality, mana) / 100);
+  return (
+    rwpa *
+    (1 + channelingEffect / 100) *
+    (1 + wpaRaceEffectValue(race) / 100) *
+    (1 + wpaHonorEffectValue(honorTitle, personality) / 100) *
+    (1 + wpaPersonalityEffectValue(personality, mana) / 100)
+  );
 }
 
 // ProvinceRow wrappers apply the live same-tick checks used by the table UI.
-export function tpaPersonalityEffect(p: Pick<ProvinceRow, "personality">): number {
+export function tpaPersonalityEffect(
+  p: Pick<ProvinceRow, "personality">,
+): number {
   return tpaPersonalityEffectValue(p.personality);
 }
 
@@ -114,11 +146,15 @@ export function tpaRaceEffect(p: Pick<ProvinceRow, "race">): number {
   return tpaRaceEffectValue(p.race);
 }
 
-export function tpaHonorEffect(p: Pick<ProvinceRow, "honor_title" | "personality">): number {
+export function tpaHonorEffect(
+  p: Pick<ProvinceRow, "honor_title" | "personality">,
+): number {
   return tpaHonorEffectValue(p.honor_title, p.personality);
 }
 
-export function wpaPersonalityEffect(p: Pick<ProvinceRow, "personality" | "mana">): number {
+export function wpaPersonalityEffect(
+  p: Pick<ProvinceRow, "personality" | "mana">,
+): number {
   return wpaPersonalityEffectValue(p.personality, p.mana);
 }
 
@@ -126,7 +162,9 @@ export function wpaRaceEffect(p: Pick<ProvinceRow, "race">): number {
   return wpaRaceEffectValue(p.race);
 }
 
-export function wpaHonorEffect(p: Pick<ProvinceRow, "honor_title" | "personality">): number {
+export function wpaHonorEffect(
+  p: Pick<ProvinceRow, "honor_title" | "personality">,
+): number {
   return wpaHonorEffectValue(p.honor_title, p.personality);
 }
 
@@ -138,18 +176,26 @@ export function computeRtpa(p: ProvinceRow): number | null {
 export function computeMtpa(p: ProvinceRow): number | null {
   const rtpa = computeRtpa(p);
   if (!sameTick(p.thieves_age, p.overview_age, p.sciences_age)) return null;
-  return computeMtpaValue(rtpa, p.crime_effect, p.race, p.honor_title, p.personality);
+  return computeMtpaValue(
+    rtpa,
+    p.crime_effect,
+    p.race,
+    p.honor_title,
+    p.personality,
+  );
 }
 
 export function computeOtpa(p: ProvinceRow): number | null {
   const mtpa = computeMtpa(p);
-  if (!sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age)) return null;
+  if (!sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age))
+    return null;
   return computeOtpaValue(mtpa, p.thieves_dens_effect);
 }
 
 export function computeDtpa(p: ProvinceRow): number | null {
   const mtpa = computeMtpa(p);
-  if (!sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age)) return null;
+  if (!sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age))
+    return null;
   return computeDtpaValue(mtpa, p.watch_towers_effect);
 }
 
@@ -159,13 +205,34 @@ export function computeRwpa(p: ProvinceRow): number | null {
     return rawPerAcreValue(p.wizards, p.land);
   }
   if (!p.networth || !p.race) return null;
-  if (!sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age, p.troops_age, p.resources_age)) return null;
+  if (
+    !sameTick(
+      p.thieves_age,
+      p.overview_age,
+      p.sciences_age,
+      p.survey_age,
+      p.troops_age,
+      p.resources_age,
+    )
+  )
+    return null;
   const w = computeWizardCount(p);
   return rawPerAcreValue(w, p.land);
 }
 
 export function computeMwpa(p: ProvinceRow): number | null {
   const rwpa = computeRwpa(p);
-  if (p.wizards != null && !sameTick(p.resources_age, p.overview_age, p.sciences_age)) return null;
-  return computeMwpaValue(rwpa, p.channeling_effect, p.race, p.honor_title, p.personality, p.mana);
+  if (
+    p.wizards != null &&
+    !sameTick(p.resources_age, p.overview_age, p.sciences_age)
+  )
+    return null;
+  return computeMwpaValue(
+    rwpa,
+    p.channeling_effect,
+    p.race,
+    p.honor_title,
+    p.personality,
+    p.mana,
+  );
 }

@@ -7,6 +7,7 @@ It receives submitted game pages at `/api/intel`, parses them into structured da
 stores them in SQLite, and exposes kingdom- and province-level views for analysis.
 
 Current stack:
+
 - Next.js 16
 - React 19
 - SQLite via `better-sqlite3`
@@ -14,6 +15,7 @@ Current stack:
 ## What It Does
 
 The app ingests and correlates:
+
 - SoT
 - SoD
 - SoM
@@ -27,6 +29,7 @@ The app ingests and correlates:
 - Self `train_army`
 
 Stored intel is then surfaced through:
+
 - `/`
   A kingdom list with freshness, relation badges, current ritual/dragon state, and a shortcut to your bound kingdom.
 - `/kingdom/[loc]`
@@ -45,6 +48,7 @@ For details on province identity, source-of-truth rules, key partitions, kingdom
 slots, and replay backfills, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 The province table and detail page also compute derived values such as:
+
 - estimated current/max population when direct values are unavailable
 - overpopulation tiers
 - raw/modified TPA and WPA when same-tick data exists
@@ -54,6 +58,7 @@ The province table and detail page also compute derived values such as:
 ## Main UI Features
 
 ### Home
+
 - Lists all kingdoms visible to the current key.
 - Highlights your bound kingdom.
 - Shows freshness for each kingdom.
@@ -61,6 +66,7 @@ The province table and detail page also compute derived values such as:
 - Surfaces relation context such as war, hostile, ceasefire, and open relations.
 
 ### Kingdom Page
+
 - Default province table view.
 - `?view=gains` gains matrix for self-vs-target province matchups.
 - `?view=thievery` thievery intel overview.
@@ -68,24 +74,28 @@ The province table and detail page also compute derived values such as:
 - `?view=history` NW/land/honor snapshot chart over time.
 
 Province table highlights:
+
 - default sort is slot ascending
 - per-column sorting with nulls pushed to the bottom
 - multiple saved table views plus custom column selection
 - pop%, offense/defense, troop splits, resources, T/M estimates, spells, freshness, and incoming army summaries
 
 Gains view highlights:
+
 - uses the latest accessible self and target kingdom snapshots
 - estimates traditional march acres
 - models relation modifiers, war vs out-of-war MAP behavior, castles, barrier ritual, and siege science
 - shows breakability hints and exposes calculation assumptions in tooltips
 
 News view highlights:
+
 - parses combat, relations, dragon, ritual, and aid events
 - supports `from` / `to` filtering
 - summarizes incoming/outgoing totals and unique attackers
 - links directly to related kingdoms and provinces when names are known
 
 ### Province Detail
+
 - overview card with race, personality, honor, land, networth, peasants, and population estimate/direct values
 - military card combining SoT units, total military points, home military, and SoM armies
 - resources and credits
@@ -96,6 +106,7 @@ News view highlights:
 ## Authentication Model
 
 Sign-in is key-based:
+
 - the login form stores the kingdom key in an `auth` HTTP-only cookie
 - the server hashes the key before storage and access checks
 - if a key has already been bound to a kingdom, login redirects directly there
@@ -119,6 +130,7 @@ npm test
 ```
 
 `npm test` runs:
+
 - parser tests
 - DB/query tests
 - gains tests
@@ -131,12 +143,14 @@ After deploying, go to Preferences in Utopia and set "Send intel to your own Int
 to your server's `/api/intel` endpoint.
 
 Current game URL patterns handled by the parser include:
+
 - `/wol/game/throne`
 - `/wol/game/kingdom_details/<x>/<y>`
 - thievery op URLs such as `SPY_ON_*`
 - self council/build/train pages used for direct self metrics
 
 Notes:
+
 - Contrary to what the in-game UI says, the browser setup uses local storage keys rather than a cookie:
   `custom_kdsite` and `custom_kdsite_key`
 - These can be inspected or edited in browser dev tools under Local Storage for the Utopia domain.
@@ -147,6 +161,7 @@ Notes:
 ### `POST /api/intel`
 
 Expected form fields:
+
 - `data_html`
 - `data_simple`
 - `url`
@@ -154,6 +169,7 @@ Expected form fields:
 - `key`
 
 Behavior:
+
 - identifies the intel type from the submitted URL/content
 - parses into structured data
 - stores rows into the appropriate SQLite tables

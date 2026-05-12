@@ -1,7 +1,14 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-export type KingdomView = "table" | "gains" | "thievery" | "news" | "history" | "ops" | "events";
+export type KingdomView =
+  | "table"
+  | "gains"
+  | "thievery"
+  | "news"
+  | "history"
+  | "ops"
+  | "events";
 
 const TABS: { view: KingdomView; label: string; param?: string }[] = [
   { view: "table", label: "Province Table" },
@@ -15,7 +22,8 @@ const TABS: { view: KingdomView; label: string; param?: string }[] = [
 
 const btnBase = "px-2.5 py-1 rounded text-xs border transition-colors";
 const btnActive = "border-blue-500 text-blue-300 bg-blue-950/40";
-const btnInactive = "border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300";
+const btnInactive =
+  "border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300";
 
 export function KingdomTabs({
   kingdomHref,
@@ -33,7 +41,9 @@ export function KingdomTabs({
     <div className="mb-4 flex items-center gap-1.5 flex-wrap">
       {visibleTabs.map(({ view, label, param }) =>
         view === active ? (
-          <span key={view} className={`${btnBase} ${btnActive}`}>{label}</span>
+          <span key={view} className={`${btnBase} ${btnActive}`}>
+            {label}
+          </span>
         ) : (
           <Link
             key={view}
@@ -68,7 +78,13 @@ export function KingdomViewShell({
   const showEventsTab = !!boundKingdom && kingdom === boundKingdom;
   return (
     <>
-      <KingdomTabs kingdomHref={kingdomHref} active={active} showEventsTab={showEventsTab}>{tabExtras}</KingdomTabs>
+      <KingdomTabs
+        kingdomHref={kingdomHref}
+        active={active}
+        showEventsTab={showEventsTab}
+      >
+        {tabExtras}
+      </KingdomTabs>
       {children}
     </>
   );

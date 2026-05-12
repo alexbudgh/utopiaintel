@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { createDebugLogWriter, getDebugLogConfig, type DebugLogEntry } from "../lib/debug-log";
+import {
+  createDebugLogWriter,
+  getDebugLogConfig,
+  type DebugLogEntry,
+} from "../lib/debug-log";
 
 async function withTempDir(run: (dir: string) => Promise<void> | void) {
   const dir = await mkdtemp(path.join(tmpdir(), "utopiaintel-debug-log-"));
@@ -31,12 +35,15 @@ test("getDebugLogConfig uses defaults and overrides", () => {
   assert.equal(defaults.maxBytes, 10 * 1024 * 1024);
   assert.equal(defaults.maxFiles, 5);
 
-  const overrides = getDebugLogConfig({
-    INTEL_DEBUG: "0",
-    INTEL_DEBUG_PATH: "/var/log/custom.jsonl",
-    INTEL_DEBUG_MAX_BYTES: "2048",
-    INTEL_DEBUG_MAX_FILES: "7",
-  }, "/tmp/app");
+  const overrides = getDebugLogConfig(
+    {
+      INTEL_DEBUG: "0",
+      INTEL_DEBUG_PATH: "/var/log/custom.jsonl",
+      INTEL_DEBUG_MAX_BYTES: "2048",
+      INTEL_DEBUG_MAX_FILES: "7",
+    },
+    "/tmp/app",
+  );
   assert.equal(overrides.enabled, false);
   assert.equal(overrides.filePath, "/var/log/custom.jsonl");
   assert.equal(overrides.maxBytes, 2048);
@@ -102,8 +109,15 @@ test("createDebugLogWriter prunes files beyond maxFiles", async () => {
     }
 
     const files = (await readdir(dir)).sort();
-    assert.deepEqual(files, ["intel_debug.jsonl", "intel_debug.jsonl.1", "intel_debug.jsonl.2"]);
-    const oldestRetained = await readFile(path.join(dir, "intel_debug.jsonl.2"), "utf8");
+    assert.deepEqual(files, [
+      "intel_debug.jsonl",
+      "intel_debug.jsonl.1",
+      "intel_debug.jsonl.2",
+    ]);
+    const oldestRetained = await readFile(
+      path.join(dir, "intel_debug.jsonl.2"),
+      "utf8",
+    );
     assert.doesNotMatch(oldestRetained, /TestProvinceone/);
   });
 });
@@ -130,7 +144,12 @@ test("createDebugLogWriter serializes concurrent appends without losing lines", 
     assert.equal(lines.length, 4);
     assert.deepEqual(
       lines.map((line) => JSON.parse(line).prov),
-      ["TestProvinceone", "TestProvincetwo", "TestProvincethree", "TestProvincefour"],
+      [
+        "TestProvinceone",
+        "TestProvincetwo",
+        "TestProvincethree",
+        "TestProvincefour",
+      ],
     );
   });
 });

@@ -5,7 +5,13 @@ import { computeRwpa } from "../lib/metrics";
 import { computeAmbushRawOff } from "../lib/ambush";
 import { formatNum, fullValueTooltip, parseUtopiaDate } from "../lib/ui";
 import { getRaceByName, normalizeScienceName } from "../lib/game";
-import { getReplayTypes, hashReplayKey, normalizeReceivedAt, resolveReplayKeyHash, shouldReplayEntry } from "../lib/replay-debug-log";
+import {
+  getReplayTypes,
+  hashReplayKey,
+  normalizeReceivedAt,
+  resolveReplayKeyHash,
+  shouldReplayEntry,
+} from "../lib/replay-debug-log";
 
 // ---------------------------------------------------------------------------
 // computeWizardCount
@@ -52,11 +58,17 @@ test("computeWizardCount — returns null when thieves is missing", () => {
 });
 
 test("computeWizardCount — returns null when buildings_built is missing", () => {
-  assert.equal(computeWizardCount({ ...baseInputs(), buildings_built: null }), null);
+  assert.equal(
+    computeWizardCount({ ...baseInputs(), buildings_built: null }),
+    null,
+  );
 });
 
 test("computeWizardCount — returns null when science_total_books is missing", () => {
-  assert.equal(computeWizardCount({ ...baseInputs(), science_total_books: null }), null);
+  assert.equal(
+    computeWizardCount({ ...baseInputs(), science_total_books: null }),
+    null,
+  );
 });
 
 test("computeWizardCount — returns null for negative residual (over-counted non-wizard NW)", () => {
@@ -79,9 +91,18 @@ test("computeWizardCount — pure land/building NW with no units or resources", 
   const landNw = land * 40 + buildings * 20;
   const wizardNw = 7_000; // 1000 wizards × 7
   const nw = landNw + wizardNw;
-  const result = computeWizardCount({ ...baseInputs(), race: "Human", networth: nw, land, buildings_built: buildings });
+  const result = computeWizardCount({
+    ...baseInputs(),
+    race: "Human",
+    networth: nw,
+    land,
+    buildings_built: buildings,
+  });
   assert.ok(result != null);
-  assert.ok(Math.abs(result - 1000) < 1, `expected ~1000 wizards, got ${result}`);
+  assert.ok(
+    Math.abs(result - 1000) < 1,
+    `expected ~1000 wizards, got ${result}`,
+  );
 });
 
 test("computeWizardCount — troops contribute to NW correctly (Orc elites)", () => {
@@ -93,7 +114,13 @@ test("computeWizardCount — troops contribute to NW correctly (Orc elites)", ()
   const eliteNw = elites * RACE_NW["Orc"].elites;
   const wizardNw = 700; // 100 wizards
   const nw = landNw + eliteNw + wizardNw;
-  const result = computeWizardCount({ ...baseInputs(), race: "Orc", networth: nw, land, elites });
+  const result = computeWizardCount({
+    ...baseInputs(),
+    race: "Orc",
+    networth: nw,
+    land,
+    elites,
+  });
   assert.ok(result != null);
   assert.ok(Math.abs(result - 100) < 1, `expected ~100 wizards, got ${result}`);
 });
@@ -105,7 +132,13 @@ test("computeWizardCount — thieves contribute NW at 5 per thief", () => {
   const thievesNw = thieves * 5;
   const wizardNw = 350; // 50 wizards
   const nw = landNw + thievesNw + wizardNw;
-  const result = computeWizardCount({ ...baseInputs(), race: "Human", networth: nw, land, thieves });
+  const result = computeWizardCount({
+    ...baseInputs(),
+    race: "Human",
+    networth: nw,
+    land,
+    thieves,
+  });
   assert.ok(result != null);
   assert.ok(Math.abs(result - 50) < 1, `expected ~50 wizards, got ${result}`);
 });
@@ -117,7 +150,13 @@ test("computeWizardCount — money contributes NW at 1 per 1000 gold", () => {
   const moneyNw = money / 1000;
   const wizardNw = 700; // 100 wizards
   const nw = landNw + moneyNw + wizardNw;
-  const result = computeWizardCount({ ...baseInputs(), race: "Human", networth: nw, land, money });
+  const result = computeWizardCount({
+    ...baseInputs(),
+    race: "Human",
+    networth: nw,
+    land,
+    money,
+  });
   assert.ok(result != null);
   assert.ok(Math.abs(result - 100) < 1, `expected ~100 wizards, got ${result}`);
 });
@@ -151,7 +190,10 @@ test("computeRwpa — uses same-tick SoT troop data when SoM is from another tic
   } as any);
 
   assert.ok(result != null);
-  assert.ok(Math.abs(result - 0.1) < 0.0001, `expected 0.1 rWPA, got ${result}`);
+  assert.ok(
+    Math.abs(result - 0.1) < 0.0001,
+    `expected 0.1 rWPA, got ${result}`,
+  );
 });
 
 test("computeRwpa — rejects back-calc when SoT troop data is not same-tick", () => {
@@ -190,7 +232,13 @@ test("computeWizardCount — buildings_in_progress add 10 NW over barren land", 
   const landNw = land * 40 + inProgress * 10;
   const wizardNw = 700;
   const nw = landNw + wizardNw;
-  const result = computeWizardCount({ ...baseInputs(), race: "Human", networth: nw, land, buildings_in_progress: inProgress });
+  const result = computeWizardCount({
+    ...baseInputs(),
+    race: "Human",
+    networth: nw,
+    land,
+    buildings_in_progress: inProgress,
+  });
   assert.ok(result != null);
   assert.ok(Math.abs(result - 100) < 1, `expected ~100 wizards, got ${result}`);
 });
@@ -201,8 +249,11 @@ test("computeWizardCount — Paladin horses have 0 NW in residual estimate", () 
   const paidHorses = 200;
   const nw = land * 40 + 700;
   const result = computeWizardCount({
-    ...baseInputs(), race: "Human", personality: "Paladin",
-    networth: nw, land,
+    ...baseInputs(),
+    race: "Human",
+    personality: "Paladin",
+    networth: nw,
+    land,
     war_horses: freeHorses + paidHorses,
   });
   assert.ok(result != null);
@@ -215,8 +266,12 @@ test("computeWizardCount — War Hero off-specs cost 0.8 more NW each", () => {
   const humanOffSpecNw = RACE_NW["Human"].offSpecs + 2 * 0.4;
   const nw = land * 40 + offSpecs * humanOffSpecNw + 700;
   const result = computeWizardCount({
-    ...baseInputs(), race: "Human", personality: "War Hero",
-    networth: nw, land, off_specs: offSpecs,
+    ...baseInputs(),
+    race: "Human",
+    personality: "War Hero",
+    networth: nw,
+    land,
+    off_specs: offSpecs,
   });
   assert.ok(result != null);
   assert.ok(Math.abs(result - 100) < 1, `expected ~100 wizards, got ${result}`);
@@ -228,8 +283,12 @@ test("computeWizardCount — Warrior prisoners cost 2.6 NW each (vs 1.6 base)", 
   const warriorPrisonerNw = (8 + 5) * 0.2;
   const nw = land * 40 + prisoners * warriorPrisonerNw + 700;
   const result = computeWizardCount({
-    ...baseInputs(), race: "Human", personality: "Warrior",
-    networth: nw, land, prisoners,
+    ...baseInputs(),
+    race: "Human",
+    personality: "Warrior",
+    networth: nw,
+    land,
+    prisoners,
   });
   assert.ok(result != null);
   assert.ok(Math.abs(result - 100) < 1, `expected ~100 wizards, got ${result}`);
@@ -244,34 +303,85 @@ test("computeWizardCount — NW_PER_WIZARD constant is 7", () => {
 // ---------------------------------------------------------------------------
 
 test("computeAmbushRawOff — returns null for null/unknown race", () => {
-  assert.equal(computeAmbushRawOff(null, { elites: 100, offSpecs: 100, soldiers: 100 }), null);
-  assert.equal(computeAmbushRawOff("Dragon", { elites: 100, offSpecs: 100, soldiers: 100 }), null);
+  assert.equal(
+    computeAmbushRawOff(null, { elites: 100, offSpecs: 100, soldiers: 100 }),
+    null,
+  );
+  assert.equal(
+    computeAmbushRawOff("Dragon", {
+      elites: 100,
+      offSpecs: 100,
+      soldiers: 100,
+    }),
+    null,
+  );
 });
 
 test("computeAmbushRawOff — Orc: derives defending values from RACES constants", () => {
   const r = getRaceByName("Orc")!;
-  const elites = 100, offSpecs = 50, soldiers = 200;
-  const expected = (elites * r.eliteDefStr + offSpecs * r.defSpecStr + soldiers * r.soldierStr) * 0.8 + 1;
-  assert.equal(computeAmbushRawOff("Orc", { elites, offSpecs, soldiers }), expected);
+  const elites = 100,
+    offSpecs = 50,
+    soldiers = 200;
+  const expected =
+    (elites * r.eliteDefStr +
+      offSpecs * r.defSpecStr +
+      soldiers * r.soldierStr) *
+      0.8 +
+    1;
+  assert.equal(
+    computeAmbushRawOff("Orc", { elites, offSpecs, soldiers }),
+    expected,
+  );
 });
 
 test("computeAmbushRawOff — Elf: derives defending values from RACES constants", () => {
   const r = getRaceByName("Elf")!;
-  const elites = 50, offSpecs = 100, soldiers = 0;
-  const expected = (elites * r.eliteDefStr + offSpecs * r.defSpecStr + soldiers * r.soldierStr) * 0.8 + 1;
-  assert.equal(computeAmbushRawOff("Elf", { elites, offSpecs, soldiers }), expected);
+  const elites = 50,
+    offSpecs = 100,
+    soldiers = 0;
+  const expected =
+    (elites * r.eliteDefStr +
+      offSpecs * r.defSpecStr +
+      soldiers * r.soldierStr) *
+      0.8 +
+    1;
+  assert.equal(
+    computeAmbushRawOff("Elf", { elites, offSpecs, soldiers }),
+    expected,
+  );
 });
 
 test("computeAmbushRawOff — zero army gives 1 (minimum)", () => {
-  const result = computeAmbushRawOff("Human", { elites: 0, offSpecs: 0, soldiers: 0 });
+  const result = computeAmbushRawOff("Human", {
+    elites: 0,
+    offSpecs: 0,
+    soldiers: 0,
+  });
   assert.equal(result, 1);
 });
 
 test("computeAmbushRawOff — all nine races are covered", () => {
-  const races = ["Avian", "Dark Elf", "Dwarf", "Elf", "Faery", "Halfling", "Human", "Orc", "Undead"];
+  const races = [
+    "Avian",
+    "Dark Elf",
+    "Dwarf",
+    "Elf",
+    "Faery",
+    "Halfling",
+    "Human",
+    "Orc",
+    "Undead",
+  ];
   for (const race of races) {
-    const result = computeAmbushRawOff(race, { elites: 100, offSpecs: 100, soldiers: 100 });
-    assert.ok(result != null && result > 0, `${race} should return a positive value`);
+    const result = computeAmbushRawOff(race, {
+      elites: 100,
+      offSpecs: 100,
+      soldiers: 100,
+    });
+    assert.ok(
+      result != null && result > 0,
+      `${race} should return a positive value`,
+    );
   }
 });
 
@@ -293,7 +403,7 @@ test("formatNum — values below 1000 returned as-is via toLocaleString", () => 
 test("formatNum — values 1000–999999 rounded to nearest k", () => {
   assert.equal(formatNum(1000), "1k");
   assert.equal(formatNum(1499), "1k");
-  assert.equal(formatNum(1500), "2k");  // Math.round(1500/1000) = 2
+  assert.equal(formatNum(1500), "2k"); // Math.round(1500/1000) = 2
   assert.equal(formatNum(999_999), "1000k");
 });
 
@@ -320,7 +430,10 @@ test("fullValueTooltip — returns tooltip when displayed is abbreviated", () =>
   // formatNum(1500) = "2k", full value is "1,500"
   const tip = fullValueTooltip("2k", 1500);
   assert.ok(tip != null);
-  assert.ok(tip.includes("1,500"), `expected tooltip to contain "1,500", got: ${tip}`);
+  assert.ok(
+    tip.includes("1,500"),
+    `expected tooltip to contain "1,500", got: ${tip}`,
+  );
 });
 
 test("fullValueTooltip — suffix is appended to full value in tooltip", () => {
@@ -328,7 +441,10 @@ test("fullValueTooltip — suffix is appended to full value in tooltip", () => {
   const tip = fullValueTooltip("85.3%", 85.29144, { suffix: "%" });
   assert.ok(tip != null);
   assert.ok(tip.includes("%"), `expected tooltip to contain "%", got: ${tip}`);
-  assert.ok(tip.includes("85.2914"), `expected tooltip to contain full value, got: ${tip}`);
+  assert.ok(
+    tip.includes("85.2914"),
+    `expected tooltip to contain full value, got: ${tip}`,
+  );
 });
 
 test("fullValueTooltip — returns null when value rounds to same as displayed with suffix", () => {
@@ -350,7 +466,10 @@ test("parseUtopiaDate — returns -1 for invalid month", () => {
 // ---------------------------------------------------------------------------
 
 test("normalizeReceivedAt normalizes ISO timestamps to sqlite UTC format", () => {
-  assert.equal(normalizeReceivedAt("2026-04-15T12:34:56.000Z"), "2026-04-15 12:34:56");
+  assert.equal(
+    normalizeReceivedAt("2026-04-15T12:34:56.000Z"),
+    "2026-04-15 12:34:56",
+  );
 });
 
 test("getReplayTypes falls back to all allowed types when input is empty or invalid", () => {
@@ -359,7 +478,23 @@ test("getReplayTypes falls back to all allowed types when input is empty or inva
 });
 
 test("getReplayTypes filters to valid replay types", () => {
-  assert.deepEqual([...getReplayTypes("kingdom,build,rob,sos,sod,infiltrate,sorcery,attack,nope").values()].sort(), ["attack", "build", "infiltrate", "kingdom", "rob", "sod", "sorcery", "sos"]);
+  assert.deepEqual(
+    [
+      ...getReplayTypes(
+        "kingdom,build,rob,sos,sod,infiltrate,sorcery,attack,nope",
+      ).values(),
+    ].sort(),
+    [
+      "attack",
+      "build",
+      "infiltrate",
+      "kingdom",
+      "rob",
+      "sod",
+      "sorcery",
+      "sos",
+    ],
+  );
 });
 
 test("hashReplayKey returns a stable sha256 hex digest", () => {
@@ -368,15 +503,39 @@ test("hashReplayKey returns a stable sha256 hex digest", () => {
 });
 
 test("shouldReplayEntry filters keyed entries only when a filter key is provided", () => {
-  assert.equal(shouldReplayEntry({ url: "", prov: "", data_simple: "", key_hash: "match" }, undefined), true);
-  assert.equal(shouldReplayEntry({ url: "", prov: "", data_simple: "", key_hash: "match" }, "match"), true);
-  assert.equal(shouldReplayEntry({ url: "", prov: "", data_simple: "", key_hash: "other" }, "match"), false);
-  assert.equal(shouldReplayEntry({ url: "", prov: "", data_simple: "" }, "match"), false);
+  assert.equal(
+    shouldReplayEntry(
+      { url: "", prov: "", data_simple: "", key_hash: "match" },
+      undefined,
+    ),
+    true,
+  );
+  assert.equal(
+    shouldReplayEntry(
+      { url: "", prov: "", data_simple: "", key_hash: "match" },
+      "match",
+    ),
+    true,
+  );
+  assert.equal(
+    shouldReplayEntry(
+      { url: "", prov: "", data_simple: "", key_hash: "other" },
+      "match",
+    ),
+    false,
+  );
+  assert.equal(
+    shouldReplayEntry({ url: "", prov: "", data_simple: "" }, "match"),
+    false,
+  );
 });
 
 test("resolveReplayKeyHash prefers entry key_hash, then assumed key", () => {
   assert.equal(
-    resolveReplayKeyHash({ url: "", prov: "", data_simple: "", key_hash: "from-entry" }, "from-assume"),
+    resolveReplayKeyHash(
+      { url: "", prov: "", data_simple: "", key_hash: "from-entry" },
+      "from-assume",
+    ),
     "from-entry",
   );
   assert.equal(
@@ -388,7 +547,7 @@ test("resolveReplayKeyHash prefers entry key_hash, then assumed key", () => {
 test("parseUtopiaDate — returns -1 for malformed strings", () => {
   assert.equal(parseUtopiaDate(""), -1);
   assert.equal(parseUtopiaDate("not a date"), -1);
-  assert.equal(parseUtopiaDate("January of YR9"), -1);  // missing day
+  assert.equal(parseUtopiaDate("January of YR9"), -1); // missing day
 });
 
 test("parseUtopiaDate — January 1 of YR0 is ordinal 0", () => {

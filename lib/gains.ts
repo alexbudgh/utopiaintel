@@ -33,7 +33,12 @@ export interface TraditionalMarchEstimate {
 }
 
 export const ATTACK_TIME_SCALING: { [offset: number]: number } = {
-  [-2]: 1.6, [-1]: 1.5, 1: 0.8, 2: 0.7, 3: 0.6, 4: 0.5,
+  [-2]: 1.6,
+  [-1]: 1.5,
+  1: 0.8,
+  2: 0.7,
+  3: 0.6,
+  4: 0.5,
 };
 
 export interface BreakabilityEstimate {
@@ -58,7 +63,10 @@ export function kingdomNetworthFactor(rknw: number): number {
   return 1;
 }
 
-export function mapGainsFactor(hitStatus: string | null, relationState: "war" | "oow"): number {
+export function mapGainsFactor(
+  hitStatus: string | null,
+  relationState: "war" | "oow",
+): number {
   if (!hitStatus) return 1;
 
   const normalized = hitStatus.trim().toLowerCase();
@@ -103,7 +111,7 @@ export function warMinimumGainsFloor(
 export function outgoingRelationGainsFactor(attitude: string | null): number {
   const normalized = attitude?.trim().toLowerCase() ?? "";
   if (normalized === "unfriendly") return 1.04;
-  if (normalized === "hostile") return 1.10;
+  if (normalized === "hostile") return 1.1;
   return 1;
 }
 
@@ -153,9 +161,12 @@ export function estimateTraditionalMarchAcres(input: {
   } = input;
 
   if (
-    !attackerLand || !attackerNetworth ||
-    !defenderLand || !defenderNetworth ||
-    !selfKingdomAvgNetworth || !targetKingdomAvgNetworth
+    !attackerLand ||
+    !attackerNetworth ||
+    !defenderLand ||
+    !defenderNetworth ||
+    !selfKingdomAvgNetworth ||
+    !targetKingdomAvgNetworth
   ) {
     return null;
   }
@@ -171,14 +182,28 @@ export function estimateTraditionalMarchAcres(input: {
   const ourRelationFactor = outgoingRelationGainsFactor(ourAttitudeToThem);
   const theirRelationFactor = incomingRelationGainsFactor(theirAttitudeToUs);
   const combinedRelationFactor = ourRelationFactor * theirRelationFactor;
-  const enemyBattleGainsFactor = defenderEnemyBattleGainsEffect != null
-    ? 1 + defenderEnemyBattleGainsEffect / 100
-    : 1;
-  const attackTimeFactor = attackTimeOffset === 0
-    ? 1
-    : 1 + (attackTimeOffset / baseAttackTime) * (ATTACK_TIME_SCALING[attackTimeOffset] ?? 0);
+  const enemyBattleGainsFactor =
+    defenderEnemyBattleGainsEffect != null
+      ? 1 + defenderEnemyBattleGainsEffect / 100
+      : 1;
+  const attackTimeFactor =
+    attackTimeOffset === 0
+      ? 1
+      : 1 +
+        (attackTimeOffset / baseAttackTime) *
+          (ATTACK_TIME_SCALING[attackTimeOffset] ?? 0);
   const baseAcres =
-    defenderLand * 0.12 * rpnwFactor * rknwFactor * mapFactor * castlesFactor * barrierFactor * siegeFactor * combinedRelationFactor * enemyBattleGainsFactor * attackTimeFactor;
+    defenderLand *
+    0.12 *
+    rpnwFactor *
+    rknwFactor *
+    mapFactor *
+    castlesFactor *
+    barrierFactor *
+    siegeFactor *
+    combinedRelationFactor *
+    enemyBattleGainsFactor *
+    attackTimeFactor;
   const warFloor = warMinimumGainsFloor(defenderLand, relationState);
   const flooredAcres = Math.max(baseAcres, warFloor);
   const cap = Math.min(attackerLand, defenderLand) * 0.2;
@@ -217,12 +242,26 @@ export function estimateTraditionalMarchAcres(input: {
   };
 }
 
-export function estimateBreakability(attacker: ProvinceRow, defender: ProvinceRow | null): BreakabilityEstimate {
+export function estimateBreakability(
+  attacker: ProvinceRow,
+  defender: ProvinceRow | null,
+): BreakabilityEstimate {
   const offense = attacker.off_home ?? attacker.off_points ?? null;
-  const defense = defender ? (defender.def_home ?? defender.def_points ?? null) : null;
-  const offenseSource = attacker.off_home != null ? "off_home" : attacker.off_points != null ? "off_points" : null;
+  const defense = defender
+    ? (defender.def_home ?? defender.def_points ?? null)
+    : null;
+  const offenseSource =
+    attacker.off_home != null
+      ? "off_home"
+      : attacker.off_points != null
+        ? "off_points"
+        : null;
   const defenseSource = defender
-    ? (defender.def_home != null ? "def_home" : defender.def_points != null ? "def_points" : null)
+    ? defender.def_home != null
+      ? "def_home"
+      : defender.def_points != null
+        ? "def_points"
+        : null
     : null;
 
   if (offense == null || defense == null) {

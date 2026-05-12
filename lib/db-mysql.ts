@@ -2,21 +2,21 @@ import type {
   PoolConnection,
   ResultSetHeader,
   RowDataPacket,
-} from 'mysql2/promise';
-import { createHash } from 'node:crypto';
-import { pool, ensureReady, initDb } from './db-mysql-pool';
+} from "mysql2/promise";
+import { createHash } from "node:crypto";
+import { pool, ensureReady, initDb } from "./db-mysql-pool";
 export { pool, ensureReady, initDb };
-import { BAD_SPELL_NAMES, COMBAT_EVENT_TYPES } from './effects';
-import { parseUtopiaDate, formatUtopiaDate, UTOPIA_DAYS_PER_MONTH } from './ui';
-import { computeWizardCount } from './nw';
+import { BAD_SPELL_NAMES, COMBAT_EVENT_TYPES } from "./effects";
+import { parseUtopiaDate, formatUtopiaDate, UTOPIA_DAYS_PER_MONTH } from "./ui";
+import { computeWizardCount } from "./nw";
 import {
   computeDtpaValue,
   computeMtpaValue,
   computeMwpaValue,
   computeOtpaValue,
   rawPerAcreValue,
-} from './metrics';
-import { createMetricsCacheQueue } from './metrics-cache';
+} from "./metrics";
+import { createMetricsCacheQueue } from "./metrics-cache";
 import type {
   SoTData,
   SurveyData,
@@ -33,10 +33,10 @@ import type {
   RobData,
   SorceryData,
   AttackData,
-} from './parsers/types';
-import type { KingdomNewsData, KingdomNewsEvent } from './parsers/kingdom_news';
-import type { ProvinceNewsData } from './parsers/province_news';
-import type { IntelOpAttempt } from './intel-ops';
+} from "./parsers/types";
+import type { KingdomNewsData, KingdomNewsEvent } from "./parsers/kingdom_news";
+import type { ProvinceNewsData } from "./parsers/province_news";
+import type { IntelOpAttempt } from "./intel-ops";
 import type {
   KingdomRow,
   KingdomSnapshot,
@@ -65,7 +65,7 @@ import type {
   IncomingProvinceEvent,
   IncomingDamageProvinceStat,
   IncomingDamageStats,
-} from './db';
+} from "./db";
 
 // ── Named-param helper ───────────────────────────────────────────────────────
 // Converts `:name` placeholders to `?` and collects values in order.
@@ -77,7 +77,7 @@ export function n(
   const values: unknown[] = [];
   const query = sql.replace(/:(\w+)/g, (_, key) => {
     values.push(params[key]);
-    return '?';
+    return "?";
   });
   return [query, values];
 }
@@ -104,7 +104,7 @@ export async function withTransaction<T>(
 // ── SQL helpers ──────────────────────────────────────────────────────────────
 
 const TTL_DAYS = 7;
-const COMBAT_TYPES_SQL = COMBAT_EVENT_TYPES.map((t) => `'${t}'`).join(',');
+const COMBAT_TYPES_SQL = COMBAT_EVENT_TYPES.map((t) => `'${t}'`).join(",");
 
 // Same-tick check: integer division of UNIX_TIMESTAMP by 3600 (one Utopia hour)
 const SAME_TICK_EXPR = (a: string, b: string) =>
@@ -112,16 +112,16 @@ const SAME_TICK_EXPR = (a: string, b: string) =>
 
 const BAD_SPELL_SQL_LIST = BAD_SPELL_NAMES.map(
   (name) => `'${name.replaceAll("'", "''")}'`,
-).join(', ');
+).join(", ");
 
 // latestSlotCte uses :keyHash (and optionally :kingdom) — callers pass through n().
 // Inner subquery is non-correlated (GROUP BY location, slot) so the optimizer can
 // compute it once rather than once per outer row. When a kingdom filter is present,
 // both outer and inner are scoped to that kingdom, matching the SQLite behaviour.
-const latestSlotCte = (extraWhere = '') => {
-  const kingdomKnown = extraWhere.includes(':kingdom');
-  const innerWhere = kingdomKnown ? 'AND ki2.location = :kingdom' : '';
-  const groupBy = kingdomKnown ? 'kp2.slot' : 'ki2.location, kp2.slot';
+const latestSlotCte = (extraWhere = "") => {
+  const kingdomKnown = extraWhere.includes(":kingdom");
+  const innerWhere = kingdomKnown ? "AND ki2.location = :kingdom" : "";
+  const groupBy = kingdomKnown ? "kp2.slot" : "ki2.location, kp2.slot";
   return `
   latest_slot AS (
     SELECT ki.location AS kingdom, kp.slot, kp.name
@@ -174,11 +174,11 @@ export async function ensureProvince(
     if (rows.length > 0) return rows[0].id;
   }
   await conn.execute(
-    'INSERT IGNORE INTO provinces (name, kingdom) VALUES (?, ?)',
+    "INSERT IGNORE INTO provinces (name, kingdom) VALUES (?, ?)",
     [name, kingdom],
   );
   const [rows] = await conn.execute<IdRow[]>(
-    'SELECT id FROM provinces WHERE name = ? AND kingdom = ?',
+    "SELECT id FROM provinces WHERE name = ? AND kingdom = ?",
     [name, kingdom],
   );
   return rows[0].id;
@@ -191,7 +191,7 @@ export async function recordSubmission(
   provinceId: number,
 ): Promise<void> {
   await conn.execute(
-    'INSERT IGNORE INTO intel_partitions (key_hash, province_id) VALUES (?, ?)',
+    "INSERT IGNORE INTO intel_partitions (key_hash, province_id) VALUES (?, ?)",
     [keyHash, provinceId],
   );
 }
@@ -204,7 +204,7 @@ export async function bindKeyToKingdom(
   source: string,
 ): Promise<void> {
   const [rows] = await conn.execute<KingdomRow2[]>(
-    'SELECT kingdom FROM key_kingdom_bindings WHERE key_hash = ?',
+    "SELECT kingdom FROM key_kingdom_bindings WHERE key_hash = ?",
     [keyHash],
   );
   const existing = rows[0];
@@ -217,7 +217,7 @@ export async function bindKeyToKingdom(
   }
 
   await conn.execute(
-    'INSERT IGNORE INTO key_kingdom_bindings (key_hash, kingdom, source) VALUES (?, ?, ?)',
+    "INSERT IGNORE INTO key_kingdom_bindings (key_hash, kingdom, source) VALUES (?, ?, ?)",
     [keyHash, kingdom, source],
   );
 }
@@ -236,12 +236,12 @@ async function mysqlUpdateMetricsCache(
 
   // Appends a window WHERE fragment + positional params for the given table alias.
   const wc = (alias: string, p: unknown[]) => {
-    if (receivedAt == null) return 'TRUE';
+    if (receivedAt == null) return "TRUE";
     p.push(receivedAt, receivedAt);
     return `(${alias}.received_at >= DATE_SUB(?, INTERVAL 1 HOUR) AND ${alias}.received_at <= ?)`;
   };
 
-  type EV = import('mysql2').ExecuteValues;
+  type EV = import("mysql2").ExecuteValues;
 
   // ── rTPA ─────────────────────────────────────────────────────────────────
   interface RtpaRow extends RowDataPacket {
@@ -256,9 +256,9 @@ async function mysqlUpdateMetricsCache(
     FROM province_resources pr
     JOIN province_overview po
       ON po.province_id = pr.province_id AND po.key_hash = pr.key_hash
-      AND po.land > 0 AND ${SAME_TICK('pr.received_at', 'po.received_at')}
+      AND po.land > 0 AND ${SAME_TICK("pr.received_at", "po.received_at")}
     WHERE pr.province_id = ? AND pr.key_hash = ? AND pr.thieves IS NOT NULL
-      AND ${wc('pr', rtpaP)} AND ${wc('po', rtpaP)}
+      AND ${wc("pr", rtpaP)} AND ${wc("po", rtpaP)}
     ORDER BY pr.received_at DESC LIMIT 1
   `,
     rtpaP as EV,
@@ -295,12 +295,12 @@ async function mysqlUpdateMetricsCache(
     FROM province_resources pr
     JOIN province_overview po
       ON po.province_id = pr.province_id AND po.key_hash = pr.key_hash
-      AND po.land > 0 AND ${SAME_TICK('pr.received_at', 'po.received_at')}
+      AND po.land > 0 AND ${SAME_TICK("pr.received_at", "po.received_at")}
     JOIN sos_intel si ON si.province_id = pr.province_id AND si.key_hash = pr.key_hash
-      AND ${SAME_TICK('pr.received_at', 'si.received_at')}
+      AND ${SAME_TICK("pr.received_at", "si.received_at")}
     JOIN sos_sciences ss ON ss.sos_intel_id = si.id AND ss.science = 'Crime'
     WHERE pr.province_id = ? AND pr.key_hash = ? AND pr.thieves IS NOT NULL
-      AND ${wc('pr', mtpaP)} AND ${wc('po', mtpaP)} AND ${wc('si', mtpaP)}
+      AND ${wc("pr", mtpaP)} AND ${wc("po", mtpaP)} AND ${wc("si", mtpaP)}
     ORDER BY pr.received_at DESC LIMIT 1
   `,
     mtpaP as EV,
@@ -342,14 +342,14 @@ async function mysqlUpdateMetricsCache(
     FROM province_resources pr
     JOIN province_overview po
       ON po.province_id = pr.province_id AND po.key_hash = pr.key_hash
-      AND po.land > 0 AND ${SAME_TICK('pr.received_at', 'po.received_at')}
+      AND po.land > 0 AND ${SAME_TICK("pr.received_at", "po.received_at")}
     JOIN sos_intel si ON si.province_id = pr.province_id AND si.key_hash = pr.key_hash
-      AND ${SAME_TICK('pr.received_at', 'si.received_at')}
+      AND ${SAME_TICK("pr.received_at", "si.received_at")}
     JOIN sos_sciences ss ON ss.sos_intel_id = si.id AND ss.science = 'Crime'
     JOIN survey_intel srv ON srv.province_id = pr.province_id AND srv.key_hash = pr.key_hash
-      AND ${SAME_TICK('pr.received_at', 'srv.received_at')}
+      AND ${SAME_TICK("pr.received_at", "srv.received_at")}
     WHERE pr.province_id = ? AND pr.key_hash = ? AND pr.thieves IS NOT NULL
-      AND ${wc('pr', odtpaP)} AND ${wc('po', odtpaP)} AND ${wc('si', odtpaP)} AND ${wc('srv', odtpaP)}
+      AND ${wc("pr", odtpaP)} AND ${wc("po", odtpaP)} AND ${wc("si", odtpaP)} AND ${wc("srv", odtpaP)}
     ORDER BY pr.received_at DESC LIMIT 1
   `,
     odtpaP as EV,
@@ -398,9 +398,9 @@ async function mysqlUpdateMetricsCache(
     FROM province_resources pr
     JOIN province_overview po
       ON po.province_id = pr.province_id AND po.key_hash = pr.key_hash
-      AND po.land > 0 AND ${SAME_TICK('pr.received_at', 'po.received_at')}
+      AND po.land > 0 AND ${SAME_TICK("pr.received_at", "po.received_at")}
     WHERE pr.province_id = ? AND pr.key_hash = ? AND pr.wizards IS NOT NULL
-      AND ${wc('pr', rwpaDirP)} AND ${wc('po', rwpaDirP)}
+      AND ${wc("pr", rwpaDirP)} AND ${wc("po", rwpaDirP)}
     ORDER BY pr.received_at DESC LIMIT 1
   `,
     rwpaDirP as EV,
@@ -424,12 +424,12 @@ async function mysqlUpdateMetricsCache(
     FROM province_resources pr
     JOIN province_overview po
       ON po.province_id = pr.province_id AND po.key_hash = pr.key_hash
-      AND po.land > 0 AND ${SAME_TICK('pr.received_at', 'po.received_at')}
+      AND po.land > 0 AND ${SAME_TICK("pr.received_at", "po.received_at")}
     JOIN sos_intel si ON si.province_id = pr.province_id AND si.key_hash = pr.key_hash
-      AND ${SAME_TICK('pr.received_at', 'si.received_at')}
+      AND ${SAME_TICK("pr.received_at", "si.received_at")}
     JOIN sos_sciences ss ON ss.sos_intel_id = si.id AND ss.science = 'Channeling'
     WHERE pr.province_id = ? AND pr.key_hash = ? AND pr.wizards IS NOT NULL
-      AND ${wc('pr', mwpaDirP)} AND ${wc('po', mwpaDirP)} AND ${wc('si', mwpaDirP)}
+      AND ${wc("pr", mwpaDirP)} AND ${wc("po", mwpaDirP)} AND ${wc("si", mwpaDirP)}
     ORDER BY pr.received_at DESC LIMIT 1
   `,
     mwpaDirP as EV,
@@ -483,20 +483,20 @@ async function mysqlUpdateMetricsCache(
     JOIN province_overview po
       ON po.province_id = pr.province_id AND po.key_hash = pr.key_hash
       AND po.land > 0 AND po.networth IS NOT NULL AND po.race IS NOT NULL
-      AND ${SAME_TICK('pr.received_at', 'po.received_at')}
+      AND ${SAME_TICK("pr.received_at", "po.received_at")}
     JOIN sos_intel si ON si.province_id = pr.province_id AND si.key_hash = pr.key_hash
-      AND ${SAME_TICK('pr.received_at', 'si.received_at')}
+      AND ${SAME_TICK("pr.received_at", "si.received_at")}
     JOIN survey_intel srv ON srv.province_id = pr.province_id AND srv.key_hash = pr.key_hash
-      AND ${SAME_TICK('pr.received_at', 'srv.received_at')}
+      AND ${SAME_TICK("pr.received_at", "srv.received_at")}
     JOIN province_troops pt
       ON pt.province_id = pr.province_id AND pt.key_hash = pr.key_hash
-      AND pt.source IN ('sot', 'throne') AND ${SAME_TICK('pr.received_at', 'pt.received_at')}
+      AND pt.source IN ('sot', 'throne') AND ${SAME_TICK("pr.received_at", "pt.received_at")}
     JOIN province_resources pr_sot
       ON pr_sot.province_id = pr.province_id AND pr_sot.key_hash = pr.key_hash
-      AND pr_sot.source IN ('sot', 'throne') AND ${SAME_TICK('pr.received_at', 'pr_sot.received_at')}
+      AND pr_sot.source IN ('sot', 'throne') AND ${SAME_TICK("pr.received_at", "pr_sot.received_at")}
     WHERE pr.province_id = ? AND pr.key_hash = ? AND pr.thieves IS NOT NULL
-      AND ${wc('pr', rwpaBkP)} AND ${wc('po', rwpaBkP)} AND ${wc('si', rwpaBkP)}
-      AND ${wc('srv', rwpaBkP)} AND ${wc('pt', rwpaBkP)} AND ${wc('pr_sot', rwpaBkP)}
+      AND ${wc("pr", rwpaBkP)} AND ${wc("po", rwpaBkP)} AND ${wc("si", rwpaBkP)}
+      AND ${wc("srv", rwpaBkP)} AND ${wc("pt", rwpaBkP)} AND ${wc("pr_sot", rwpaBkP)}
     ORDER BY pr.received_at DESC LIMIT 1
   `,
     rwpaBkP as EV,
@@ -584,7 +584,7 @@ export async function storeSoS(
   receivedAt?: string,
 ): Promise<void> {
   await ensureReady();
-  const src = isSelf ? 'council_science' : 'sos';
+  const src = isSelf ? "council_science" : "sos";
   await withTransaction(async (conn) => {
     const provId = await ensureProvince(conn, data.name, data.kingdom);
     await recordSubmission(conn, keyHash, provId);
@@ -599,7 +599,7 @@ export async function storeSoS(
     const sosId = result.insertId;
     for (const s of data.sciences) {
       await conn.execute(
-        'INSERT INTO sos_sciences (sos_intel_id, science, books, effect) VALUES (?, ?, ?, ?)',
+        "INSERT INTO sos_sciences (sos_intel_id, science, books, effect) VALUES (?, ?, ?, ?)",
         [sosId, s.science, s.books, s.effect],
       );
     }
@@ -615,7 +615,7 @@ export async function storeSorcery(
 ): Promise<void> {
   await ensureReady();
   await withTransaction(async (conn) => {
-    const provId = await ensureProvince(conn, data.name, '');
+    const provId = await ensureProvince(conn, data.name, "");
     await recordSubmission(conn, keyHash, provId);
     const [result] = (await conn.execute(
       `INSERT IGNORE INTO sorcery_ops
@@ -670,7 +670,7 @@ export async function storeRob(
 ): Promise<void> {
   await ensureReady();
   await withTransaction(async (conn) => {
-    const provId = await ensureProvince(conn, data.name, '');
+    const provId = await ensureProvince(conn, data.name, "");
     await recordSubmission(conn, keyHash, provId);
     const [result] = (await conn.execute(
       `INSERT IGNORE INTO rob_ops
@@ -723,7 +723,7 @@ export async function storeAttack(
 ): Promise<void> {
   await ensureReady();
   await withTransaction(async (conn) => {
-    const provId = await ensureProvince(conn, data.name, '');
+    const provId = await ensureProvince(conn, data.name, "");
     await recordSubmission(conn, keyHash, provId);
     await conn.execute(
       `INSERT IGNORE INTO attack_ops
@@ -907,7 +907,7 @@ export async function storeIntelOp(
 ): Promise<void> {
   await ensureReady();
   await withTransaction(async (conn) => {
-    const provId = await ensureProvince(conn, savedBy, '');
+    const provId = await ensureProvince(conn, savedBy, "");
     await recordSubmission(conn, keyHash, provId);
     const target = await resolveIntelOpTarget(conn, data, keyHash);
     await conn.execute(
@@ -983,7 +983,7 @@ export async function storeKingdom(
       const provId = await ensureProvince(conn, p.name, data.location);
       await recordSubmission(conn, keyHash, provId);
       await conn.execute(
-        'INSERT INTO kingdom_provinces (kingdom_intel_id, slot, name, race, land, networth, honor_title) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        "INSERT INTO kingdom_provinces (kingdom_intel_id, slot, name, race, land, networth, honor_title) VALUES (?, ?, ?, ?, ?, ?, ?)",
         [kdId, p.slot, p.name, p.race, p.land, p.networth, p.honorTitle],
       );
       await conn.execute(
@@ -1057,13 +1057,13 @@ export async function storeSoT(
   receivedAt?: string,
 ): Promise<void> {
   await ensureReady();
-  const src = isSelfThrone ? 'throne' : 'sot';
+  const src = isSelfThrone ? "throne" : "sot";
   await withTransaction(async (conn) => {
     const provId = await ensureProvince(conn, data.name, data.kingdom);
     await recordSubmission(conn, keyHash, provId);
 
     if (isSelfThrone && data.kingdom) {
-      await bindKeyToKingdom(conn, keyHash, data.kingdom, 'throne');
+      await bindKeyToKingdom(conn, keyHash, data.kingdom, "throne");
       // MySQL cannot UPDATE and SELECT the same table in a subquery directly;
       // wrap in a derived table to work around the restriction.
       await conn.execute(
@@ -1216,7 +1216,7 @@ export async function storeSoT(
       for (let i = 0; i < data.armiesOut.length; i++) {
         const a = data.armiesOut[i];
         await conn.execute(
-          'INSERT INTO som_armies (military_intel_id, army_type, land_gained, return_days) VALUES (?, ?, ?, ?)',
+          "INSERT INTO som_armies (military_intel_id, army_type, land_gained, return_days) VALUES (?, ?, ?, ?)",
           [milId, `out_${i + 1}`, a.acres, a.daysLeft],
         );
       }
@@ -1233,12 +1233,12 @@ export async function storeSoM(
   receivedAt?: string,
 ): Promise<void> {
   await ensureReady();
-  const src = isSelf ? 'council_military' : 'som';
+  const src = isSelf ? "council_military" : "som";
   await withTransaction(async (conn) => {
     const provId = await ensureProvince(conn, data.name, data.kingdom);
     await recordSubmission(conn, keyHash, provId);
 
-    const homeArmy = data.armies.find((a) => a.armyType === 'home');
+    const homeArmy = data.armies.find((a) => a.armyType === "home");
     if (homeArmy) {
       await conn.execute(
         `INSERT IGNORE INTO province_troops
@@ -1325,7 +1325,7 @@ export async function storeSurvey(
   receivedAt?: string,
 ): Promise<void> {
   await ensureReady();
-  const src = isSelf ? 'council_internal' : 'survey';
+  const src = isSelf ? "council_internal" : "survey";
   await withTransaction(async (conn) => {
     const provId = await ensureProvince(conn, data.name, data.kingdom);
     await recordSubmission(conn, keyHash, provId);
@@ -1352,7 +1352,7 @@ export async function storeSurvey(
     const surveyId = result.insertId;
     for (const b of data.buildings) {
       await conn.execute(
-        'INSERT INTO survey_buildings (survey_intel_id, building, built, in_progress) VALUES (?, ?, ?, ?)',
+        "INSERT INTO survey_buildings (survey_intel_id, building, built, in_progress) VALUES (?, ?, ?, ?)",
         [surveyId, b.building, b.built, b.inProgress],
       );
     }
@@ -1366,7 +1366,7 @@ export async function getBoundKingdom(keyHash: string): Promise<string | null> {
     kingdom: string;
   }
   const [rows] = await pool.execute<BindRow[]>(
-    'SELECT kingdom FROM key_kingdom_bindings WHERE key_hash = ?',
+    "SELECT kingdom FROM key_kingdom_bindings WHERE key_hash = ?",
     [keyHash],
   );
   return rows[0]?.kingdom ?? null;
@@ -1440,7 +1440,7 @@ export async function storeProvinceNews(
     const provinceId = await ensureProvince(conn, savedBy, kingdom);
     await recordSubmission(conn, keyHash, provinceId);
     for (const e of data.events) {
-      const rawHash = createHash('sha256').update(e.rawText).digest('hex');
+      const rawHash = createHash("sha256").update(e.rawText).digest("hex");
       await conn.execute(
         `INSERT IGNORE INTO province_news (
            province_id, key_hash, game_date, game_date_ord, event_type, raw_text, raw_hash,
@@ -1457,7 +1457,7 @@ export async function storeProvinceNews(
           e.actorName,
           e.actorKingdom,
           e.amount,
-          e.resourceType ?? '',
+          e.resourceType ?? "",
           receivedAt ?? null,
         ],
       );
@@ -1706,7 +1706,7 @@ export async function getLatestWarDate(
   }
 
   const [[access]] = await pool.execute<AccessRow[]>(
-    'SELECT COUNT(*) AS n FROM kingdom_news_sharded WHERE key_hash = ? AND kingdom = ? LIMIT 1',
+    "SELECT COUNT(*) AS n FROM kingdom_news_sharded WHERE key_hash = ? AND kingdom = ? LIMIT 1",
     [keyHash, kingdom],
   );
   if (!access.n) return null;
@@ -1755,7 +1755,7 @@ export async function getKingdomNews(
   }
 
   const [[access]] = await pool.execute<AccessRow[]>(
-    'SELECT COUNT(*) AS n FROM kingdom_news_sharded WHERE key_hash = ? AND kingdom = ? LIMIT 1',
+    "SELECT COUNT(*) AS n FROM kingdom_news_sharded WHERE key_hash = ? AND kingdom = ? LIMIT 1",
     [keyHash, kingdom],
   );
   if (!access.n) return { events: [], effectiveFrom: null };
@@ -1769,7 +1769,7 @@ export async function getKingdomNews(
     toOrd = to ? parseUtopiaDate(to) : 999999;
   } else {
     const [[maxRow]] = await pool.execute<MaxRow[]>(
-      'SELECT MAX(game_date_ord) AS m FROM kingdom_news_sharded WHERE key_hash = ? AND kingdom = ?',
+      "SELECT MAX(game_date_ord) AS m FROM kingdom_news_sharded WHERE key_hash = ? AND kingdom = ?",
       [keyHash, kingdom],
     );
     const maxOrd = maxRow?.m ?? 0;
@@ -1835,7 +1835,7 @@ export async function getRecentOps(
     slot: number | null;
   }
 
-  const sinceClause = since ? 'WHERE received_at > :since' : '';
+  const sinceClause = since ? "WHERE received_at > :since" : "";
 
   const [sql, vals] = n(
     `
@@ -1968,7 +1968,7 @@ export async function getRecentOps(
 
   const [rows] = await pool.execute<OpRow[]>(
     sql,
-    vals as import('mysql2').ExecuteValues,
+    vals as import("mysql2").ExecuteValues,
   );
   return rows as RecentOp[];
 }
@@ -2005,7 +2005,7 @@ export async function getKingdoms(keyHash: string): Promise<KingdomRow[]> {
   );
   const [rows] = await pool.execute<KRow[]>(
     sql,
-    vals as import('mysql2').ExecuteValues,
+    vals as import("mysql2").ExecuteValues,
   );
   return rows as KingdomRow[];
 }
@@ -2031,7 +2031,7 @@ export async function getKingdomNewsSummary(
     n: number;
   }
   const [[access]] = await pool.execute<AccessRow[]>(
-    'SELECT COUNT(*) AS n FROM kingdom_news_sharded WHERE key_hash = ? AND kingdom = ? LIMIT 1',
+    "SELECT COUNT(*) AS n FROM kingdom_news_sharded WHERE key_hash = ? AND kingdom = ? LIMIT 1",
     [keyHash, kingdom],
   );
   if (!access.n) return empty;
@@ -2046,7 +2046,7 @@ export async function getKingdomNewsSummary(
     toOrd = to ? parseUtopiaDate(to) : 999999;
   } else {
     const [[maxRow]] = await pool.execute<MaxRow[]>(
-      'SELECT MAX(game_date_ord) AS m FROM kingdom_news_sharded WHERE key_hash = ? AND kingdom = ?',
+      "SELECT MAX(game_date_ord) AS m FROM kingdom_news_sharded WHERE key_hash = ? AND kingdom = ?",
       [keyHash, kingdom],
     );
     const maxOrd = maxRow?.m ?? 0;
@@ -2135,47 +2135,47 @@ export async function getKingdomNewsSummary(
   const defenderMap = new Map<string, DefenderEntry>();
 
   for (const r of combatRows) {
-    const ak = `${r.attacker_name ?? ''}\0${r.attacker_kingdom}`;
+    const ak = `${r.attacker_name ?? ""}\0${r.attacker_kingdom}`;
     const a =
       attackerMap.get(ak) ?? newAttacker(r.attacker_name, r.attacker_kingdom);
     a.hits++;
-    if (r.event_type === 'march') {
+    if (r.event_type === "march") {
       a.marchHits++;
       a.marchAcres += r.acres ?? 0;
-    } else if (r.event_type === 'ambush') {
+    } else if (r.event_type === "ambush") {
       a.ambushHits++;
       a.ambushAcres += r.acres ?? 0;
-    } else if (r.event_type === 'raze') {
+    } else if (r.event_type === "raze") {
       a.razeHits++;
       a.razeAcres += r.acres ?? 0;
-    } else if (r.event_type === 'pillage') {
+    } else if (r.event_type === "pillage") {
       a.pillageHits++;
-    } else if (r.event_type === 'loot') {
+    } else if (r.event_type === "loot") {
       a.lootHits++;
       a.books += r.books ?? 0;
-    } else if (r.event_type === 'failed_attack') {
+    } else if (r.event_type === "failed_attack") {
       a.failedHits++;
     }
     attackerMap.set(ak, a);
 
-    const dk = `${r.defender_name ?? ''}\0${r.defender_kingdom}`;
+    const dk = `${r.defender_name ?? ""}\0${r.defender_kingdom}`;
     const d =
       defenderMap.get(dk) ?? newDefender(r.defender_name, r.defender_kingdom);
     d.hits++;
-    if (r.event_type === 'march') {
+    if (r.event_type === "march") {
       d.marchHits++;
       d.marchAcres += r.acres ?? 0;
-    } else if (r.event_type === 'ambush') {
+    } else if (r.event_type === "ambush") {
       d.ambushHits++;
       d.ambushAcres += r.acres ?? 0;
-    } else if (r.event_type === 'raze') {
+    } else if (r.event_type === "raze") {
       d.razeHits++;
       d.razeAcres += r.acres ?? 0;
-    } else if (r.event_type === 'pillage') {
+    } else if (r.event_type === "pillage") {
       d.pillageHits++;
-    } else if (r.event_type === 'loot') {
+    } else if (r.event_type === "loot") {
       d.lootHits++;
-    } else if (r.event_type === 'failed_attack') {
+    } else if (r.event_type === "failed_attack") {
       d.failedHits++;
     }
     defenderMap.set(dk, d);
@@ -2211,7 +2211,7 @@ export async function getKingdomNewsSummary(
     razeAcresLost: number;
   };
   const provMap = new Map<ProvKey, ProvEntry>();
-  const provKey = (name: string | null, kd: string) => `${name ?? ''}\0${kd}`;
+  const provKey = (name: string | null, kd: string) => `${name ?? ""}\0${kd}`;
   const emptyProv = (name: string | null, kd: string): ProvEntry => ({
     kd,
     name,
@@ -2273,7 +2273,7 @@ export async function getKingdomNewsSummary(
   const kingdoms = [...new Set([...provMap.values()].map((p) => p.kd))];
   const slotMap = new Map<string, number | null>();
   if (kingdoms.length > 0) {
-    const placeholders = kingdoms.map(() => '?').join(',');
+    const placeholders = kingdoms.map(() => "?").join(",");
     interface SlotRow extends RowDataPacket {
       name: string;
       kingdom: string;
@@ -2327,7 +2327,7 @@ export async function getKingdomNewsSummary(
   const kdNames = new Map<string, string>();
   for (const loc of kdMap.keys()) {
     const [[row]] = await pool.execute<KdNameRow[]>(
-      'SELECT name FROM kingdom_intel WHERE key_hash = ? AND location = ? ORDER BY received_at DESC LIMIT 1',
+      "SELECT name FROM kingdom_intel WHERE key_hash = ? AND location = ? ORDER BY received_at DESC LIMIT 1",
       [keyHash, loc],
     );
     if (row) kdNames.set(loc, row.name);
@@ -2346,26 +2346,26 @@ export async function getKingdomNewsSummary(
         kingdom: kd,
         kingdomName: kdNames.get(kd) ?? null,
         provinces: provs,
-        totalHitsMade: sum('hitsMade'),
-        totalMarchMade: sum('marchMade'),
-        totalAmbushMade: sum('ambushMade'),
-        totalRazeMade: sum('razeMade'),
-        totalPlunderMade: sum('plunderMade'),
-        totalLootMade: sum('lootMade'),
-        totalFailedMade: sum('failedMade'),
-        totalMarchAcresGained: sum('marchAcresGained'),
-        totalAmbushAcresGained: sum('ambushAcresGained'),
-        totalRazeAcresDealt: sum('razeAcresDealt'),
-        totalHitsTaken: sum('hitsTaken'),
-        totalMarchTaken: sum('marchTaken'),
-        totalAmbushTaken: sum('ambushTaken'),
-        totalRazeTaken: sum('razeTaken'),
-        totalPlunderTaken: sum('plunderTaken'),
-        totalLootTaken: sum('lootTaken'),
-        totalFailedTaken: sum('failedTaken'),
-        totalMarchAcresLost: sum('marchAcresLost'),
-        totalAmbushAcresLost: sum('ambushAcresLost'),
-        totalRazeAcresLost: sum('razeAcresLost'),
+        totalHitsMade: sum("hitsMade"),
+        totalMarchMade: sum("marchMade"),
+        totalAmbushMade: sum("ambushMade"),
+        totalRazeMade: sum("razeMade"),
+        totalPlunderMade: sum("plunderMade"),
+        totalLootMade: sum("lootMade"),
+        totalFailedMade: sum("failedMade"),
+        totalMarchAcresGained: sum("marchAcresGained"),
+        totalAmbushAcresGained: sum("ambushAcresGained"),
+        totalRazeAcresDealt: sum("razeAcresDealt"),
+        totalHitsTaken: sum("hitsTaken"),
+        totalMarchTaken: sum("marchTaken"),
+        totalAmbushTaken: sum("ambushTaken"),
+        totalRazeTaken: sum("razeTaken"),
+        totalPlunderTaken: sum("plunderTaken"),
+        totalLootTaken: sum("lootTaken"),
+        totalFailedTaken: sum("failedTaken"),
+        totalMarchAcresLost: sum("marchAcresLost"),
+        totalAmbushAcresLost: sum("ambushAcresLost"),
+        totalRazeAcresLost: sum("razeAcresLost"),
       };
     },
   );
@@ -2420,13 +2420,13 @@ export async function getProvinceHistory(
   }
 
   const [[prov]] = await pool.execute<ProvRow[]>(
-    'SELECT id FROM provinces WHERE name = ? AND kingdom = ?',
+    "SELECT id FROM provinces WHERE name = ? AND kingdom = ?",
     [name, kingdom],
   );
   if (!prov) return [];
 
   const [[access]] = await pool.execute<AccessRow[]>(
-    'SELECT COUNT(*) AS n FROM intel_partitions WHERE key_hash = ? AND province_id = ?',
+    "SELECT COUNT(*) AS n FROM intel_partitions WHERE key_hash = ? AND province_id = ?",
     [keyHash, prov.id],
   );
   if (!access.n) return [];
@@ -2512,22 +2512,22 @@ export async function getProvinceHistory(
     pool
       .execute<
         OverviewRaw[]
-      >('SELECT received_at, land, networth, source, saved_by FROM province_overview WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC', [id, keyHash])
+      >("SELECT received_at, land, networth, source, saved_by FROM province_overview WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC", [id, keyHash])
       .then(([r]) => r),
     pool
       .execute<
         TroopsRaw[]
-      >('SELECT received_at, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, saved_by FROM province_troops WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC', [id, keyHash])
+      >("SELECT received_at, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, saved_by FROM province_troops WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC", [id, keyHash])
       .then(([r]) => r),
     pool
       .execute<
         ResourcesRaw[]
-      >('SELECT received_at, money, food, runes, thieves, wizards, source, saved_by FROM province_resources WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC', [id, keyHash])
+      >("SELECT received_at, money, food, runes, thieves, wizards, source, saved_by FROM province_resources WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC", [id, keyHash])
       .then(([r]) => r),
     pool
       .execute<
         MilPointsRaw[]
-      >('SELECT received_at, off_points, def_points, source, saved_by FROM total_military_points WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC', [id, keyHash])
+      >("SELECT received_at, off_points, def_points, source, saved_by FROM total_military_points WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC", [id, keyHash])
       .then(([r]) => r),
     pool
       .execute<AttackRaw[]>(
@@ -2564,12 +2564,12 @@ export async function getProvinceHistory(
 
   const BUCKET_MS = 5 * 60 * 1000;
   function bucketKey(isoStr: string): string {
-    const ms = new Date(isoStr.replace(' ', 'T') + 'Z').getTime();
+    const ms = new Date(isoStr.replace(" ", "T") + "Z").getTime();
     const bucketMs = Math.floor(ms / BUCKET_MS) * BUCKET_MS;
     return new Date(bucketMs)
       .toISOString()
-      .replace('T', ' ')
-      .replace('.000Z', '');
+      .replace("T", " ")
+      .replace(".000Z", "");
   }
 
   const buckets = new Map<string, ProvinceHistoryPoint>();
@@ -2616,72 +2616,72 @@ export async function getProvinceHistory(
     const b = ensureBucket(bucketKey(row.received_at));
     if (row.land != null) {
       b.land = row.land;
-      mergeMetric(b, 'land', row.source, row.saved_by);
+      mergeMetric(b, "land", row.source, row.saved_by);
     }
     if (row.networth != null) {
       b.networth = row.networth;
-      mergeMetric(b, 'networth', row.source, row.saved_by);
+      mergeMetric(b, "networth", row.source, row.saved_by);
     }
   }
   for (const row of troops) {
     const b = ensureBucket(bucketKey(row.received_at));
     if (row.soldiers != null) {
       b.soldiers = row.soldiers;
-      mergeMetric(b, 'soldiers', row.source, row.saved_by);
+      mergeMetric(b, "soldiers", row.source, row.saved_by);
     }
     if (row.off_specs != null) {
       b.offSpecs = row.off_specs;
-      mergeMetric(b, 'offSpecs', row.source, row.saved_by);
+      mergeMetric(b, "offSpecs", row.source, row.saved_by);
     }
     if (row.def_specs != null) {
       b.defSpecs = row.def_specs;
-      mergeMetric(b, 'defSpecs', row.source, row.saved_by);
+      mergeMetric(b, "defSpecs", row.source, row.saved_by);
     }
     if (row.elites != null) {
       b.elites = row.elites;
-      mergeMetric(b, 'elites', row.source, row.saved_by);
+      mergeMetric(b, "elites", row.source, row.saved_by);
     }
     if (row.war_horses != null) {
       b.warHorses = row.war_horses;
-      mergeMetric(b, 'warHorses', row.source, row.saved_by);
+      mergeMetric(b, "warHorses", row.source, row.saved_by);
     }
     if (row.peasants != null) {
       b.peasants = row.peasants;
-      mergeMetric(b, 'peasants', row.source, row.saved_by);
+      mergeMetric(b, "peasants", row.source, row.saved_by);
     }
   }
   for (const row of resources) {
     const b = ensureBucket(bucketKey(row.received_at));
     if (row.money != null) {
       b.money = row.money;
-      mergeMetric(b, 'money', row.source, row.saved_by);
+      mergeMetric(b, "money", row.source, row.saved_by);
     }
     if (row.food != null) {
       b.food = row.food;
-      mergeMetric(b, 'food', row.source, row.saved_by);
+      mergeMetric(b, "food", row.source, row.saved_by);
     }
     if (row.runes != null) {
       b.runes = row.runes;
-      mergeMetric(b, 'runes', row.source, row.saved_by);
+      mergeMetric(b, "runes", row.source, row.saved_by);
     }
     if (row.thieves != null) {
       b.thieves = row.thieves;
-      mergeMetric(b, 'thieves', row.source, row.saved_by);
+      mergeMetric(b, "thieves", row.source, row.saved_by);
     }
     if (row.wizards != null) {
       b.wizards = row.wizards;
-      mergeMetric(b, 'wizards', row.source, row.saved_by);
+      mergeMetric(b, "wizards", row.source, row.saved_by);
     }
   }
   for (const row of milPoints) {
     const b = ensureBucket(bucketKey(row.received_at));
     if (row.off_points != null) {
       b.offPoints = row.off_points;
-      mergeMetric(b, 'offPoints', row.source, row.saved_by);
+      mergeMetric(b, "offPoints", row.source, row.saved_by);
     }
     if (row.def_points != null) {
       b.defPoints = row.def_points;
-      mergeMetric(b, 'defPoints', row.source, row.saved_by);
+      mergeMetric(b, "defPoints", row.source, row.saved_by);
     }
   }
   for (const row of attacksTaken) {
@@ -2702,7 +2702,7 @@ export async function getProvinceHistory(
     b.thieveryOpsTaken.push({
       receivedAt: row.received_at,
       op: row.op,
-      outcome: row.outcome as 'success' | 'failure',
+      outcome: row.outcome as "success" | "failure",
       amountStolen: row.amount_stolen,
       thievesLost: row.thieves_lost,
       attackerName: row.attacker_name,
@@ -2718,7 +2718,7 @@ export async function getProvinceHistory(
     b.sorceryOpsTaken.push({
       receivedAt: row.received_at,
       spell: row.spell,
-      outcome: row.outcome as 'success' | 'failure',
+      outcome: row.outcome as "success" | "failure",
       durationDays: row.duration_days,
       wizardsLost: row.wizards_lost,
       casterName: row.caster_name,
@@ -2735,22 +2735,22 @@ export async function cleanupExpired(): Promise<void> {
   await ensureReady();
   const cutoff = `DATE_SUB(NOW(), INTERVAL ${TTL_DAYS} DAY)`;
   for (const tbl of [
-    'province_overview',
-    'total_military_points',
-    'home_military_points',
-    'province_troops',
-    'province_resources',
-    'province_status',
-    'military_intel',
-    'survey_intel',
-    'sos_intel',
-    'kingdom_intel',
-    'kingdom_news',
-    'kingdom_news_sharded',
-    'rob_ops',
-    'intel_ops',
-    'sorcery_ops',
-    'attack_ops',
+    "province_overview",
+    "total_military_points",
+    "home_military_points",
+    "province_troops",
+    "province_resources",
+    "province_status",
+    "military_intel",
+    "survey_intel",
+    "sos_intel",
+    "kingdom_intel",
+    "kingdom_news",
+    "kingdom_news_sharded",
+    "rob_ops",
+    "intel_ops",
+    "sorcery_ops",
+    "attack_ops",
   ]) {
     await pool.query(`DELETE FROM \`${tbl}\` WHERE received_at < ${cutoff}`);
   }
@@ -2808,7 +2808,7 @@ function mergeArmyArrays(
     };
   });
   const nonOutArmies: ArmyRow[] = somArmies
-    .filter((a) => !a.type.startsWith('out_'))
+    .filter((a) => !a.type.startsWith("out_"))
     .map((a) => ({
       armyType: a.type,
       generals: a.generals,
@@ -2858,7 +2858,7 @@ async function hydrateKingdomProvinceRows(
 ): Promise<void> {
   const byId = new Map(rows.map((row) => [row.id, row]));
   const ids = rows.map((row) => row.id);
-  const idList = ids.map(() => '?').join(', ');
+  const idList = ids.map(() => "?").join(", ");
   const p = () => [keyHash, ...ids];
 
   const [
@@ -3124,7 +3124,7 @@ async function hydrateKingdomProvinceRows(
   }
   for (const s of troopRows) {
     const row = byId.get(s.province_id)!;
-    if (s.source_group === 'total') {
+    if (s.source_group === "total") {
       Object.assign(row, {
         soldiers: s.soldiers,
         off_specs: s.off_specs,
@@ -3230,7 +3230,7 @@ async function hydrateKingdomProvinceRows(
   }
   for (const s of militaryRows) {
     const row = byId.get(s.province_id)!;
-    if (s.source_group === 'som') {
+    if (s.source_group === "som") {
       row.ome = s.ome;
       row.dme = s.dme;
       row.som_age = s.received_at;
@@ -3240,13 +3240,13 @@ async function hydrateKingdomProvinceRows(
   }
   for (const s of armyRows) {
     const somJson =
-      typeof s.som_armies_json === 'string'
+      typeof s.som_armies_json === "string"
         ? s.som_armies_json
         : s.som_armies_json
           ? JSON.stringify(s.som_armies_json)
           : null;
     const throneJson =
-      typeof s.throne_armies_json === 'string'
+      typeof s.throne_armies_json === "string"
         ? s.throne_armies_json
         : s.throne_armies_json
           ? JSON.stringify(s.throne_armies_json)
@@ -3269,7 +3269,7 @@ export async function getKingdomProvinces(
 
   const [sql, vals] = n(
     `
-    WITH ${latestSlotCte('AND ki.location = :kingdom')}
+    WITH ${latestSlotCte("AND ki.location = :kingdom")}
     SELECT p.id, p.name, p.kingdom,
            (SELECT ls.slot FROM latest_slot ls WHERE ls.kingdom = p.kingdom AND ls.name = p.name) AS slot,
            ${OVERVIEW_RACE_SQL}, ${OVERVIEW_PERS_SQL}, ${OVERVIEW_HONOR_SQL},
@@ -3304,7 +3304,7 @@ export async function getKingdomProvinces(
 
   const [baseRows] = await pool.execute<any[]>(
     sql,
-    vals as import('mysql2').ExecuteValues,
+    vals as import("mysql2").ExecuteValues,
   );
 
   const rows = (baseRows as any[]).map((base) => ({
@@ -3400,8 +3400,8 @@ export async function getKingdomProvinces(
       !!row.home_mil_age &&
       (!row.military_age || row.home_mil_age > row.military_age);
     const homeMilitaryFromSoM =
-      row.home_mil_source === 'som' ||
-      row.home_mil_source === 'council_military';
+      row.home_mil_source === "som" ||
+      row.home_mil_source === "council_military";
     if (
       row.som_age &&
       allArmiesHome &&
@@ -3449,13 +3449,13 @@ export async function getProvinceDetail(
   }
 
   const [[prov]] = await pool.execute<ProvRow[]>(
-    'SELECT id, name, kingdom FROM provinces WHERE name = ? AND kingdom = ?',
+    "SELECT id, name, kingdom FROM provinces WHERE name = ? AND kingdom = ?",
     [name, kingdom],
   );
   if (!prov) return nullResult;
 
   const [[access]] = await pool.execute<AccessRow[]>(
-    'SELECT COUNT(*) AS n FROM intel_partitions WHERE key_hash = ? AND province_id = ?',
+    "SELECT COUNT(*) AS n FROM intel_partitions WHERE key_hash = ? AND province_id = ?",
     [keyHash, prov.id],
   );
   if (!access.n) return nullResult;
@@ -3463,7 +3463,7 @@ export async function getProvinceDetail(
   const id = prov.id;
 
   const [slotSql, slotVals] = n(
-    `WITH ${latestSlotCte('AND ki.location = :kingdom')} SELECT slot FROM latest_slot WHERE kingdom = :kingdom AND name = :name LIMIT 1`,
+    `WITH ${latestSlotCte("AND ki.location = :kingdom")} SELECT slot FROM latest_slot WHERE kingdom = :kingdom AND name = :name LIMIT 1`,
     { keyHash, kingdom, name },
   );
 
@@ -3486,7 +3486,7 @@ export async function getProvinceDetail(
     sosRows,
   ] = await Promise.all([
     pool
-      .execute<any[]>(slotSql, slotVals as import('mysql2').ExecuteValues)
+      .execute<any[]>(slotSql, slotVals as import("mysql2").ExecuteValues)
       .then(([r]) => r),
     pool
       .execute<any[]>(
@@ -3502,12 +3502,12 @@ export async function getProvinceDetail(
     pool
       .execute<
         any[]
-      >('SELECT off_points, def_points, source, received_at FROM total_military_points WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1', [id, keyHash])
+      >("SELECT off_points, def_points, source, received_at FROM total_military_points WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1", [id, keyHash])
       .then(([r]) => r),
     pool
       .execute<
         any[]
-      >('SELECT mod_off_at_home, mod_def_at_home, source, received_at FROM home_military_points WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1', [id, keyHash])
+      >("SELECT mod_off_at_home, mod_def_at_home, source, received_at FROM home_military_points WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1", [id, keyHash])
       .then(([r]) => r),
     pool
       .execute<
@@ -3522,27 +3522,27 @@ export async function getProvinceDetail(
     pool
       .execute<
         any[]
-      >('SELECT total_pop, max_pop FROM province_resources WHERE province_id = ? AND key_hash = ? AND total_pop IS NOT NULL ORDER BY received_at DESC LIMIT 1', [id, keyHash])
+      >("SELECT total_pop, max_pop FROM province_resources WHERE province_id = ? AND key_hash = ? AND total_pop IS NOT NULL ORDER BY received_at DESC LIMIT 1", [id, keyHash])
       .then(([r]) => r),
     pool
       .execute<
         any[]
-      >('SELECT thieves, received_at FROM province_resources WHERE province_id = ? AND key_hash = ? AND thieves IS NOT NULL ORDER BY received_at DESC LIMIT 1', [id, keyHash])
+      >("SELECT thieves, received_at FROM province_resources WHERE province_id = ? AND key_hash = ? AND thieves IS NOT NULL ORDER BY received_at DESC LIMIT 1", [id, keyHash])
       .then(([r]) => r),
     pool
       .execute<
         any[]
-      >('SELECT free_specialist_credits, received_at FROM province_resources WHERE province_id = ? AND key_hash = ? AND free_specialist_credits IS NOT NULL ORDER BY received_at DESC LIMIT 1', [id, keyHash])
+      >("SELECT free_specialist_credits, received_at FROM province_resources WHERE province_id = ? AND key_hash = ? AND free_specialist_credits IS NOT NULL ORDER BY received_at DESC LIMIT 1", [id, keyHash])
       .then(([r]) => r),
     pool
       .execute<
         any[]
-      >('SELECT free_building_credits, received_at FROM province_resources WHERE province_id = ? AND key_hash = ? AND free_building_credits IS NOT NULL ORDER BY received_at DESC LIMIT 1', [id, keyHash])
+      >("SELECT free_building_credits, received_at FROM province_resources WHERE province_id = ? AND key_hash = ? AND free_building_credits IS NOT NULL ORDER BY received_at DESC LIMIT 1", [id, keyHash])
       .then(([r]) => r),
     pool
       .execute<
         any[]
-      >('SELECT plagued, overpopulated, overpop_deserters, dragon_type, dragon_name, hit_status, war, received_at FROM province_status WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1', [id, keyHash])
+      >("SELECT plagued, overpopulated, overpop_deserters, dragon_type, dragon_name, hit_status, war, received_at FROM province_status WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1", [id, keyHash])
       .then(([r]) => r),
     pool
       .execute<any[]>(
@@ -3571,12 +3571,12 @@ export async function getProvinceDetail(
     pool
       .execute<
         any[]
-      >('SELECT id, received_at FROM survey_intel WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1', [id, keyHash])
+      >("SELECT id, received_at FROM survey_intel WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1", [id, keyHash])
       .then(([r]) => r),
     pool
       .execute<
         any[]
-      >('SELECT id, received_at FROM sos_intel WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1', [id, keyHash])
+      >("SELECT id, received_at FROM sos_intel WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1", [id, keyHash])
       .then(([r]) => r),
   ]);
 
@@ -3633,7 +3633,7 @@ export async function getProvinceDetail(
   const homeMilitaryNewer =
     !!hmRaw && (!tmRaw || hmRaw.received_at > tmRaw.received_at);
   const homeMilitaryFromSoM =
-    hmRaw?.source === 'som' || hmRaw?.source === 'council_military';
+    hmRaw?.source === "som" || hmRaw?.source === "council_military";
   const totalMilitary =
     homeMilitaryFromSoM &&
     homeMilitaryNewer &&
@@ -3728,14 +3728,14 @@ export async function getProvinceDetail(
         ? pool
             .execute<
               any[]
-            >('SELECT army_type, generals, soldiers, off_specs, def_specs, elites, war_horses, thieves, land_gained, return_days FROM som_armies WHERE military_intel_id = ?', [miSomRaw.id])
+            >("SELECT army_type, generals, soldiers, off_specs, def_specs, elites, war_horses, thieves, land_gained, return_days FROM som_armies WHERE military_intel_id = ?", [miSomRaw.id])
             .then(([r]) => r)
         : Promise.resolve([] as any[]),
       miThroneRaw
         ? pool
             .execute<
               any[]
-            >('SELECT army_type, land_gained, return_days FROM som_armies WHERE military_intel_id = ?', [miThroneRaw.id])
+            >("SELECT army_type, land_gained, return_days FROM som_armies WHERE military_intel_id = ?", [miThroneRaw.id])
             .then(([r]) => r)
         : Promise.resolve([] as any[]),
     ]);
@@ -3771,7 +3771,7 @@ export async function getProvinceDetail(
   let survey = null;
   if (surveyRaw) {
     const [buildingRows] = await pool.execute<any[]>(
-      'SELECT building, built, in_progress FROM survey_buildings WHERE survey_intel_id = ? ORDER BY built DESC',
+      "SELECT building, built, in_progress FROM survey_buildings WHERE survey_intel_id = ? ORDER BY built DESC",
       [surveyRaw.id],
     );
     survey = {
@@ -3787,7 +3787,7 @@ export async function getProvinceDetail(
   let sciences = null;
   if (sosRaw) {
     const [sciRows] = await pool.execute<any[]>(
-      'SELECT science, books, effect FROM sos_sciences WHERE sos_intel_id = ? ORDER BY books DESC',
+      "SELECT science, books, effect FROM sos_sciences WHERE sos_intel_id = ? ORDER BY books DESC",
       [sosRaw.id],
     );
     sciences = {
@@ -3890,7 +3890,7 @@ export async function getKingdomOpsStats(
   let effectiveFrom: string | null = from ?? null;
 
   const [[maxRow]] = await pool.execute<MaxRow[]>(
-    'SELECT MAX(game_date_ord) AS m FROM province_news WHERE key_hash = ?',
+    "SELECT MAX(game_date_ord) AS m FROM province_news WHERE key_hash = ?",
     [keyHash],
   );
   const maxOrd = (maxRow as any)?.m ?? 0;
@@ -3914,7 +3914,7 @@ export async function getKingdomOpsStats(
       ? new Date(Date.now() - ordDelta * 3_600_000)
           .toISOString()
           .slice(0, 19)
-          .replace('T', ' ')
+          .replace("T", " ")
       : null;
 
   // Outgoing: our provinces' activity against kingdom, grouped by (op, our_province)
@@ -3940,7 +3940,7 @@ export async function getKingdomOpsStats(
      FROM rob_ops r
      JOIN provinces p ON p.id = r.province_id
      WHERE r.key_hash = ? AND r.target_kingdom = ?
-       ${robFromTime ? 'AND r.received_at >= ?' : ''}
+       ${robFromTime ? "AND r.received_at >= ?" : ""}
      GROUP BY r.op, r.province_id, p.name, r.deserter_type`,
     outParams,
   );
@@ -3962,13 +3962,13 @@ export async function getKingdomOpsStats(
 
   // Slot lookup for enemy province names
   const [slotSql, slotVals] = n(
-    `WITH ${latestSlotCte('AND ki.location = :kingdom')}
+    `WITH ${latestSlotCte("AND ki.location = :kingdom")}
      SELECT name, slot FROM latest_slot WHERE kingdom = :kingdom`,
     { keyHash, kingdom },
   );
   const [slotRows] = await pool.execute<any[]>(
     slotSql,
-    slotVals as import('mysql2').ExecuteValues,
+    slotVals as import("mysql2").ExecuteValues,
   );
   const slotMap = new Map<string, number | null>();
   for (const r of slotRows as any[]) slotMap.set(r.name, r.slot ?? null);
@@ -3978,25 +3978,25 @@ export async function getKingdomOpsStats(
     eventType: string,
     resourceType: string | null,
   ): string | null {
-    if (eventType === 'resource_stolen') {
-      if (resourceType === 'gold') return 'vaults';
-      if (resourceType === 'food') return 'granaries';
-      if (resourceType === 'runes') return 'towers';
+    if (eventType === "resource_stolen") {
+      if (resourceType === "gold") return "vaults";
+      if (resourceType === "food") return "granaries";
+      if (resourceType === "runes") return "towers";
       return null;
     }
     const m: Record<string, string> = {
-      troops_killed: 'night_strike',
-      peasants_kidnapped: 'kidnap',
-      rioting: 'incite_riots',
-      turncoat_general: 'bribe_generals',
-      turncoat_thieves: 'bribe_thieves',
-      thief_sabotage_wizards: 'sabotage_wizards',
-      arson: 'arson',
-      thief_propaganda: 'propaganda',
-      thief_detected: 'detected',
-      thief_detected_unknown: 'detected',
-      thief_foiled: 'detected',
-      thief_foiled_shadowlight: 'detected',
+      troops_killed: "night_strike",
+      peasants_kidnapped: "kidnap",
+      rioting: "incite_riots",
+      turncoat_general: "bribe_generals",
+      turncoat_thieves: "bribe_thieves",
+      thief_sabotage_wizards: "sabotage_wizards",
+      arson: "arson",
+      thief_propaganda: "propaganda",
+      thief_detected: "detected",
+      thief_detected_unknown: "detected",
+      thief_foiled: "detected",
+      thief_foiled_shadowlight: "detected",
     };
     return m[eventType] ?? null;
   }
@@ -4005,9 +4005,9 @@ export async function getKingdomOpsStats(
   function normUnit(raw: string | null): string | null {
     if (!raw) return null;
     const lower = raw.toLowerCase();
-    if (lower === 'thieves' || lower === 'thieve') return 'Thief';
+    if (lower === "thieves" || lower === "thieve") return "Thief";
     const singular =
-      raw.length > 2 && raw.endsWith('s') ? raw.slice(0, -1) : raw;
+      raw.length > 2 && raw.endsWith("s") ? raw.slice(0, -1) : raw;
     return singular.charAt(0).toUpperCase() + singular.slice(1);
   }
 
@@ -4018,7 +4018,7 @@ export async function getKingdomOpsStats(
     if (!r.province_name) continue;
     if (!outByOp.has(r.op)) outByOp.set(r.op, new Map());
     const unitType = normUnit((r.unit_type as string | null) ?? null);
-    const key = `${r.province_name}|${unitType ?? ''}`;
+    const key = `${r.province_name}|${unitType ?? ""}`;
     outByOp.get(r.op)!.set(key, {
       provinceName: r.province_name,
       slot: null,
@@ -4039,13 +4039,13 @@ export async function getKingdomOpsStats(
     if (!op) continue;
     if (!inByOp.has(op)) inByOp.set(op, new Map());
     const provMap = inByOp.get(op)!;
-    const isDetection = op === 'detected';
+    const isDetection = op === "detected";
     const amt = Number(r.amount);
     const unitType =
-      r.event_type === 'thief_propaganda'
+      r.event_type === "thief_propaganda"
         ? normUnit((r.resource_type as string | null) ?? null)
         : null;
-    const key = `${r.province_name}|${unitType ?? ''}`;
+    const key = `${r.province_name}|${unitType ?? ""}`;
     const existing = provMap.get(key);
     if (existing) {
       existing.attempts += Number(r.cnt);
@@ -4092,27 +4092,27 @@ export async function getKingdomOpsStats(
 // Non-damage events — excluded from totalImpact used for province sort ordering
 const NON_DAMAGE_EVENT_TYPES = new Set([
   // Positive
-  'aid_received',
-  'monthly_dedication',
-  'war_victory_reward',
-  'utopian_lords_reward',
-  'new_scientist',
-  'exploration',
+  "aid_received",
+  "monthly_dedication",
+  "war_victory_reward",
+  "utopian_lords_reward",
+  "new_scientist",
+  "exploration",
   // Neutral/defensive/informational
-  'thief_detected',
-  'thief_detected_unknown',
-  'thief_foiled',
-  'thief_foiled_shadowlight',
-  'attack_failed',
-  'spell_detected',
-  'war_ended',
-  'war_loss_penalty',
-  'starvation',
-  'ritual_shortened',
-  'plague_ended',
-  'inactivity_penalty',
-  'desertions',
-  'other',
+  "thief_detected",
+  "thief_detected_unknown",
+  "thief_foiled",
+  "thief_foiled_shadowlight",
+  "attack_failed",
+  "spell_detected",
+  "war_ended",
+  "war_loss_penalty",
+  "starvation",
+  "ritual_shortened",
+  "plague_ended",
+  "inactivity_penalty",
+  "desertions",
+  "other",
 ]);
 
 export async function getIncomingDamageStats(
@@ -4134,7 +4134,7 @@ export async function getIncomingDamageStats(
     toOrd = to ? parseUtopiaDate(to) : 999999;
   } else {
     const [[maxRow]] = await pool.execute<MaxRow[]>(
-      'SELECT MAX(game_date_ord) AS m FROM province_news WHERE key_hash = ?',
+      "SELECT MAX(game_date_ord) AS m FROM province_news WHERE key_hash = ?",
       [keyHash],
     );
     const maxOrd = (maxRow as any)?.m ?? 0;

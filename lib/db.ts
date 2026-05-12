@@ -1,17 +1,17 @@
-import Database from 'better-sqlite3';
-import fs from 'fs';
-import path from 'path';
-import { BAD_SPELL_NAMES, COMBAT_EVENT_TYPES } from './effects';
-import { parseUtopiaDate, formatUtopiaDate } from './ui';
-import { computeWizardCount } from './nw';
+import Database from "better-sqlite3";
+import fs from "fs";
+import path from "path";
+import { BAD_SPELL_NAMES, COMBAT_EVENT_TYPES } from "./effects";
+import { parseUtopiaDate, formatUtopiaDate } from "./ui";
+import { computeWizardCount } from "./nw";
 import {
   computeDtpaValue,
   computeMtpaValue,
   computeMwpaValue,
   computeOtpaValue,
   rawPerAcreValue,
-} from './metrics';
-import { createMetricsCacheQueue } from './metrics-cache';
+} from "./metrics";
+import { createMetricsCacheQueue } from "./metrics-cache";
 import type {
   SoTData,
   SurveyData,
@@ -28,26 +28,26 @@ import type {
   RobData,
   SorceryData,
   AttackData,
-} from './parsers/types';
-import type { IntelOpAttempt } from './intel-ops';
-import type { KingdomNewsData, KingdomNewsEvent } from './parsers/kingdom_news';
+} from "./parsers/types";
+import type { IntelOpAttempt } from "./intel-ops";
+import type { KingdomNewsData, KingdomNewsEvent } from "./parsers/kingdom_news";
 
 const DB_PATH =
-  process.env.INTEL_DB_PATH || path.join(process.cwd(), 'intel.db');
+  process.env.INTEL_DB_PATH || path.join(process.cwd(), "intel.db");
 const TTL_DAYS = 7;
-const METRICS_CACHE_LOOKBACK_SQL = '-1 hour';
+const METRICS_CACHE_LOOKBACK_SQL = "-1 hour";
 
 let _db: Database.Database | null = null;
 const BAD_SPELL_SQL_LIST = BAD_SPELL_NAMES.map(
   (name) => `'${name.replaceAll("'", "''")}'`,
-).join(', ');
+).join(", ");
 
 export function getDb(): Database.Database {
   if (!_db) {
     fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
     _db = new Database(DB_PATH);
-    _db.pragma('journal_mode = WAL');
-    _db.pragma('foreign_keys = ON');
+    _db.pragma("journal_mode = WAL");
+    _db.pragma("foreign_keys = ON");
     initSchema(_db);
   }
   return _db;
@@ -60,12 +60,12 @@ const SAME_TICK_EXPR = (a: string, b: string) =>
 const METRICS_CACHE_WINDOW_EXPR = (alias: string) =>
   `(:metrics_received_at IS NULL OR (${alias}.received_at >= datetime(:metrics_received_at, '${METRICS_CACHE_LOOKBACK_SQL}') AND ${alias}.received_at <= datetime(:metrics_received_at)))`;
 
-const latestSlotCte = (extraWhere = '') => {
+const latestSlotCte = (extraWhere = "") => {
   // When a kingdom filter is present, group only by slot (one kingdom).
   // Otherwise group by (location, slot) across all kingdoms.
-  const kingdomKnown = extraWhere.includes('@kingdom');
-  const innerWhere = kingdomKnown ? 'AND ki2.location = @kingdom' : '';
-  const groupBy = kingdomKnown ? 'kp2.slot' : 'ki2.location, kp2.slot';
+  const kingdomKnown = extraWhere.includes("@kingdom");
+  const innerWhere = kingdomKnown ? "AND ki2.location = @kingdom" : "";
+  const groupBy = kingdomKnown ? "kp2.slot" : "ki2.location, kp2.slot";
   return `
   latest_slot AS MATERIALIZED (
     -- For each slot number, find the province name most recently seen in a
@@ -131,9 +131,9 @@ export function updateMetricsCache(
     JOIN province_overview po
       ON po.province_id = pr.province_id AND po.key_hash = pr.key_hash
       AND po.land > 0
-      AND ${SAME_TICK_EXPR('pr.received_at', 'po.received_at')}
+      AND ${SAME_TICK_EXPR("pr.received_at", "po.received_at")}
     WHERE pr.province_id = :province_id AND pr.key_hash = :key_hash AND pr.thieves IS NOT NULL
-      AND ${METRICS_CACHE_WINDOW_EXPR('pr')} AND ${METRICS_CACHE_WINDOW_EXPR('po')}
+      AND ${METRICS_CACHE_WINDOW_EXPR("pr")} AND ${METRICS_CACHE_WINDOW_EXPR("po")}
     ORDER BY pr.received_at DESC LIMIT 1
   `,
     )
@@ -176,14 +176,14 @@ export function updateMetricsCache(
     JOIN province_overview po
       ON po.province_id = pr.province_id AND po.key_hash = pr.key_hash
       AND po.land > 0
-      AND ${SAME_TICK_EXPR('pr.received_at', 'po.received_at')}
+      AND ${SAME_TICK_EXPR("pr.received_at", "po.received_at")}
     JOIN sos_intel si
       ON si.province_id = pr.province_id AND si.key_hash = pr.key_hash
-      AND ${SAME_TICK_EXPR('pr.received_at', 'si.received_at')}
+      AND ${SAME_TICK_EXPR("pr.received_at", "si.received_at")}
     JOIN sos_sciences ss ON ss.sos_intel_id = si.id AND ss.science = 'Crime'
     WHERE pr.province_id = :province_id AND pr.key_hash = :key_hash AND pr.thieves IS NOT NULL
-      AND ${METRICS_CACHE_WINDOW_EXPR('pr')} AND ${METRICS_CACHE_WINDOW_EXPR('po')}
-      AND ${METRICS_CACHE_WINDOW_EXPR('si')}
+      AND ${METRICS_CACHE_WINDOW_EXPR("pr")} AND ${METRICS_CACHE_WINDOW_EXPR("po")}
+      AND ${METRICS_CACHE_WINDOW_EXPR("si")}
     ORDER BY pr.received_at DESC LIMIT 1
   `,
     )
@@ -230,17 +230,17 @@ export function updateMetricsCache(
     JOIN province_overview po
       ON po.province_id = pr.province_id AND po.key_hash = pr.key_hash
       AND po.land > 0
-      AND ${SAME_TICK_EXPR('pr.received_at', 'po.received_at')}
+      AND ${SAME_TICK_EXPR("pr.received_at", "po.received_at")}
     JOIN sos_intel si
       ON si.province_id = pr.province_id AND si.key_hash = pr.key_hash
-      AND ${SAME_TICK_EXPR('pr.received_at', 'si.received_at')}
+      AND ${SAME_TICK_EXPR("pr.received_at", "si.received_at")}
     JOIN sos_sciences ss ON ss.sos_intel_id = si.id AND ss.science = 'Crime'
     JOIN survey_intel srv
       ON srv.province_id = pr.province_id AND srv.key_hash = pr.key_hash
-      AND ${SAME_TICK_EXPR('pr.received_at', 'srv.received_at')}
+      AND ${SAME_TICK_EXPR("pr.received_at", "srv.received_at")}
     WHERE pr.province_id = :province_id AND pr.key_hash = :key_hash AND pr.thieves IS NOT NULL
-      AND ${METRICS_CACHE_WINDOW_EXPR('pr')} AND ${METRICS_CACHE_WINDOW_EXPR('po')}
-      AND ${METRICS_CACHE_WINDOW_EXPR('si')} AND ${METRICS_CACHE_WINDOW_EXPR('srv')}
+      AND ${METRICS_CACHE_WINDOW_EXPR("pr")} AND ${METRICS_CACHE_WINDOW_EXPR("po")}
+      AND ${METRICS_CACHE_WINDOW_EXPR("si")} AND ${METRICS_CACHE_WINDOW_EXPR("srv")}
     ORDER BY pr.received_at DESC LIMIT 1
   `,
     )
@@ -298,9 +298,9 @@ export function updateMetricsCache(
     JOIN province_overview po
       ON po.province_id = pr.province_id AND po.key_hash = pr.key_hash
       AND po.land > 0
-      AND ${SAME_TICK_EXPR('pr.received_at', 'po.received_at')}
+      AND ${SAME_TICK_EXPR("pr.received_at", "po.received_at")}
     WHERE pr.province_id = :province_id AND pr.key_hash = :key_hash AND pr.wizards IS NOT NULL
-      AND ${METRICS_CACHE_WINDOW_EXPR('pr')} AND ${METRICS_CACHE_WINDOW_EXPR('po')}
+      AND ${METRICS_CACHE_WINDOW_EXPR("pr")} AND ${METRICS_CACHE_WINDOW_EXPR("po")}
     ORDER BY pr.received_at DESC LIMIT 1
   `,
     )
@@ -328,14 +328,14 @@ export function updateMetricsCache(
     JOIN province_overview po
       ON po.province_id = pr.province_id AND po.key_hash = pr.key_hash
       AND po.land > 0
-      AND ${SAME_TICK_EXPR('pr.received_at', 'po.received_at')}
+      AND ${SAME_TICK_EXPR("pr.received_at", "po.received_at")}
     JOIN sos_intel si
       ON si.province_id = pr.province_id AND si.key_hash = pr.key_hash
-      AND ${SAME_TICK_EXPR('pr.received_at', 'si.received_at')}
+      AND ${SAME_TICK_EXPR("pr.received_at", "si.received_at")}
     JOIN sos_sciences ss ON ss.sos_intel_id = si.id AND ss.science = 'Channeling'
     WHERE pr.province_id = :province_id AND pr.key_hash = :key_hash AND pr.wizards IS NOT NULL
-      AND ${METRICS_CACHE_WINDOW_EXPR('pr')} AND ${METRICS_CACHE_WINDOW_EXPR('po')}
-      AND ${METRICS_CACHE_WINDOW_EXPR('si')}
+      AND ${METRICS_CACHE_WINDOW_EXPR("pr")} AND ${METRICS_CACHE_WINDOW_EXPR("po")}
+      AND ${METRICS_CACHE_WINDOW_EXPR("si")}
     ORDER BY pr.received_at DESC LIMIT 1
   `,
     )
@@ -394,25 +394,25 @@ export function updateMetricsCache(
     JOIN province_overview po
       ON po.province_id = pr.province_id AND po.key_hash = pr.key_hash
       AND po.land > 0 AND po.networth IS NOT NULL AND po.race IS NOT NULL
-      AND ${SAME_TICK_EXPR('pr.received_at', 'po.received_at')}
+      AND ${SAME_TICK_EXPR("pr.received_at", "po.received_at")}
     JOIN sos_intel si
       ON si.province_id = pr.province_id AND si.key_hash = pr.key_hash
-      AND ${SAME_TICK_EXPR('pr.received_at', 'si.received_at')}
+      AND ${SAME_TICK_EXPR("pr.received_at", "si.received_at")}
     JOIN survey_intel srv
       ON srv.province_id = pr.province_id AND srv.key_hash = pr.key_hash
-      AND ${SAME_TICK_EXPR('pr.received_at', 'srv.received_at')}
+      AND ${SAME_TICK_EXPR("pr.received_at", "srv.received_at")}
     JOIN province_troops pt
       ON pt.province_id = pr.province_id AND pt.key_hash = pr.key_hash
       AND pt.source IN ('sot', 'throne')
-      AND ${SAME_TICK_EXPR('pr.received_at', 'pt.received_at')}
+      AND ${SAME_TICK_EXPR("pr.received_at", "pt.received_at")}
     JOIN province_resources pr_sot
       ON pr_sot.province_id = pr.province_id AND pr_sot.key_hash = pr.key_hash
       AND pr_sot.source IN ('sot', 'throne')
-      AND ${SAME_TICK_EXPR('pr.received_at', 'pr_sot.received_at')}
+      AND ${SAME_TICK_EXPR("pr.received_at", "pr_sot.received_at")}
     WHERE pr.province_id = :province_id AND pr.key_hash = :key_hash AND pr.thieves IS NOT NULL
-      AND ${METRICS_CACHE_WINDOW_EXPR('pr')} AND ${METRICS_CACHE_WINDOW_EXPR('po')}
-      AND ${METRICS_CACHE_WINDOW_EXPR('si')} AND ${METRICS_CACHE_WINDOW_EXPR('srv')}
-      AND ${METRICS_CACHE_WINDOW_EXPR('pt')} AND ${METRICS_CACHE_WINDOW_EXPR('pr_sot')}
+      AND ${METRICS_CACHE_WINDOW_EXPR("pr")} AND ${METRICS_CACHE_WINDOW_EXPR("po")}
+      AND ${METRICS_CACHE_WINDOW_EXPR("si")} AND ${METRICS_CACHE_WINDOW_EXPR("srv")}
+      AND ${METRICS_CACHE_WINDOW_EXPR("pt")} AND ${METRICS_CACHE_WINDOW_EXPR("pr_sot")}
     ORDER BY pr.received_at DESC LIMIT 1
   `,
     )
@@ -890,146 +890,146 @@ export function initSchema(db: Database.Database) {
         )
         .get() as { n: number }
     ).n > 0;
-  if (!hasCol('survey_intel', 'thievery_effectiveness'))
-    db.exec('ALTER TABLE survey_intel ADD COLUMN thievery_effectiveness REAL');
-  if (!hasCol('survey_intel', 'thief_prevent_chance'))
-    db.exec('ALTER TABLE survey_intel ADD COLUMN thief_prevent_chance REAL');
-  if (!hasCol('survey_intel', 'castles_effect'))
-    db.exec('ALTER TABLE survey_intel ADD COLUMN castles_effect REAL');
-  if (!hasCol('province_overview', 'key_hash'))
-    db.exec('ALTER TABLE province_overview ADD COLUMN key_hash TEXT');
-  if (!hasCol('province_overview', 'ruler'))
-    db.exec('ALTER TABLE province_overview ADD COLUMN ruler TEXT');
-  if (!hasCol('total_military_points', 'key_hash'))
-    db.exec('ALTER TABLE total_military_points ADD COLUMN key_hash TEXT');
-  if (!hasCol('home_military_points', 'key_hash'))
-    db.exec('ALTER TABLE home_military_points ADD COLUMN key_hash TEXT');
-  if (!hasCol('province_troops', 'key_hash'))
-    db.exec('ALTER TABLE province_troops ADD COLUMN key_hash TEXT');
-  if (!hasCol('province_resources', 'key_hash'))
-    db.exec('ALTER TABLE province_resources ADD COLUMN key_hash TEXT');
-  if (!hasCol('province_status', 'key_hash'))
-    db.exec('ALTER TABLE province_status ADD COLUMN key_hash TEXT');
-  if (!hasCol('province_effects', 'key_hash'))
-    db.exec('ALTER TABLE province_effects ADD COLUMN key_hash TEXT');
-  if (!hasCol('military_intel', 'key_hash'))
-    db.exec('ALTER TABLE military_intel ADD COLUMN key_hash TEXT');
-  if (!hasCol('survey_intel', 'key_hash'))
-    db.exec('ALTER TABLE survey_intel ADD COLUMN key_hash TEXT');
-  if (!hasCol('sos_intel', 'key_hash'))
-    db.exec('ALTER TABLE sos_intel ADD COLUMN key_hash TEXT');
-  if (!hasCol('kingdom_intel', 'key_hash'))
-    db.exec('ALTER TABLE kingdom_intel ADD COLUMN key_hash TEXT');
-  if (!hasCol('province_effects', 'remaining_ticks'))
-    db.exec('ALTER TABLE province_effects ADD COLUMN remaining_ticks INTEGER');
-  if (!hasCol('province_effects', 'effectiveness_percent'))
+  if (!hasCol("survey_intel", "thievery_effectiveness"))
+    db.exec("ALTER TABLE survey_intel ADD COLUMN thievery_effectiveness REAL");
+  if (!hasCol("survey_intel", "thief_prevent_chance"))
+    db.exec("ALTER TABLE survey_intel ADD COLUMN thief_prevent_chance REAL");
+  if (!hasCol("survey_intel", "castles_effect"))
+    db.exec("ALTER TABLE survey_intel ADD COLUMN castles_effect REAL");
+  if (!hasCol("province_overview", "key_hash"))
+    db.exec("ALTER TABLE province_overview ADD COLUMN key_hash TEXT");
+  if (!hasCol("province_overview", "ruler"))
+    db.exec("ALTER TABLE province_overview ADD COLUMN ruler TEXT");
+  if (!hasCol("total_military_points", "key_hash"))
+    db.exec("ALTER TABLE total_military_points ADD COLUMN key_hash TEXT");
+  if (!hasCol("home_military_points", "key_hash"))
+    db.exec("ALTER TABLE home_military_points ADD COLUMN key_hash TEXT");
+  if (!hasCol("province_troops", "key_hash"))
+    db.exec("ALTER TABLE province_troops ADD COLUMN key_hash TEXT");
+  if (!hasCol("province_resources", "key_hash"))
+    db.exec("ALTER TABLE province_resources ADD COLUMN key_hash TEXT");
+  if (!hasCol("province_status", "key_hash"))
+    db.exec("ALTER TABLE province_status ADD COLUMN key_hash TEXT");
+  if (!hasCol("province_effects", "key_hash"))
+    db.exec("ALTER TABLE province_effects ADD COLUMN key_hash TEXT");
+  if (!hasCol("military_intel", "key_hash"))
+    db.exec("ALTER TABLE military_intel ADD COLUMN key_hash TEXT");
+  if (!hasCol("survey_intel", "key_hash"))
+    db.exec("ALTER TABLE survey_intel ADD COLUMN key_hash TEXT");
+  if (!hasCol("sos_intel", "key_hash"))
+    db.exec("ALTER TABLE sos_intel ADD COLUMN key_hash TEXT");
+  if (!hasCol("kingdom_intel", "key_hash"))
+    db.exec("ALTER TABLE kingdom_intel ADD COLUMN key_hash TEXT");
+  if (!hasCol("province_effects", "remaining_ticks"))
+    db.exec("ALTER TABLE province_effects ADD COLUMN remaining_ticks INTEGER");
+  if (!hasCol("province_effects", "effectiveness_percent"))
     db.exec(
-      'ALTER TABLE province_effects ADD COLUMN effectiveness_percent REAL',
+      "ALTER TABLE province_effects ADD COLUMN effectiveness_percent REAL",
     );
-  if (!hasCol('kingdom_intel', 'their_attitude_to_us'))
-    db.exec('ALTER TABLE kingdom_intel ADD COLUMN their_attitude_to_us TEXT');
-  if (!hasCol('kingdom_intel', 'kingdom_title'))
-    db.exec('ALTER TABLE kingdom_intel ADD COLUMN kingdom_title TEXT');
-  if (!hasCol('kingdom_intel', 'total_networth'))
-    db.exec('ALTER TABLE kingdom_intel ADD COLUMN total_networth INTEGER');
-  if (!hasCol('kingdom_intel', 'total_land'))
-    db.exec('ALTER TABLE kingdom_intel ADD COLUMN total_land INTEGER');
-  if (!hasCol('kingdom_intel', 'total_honor'))
-    db.exec('ALTER TABLE kingdom_intel ADD COLUMN total_honor INTEGER');
-  if (!hasCol('kingdom_intel', 'wars_won'))
-    db.exec('ALTER TABLE kingdom_intel ADD COLUMN wars_won INTEGER');
-  if (!hasCol('kingdom_intel', 'war_losses'))
-    db.exec('ALTER TABLE kingdom_intel ADD COLUMN war_losses INTEGER');
-  if (!hasCol('kingdom_intel', 'networth_rank'))
-    db.exec('ALTER TABLE kingdom_intel ADD COLUMN networth_rank INTEGER');
-  if (!hasCol('kingdom_intel', 'land_rank'))
-    db.exec('ALTER TABLE kingdom_intel ADD COLUMN land_rank INTEGER');
-  if (!hasCol('kingdom_intel', 'honor_rank'))
-    db.exec('ALTER TABLE kingdom_intel ADD COLUMN honor_rank INTEGER');
-  if (!hasCol('kingdom_intel', 'their_attitude_points'))
-    db.exec('ALTER TABLE kingdom_intel ADD COLUMN their_attitude_points REAL');
-  if (!hasCol('kingdom_intel', 'our_attitude_to_them'))
-    db.exec('ALTER TABLE kingdom_intel ADD COLUMN our_attitude_to_them TEXT');
-  if (!hasCol('kingdom_intel', 'our_attitude_points'))
-    db.exec('ALTER TABLE kingdom_intel ADD COLUMN our_attitude_points REAL');
-  if (!hasCol('kingdom_intel', 'hostility_meter_visible_until'))
+  if (!hasCol("kingdom_intel", "their_attitude_to_us"))
+    db.exec("ALTER TABLE kingdom_intel ADD COLUMN their_attitude_to_us TEXT");
+  if (!hasCol("kingdom_intel", "kingdom_title"))
+    db.exec("ALTER TABLE kingdom_intel ADD COLUMN kingdom_title TEXT");
+  if (!hasCol("kingdom_intel", "total_networth"))
+    db.exec("ALTER TABLE kingdom_intel ADD COLUMN total_networth INTEGER");
+  if (!hasCol("kingdom_intel", "total_land"))
+    db.exec("ALTER TABLE kingdom_intel ADD COLUMN total_land INTEGER");
+  if (!hasCol("kingdom_intel", "total_honor"))
+    db.exec("ALTER TABLE kingdom_intel ADD COLUMN total_honor INTEGER");
+  if (!hasCol("kingdom_intel", "wars_won"))
+    db.exec("ALTER TABLE kingdom_intel ADD COLUMN wars_won INTEGER");
+  if (!hasCol("kingdom_intel", "war_losses"))
+    db.exec("ALTER TABLE kingdom_intel ADD COLUMN war_losses INTEGER");
+  if (!hasCol("kingdom_intel", "networth_rank"))
+    db.exec("ALTER TABLE kingdom_intel ADD COLUMN networth_rank INTEGER");
+  if (!hasCol("kingdom_intel", "land_rank"))
+    db.exec("ALTER TABLE kingdom_intel ADD COLUMN land_rank INTEGER");
+  if (!hasCol("kingdom_intel", "honor_rank"))
+    db.exec("ALTER TABLE kingdom_intel ADD COLUMN honor_rank INTEGER");
+  if (!hasCol("kingdom_intel", "their_attitude_points"))
+    db.exec("ALTER TABLE kingdom_intel ADD COLUMN their_attitude_points REAL");
+  if (!hasCol("kingdom_intel", "our_attitude_to_them"))
+    db.exec("ALTER TABLE kingdom_intel ADD COLUMN our_attitude_to_them TEXT");
+  if (!hasCol("kingdom_intel", "our_attitude_points"))
+    db.exec("ALTER TABLE kingdom_intel ADD COLUMN our_attitude_points REAL");
+  if (!hasCol("kingdom_intel", "hostility_meter_visible_until"))
     db.exec(
-      'ALTER TABLE kingdom_intel ADD COLUMN hostility_meter_visible_until TEXT',
+      "ALTER TABLE kingdom_intel ADD COLUMN hostility_meter_visible_until TEXT",
     );
-  if (!hasCol('kingdom_intel', 'open_relations_json'))
-    db.exec('ALTER TABLE kingdom_intel ADD COLUMN open_relations_json TEXT');
-  if (!hasCol('kingdom_intel', 'war_doctrines_json'))
-    db.exec('ALTER TABLE kingdom_intel ADD COLUMN war_doctrines_json TEXT');
-  if (!hasCol('kingdom_provinces', 'slot'))
-    db.exec('ALTER TABLE kingdom_provinces ADD COLUMN slot INTEGER');
-  if (!hasCol('province_status', 'overpop_deserters'))
-    db.exec('ALTER TABLE province_status ADD COLUMN overpop_deserters INTEGER');
-  if (!hasCol('province_status', 'dragon_type'))
-    db.exec('ALTER TABLE province_status ADD COLUMN dragon_type TEXT');
-  if (!hasCol('province_status', 'dragon_name'))
-    db.exec('ALTER TABLE province_status ADD COLUMN dragon_name TEXT');
-  if (!hasCol('military_intel', 'source'))
+  if (!hasCol("kingdom_intel", "open_relations_json"))
+    db.exec("ALTER TABLE kingdom_intel ADD COLUMN open_relations_json TEXT");
+  if (!hasCol("kingdom_intel", "war_doctrines_json"))
+    db.exec("ALTER TABLE kingdom_intel ADD COLUMN war_doctrines_json TEXT");
+  if (!hasCol("kingdom_provinces", "slot"))
+    db.exec("ALTER TABLE kingdom_provinces ADD COLUMN slot INTEGER");
+  if (!hasCol("province_status", "overpop_deserters"))
+    db.exec("ALTER TABLE province_status ADD COLUMN overpop_deserters INTEGER");
+  if (!hasCol("province_status", "dragon_type"))
+    db.exec("ALTER TABLE province_status ADD COLUMN dragon_type TEXT");
+  if (!hasCol("province_status", "dragon_name"))
+    db.exec("ALTER TABLE province_status ADD COLUMN dragon_name TEXT");
+  if (!hasCol("military_intel", "source"))
     db.exec(
       "ALTER TABLE military_intel ADD COLUMN source TEXT NOT NULL DEFAULT 'som'",
     );
-  if (!hasCol('province_resources', 'total_pop'))
-    db.exec('ALTER TABLE province_resources ADD COLUMN total_pop INTEGER');
-  if (!hasCol('province_resources', 'max_pop'))
-    db.exec('ALTER TABLE province_resources ADD COLUMN max_pop INTEGER');
-  if (!hasCol('province_resources', 'free_specialist_credits'))
+  if (!hasCol("province_resources", "total_pop"))
+    db.exec("ALTER TABLE province_resources ADD COLUMN total_pop INTEGER");
+  if (!hasCol("province_resources", "max_pop"))
+    db.exec("ALTER TABLE province_resources ADD COLUMN max_pop INTEGER");
+  if (!hasCol("province_resources", "free_specialist_credits"))
     db.exec(
-      'ALTER TABLE province_resources ADD COLUMN free_specialist_credits INTEGER',
+      "ALTER TABLE province_resources ADD COLUMN free_specialist_credits INTEGER",
     );
-  if (!hasCol('province_resources', 'free_building_credits'))
+  if (!hasCol("province_resources", "free_building_credits"))
     db.exec(
-      'ALTER TABLE province_resources ADD COLUMN free_building_credits INTEGER',
+      "ALTER TABLE province_resources ADD COLUMN free_building_credits INTEGER",
     );
-  if (!hasCol('kingdom_news', 'game_date_ord')) {
-    db.exec('ALTER TABLE kingdom_news ADD COLUMN game_date_ord INTEGER');
+  if (!hasCol("kingdom_news", "game_date_ord")) {
+    db.exec("ALTER TABLE kingdom_news ADD COLUMN game_date_ord INTEGER");
     // Backfill ordinal for existing rows
     const allRows = db
-      .prepare('SELECT id, game_date FROM kingdom_news')
+      .prepare("SELECT id, game_date FROM kingdom_news")
       .all() as { id: number; game_date: string }[];
     const upd = db.prepare(
-      'UPDATE kingdom_news SET game_date_ord = ? WHERE id = ?',
+      "UPDATE kingdom_news SET game_date_ord = ? WHERE id = ?",
     );
     db.transaction(() => {
       for (const r of allRows) upd.run(parseUtopiaDate(r.game_date), r.id);
     })();
     db.exec(
-      'CREATE INDEX IF NOT EXISTS idx_kingdom_news_kd_ord ON kingdom_news(kingdom, game_date_ord DESC)',
+      "CREATE INDEX IF NOT EXISTS idx_kingdom_news_kd_ord ON kingdom_news(kingdom, game_date_ord DESC)",
     );
   }
-  if (!hasCol('rob_ops', 'troops_assassinated'))
-    db.exec('ALTER TABLE rob_ops ADD COLUMN troops_assassinated INTEGER');
-  if (!hasCol('rob_ops', 'kidnapped'))
-    db.exec('ALTER TABLE rob_ops ADD COLUMN kidnapped INTEGER');
-  if (!hasCol('rob_ops', 'acres_burned'))
-    db.exec('ALTER TABLE rob_ops ADD COLUMN acres_burned INTEGER');
-  if (!hasCol('rob_ops', 'effect_duration'))
-    db.exec('ALTER TABLE rob_ops ADD COLUMN effect_duration INTEGER');
-  if (!hasCol('intel_ops', 'thieves_lost'))
+  if (!hasCol("rob_ops", "troops_assassinated"))
+    db.exec("ALTER TABLE rob_ops ADD COLUMN troops_assassinated INTEGER");
+  if (!hasCol("rob_ops", "kidnapped"))
+    db.exec("ALTER TABLE rob_ops ADD COLUMN kidnapped INTEGER");
+  if (!hasCol("rob_ops", "acres_burned"))
+    db.exec("ALTER TABLE rob_ops ADD COLUMN acres_burned INTEGER");
+  if (!hasCol("rob_ops", "effect_duration"))
+    db.exec("ALTER TABLE rob_ops ADD COLUMN effect_duration INTEGER");
+  if (!hasCol("intel_ops", "thieves_lost"))
     db.exec(
-      'ALTER TABLE intel_ops ADD COLUMN thieves_lost INTEGER NOT NULL DEFAULT 0',
+      "ALTER TABLE intel_ops ADD COLUMN thieves_lost INTEGER NOT NULL DEFAULT 0",
     );
 
-  if (!hasCol('provinces', 'cached_rtpa')) {
-    db.exec('ALTER TABLE provinces ADD COLUMN cached_rtpa REAL');
-    db.exec('ALTER TABLE provinces ADD COLUMN cached_rtpa_age TEXT');
-    db.exec('ALTER TABLE provinces ADD COLUMN cached_mtpa REAL');
-    db.exec('ALTER TABLE provinces ADD COLUMN cached_mtpa_age TEXT');
-    db.exec('ALTER TABLE provinces ADD COLUMN cached_otpa REAL');
-    db.exec('ALTER TABLE provinces ADD COLUMN cached_otpa_age TEXT');
-    db.exec('ALTER TABLE provinces ADD COLUMN cached_dtpa REAL');
-    db.exec('ALTER TABLE provinces ADD COLUMN cached_dtpa_age TEXT');
-    db.exec('ALTER TABLE provinces ADD COLUMN cached_rwpa REAL');
-    db.exec('ALTER TABLE provinces ADD COLUMN cached_rwpa_age TEXT');
-    db.exec('ALTER TABLE provinces ADD COLUMN cached_mwpa REAL');
-    db.exec('ALTER TABLE provinces ADD COLUMN cached_mwpa_age TEXT');
+  if (!hasCol("provinces", "cached_rtpa")) {
+    db.exec("ALTER TABLE provinces ADD COLUMN cached_rtpa REAL");
+    db.exec("ALTER TABLE provinces ADD COLUMN cached_rtpa_age TEXT");
+    db.exec("ALTER TABLE provinces ADD COLUMN cached_mtpa REAL");
+    db.exec("ALTER TABLE provinces ADD COLUMN cached_mtpa_age TEXT");
+    db.exec("ALTER TABLE provinces ADD COLUMN cached_otpa REAL");
+    db.exec("ALTER TABLE provinces ADD COLUMN cached_otpa_age TEXT");
+    db.exec("ALTER TABLE provinces ADD COLUMN cached_dtpa REAL");
+    db.exec("ALTER TABLE provinces ADD COLUMN cached_dtpa_age TEXT");
+    db.exec("ALTER TABLE provinces ADD COLUMN cached_rwpa REAL");
+    db.exec("ALTER TABLE provinces ADD COLUMN cached_rwpa_age TEXT");
+    db.exec("ALTER TABLE provinces ADD COLUMN cached_mwpa REAL");
+    db.exec("ALTER TABLE provinces ADD COLUMN cached_mwpa_age TEXT");
     // Backfill cache from existing history
     const pairs = db
       .prepare(
-        'SELECT DISTINCT province_id, key_hash FROM intel_partitions WHERE key_hash IS NOT NULL',
+        "SELECT DISTINCT province_id, key_hash FROM intel_partitions WHERE key_hash IS NOT NULL",
       )
       .all() as Array<{ province_id: number; key_hash: string }>;
     db.transaction(() => {
@@ -1068,106 +1068,106 @@ export function initSchema(db: Database.Database) {
   };
 
   ensureUniqueSubmissionIndex(
-    'idx_overview_unique_submission',
-    'province_overview',
-    'province_id, key_hash, source, saved_by, received_at',
+    "idx_overview_unique_submission",
+    "province_overview",
+    "province_id, key_hash, source, saved_by, received_at",
   );
   ensureUniqueSubmissionIndex(
-    'idx_totmil_unique_submission',
-    'total_military_points',
-    'province_id, key_hash, source, saved_by, received_at',
+    "idx_totmil_unique_submission",
+    "total_military_points",
+    "province_id, key_hash, source, saved_by, received_at",
   );
   ensureUniqueSubmissionIndex(
-    'idx_homemil_unique_submission',
-    'home_military_points',
-    'province_id, key_hash, source, saved_by, received_at',
+    "idx_homemil_unique_submission",
+    "home_military_points",
+    "province_id, key_hash, source, saved_by, received_at",
   );
   ensureUniqueSubmissionIndex(
-    'idx_troops_unique_submission',
-    'province_troops',
-    'province_id, key_hash, source, saved_by, received_at',
+    "idx_troops_unique_submission",
+    "province_troops",
+    "province_id, key_hash, source, saved_by, received_at",
   );
   ensureUniqueSubmissionIndex(
-    'idx_resources_unique_submission',
-    'province_resources',
-    'province_id, key_hash, source, saved_by, received_at',
+    "idx_resources_unique_submission",
+    "province_resources",
+    "province_id, key_hash, source, saved_by, received_at",
   );
   ensureUniqueSubmissionIndex(
-    'idx_status_unique_submission',
-    'province_status',
-    'province_id, key_hash, source, saved_by, received_at',
+    "idx_status_unique_submission",
+    "province_status",
+    "province_id, key_hash, source, saved_by, received_at",
   );
   ensureUniqueSubmissionIndex(
-    'idx_effects_unique_submission',
-    'province_effects',
-    'province_id, key_hash, source, saved_by, received_at, effect_name, effect_kind',
+    "idx_effects_unique_submission",
+    "province_effects",
+    "province_id, key_hash, source, saved_by, received_at, effect_name, effect_kind",
   );
   ensureUniqueSubmissionIndex(
-    'idx_milintel_unique_submission',
-    'military_intel',
-    'province_id, key_hash, source, saved_by, received_at',
+    "idx_milintel_unique_submission",
+    "military_intel",
+    "province_id, key_hash, source, saved_by, received_at",
   );
   ensureUniqueSubmissionIndex(
-    'idx_survey_unique_submission',
-    'survey_intel',
-    'province_id, key_hash, source, saved_by, received_at',
+    "idx_survey_unique_submission",
+    "survey_intel",
+    "province_id, key_hash, source, saved_by, received_at",
   );
   ensureUniqueSubmissionIndex(
-    'idx_sos_unique_submission',
-    'sos_intel',
-    'province_id, key_hash, source, saved_by, received_at',
+    "idx_sos_unique_submission",
+    "sos_intel",
+    "province_id, key_hash, source, saved_by, received_at",
   );
   ensureUniqueSubmissionIndex(
-    'idx_kingdom_unique_submission',
-    'kingdom_intel',
-    'key_hash, location, source, saved_by, received_at',
+    "idx_kingdom_unique_submission",
+    "kingdom_intel",
+    "key_hash, location, source, saved_by, received_at",
   );
   ensureUniqueSubmissionIndex(
-    'idx_attack_ops_unique_submission',
-    'attack_ops',
-    'province_id, key_hash, received_at',
+    "idx_attack_ops_unique_submission",
+    "attack_ops",
+    "province_id, key_hash, received_at",
   );
   ensureUniqueSubmissionIndex(
-    'idx_rob_ops_unique_submission',
-    'rob_ops',
-    'province_id, key_hash, received_at',
+    "idx_rob_ops_unique_submission",
+    "rob_ops",
+    "province_id, key_hash, received_at",
   );
   ensureUniqueSubmissionIndex(
-    'idx_intel_ops_unique_submission',
-    'intel_ops',
-    'province_id, key_hash, received_at, op',
+    "idx_intel_ops_unique_submission",
+    "intel_ops",
+    "province_id, key_hash, received_at, op",
   );
   ensureUniqueSubmissionIndex(
-    'idx_sorcery_ops_unique_submission',
-    'sorcery_ops',
-    'province_id, key_hash, received_at',
+    "idx_sorcery_ops_unique_submission",
+    "sorcery_ops",
+    "province_id, key_hash, received_at",
   );
 
   // Performance indexes: key_hash-first compound indexes so per-shard queries
   // avoid full table scans on large history tables.
-  if (!hasIndex('idx_provinces_kingdom')) {
+  if (!hasIndex("idx_provinces_kingdom")) {
     db.exec(
-      'CREATE INDEX IF NOT EXISTS idx_provinces_kingdom ON provinces(kingdom)',
+      "CREATE INDEX IF NOT EXISTS idx_provinces_kingdom ON provinces(kingdom)",
     );
   }
-  if (!hasIndex('idx_overview_keyhash_prov_time')) {
+  if (!hasIndex("idx_overview_keyhash_prov_time")) {
     db.exec(
-      'CREATE INDEX IF NOT EXISTS idx_overview_keyhash_prov_time ON province_overview(key_hash, province_id, received_at DESC, id DESC)',
+      "CREATE INDEX IF NOT EXISTS idx_overview_keyhash_prov_time ON province_overview(key_hash, province_id, received_at DESC, id DESC)",
     );
   }
-  if (!hasIndex('idx_kingdom_intel_keyhash_loc')) {
+  if (!hasIndex("idx_kingdom_intel_keyhash_loc")) {
     db.exec(
-      'CREATE INDEX IF NOT EXISTS idx_kingdom_intel_keyhash_loc ON kingdom_intel(key_hash, location)',
+      "CREATE INDEX IF NOT EXISTS idx_kingdom_intel_keyhash_loc ON kingdom_intel(key_hash, location)",
     );
   }
-  if (!hasIndex('idx_kingdom_provinces_intel_slot')) {
+  if (!hasIndex("idx_kingdom_provinces_intel_slot")) {
     db.exec(
-      'CREATE INDEX IF NOT EXISTS idx_kingdom_provinces_intel_slot ON kingdom_provinces(kingdom_intel_id, slot)',
+      "CREATE INDEX IF NOT EXISTS idx_kingdom_provinces_intel_slot ON kingdom_provinces(kingdom_intel_id, slot)",
     );
   }
-  if (!hasIndex('idx_kingdom_provinces_intel_name')) {
+  if (!hasIndex("idx_kingdom_provinces_intel_name")) {
     db.exec(
-      'CREATE INDEX IF NOT EXISTS idx_kingdom_provinces_intel_name ON kingdom_provinces(kingdom_intel_id, name)',
+      "CREATE INDEX IF NOT EXISTS idx_kingdom_provinces_intel_name ON kingdom_provinces(kingdom_intel_id, name)",
     );
   }
 }
@@ -1236,10 +1236,10 @@ function ensureProvince(
     if (existing) return existing.id;
   }
   db.prepare(
-    'INSERT OR IGNORE INTO provinces (name, kingdom) VALUES (?, ?)',
+    "INSERT OR IGNORE INTO provinces (name, kingdom) VALUES (?, ?)",
   ).run(name, kingdom);
   const row = db
-    .prepare('SELECT id FROM provinces WHERE name = ? AND kingdom = ?')
+    .prepare("SELECT id FROM provinces WHERE name = ? AND kingdom = ?")
     .get(name, kingdom) as { id: number };
   return row.id;
 }
@@ -1250,7 +1250,7 @@ function recordSubmission(
   provinceId: number,
 ) {
   db.prepare(
-    'INSERT OR IGNORE INTO intel_partitions (key_hash, province_id) VALUES (?, ?)',
+    "INSERT OR IGNORE INTO intel_partitions (key_hash, province_id) VALUES (?, ?)",
   ).run(keyHash, provinceId);
 }
 
@@ -1261,7 +1261,7 @@ function bindKeyToKingdom(
   source: string,
 ) {
   const existing = db
-    .prepare('SELECT kingdom FROM key_kingdom_bindings WHERE key_hash = ?')
+    .prepare("SELECT kingdom FROM key_kingdom_bindings WHERE key_hash = ?")
     .get(keyHash) as { kingdom: string } | undefined;
 
   if (existing && existing.kingdom !== kingdom) {
@@ -1288,12 +1288,12 @@ export function storeSoT(
   receivedAt?: string,
 ) {
   const db = getDb();
-  const src = isSelfThrone ? 'throne' : 'sot';
+  const src = isSelfThrone ? "throne" : "sot";
   db.transaction(() => {
     const provId = ensureProvince(db, data.name, data.kingdom);
     recordSubmission(db, keyHash, provId);
     if (isSelfThrone && data.kingdom) {
-      bindKeyToKingdom(db, keyHash, data.kingdom, 'throne');
+      bindKeyToKingdom(db, keyHash, data.kingdom, "throne");
       db.prepare(
         `
         UPDATE kingdom_intel SET war_target = ?
@@ -1513,13 +1513,13 @@ export function storeSoM(
   receivedAt?: string,
 ) {
   const db = getDb();
-  const src = isSelf ? 'council_military' : 'som';
+  const src = isSelf ? "council_military" : "som";
   db.transaction(() => {
     const provId = ensureProvince(db, data.name, data.kingdom);
     recordSubmission(db, keyHash, provId);
 
     // Troops at home from SoM home army
-    const homeArmy = data.armies.find((a) => a.armyType === 'home');
+    const homeArmy = data.armies.find((a) => a.armyType === "home");
     if (homeArmy) {
       db.prepare(
         `
@@ -1661,7 +1661,7 @@ export function storeRob(
 ) {
   const db = getDb();
   db.transaction(() => {
-    const provId = ensureProvince(db, data.name, '');
+    const provId = ensureProvince(db, data.name, "");
     recordSubmission(db, keyHash, provId);
     const result = db
       .prepare(
@@ -1713,7 +1713,7 @@ export function storeIntelOp(
 ) {
   const db = getDb();
   db.transaction(() => {
-    const provId = ensureProvince(db, savedBy, '');
+    const provId = ensureProvince(db, savedBy, "");
     recordSubmission(db, keyHash, provId);
     const target = resolveIntelOpTarget(db, data, keyHash);
     db.prepare(
@@ -1795,7 +1795,7 @@ export function storeSorcery(
 ) {
   const db = getDb();
   db.transaction(() => {
-    const provId = ensureProvince(db, data.name, '');
+    const provId = ensureProvince(db, data.name, "");
     recordSubmission(db, keyHash, provId);
     const result = db
       .prepare(
@@ -1853,7 +1853,7 @@ export function storeAttack(
 ) {
   const db = getDb();
   db.transaction(() => {
-    const provId = ensureProvince(db, data.name, '');
+    const provId = ensureProvince(db, data.name, "");
     recordSubmission(db, keyHash, provId);
     db.prepare(
       `
@@ -1892,7 +1892,7 @@ export function storeSoS(
   receivedAt?: string,
 ) {
   const db = getDb();
-  const src = isSelf ? 'council_science' : 'sos';
+  const src = isSelf ? "council_science" : "sos";
   db.transaction(() => {
     const provId = ensureProvince(db, data.name, data.kingdom);
     recordSubmission(db, keyHash, provId);
@@ -1909,7 +1909,7 @@ export function storeSoS(
 
     const sosId = result.lastInsertRowid;
     const ins = db.prepare(
-      'INSERT INTO sos_sciences (sos_intel_id, science, books, effect) VALUES (?, ?, ?, ?)',
+      "INSERT INTO sos_sciences (sos_intel_id, science, books, effect) VALUES (?, ?, ?, ?)",
     );
     for (const s of data.sciences) {
       ins.run(sosId, s.science, s.books, s.effect);
@@ -1926,7 +1926,7 @@ export function storeSurvey(
   receivedAt?: string,
 ) {
   const db = getDb();
-  const src = isSelf ? 'council_internal' : 'survey';
+  const src = isSelf ? "council_internal" : "survey";
   db.transaction(() => {
     const provId = ensureProvince(db, data.name, data.kingdom);
     recordSubmission(db, keyHash, provId);
@@ -1953,7 +1953,7 @@ export function storeSurvey(
 
     const surveyId = result.lastInsertRowid;
     const ins = db.prepare(
-      'INSERT INTO survey_buildings (survey_intel_id, building, built, in_progress) VALUES (?, ?, ?, ?)',
+      "INSERT INTO survey_buildings (survey_intel_id, building, built, in_progress) VALUES (?, ?, ?, ?)",
     );
     for (const b of data.buildings) {
       ins.run(surveyId, b.building, b.built, b.inProgress);
@@ -2010,7 +2010,7 @@ export function storeKingdom(
 
     const kdId = result.lastInsertRowid;
     const ins = db.prepare(
-      'INSERT INTO kingdom_provinces (kingdom_intel_id, slot, name, race, land, networth, honor_title) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      "INSERT INTO kingdom_provinces (kingdom_intel_id, slot, name, race, land, networth, honor_title) VALUES (?, ?, ?, ?, ?, ?, ?)",
     );
 
     for (const p of data.provinces) {
@@ -2345,7 +2345,7 @@ function mergeArmyArrays(
     };
   });
   const nonOutArmies: ArmyRow[] = somArmies
-    .filter((a) => !a.type.startsWith('out_'))
+    .filter((a) => !a.type.startsWith("out_"))
     .map((a) => ({
       armyType: a.type,
       generals: a.generals,
@@ -2528,7 +2528,7 @@ function getKingdomProvincesForDb(
   const baseRows = db
     .prepare(
       `
-    WITH ${latestSlotCte('AND ki.location = @kingdom')}
+    WITH ${latestSlotCte("AND ki.location = @kingdom")}
     SELECT p.id, p.name, p.kingdom,
            (SELECT ls.slot FROM latest_slot ls WHERE ls.kingdom = p.kingdom AND ls.name = p.name) AS slot,
            ${OVERVIEW_RACE_SQL}, ${OVERVIEW_PERS_SQL}, ${OVERVIEW_HONOR_SQL}, po.land, po.networth, po.received_at AS overview_age, po.source AS overview_source,
@@ -2662,8 +2662,8 @@ function getKingdomProvincesForDb(
       !!row.home_mil_age &&
       (!row.military_age || row.home_mil_age > row.military_age);
     const homeMilitaryFromSoM =
-      row.home_mil_source === 'som' ||
-      row.home_mil_source === 'council_military';
+      row.home_mil_source === "som" ||
+      row.home_mil_source === "council_military";
     if (
       row.som_age &&
       allArmiesHome &&
@@ -2688,7 +2688,7 @@ function hydrateKingdomProvinceRows(
 ) {
   const byId = new Map(rows.map((row) => [row.id, row]));
   const ids = rows.map((row) => row.id);
-  const idList = ids.map(() => '?').join(', ');
+  const idList = ids.map(() => "?").join(", ");
   const params = () => [keyHash, ...ids];
 
   const totalMilitaryRows = db
@@ -2743,7 +2743,7 @@ function hydrateKingdomProvinceRows(
     .all(...params()) as any[];
   for (const source of troopRows) {
     const row = byId.get(source.province_id)!;
-    if (source.source_group === 'total') {
+    if (source.source_group === "total") {
       Object.assign(row, {
         soldiers: source.soldiers,
         off_specs: source.off_specs,
@@ -3038,7 +3038,7 @@ function hydrateKingdomProvinceRows(
     .all(...params()) as any[];
   for (const source of militaryRows) {
     const row = byId.get(source.province_id)!;
-    if (source.source_group === 'som') {
+    if (source.source_group === "som") {
       row.ome = source.ome;
       row.dme = source.dme;
       row.som_age = source.received_at;
@@ -3170,7 +3170,7 @@ function getProvinceDetailForDb(
 ): ProvinceDetail {
   const prov = db
     .prepare(
-      'SELECT id, name, kingdom FROM provinces WHERE name = ? AND kingdom = ?',
+      "SELECT id, name, kingdom FROM provinces WHERE name = ? AND kingdom = ?",
     )
     .get(name, kingdom) as
     | { id: number; name: string; kingdom: string }
@@ -3194,7 +3194,7 @@ function getProvinceDetailForDb(
   // Auth check
   const allowed = db
     .prepare(
-      'SELECT 1 FROM intel_partitions WHERE key_hash = ? AND province_id = ?',
+      "SELECT 1 FROM intel_partitions WHERE key_hash = ? AND province_id = ?",
     )
     .get(keyHash, prov.id);
   if (!allowed)
@@ -3216,7 +3216,7 @@ function getProvinceDetailForDb(
   const slotRow = db
     .prepare(
       `
-    WITH ${latestSlotCte('AND ki.location = @kingdom')}
+    WITH ${latestSlotCte("AND ki.location = @kingdom")}
     SELECT slot FROM latest_slot WHERE kingdom = @kingdom AND name = @name LIMIT 1
   `,
     )
@@ -3226,7 +3226,7 @@ function getProvinceDetailForDb(
 
   const tmRaw = db
     .prepare(
-      'SELECT off_points, def_points, source, received_at FROM total_military_points WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1',
+      "SELECT off_points, def_points, source, received_at FROM total_military_points WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1",
     )
     .get(id, keyHash) as
     | {
@@ -3238,7 +3238,7 @@ function getProvinceDetailForDb(
     | undefined;
   const hmRaw = db
     .prepare(
-      'SELECT mod_off_at_home, mod_def_at_home, source, received_at FROM home_military_points WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1',
+      "SELECT mod_off_at_home, mod_def_at_home, source, received_at FROM home_military_points WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1",
     )
     .get(id, keyHash) as
     | {
@@ -3291,7 +3291,7 @@ function getProvinceDetailForDb(
   const homeMilitaryNewer =
     !!hmRaw && (!tmRaw || hmRaw.received_at > tmRaw.received_at);
   const homeMilitaryFromSoM =
-    hmRaw?.source === 'som' || hmRaw?.source === 'council_military';
+    hmRaw?.source === "som" || hmRaw?.source === "council_military";
   const totalMilitary =
     homeMilitaryFromSoM &&
     homeMilitaryNewer &&
@@ -3337,26 +3337,26 @@ function getProvinceDetailForDb(
     .get(id, keyHash) as any;
   const totalPopRaw = db
     .prepare(
-      'SELECT total_pop, max_pop FROM province_resources WHERE province_id = ? AND key_hash = ? AND total_pop IS NOT NULL ORDER BY received_at DESC LIMIT 1',
+      "SELECT total_pop, max_pop FROM province_resources WHERE province_id = ? AND key_hash = ? AND total_pop IS NOT NULL ORDER BY received_at DESC LIMIT 1",
     )
     .get(id, keyHash) as
     | { total_pop: number; max_pop: number | null }
     | undefined;
   const thievesRaw = db
     .prepare(
-      'SELECT thieves, received_at FROM province_resources WHERE province_id = ? AND key_hash = ? AND thieves IS NOT NULL ORDER BY received_at DESC LIMIT 1',
+      "SELECT thieves, received_at FROM province_resources WHERE province_id = ? AND key_hash = ? AND thieves IS NOT NULL ORDER BY received_at DESC LIMIT 1",
     )
     .get(id, keyHash) as { thieves: number; received_at: string } | undefined;
   const creditsRaw = db
     .prepare(
-      'SELECT free_specialist_credits, received_at FROM province_resources WHERE province_id = ? AND key_hash = ? AND free_specialist_credits IS NOT NULL ORDER BY received_at DESC LIMIT 1',
+      "SELECT free_specialist_credits, received_at FROM province_resources WHERE province_id = ? AND key_hash = ? AND free_specialist_credits IS NOT NULL ORDER BY received_at DESC LIMIT 1",
     )
     .get(id, keyHash) as
     | { free_specialist_credits: number; received_at: string }
     | undefined;
   const buildCreditsRaw = db
     .prepare(
-      'SELECT free_building_credits, received_at FROM province_resources WHERE province_id = ? AND key_hash = ? AND free_building_credits IS NOT NULL ORDER BY received_at DESC LIMIT 1',
+      "SELECT free_building_credits, received_at FROM province_resources WHERE province_id = ? AND key_hash = ? AND free_building_credits IS NOT NULL ORDER BY received_at DESC LIMIT 1",
     )
     .get(id, keyHash) as
     | { free_building_credits: number; received_at: string }
@@ -3386,7 +3386,7 @@ function getProvinceDetailForDb(
 
   const statusRaw = db
     .prepare(
-      'SELECT plagued, overpopulated, overpop_deserters, dragon_type, dragon_name, hit_status, war, received_at FROM province_status WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1',
+      "SELECT plagued, overpopulated, overpop_deserters, dragon_type, dragon_name, hit_status, war, received_at FROM province_status WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1",
     )
     .get(id, keyHash) as any;
   const status = statusRaw
@@ -3443,14 +3443,14 @@ function getProvinceDetailForDb(
     const somRaw: any[] = miRaw
       ? db
           .prepare(
-            'SELECT army_type, generals, soldiers, off_specs, def_specs, elites, war_horses, thieves, land_gained, return_days FROM som_armies WHERE military_intel_id = ?',
+            "SELECT army_type, generals, soldiers, off_specs, def_specs, elites, war_horses, thieves, land_gained, return_days FROM som_armies WHERE military_intel_id = ?",
           )
           .all(miRaw.id)
       : [];
     const throneRaw: any[] = miThroneRaw
       ? db
           .prepare(
-            'SELECT army_type, land_gained, return_days FROM som_armies WHERE military_intel_id = ?',
+            "SELECT army_type, land_gained, return_days FROM som_armies WHERE military_intel_id = ?",
           )
           .all(miThroneRaw.id)
       : [];
@@ -3487,14 +3487,14 @@ function getProvinceDetailForDb(
 
   const surveyRaw = db
     .prepare(
-      'SELECT id, received_at FROM survey_intel WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1',
+      "SELECT id, received_at FROM survey_intel WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1",
     )
     .get(id, keyHash) as any;
   let survey = null;
   if (surveyRaw) {
     const buildings = db
       .prepare(
-        'SELECT building, built, in_progress FROM survey_buildings WHERE survey_intel_id = ? ORDER BY built DESC',
+        "SELECT building, built, in_progress FROM survey_buildings WHERE survey_intel_id = ? ORDER BY built DESC",
       )
       .all(surveyRaw.id) as any[];
     survey = {
@@ -3509,14 +3509,14 @@ function getProvinceDetailForDb(
 
   const sosRaw = db
     .prepare(
-      'SELECT id, received_at FROM sos_intel WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1',
+      "SELECT id, received_at FROM sos_intel WHERE province_id = ? AND key_hash = ? ORDER BY received_at DESC LIMIT 1",
     )
     .get(id, keyHash) as any;
   let sciences = null;
   if (sosRaw) {
     const sciRows = db
       .prepare(
-        'SELECT science, books, effect FROM sos_sciences WHERE sos_intel_id = ? ORDER BY books DESC',
+        "SELECT science, books, effect FROM sos_sciences WHERE sos_intel_id = ? ORDER BY books DESC",
       )
       .all(sosRaw.id) as any[];
     sciences = {
@@ -3647,7 +3647,7 @@ export function getLatestWarDate(
   return createDbApi(getDb()).getLatestWarDate(kingdom, keyHash);
 }
 
-const COMBAT_TYPES = COMBAT_EVENT_TYPES.map((t) => `'${t}'`).join(',');
+const COMBAT_TYPES = COMBAT_EVENT_TYPES.map((t) => `'${t}'`).join(",");
 
 export interface NewsProvinceSummary {
   provinceName: string | null;
@@ -3821,7 +3821,7 @@ export interface ProvinceHistoryAttack {
 export interface ProvinceHistoryThieveryOp {
   receivedAt: string;
   op: string;
-  outcome: 'success' | 'failure';
+  outcome: "success" | "failure";
   amountStolen: number | null;
   thievesLost: number;
   attackerName: string;
@@ -3835,7 +3835,7 @@ export interface ProvinceHistoryThieveryOp {
 export interface ProvinceHistorySorceryOp {
   receivedAt: string;
   spell: string;
-  outcome: 'success' | 'failure';
+  outcome: "success" | "failure";
   durationDays: number | null;
   wizardsLost: number;
   casterName: string;
@@ -3895,7 +3895,7 @@ export function createDbApi(db: Database.Database): DbApi {
   return {
     getBoundKingdom(keyHash) {
       const row = db
-        .prepare('SELECT kingdom FROM key_kingdom_bindings WHERE key_hash = ?')
+        .prepare("SELECT kingdom FROM key_kingdom_bindings WHERE key_hash = ?")
         .get(keyHash) as { kingdom: string } | undefined;
       return row?.kingdom ?? null;
     },
@@ -4085,7 +4085,7 @@ export function createDbApi(db: Database.Database): DbApi {
     },
 
     getRecentOps(keyHash, limit = 20, since) {
-      const sinceClause = since ? 'WHERE received_at > @since' : '';
+      const sinceClause = since ? "WHERE received_at > @since" : "";
       return db
         .prepare(
           `
@@ -4536,49 +4536,49 @@ export function createDbApi(db: Database.Database): DbApi {
       const defenderMap = new Map<string, DefenderEntry>();
 
       for (const r of combatRows) {
-        const ak = `${r.attacker_name ?? ''}\0${r.attacker_kingdom}`;
+        const ak = `${r.attacker_name ?? ""}\0${r.attacker_kingdom}`;
         const a =
           attackerMap.get(ak) ??
           newAttacker(r.attacker_name, r.attacker_kingdom);
         a.hits++;
-        if (r.event_type === 'march') {
+        if (r.event_type === "march") {
           a.marchHits++;
           a.marchAcres += r.acres ?? 0;
-        } else if (r.event_type === 'ambush') {
+        } else if (r.event_type === "ambush") {
           a.ambushHits++;
           a.ambushAcres += r.acres ?? 0;
-        } else if (r.event_type === 'raze') {
+        } else if (r.event_type === "raze") {
           a.razeHits++;
           a.razeAcres += r.acres ?? 0;
-        } else if (r.event_type === 'pillage') {
+        } else if (r.event_type === "pillage") {
           a.pillageHits++;
-        } else if (r.event_type === 'loot') {
+        } else if (r.event_type === "loot") {
           a.lootHits++;
           a.books += r.books ?? 0;
-        } else if (r.event_type === 'failed_attack') {
+        } else if (r.event_type === "failed_attack") {
           a.failedHits++;
         }
         attackerMap.set(ak, a);
 
-        const dk = `${r.defender_name ?? ''}\0${r.defender_kingdom}`;
+        const dk = `${r.defender_name ?? ""}\0${r.defender_kingdom}`;
         const d =
           defenderMap.get(dk) ??
           newDefender(r.defender_name, r.defender_kingdom);
         d.hits++;
-        if (r.event_type === 'march') {
+        if (r.event_type === "march") {
           d.marchHits++;
           d.marchAcres += r.acres ?? 0;
-        } else if (r.event_type === 'ambush') {
+        } else if (r.event_type === "ambush") {
           d.ambushHits++;
           d.ambushAcres += r.acres ?? 0;
-        } else if (r.event_type === 'raze') {
+        } else if (r.event_type === "raze") {
           d.razeHits++;
           d.razeAcres += r.acres ?? 0;
-        } else if (r.event_type === 'pillage') {
+        } else if (r.event_type === "pillage") {
           d.pillageHits++;
-        } else if (r.event_type === 'loot') {
+        } else if (r.event_type === "loot") {
           d.lootHits++;
-        } else if (r.event_type === 'failed_attack') {
+        } else if (r.event_type === "failed_attack") {
           d.failedHits++;
         }
         defenderMap.set(dk, d);
@@ -4616,7 +4616,7 @@ export function createDbApi(db: Database.Database): DbApi {
 
       const provMap = new Map<ProvKey, ProvEntry>();
       const provKey = (name: string | null, kd: string) =>
-        `${name ?? ''}\0${kd}`;
+        `${name ?? ""}\0${kd}`;
       const emptyProv = (name: string | null, kd: string): ProvEntry => ({
         kd,
         name,
@@ -4680,7 +4680,7 @@ export function createDbApi(db: Database.Database): DbApi {
       const kingdoms = [...new Set([...provMap.values()].map((p) => p.kd))];
       const slotMap = new Map<string, number | null>();
       if (kingdoms.length > 0) {
-        const placeholders = kingdoms.map(() => '?').join(',');
+        const placeholders = kingdoms.map(() => "?").join(",");
         const slotRows = db
           .prepare(
             `
@@ -4758,26 +4758,26 @@ export function createDbApi(db: Database.Database): DbApi {
             kingdom: kd,
             kingdomName: kdNames.get(kd) ?? null,
             provinces: provs,
-            totalHitsMade: sum('hitsMade'),
-            totalMarchMade: sum('marchMade'),
-            totalAmbushMade: sum('ambushMade'),
-            totalRazeMade: sum('razeMade'),
-            totalPlunderMade: sum('plunderMade'),
-            totalLootMade: sum('lootMade'),
-            totalFailedMade: sum('failedMade'),
-            totalMarchAcresGained: sum('marchAcresGained'),
-            totalAmbushAcresGained: sum('ambushAcresGained'),
-            totalRazeAcresDealt: sum('razeAcresDealt'),
-            totalHitsTaken: sum('hitsTaken'),
-            totalMarchTaken: sum('marchTaken'),
-            totalAmbushTaken: sum('ambushTaken'),
-            totalRazeTaken: sum('razeTaken'),
-            totalPlunderTaken: sum('plunderTaken'),
-            totalLootTaken: sum('lootTaken'),
-            totalFailedTaken: sum('failedTaken'),
-            totalMarchAcresLost: sum('marchAcresLost'),
-            totalAmbushAcresLost: sum('ambushAcresLost'),
-            totalRazeAcresLost: sum('razeAcresLost'),
+            totalHitsMade: sum("hitsMade"),
+            totalMarchMade: sum("marchMade"),
+            totalAmbushMade: sum("ambushMade"),
+            totalRazeMade: sum("razeMade"),
+            totalPlunderMade: sum("plunderMade"),
+            totalLootMade: sum("lootMade"),
+            totalFailedMade: sum("failedMade"),
+            totalMarchAcresGained: sum("marchAcresGained"),
+            totalAmbushAcresGained: sum("ambushAcresGained"),
+            totalRazeAcresDealt: sum("razeAcresDealt"),
+            totalHitsTaken: sum("hitsTaken"),
+            totalMarchTaken: sum("marchTaken"),
+            totalAmbushTaken: sum("ambushTaken"),
+            totalRazeTaken: sum("razeTaken"),
+            totalPlunderTaken: sum("plunderTaken"),
+            totalLootTaken: sum("lootTaken"),
+            totalFailedTaken: sum("failedTaken"),
+            totalMarchAcresLost: sum("marchAcresLost"),
+            totalAmbushAcresLost: sum("ambushAcresLost"),
+            totalRazeAcresLost: sum("razeAcresLost"),
           };
         },
       );
@@ -4820,13 +4820,13 @@ export function createDbApi(db: Database.Database): DbApi {
 
     getProvinceHistory(name, kingdom, keyHash) {
       const prov = db
-        .prepare('SELECT id FROM provinces WHERE name = ? AND kingdom = ?')
+        .prepare("SELECT id FROM provinces WHERE name = ? AND kingdom = ?")
         .get(name, kingdom) as { id: number } | undefined;
       if (!prov) return [];
 
       const allowed = db
         .prepare(
-          'SELECT 1 FROM intel_partitions WHERE key_hash = ? AND province_id = ?',
+          "SELECT 1 FROM intel_partitions WHERE key_hash = ? AND province_id = ?",
         )
         .get(keyHash, prov.id);
       if (!allowed) return [];
@@ -4903,22 +4903,22 @@ export function createDbApi(db: Database.Database): DbApi {
 
       const overviews = db
         .prepare(
-          'SELECT received_at, land, networth, source, saved_by FROM province_overview WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC',
+          "SELECT received_at, land, networth, source, saved_by FROM province_overview WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC",
         )
         .all(id, keyHash) as OverviewRaw[];
       const troops = db
         .prepare(
-          'SELECT received_at, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, saved_by FROM province_troops WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC',
+          "SELECT received_at, soldiers, off_specs, def_specs, elites, war_horses, peasants, source, saved_by FROM province_troops WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC",
         )
         .all(id, keyHash) as TroopsRaw[];
       const resources = db
         .prepare(
-          'SELECT received_at, money, food, runes, thieves, wizards, source, saved_by FROM province_resources WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC',
+          "SELECT received_at, money, food, runes, thieves, wizards, source, saved_by FROM province_resources WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC",
         )
         .all(id, keyHash) as ResourcesRaw[];
       const milPoints = db
         .prepare(
-          'SELECT received_at, off_points, def_points, source, saved_by FROM total_military_points WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC',
+          "SELECT received_at, off_points, def_points, source, saved_by FROM total_military_points WHERE province_id = ? AND key_hash = ? ORDER BY received_at ASC",
         )
         .all(id, keyHash) as MilPointsRaw[];
       const attacksTaken = db
@@ -4969,12 +4969,12 @@ export function createDbApi(db: Database.Database): DbApi {
       // Bucket all rows into 5-minute windows
       const BUCKET_MS = 5 * 60 * 1000;
       function bucketKey(isoStr: string): string {
-        const ms = new Date(isoStr.replace(' ', 'T') + 'Z').getTime();
+        const ms = new Date(isoStr.replace(" ", "T") + "Z").getTime();
         const bucketMs = Math.floor(ms / BUCKET_MS) * BUCKET_MS;
         return new Date(bucketMs)
           .toISOString()
-          .replace('T', ' ')
-          .replace('.000Z', '');
+          .replace("T", " ")
+          .replace(".000Z", "");
       }
 
       const buckets = new Map<string, ProvinceHistoryPoint>();
@@ -5022,72 +5022,72 @@ export function createDbApi(db: Database.Database): DbApi {
         const b = ensureBucket(bucketKey(row.received_at));
         if (row.land != null) {
           b.land = row.land;
-          mergeMetric(b, 'land', row.source, row.saved_by);
+          mergeMetric(b, "land", row.source, row.saved_by);
         }
         if (row.networth != null) {
           b.networth = row.networth;
-          mergeMetric(b, 'networth', row.source, row.saved_by);
+          mergeMetric(b, "networth", row.source, row.saved_by);
         }
       }
       for (const row of troops) {
         const b = ensureBucket(bucketKey(row.received_at));
         if (row.soldiers != null) {
           b.soldiers = row.soldiers;
-          mergeMetric(b, 'soldiers', row.source, row.saved_by);
+          mergeMetric(b, "soldiers", row.source, row.saved_by);
         }
         if (row.off_specs != null) {
           b.offSpecs = row.off_specs;
-          mergeMetric(b, 'offSpecs', row.source, row.saved_by);
+          mergeMetric(b, "offSpecs", row.source, row.saved_by);
         }
         if (row.def_specs != null) {
           b.defSpecs = row.def_specs;
-          mergeMetric(b, 'defSpecs', row.source, row.saved_by);
+          mergeMetric(b, "defSpecs", row.source, row.saved_by);
         }
         if (row.elites != null) {
           b.elites = row.elites;
-          mergeMetric(b, 'elites', row.source, row.saved_by);
+          mergeMetric(b, "elites", row.source, row.saved_by);
         }
         if (row.war_horses != null) {
           b.warHorses = row.war_horses;
-          mergeMetric(b, 'warHorses', row.source, row.saved_by);
+          mergeMetric(b, "warHorses", row.source, row.saved_by);
         }
         if (row.peasants != null) {
           b.peasants = row.peasants;
-          mergeMetric(b, 'peasants', row.source, row.saved_by);
+          mergeMetric(b, "peasants", row.source, row.saved_by);
         }
       }
       for (const row of resources) {
         const b = ensureBucket(bucketKey(row.received_at));
         if (row.money != null) {
           b.money = row.money;
-          mergeMetric(b, 'money', row.source, row.saved_by);
+          mergeMetric(b, "money", row.source, row.saved_by);
         }
         if (row.food != null) {
           b.food = row.food;
-          mergeMetric(b, 'food', row.source, row.saved_by);
+          mergeMetric(b, "food", row.source, row.saved_by);
         }
         if (row.runes != null) {
           b.runes = row.runes;
-          mergeMetric(b, 'runes', row.source, row.saved_by);
+          mergeMetric(b, "runes", row.source, row.saved_by);
         }
         if (row.thieves != null) {
           b.thieves = row.thieves;
-          mergeMetric(b, 'thieves', row.source, row.saved_by);
+          mergeMetric(b, "thieves", row.source, row.saved_by);
         }
         if (row.wizards != null) {
           b.wizards = row.wizards;
-          mergeMetric(b, 'wizards', row.source, row.saved_by);
+          mergeMetric(b, "wizards", row.source, row.saved_by);
         }
       }
       for (const row of milPoints) {
         const b = ensureBucket(bucketKey(row.received_at));
         if (row.off_points != null) {
           b.offPoints = row.off_points;
-          mergeMetric(b, 'offPoints', row.source, row.saved_by);
+          mergeMetric(b, "offPoints", row.source, row.saved_by);
         }
         if (row.def_points != null) {
           b.defPoints = row.def_points;
-          mergeMetric(b, 'defPoints', row.source, row.saved_by);
+          mergeMetric(b, "defPoints", row.source, row.saved_by);
         }
       }
       for (const row of attacksTaken) {
@@ -5108,7 +5108,7 @@ export function createDbApi(db: Database.Database): DbApi {
         b.thieveryOpsTaken.push({
           receivedAt: row.received_at,
           op: row.op,
-          outcome: row.outcome as 'success' | 'failure',
+          outcome: row.outcome as "success" | "failure",
           amountStolen: row.amount_stolen,
           thievesLost: row.thieves_lost,
           attackerName: row.attacker_name,
@@ -5124,7 +5124,7 @@ export function createDbApi(db: Database.Database): DbApi {
         b.sorceryOpsTaken.push({
           receivedAt: row.received_at,
           spell: row.spell,
-          outcome: row.outcome as 'success' | 'failure',
+          outcome: row.outcome as "success" | "failure",
           durationDays: row.duration_days,
           wizardsLost: row.wizards_lost,
           casterName: row.caster_name,

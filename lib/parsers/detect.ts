@@ -17,23 +17,32 @@ function normalizeGamePath(pathname: string): string {
 
 // Extracts kingdom location and province slot from a province_operations URL.
 // /wol/game/province_operations/<x>/<y>/<slot> → { kingdom: "<x>:<y>", slot: <slot> }
-export function extractProvinceOperationsInfo(url: string): { kingdom: string; slot: number } | null {
+export function extractProvinceOperationsInfo(
+  url: string,
+): { kingdom: string; slot: number } | null {
   try {
     const pathname = normalizeGamePath(new URL(url).pathname.toLowerCase());
-    const m = /^\/wol\/game\/province_operations\/(\d+)\/(\d+)\/(\d+)/.exec(pathname);
+    const m = /^\/wol\/game\/province_operations\/(\d+)\/(\d+)\/(\d+)/.exec(
+      pathname,
+    );
     return m ? { kingdom: `${m[1]}:${m[2]}`, slot: parseInt(m[3], 10) } : null;
   } catch {
     return null;
   }
 }
 
-export function matchesGamePath(pathname: string | null, page: string): boolean {
+export function matchesGamePath(
+  pathname: string | null,
+  page: string,
+): boolean {
   return !!pathname && normalizeGamePath(pathname) === `/wol/game/${page}`;
 }
 
 function isThieveryPathname(pathname: string): boolean {
   const p = normalizeGamePath(pathname);
-  return p === "/wol/game/thievery" || p.startsWith("/wol/game/province_operations/");
+  return (
+    p === "/wol/game/thievery" || p.startsWith("/wol/game/province_operations/")
+  );
 }
 
 function getUtopiaThieveryOp(url: string): string | null {
@@ -89,7 +98,11 @@ export function detectIntelType(url: string): IntelType | null {
 
   if (matchesGamePath(pathname, "spy_on_throne")) return "sot";
   if (matchesGamePath(pathname, "spy_on_military")) return "som";
-  if (matchesGamePath(pathname, "train_army") || matchesGamePath(pathname, "army_training")) return "train_army";
+  if (
+    matchesGamePath(pathname, "train_army") ||
+    matchesGamePath(pathname, "army_training")
+  )
+    return "train_army";
   if (matchesGamePath(pathname, "build")) return "build";
   if (matchesGamePath(pathname, "spy_on_sciences")) return "sos";
   if (matchesGamePath(pathname, "spy_on_defense")) return "sod";
@@ -99,17 +112,34 @@ export function detectIntelType(url: string): IntelType | null {
   if (matchesGamePath(pathname, "survey")) return "survey";
   // Sorcery ops use ?s= param; only route when a spell is specified.
   // Both /wol/game/sorcery and province_operations/<x>/<y>/<id> carry sorcery results.
-  if (matchesGamePath(pathname, "sorcery") || pathname.startsWith("/wol/game/province_operations/")) {
+  if (
+    matchesGamePath(pathname, "sorcery") ||
+    pathname.startsWith("/wol/game/province_operations/")
+  ) {
     try {
       if (new URL(url).searchParams.has("s")) return "sorcery";
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   if (matchesGamePath(pathname, "send_armies")) return "attack";
 
-  if (pathname === "/wol/game/kingdom" || pathname.startsWith("/wol/game/kingdom_details")) return "kingdom";
-  if (pathname === "/wol/game/kingdom_news" || pathname.startsWith("/wol/game/kingdom_news/")) return "kingdom_news";
-  if (pathname === "/wol/game/province_news" || pathname.startsWith("/wol/game/province_news/")) return "province_news";
+  if (
+    pathname === "/wol/game/kingdom" ||
+    pathname.startsWith("/wol/game/kingdom_details")
+  )
+    return "kingdom";
+  if (
+    pathname === "/wol/game/kingdom_news" ||
+    pathname.startsWith("/wol/game/kingdom_news/")
+  )
+    return "kingdom_news";
+  if (
+    pathname === "/wol/game/province_news" ||
+    pathname.startsWith("/wol/game/province_news/")
+  )
+    return "province_news";
 
   return null;
 }

@@ -21,7 +21,12 @@ export default async function KingdomPage({
   searchParams,
 }: {
   params: Promise<{ loc: string }>;
-  searchParams: Promise<{ view?: string; from?: string; to?: string; compare?: string }>;
+  searchParams: Promise<{
+    view?: string;
+    from?: string;
+    to?: string;
+    compare?: string;
+  }>;
 }) {
   const { loc } = await params;
   const { view, from, to, compare } = await searchParams;
@@ -34,47 +39,93 @@ export default async function KingdomPage({
   const key = (await cookies()).get("auth")?.value ?? "";
   const keyHash = hashKey(key);
   const db = getDbApi();
-  const [boundKingdom, provinces, snapshot, snapshotHistory, ritual, dragon] = await Promise.all([
-    db.getBoundKingdom(keyHash),
-    db.getKingdomProvinces(kingdom, keyHash),
-    db.getLatestKingdomSnapshot(kingdom, keyHash),
-    db.getKingdomSnapshotHistory(kingdom, keyHash),
-    db.getKingdomRitual(kingdom, keyHash),
-    db.getKingdomDragon(kingdom, keyHash),
-  ]);
-  const compareHistory = view === "history" && compareKingdom && compareKingdom !== kingdom
-    ? await db.getKingdomSnapshotHistory(compareKingdom, keyHash)
-    : [];
-  const initialRelationContexts = boundKingdom && kingdom === boundKingdom
-    ? await Promise.all(
-        (snapshot?.openRelations ?? []).map((relation) =>
-          db.getLatestKingdomSnapshot(relation.location, keyHash)
+  const [boundKingdom, provinces, snapshot, snapshotHistory, ritual, dragon] =
+    await Promise.all([
+      db.getBoundKingdom(keyHash),
+      db.getKingdomProvinces(kingdom, keyHash),
+      db.getLatestKingdomSnapshot(kingdom, keyHash),
+      db.getKingdomSnapshotHistory(kingdom, keyHash),
+      db.getKingdomRitual(kingdom, keyHash),
+      db.getKingdomDragon(kingdom, keyHash),
+    ]);
+  const compareHistory =
+    view === "history" && compareKingdom && compareKingdom !== kingdom
+      ? await db.getKingdomSnapshotHistory(compareKingdom, keyHash)
+      : [];
+  const initialRelationContexts =
+    boundKingdom && kingdom === boundKingdom
+      ? await Promise.all(
+          (snapshot?.openRelations ?? []).map((relation) =>
+            db.getLatestKingdomSnapshot(relation.location, keyHash),
+          ),
+        ).then((snaps) =>
+          snaps.map(toRelationContext).filter((ctx) => ctx !== null),
         )
-      ).then((snaps) => snaps.map(toRelationContext).filter((ctx) => ctx !== null))
-    : [];
+      : [];
   const hasAnyIntel = provinces.length > 0 || !!snapshot;
-  const gainsInitial = view === "gains" ? await getGainsPageData(kingdom, keyHash) : null;
-  const thieveryInitial = view === "thievery" ? await getGainsPageData(kingdom, keyHash) : null;
-  const newsResult = view === "news" ? await db.getKingdomNews(kingdom, keyHash, from, to) : null;
+  const gainsInitial =
+    view === "gains" ? await getGainsPageData(kingdom, keyHash) : null;
+  const thieveryInitial =
+    view === "thievery" ? await getGainsPageData(kingdom, keyHash) : null;
+  const newsResult =
+    view === "news"
+      ? await db.getKingdomNews(kingdom, keyHash, from, to)
+      : null;
   const newsEvents = newsResult?.events ?? null;
   const newsEffectiveFrom = newsResult?.effectiveFrom ?? null;
-  const newsSummary = view === "news" ? await db.getKingdomNewsSummary(kingdom, keyHash, from, to) : null;
-  const latestWarDate = view === "news" || view === "events" || view === "ops" ? await db.getLatestWarDate(kingdom, keyHash) : null;
-  const opsStats = view === "ops" ? await db.getKingdomOpsStats(kingdom, keyHash, from, to) : null;
-  const damageStats = view === "events" ? await db.getIncomingDamageStats(keyHash, from, to) : null;
+  const newsSummary =
+    view === "news"
+      ? await db.getKingdomNewsSummary(kingdom, keyHash, from, to)
+      : null;
+  const latestWarDate =
+    view === "news" || view === "events" || view === "ops"
+      ? await db.getLatestWarDate(kingdom, keyHash)
+      : null;
+  const opsStats =
+    view === "ops"
+      ? await db.getKingdomOpsStats(kingdom, keyHash, from, to)
+      : null;
+  const damageStats =
+    view === "events"
+      ? await db.getIncomingDamageStats(keyHash, from, to)
+      : null;
   let tabContent: ReactNode | null = null;
 
   if (view === "ops") {
     tabContent = (
-      <KingdomOpsTable stats={opsStats!} kingdom={kingdom} boundKingdom={boundKingdom} from={from} to={to} latestWarDate={latestWarDate ?? undefined} />
+      <KingdomOpsTable
+        stats={opsStats!}
+        kingdom={kingdom}
+        boundKingdom={boundKingdom}
+        from={from}
+        to={to}
+        latestWarDate={latestWarDate ?? undefined}
+      />
     );
   } else if (view === "events") {
     tabContent = (
-      <ProvinceEventsTable stats={damageStats!} kingdom={kingdom} boundKingdom={boundKingdom} from={from} to={to} latestWarDate={latestWarDate ?? undefined} />
+      <ProvinceEventsTable
+        stats={damageStats!}
+        kingdom={kingdom}
+        boundKingdom={boundKingdom}
+        from={from}
+        to={to}
+        latestWarDate={latestWarDate ?? undefined}
+      />
     );
   } else if (view === "news") {
     tabContent = (
-      <KingdomNewsTable events={newsEvents!} summary={newsSummary!} kingdom={kingdom} boundKingdom={boundKingdom} from={from} to={to} effectiveFrom={newsEffectiveFrom ?? undefined} latestWarDate={latestWarDate ?? undefined} warTarget={snapshot?.warTarget ?? undefined} />
+      <KingdomNewsTable
+        events={newsEvents!}
+        summary={newsSummary!}
+        kingdom={kingdom}
+        boundKingdom={boundKingdom}
+        from={from}
+        to={to}
+        effectiveFrom={newsEffectiveFrom ?? undefined}
+        latestWarDate={latestWarDate ?? undefined}
+        warTarget={snapshot?.warTarget ?? undefined}
+      />
     );
   } else if (view === "gains") {
     tabContent = <GainsTable initial={gainsInitial!} embedded />;
@@ -120,12 +171,16 @@ export default async function KingdomPage({
         </KingdomShellWrapper>
       ) : (
         <div className="rounded-lg border border-gray-800 bg-gray-900/50 px-5 py-6 text-sm text-gray-300">
-          <div className="font-medium text-gray-100">No intel available for {kingdom}</div>
+          <div className="font-medium text-gray-100">
+            No intel available for {kingdom}
+          </div>
           <div className="mt-2 text-gray-400">
-            This kingdom has not been loaded yet for your current intel key, or no accessible kingdom intel has been stored for it.
+            This kingdom has not been loaded yet for your current intel key, or
+            no accessible kingdom intel has been stored for it.
           </div>
           <div className="mt-2 text-gray-500">
-            Open the kingdom page in Utopia to submit fresh intel, then reload this page.
+            Open the kingdom page in Utopia to submit fresh intel, then reload
+            this page.
           </div>
           <div className="mt-5">
             <IntelSetupCard

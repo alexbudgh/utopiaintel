@@ -1,5 +1,10 @@
 export const COMBAT_EVENT_TYPES = [
-  "march", "ambush", "raze", "pillage", "loot", "failed_attack",
+  "march",
+  "ambush",
+  "raze",
+  "pillage",
+  "loot",
+  "failed_attack",
 ] as const;
 
 export const BAD_SPELL_NAMES = [

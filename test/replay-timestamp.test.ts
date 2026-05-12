@@ -5,12 +5,15 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 test("replayEntry inserts original received_at directly", async () => {
-  const dir = await mkdtemp(path.join(tmpdir(), "utopiaintel-replay-timestamp-"));
+  const dir = await mkdtemp(
+    path.join(tmpdir(), "utopiaintel-replay-timestamp-"),
+  );
   process.env.INTEL_DB_PATH = path.join(dir, "intel.db");
   process.env.DB_DRIVER = "sqlite";
 
   try {
-    const { replayEntry, normalizeReceivedAt } = await import("../lib/replay-debug-log");
+    const { replayEntry, normalizeReceivedAt } =
+      await import("../lib/replay-debug-log");
     const { getDb, flushMetricsCacheRefreshQueue } = await import("../lib/db");
 
     const receivedAt = "2026-05-03T03:57:27.581Z";
@@ -36,8 +39,14 @@ test("replayEntry inserts original received_at directly", async () => {
 
     assert.equal(type, "state");
     const db = getDb();
-    for (const table of ["province_overview", "province_resources", "province_troops"]) {
-      const row = db.prepare(`SELECT received_at FROM ${table}`).get() as { received_at: string };
+    for (const table of [
+      "province_overview",
+      "province_resources",
+      "province_troops",
+    ]) {
+      const row = db.prepare(`SELECT received_at FROM ${table}`).get() as {
+        received_at: string;
+      };
       assert.equal(row.received_at, expected, table);
     }
     await flushMetricsCacheRefreshQueue();

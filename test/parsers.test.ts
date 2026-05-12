@@ -316,116 +316,167 @@ function throneTextWithRuler(ruler: string): string {
 }
 
 test("detectIntelType — /throne detected as sot", () => {
-  assert.equal(detectIntelType("https://utopia-game.com/wol/game/throne"), "sot");
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/throne"),
+    "sot",
+  );
 });
 
 test("detectIntelType — thievery query op URLs detected", () => {
   assert.equal(
-    detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=SPY_ON_THRONE&q=402&c=1241"),
+    detectIntelType(
+      "https://utopia-game.com/wol/game/thievery?p=1842&o=SPY_ON_THRONE&q=402&c=1241",
+    ),
     "sot",
   );
   assert.equal(
-    detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=SPY_ON_DEFENSE&q=402&c=4157"),
+    detectIntelType(
+      "https://utopia-game.com/wol/game/thievery?p=1842&o=SPY_ON_DEFENSE&q=402&c=4157",
+    ),
     "sod",
   );
   assert.equal(
-    detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=SPY_ON_MILITARY&q=387&c=5692"),
+    detectIntelType(
+      "https://utopia-game.com/wol/game/thievery?p=1842&o=SPY_ON_MILITARY&q=387&c=5692",
+    ),
     "som",
   );
   assert.equal(
-    detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=SPY_ON_SCIENCES&q=387&c=9534"),
+    detectIntelType(
+      "https://utopia-game.com/wol/game/thievery?p=1842&o=SPY_ON_SCIENCES&q=387&c=9534",
+    ),
     "sos",
   );
   assert.equal(
-    detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=SURVEY&q=387&c=7894"),
+    detectIntelType(
+      "https://utopia-game.com/wol/game/thievery?p=1842&o=SURVEY&q=387&c=7894",
+    ),
     "survey",
   );
   assert.equal(
-    detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=INFILTRATE&q=387&c=6471"),
+    detectIntelType(
+      "https://utopia-game.com/wol/game/thievery?p=1842&o=INFILTRATE&q=387&c=6471",
+    ),
     "infiltrate",
   );
 });
 
 test("detectIntelType — thievery query op detection is case-insensitive", () => {
   assert.equal(
-    detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=spy_on_throne&q=402&c=1241"),
+    detectIntelType(
+      "https://utopia-game.com/wol/game/thievery?p=1842&o=spy_on_throne&q=402&c=1241",
+    ),
     "sot",
   );
   assert.equal(
-    detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=survey&q=387&c=7894"),
+    detectIntelType(
+      "https://utopia-game.com/wol/game/thievery?p=1842&o=survey&q=387&c=7894",
+    ),
     "survey",
   );
   assert.equal(
-    detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=infiltrate&q=387&c=6471"),
+    detectIntelType(
+      "https://utopia-game.com/wol/game/thievery?p=1842&o=infiltrate&q=387&c=6471",
+    ),
     "infiltrate",
   );
 });
 
 test("detectIntelType — province_operations URLs route to same ops as thievery", () => {
   assert.equal(
-    detectIntelType("https://utopia-game.com/wol/game/province_operations/3/9/16?p=808&o=SPY_ON_DEFENSE&q=72&c=8407"),
+    detectIntelType(
+      "https://utopia-game.com/wol/game/province_operations/3/9/16?p=808&o=SPY_ON_DEFENSE&q=72&c=8407",
+    ),
     "sod",
   );
   assert.equal(
-    detectIntelType("https://utopia-game.com/wol/game/province_operations/3/9/16?p=808&o=SPY_ON_THRONE&q=72&c=8407"),
+    detectIntelType(
+      "https://utopia-game.com/wol/game/province_operations/3/9/16?p=808&o=SPY_ON_THRONE&q=72&c=8407",
+    ),
     "sot",
   );
   assert.equal(
-    detectIntelType("https://utopia-game.com/wol/game/province_operations/3/9/16?p=808&o=SPY_ON_MILITARY&q=72&c=8407"),
+    detectIntelType(
+      "https://utopia-game.com/wol/game/province_operations/3/9/16?p=808&o=SPY_ON_MILITARY&q=72&c=8407",
+    ),
     "som",
   );
   assert.equal(
-    detectIntelType("https://utopia-game.com/wol/game/province_operations/3/9/16?p=808&o=SPY_ON_SCIENCES&q=72&c=8407"),
+    detectIntelType(
+      "https://utopia-game.com/wol/game/province_operations/3/9/16?p=808&o=SPY_ON_SCIENCES&q=72&c=8407",
+    ),
     "sos",
   );
   assert.equal(
-    detectIntelType("https://utopia-game.com/wol/game/province_operations/3/9/16?p=808&o=SURVEY&q=72&c=8407"),
+    detectIntelType(
+      "https://utopia-game.com/wol/game/province_operations/3/9/16?p=808&o=SURVEY&q=72&c=8407",
+    ),
     "survey",
   );
   assert.equal(
-    detectIntelType("https://utopia-game.com/wol/game/province_operations/3/9/16?p=808&o=INFILTRATE&q=72&c=8407"),
+    detectIntelType(
+      "https://utopia-game.com/wol/game/province_operations/3/9/16?p=808&o=INFILTRATE&q=72&c=8407",
+    ),
     "infiltrate",
   );
   assert.equal(
-    detectIntelType("https://utopia-game.com/wol/game/province_operations/5/8/21?p=1157&o=SNATCH_NEWS&q=75&c=3146"),
+    detectIntelType(
+      "https://utopia-game.com/wol/game/province_operations/5/8/21?p=1157&o=SNATCH_NEWS&q=75&c=3146",
+    ),
     "kingdom_news",
   );
   assert.equal(
-    detectIntelType("https://utopia-game.com/wol/game/province_operations/3/9/16?p=808&o=ROB_THE_VAULTS&q=72&c=8407"),
+    detectIntelType(
+      "https://utopia-game.com/wol/game/province_operations/3/9/16?p=808&o=ROB_THE_VAULTS&q=72&c=8407",
+    ),
     "rob",
   );
   assert.equal(
-    detectIntelType("https://utopia-game.com/wol/sit/game/province_operations/3/9/16?p=808&o=SPY_ON_DEFENSE&q=72&c=8407"),
+    detectIntelType(
+      "https://utopia-game.com/wol/sit/game/province_operations/3/9/16?p=808&o=SPY_ON_DEFENSE&q=72&c=8407",
+    ),
     "sod",
     "sitter province_operations should also be detected",
   );
   assert.equal(
-    detectIntelType("https://utopia-game.com/wol/sit/game/province_operations/3/9/16?p=808&o=SNATCH_NEWS&q=72&c=8407"),
+    detectIntelType(
+      "https://utopia-game.com/wol/sit/game/province_operations/3/9/16?p=808&o=SNATCH_NEWS&q=72&c=8407",
+    ),
     "kingdom_news",
     "sitter province_operations SNATCH_NEWS should be detected",
   );
   assert.equal(
-    detectIntelType("https://utopia-game.com/wol/game/province_operations/5/8/21?p=1157&s=CRYSTAL_EYE&c=436"),
+    detectIntelType(
+      "https://utopia-game.com/wol/game/province_operations/5/8/21?p=1157&s=CRYSTAL_EYE&c=436",
+    ),
     "sorcery",
     "province_operations Crystal Eye should still be detected as sorcery",
   );
   assert.equal(
-    detectIntelType("https://utopia-game.com/wol/game/sorcery?p=1210&s=CRYSTAL_EYE&c=2085"),
+    detectIntelType(
+      "https://utopia-game.com/wol/game/sorcery?p=1210&s=CRYSTAL_EYE&c=2085",
+    ),
     "sorcery",
     "sorcery Crystal Eye should still be detected as sorcery",
   );
   assert.equal(
-    detectIntelType("https://utopia-game.com/wol/sit/game/province_operations/4/4/13?p=1446&s=CRYSTAL_BALL&c=829"),
+    detectIntelType(
+      "https://utopia-game.com/wol/sit/game/province_operations/4/4/13?p=1446&s=CRYSTAL_BALL&c=829",
+    ),
     "sorcery",
     "sitter province_operations Crystal Ball should still be detected as sorcery",
   );
   assert.equal(
-    detectIntelType("https://utopia-game.com/wol/game/sorcery?p=528&s=CRYSTAL_BALL&c=2543"),
+    detectIntelType(
+      "https://utopia-game.com/wol/game/sorcery?p=528&s=CRYSTAL_BALL&c=2543",
+    ),
     "sorcery",
     "sorcery Crystal Ball should still be detected as sorcery",
   );
   assert.equal(
-    detectIntelType("https://utopia-game.com/wol/game/province_operations/5/8/21"),
+    detectIntelType(
+      "https://utopia-game.com/wol/game/province_operations/5/8/21",
+    ),
     null,
     "province_operations with no op param should return null",
   );
@@ -433,31 +484,43 @@ test("detectIntelType — province_operations URLs route to same ops as thievery
 
 test("detectIntelType — SNATCH_NEWS detected as kingdom_news", () => {
   assert.equal(
-    detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=SNATCH_NEWS&q=387&c=4517"),
+    detectIntelType(
+      "https://utopia-game.com/wol/game/thievery?p=1842&o=SNATCH_NEWS&q=387&c=4517",
+    ),
     "kingdom_news",
   );
 });
 
 test("extractProvinceOperationsInfo — extracts kingdom and slot", () => {
-  const r = extractProvinceOperationsInfo("https://utopia-game.com/wol/game/province_operations/5/8/21?p=1157&o=SNATCH_NEWS");
+  const r = extractProvinceOperationsInfo(
+    "https://utopia-game.com/wol/game/province_operations/5/8/21?p=1157&o=SNATCH_NEWS",
+  );
   assert.ok(r);
   assert.equal(r.kingdom, "5:8");
   assert.equal(r.slot, 21);
 });
 
 test("extractProvinceOperationsInfo — works for sitter URLs", () => {
-  const r = extractProvinceOperationsInfo("https://utopia-game.com/wol/sit/game/province_operations/3/9/16?o=SPY_ON_THRONE");
+  const r = extractProvinceOperationsInfo(
+    "https://utopia-game.com/wol/sit/game/province_operations/3/9/16?o=SPY_ON_THRONE",
+  );
   assert.ok(r);
   assert.equal(r.kingdom, "3:9");
   assert.equal(r.slot, 16);
 });
 
 test("extractProvinceOperationsInfo — returns null for non-province_operations URLs", () => {
-  assert.equal(extractProvinceOperationsInfo("https://utopia-game.com/wol/game/thievery?o=SNATCH_NEWS"), null);
+  assert.equal(
+    extractProvinceOperationsInfo(
+      "https://utopia-game.com/wol/game/thievery?o=SNATCH_NEWS",
+    ),
+    null,
+  );
 });
 
 test("buildIntelOpAttempt — records successful thievery intel attempts", () => {
-  const url = "https://utopia-game.com/wol/game/province_operations/7/5/4?p=1&o=SPY_ON_THRONE&q=2&c=3";
+  const url =
+    "https://utopia-game.com/wol/game/province_operations/7/5/4?p=1&o=SPY_ON_THRONE&q=2&c=3";
   const parsed = parseIntel(url, SOT_TEXT, "SavedBy");
   const attempt = buildIntelOpAttempt(url, SOT_TEXT, parsed);
   assert.deepEqual(attempt, {
@@ -473,7 +536,8 @@ test("buildIntelOpAttempt — records successful thievery intel attempts", () =>
 });
 
 test("buildIntelOpAttempt — records failed thievery intel attempts from URL target", () => {
-  const url = "https://utopia-game.com/wol/game/province_operations/7/5/4?p=1&o=SPY_ON_THRONE&q=2&c=3";
+  const url =
+    "https://utopia-game.com/wol/game/province_operations/7/5/4?p=1&o=SPY_ON_THRONE&q=2&c=3";
   const attempt = buildIntelOpAttempt(
     url,
     [
@@ -497,8 +561,13 @@ test("buildIntelOpAttempt — records failed thievery intel attempts from URL ta
 });
 
 test("buildIntelOpAttempt — falls back to province_operations URL target when form target is absent", () => {
-  const url = "https://utopia-game.com/wol/game/province_operations/7/5/4?p=1&o=SPY_ON_THRONE&q=2&c=3";
-  const attempt = buildIntelOpAttempt(url, "Sources have indicated the mission was foiled.", null);
+  const url =
+    "https://utopia-game.com/wol/game/province_operations/7/5/4?p=1&o=SPY_ON_THRONE&q=2&c=3";
+  const attempt = buildIntelOpAttempt(
+    url,
+    "Sources have indicated the mission was foiled.",
+    null,
+  );
   assert.deepEqual(attempt, {
     op: "SPY_ON_THRONE",
     intelType: "sot",
@@ -513,11 +582,19 @@ test("buildIntelOpAttempt — falls back to province_operations URL target when 
 
 test("buildIntelOpAttempt — does not duplicate sorcery intel spells", () => {
   assert.equal(
-    buildIntelOpAttempt("https://utopia-game.com/wol/game/sorcery?p=1&s=CRYSTAL_BALL&c=2", "Your wizards gather 100 runes and begin casting, but the spell fails.", null),
+    buildIntelOpAttempt(
+      "https://utopia-game.com/wol/game/sorcery?p=1&s=CRYSTAL_BALL&c=2",
+      "Your wizards gather 100 runes and begin casting, but the spell fails.",
+      null,
+    ),
     null,
   );
   assert.equal(
-    buildIntelOpAttempt("https://utopia-game.com/wol/game/sorcery?p=1&s=CRYSTAL_EYE&c=2", "Your wizards gather 100 runes and begin casting, but the spell fails.", null),
+    buildIntelOpAttempt(
+      "https://utopia-game.com/wol/game/sorcery?p=1&s=CRYSTAL_EYE&c=2",
+      "Your wizards gather 100 runes and begin casting, but the spell fails.",
+      null,
+    ),
     null,
   );
 });
@@ -530,7 +607,10 @@ test("detectIntelType — build page detected as build", () => {
 });
 
 test("parseIntel — dispatches SoT URLs to parseSoT", () => {
-  const result = parseIntel("https://utopia-game.com/wol/game/throne", THRONE_TEXT);
+  const result = parseIntel(
+    "https://utopia-game.com/wol/game/throne",
+    THRONE_TEXT,
+  );
   assert.ok(result);
   assert.equal(result.type, "sot");
   assert.equal(result.data.name, "TestProv");
@@ -559,7 +639,11 @@ test("parseIntel — thievery Survey requires a completed operation result", () 
 });
 
 test("parseIntel — self fallback is limited to matching council pages", () => {
-  const military = parseIntel("https://utopia-game.com/wol/game/council_military", COUNCIL_MILITARY_TEXT, "SelfProv");
+  const military = parseIntel(
+    "https://utopia-game.com/wol/game/council_military",
+    COUNCIL_MILITARY_TEXT,
+    "SelfProv",
+  );
   assert.ok(military);
   assert.equal(military.type, "som");
   assert.equal(military.data.name, "SelfProv");
@@ -573,7 +657,11 @@ test("parseIntel — self fallback is limited to matching council pages", () => 
     null,
   );
 
-  const science = parseIntel("https://utopia-game.com/wol/game/council_science", COUNCIL_SCIENCE_TEXT, "SelfProv");
+  const science = parseIntel(
+    "https://utopia-game.com/wol/game/council_science",
+    COUNCIL_SCIENCE_TEXT,
+    "SelfProv",
+  );
   assert.ok(science);
   assert.equal(science.type, "sos");
   assert.equal(science.data.name, "SelfProv");
@@ -594,9 +682,16 @@ Current Land\t1,234 acres
 Peasants\t7,890
 `;
 
-  assert.equal(parseIntel("https://utopia-game.com/wol/game/council_state", stateText), null);
+  assert.equal(
+    parseIntel("https://utopia-game.com/wol/game/council_state", stateText),
+    null,
+  );
 
-  const result = parseIntel("https://utopia-game.com/wol/game/council_state", stateText, "TestProv");
+  const result = parseIntel(
+    "https://utopia-game.com/wol/game/council_state",
+    stateText,
+    "TestProv",
+  );
   assert.ok(result);
   assert.equal(result.type, "state");
   assert.equal(result.data.name, "TestProv");
@@ -606,9 +701,16 @@ Peasants\t7,890
 test("parseIntel — build intel requires selfProv", () => {
   const buildText = `Free Building Credits\t56`;
 
-  assert.equal(parseIntel("https://utopia-game.com/wol/game/build", buildText), null);
+  assert.equal(
+    parseIntel("https://utopia-game.com/wol/game/build", buildText),
+    null,
+  );
 
-  const result = parseIntel("https://utopia-game.com/wol/game/build", buildText, "TestProv");
+  const result = parseIntel(
+    "https://utopia-game.com/wol/game/build",
+    buildText,
+    "TestProv",
+  );
   assert.ok(result);
   assert.equal(result.type, "build");
   assert.equal(result.data.name, "TestProv");
@@ -633,18 +735,29 @@ test("detectIntelType — unsupported thievery ops return null", () => {
   );
   // Real but not-yet-implemented op
   assert.equal(
-    detectIntelType("https://utopia-game.com/wol/game/thievery?p=1842&o=SPY_ON_EXPLORATION&q=387&c=236"),
+    detectIntelType(
+      "https://utopia-game.com/wol/game/thievery?p=1842&o=SPY_ON_EXPLORATION&q=387&c=236",
+    ),
     null,
   );
 });
 
 test("detectIntelType — kingdom_details with coordinates detected as kingdom", () => {
-  assert.equal(detectIntelType("https://utopia-game.com/wol/game/kingdom_details/2/8"), "kingdom");
-  assert.equal(detectIntelType("https://utopia-game.com/wol/game/kingdom_details/1/11"), "kingdom");
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/kingdom_details/2/8"),
+    "kingdom",
+  );
+  assert.equal(
+    detectIntelType("https://utopia-game.com/wol/game/kingdom_details/1/11"),
+    "kingdom",
+  );
 });
 
 test("getIntelPathname — extracts lowercased pathname", () => {
-  assert.equal(getIntelPathname("https://utopia-game.com/WOL/GAME/THRONE?foo=1"), "/wol/game/throne");
+  assert.equal(
+    getIntelPathname("https://utopia-game.com/WOL/GAME/THRONE?foo=1"),
+    "/wol/game/throne",
+  );
 });
 
 test("getIntelPathname — invalid URL returns null", () => {
@@ -656,10 +769,22 @@ test("matchesGamePath — recognizes normal and sitter self pages", () => {
   assert.equal(matchesGamePath("/wol/sit/game/throne", "throne"), true);
   assert.equal(matchesGamePath("/wol/game/spy_on_throne", "throne"), false);
   assert.equal(matchesGamePath(null, "throne"), false);
-  assert.equal(matchesGamePath("/wol/game/council_military", "council_military"), true);
-  assert.equal(matchesGamePath("/wol/sit/game/council_military", "council_military"), true);
-  assert.equal(matchesGamePath("/wol/game/spy_on_military", "council_military"), false);
-  assert.equal(matchesGamePath("/wol/game/thievery", "council_military"), false);
+  assert.equal(
+    matchesGamePath("/wol/game/council_military", "council_military"),
+    true,
+  );
+  assert.equal(
+    matchesGamePath("/wol/sit/game/council_military", "council_military"),
+    true,
+  );
+  assert.equal(
+    matchesGamePath("/wol/game/spy_on_military", "council_military"),
+    false,
+  );
+  assert.equal(
+    matchesGamePath("/wol/game/thievery", "council_military"),
+    false,
+  );
 });
 
 test("parseSoT — war: false and warTarget: null when not at war", () => {
@@ -691,17 +816,29 @@ test("parseSoT — throne page (self-intel)", () => {
   assert.equal(r.land, 2469);
   assert.equal(r.networth, 517597);
   assert.equal(r.soldiers, 0);
-  assert.equal(r.offSpecs, 2085);   // Skeletons
-  assert.equal(r.defSpecs, 16510);  // Zombies
-  assert.equal(r.elites, 19651);    // Ghouls
+  assert.equal(r.offSpecs, 2085); // Skeletons
+  assert.equal(r.defSpecs, 16510); // Zombies
+  assert.equal(r.elites, 19651); // Ghouls
   assert.equal(r.thieves, 7728);
   assert.equal(r.wizards, 6606);
   assert.equal(r.offPoints, 366485);
   assert.equal(r.defPoints, 294463);
   assert.equal(r.money, 278911);
   assert.deepEqual(r.activeEffects, [
-    { name: "Builders Boon", kind: "spell", durationText: "1 day", remainingTicks: 1, effectivenessPercent: null },
-    { name: "Onslaught ritual", kind: "ritual", durationText: "91.7%, 56 days", remainingTicks: 56, effectivenessPercent: 91.7 },
+    {
+      name: "Builders Boon",
+      kind: "spell",
+      durationText: "1 day",
+      remainingTicks: 1,
+      effectivenessPercent: null,
+    },
+    {
+      name: "Onslaught ritual",
+      kind: "ritual",
+      durationText: "91.7%, 56 days",
+      remainingTicks: 56,
+      effectivenessPercent: 91.7,
+    },
   ]);
   assert.equal(r.accuracy, 100);
 });
@@ -717,9 +854,9 @@ test("parseSoT — Obsidian (7:5)", () => {
   assert.equal(r.land, 1576);
   assert.equal(r.networth, 226798);
   assert.equal(r.soldiers, 10574);
-  assert.equal(r.offSpecs, 5221);  // Griffins
-  assert.equal(r.defSpecs, 6065);  // Harpies
-  assert.equal(r.elites, 2294);    // Drakes
+  assert.equal(r.offSpecs, 5221); // Griffins
+  assert.equal(r.defSpecs, 6065); // Harpies
+  assert.equal(r.elites, 2294); // Drakes
   assert.equal(r.peasants, 7843);
   assert.equal(r.offPoints, 198347);
   assert.equal(r.defPoints, 92910);
@@ -750,21 +887,77 @@ test("parseSoT — embedded CRYSTAL_BALL report with spell page chrome", () => {
 });
 
 for (const { ruler, personality, honorTitle } of [
-  { ruler: "Lord Plague Bearer the Hero", personality: "War Hero", honorTitle: "Lord" },
-  { ruler: "Scribe the Warrior", personality: "Warrior", honorTitle: undefined },
+  {
+    ruler: "Lord Plague Bearer the Hero",
+    personality: "War Hero",
+    honorTitle: "Lord",
+  },
+  {
+    ruler: "Scribe the Warrior",
+    personality: "Warrior",
+    honorTitle: undefined,
+  },
   { ruler: "Mike the Warrior", personality: "Warrior", honorTitle: undefined },
-  { ruler: "The Conniving Knight etienne", personality: "Tactician", honorTitle: "Knight" },
-  { ruler: "The Brave Knight etienne", personality: "Warrior", honorTitle: "Knight" },
-  { ruler: "The Great Knight etienne", personality: "General", honorTitle: "Knight" },
-  { ruler: "King Test Ruler the Commandant", personality: "General", honorTitle: "King" },
-  { ruler: "Lord Nightblade the Rogue", personality: "Rogue", honorTitle: "Lord" },
-  { ruler: "Lady Spellweaver the Sorcerer", personality: "Mystic", honorTitle: "Lady" },
-  { ruler: "Lady Spellweaver the Sorceress", personality: "Mystic", honorTitle: "Lady" },
-  { ruler: "Lord Builder the Craftsman", personality: "Artisan", honorTitle: "Lord" },
-  { ruler: "Lady Builder the Craftswoman", personality: "Artisan", honorTitle: "Lady" },
-  { ruler: "Lord Doubter the Skeptic", personality: "Heretic", honorTitle: "Lord" },
-  { ruler: "Lady Valor the Chivalrous", personality: "Paladin", honorTitle: "Lady" },
-  { ruler: "Lord Graveborn the Reanimator", personality: "Necromancer", honorTitle: "Lord" },
+  {
+    ruler: "The Conniving Knight etienne",
+    personality: "Tactician",
+    honorTitle: "Knight",
+  },
+  {
+    ruler: "The Brave Knight etienne",
+    personality: "Warrior",
+    honorTitle: "Knight",
+  },
+  {
+    ruler: "The Great Knight etienne",
+    personality: "General",
+    honorTitle: "Knight",
+  },
+  {
+    ruler: "King Test Ruler the Commandant",
+    personality: "General",
+    honorTitle: "King",
+  },
+  {
+    ruler: "Lord Nightblade the Rogue",
+    personality: "Rogue",
+    honorTitle: "Lord",
+  },
+  {
+    ruler: "Lady Spellweaver the Sorcerer",
+    personality: "Mystic",
+    honorTitle: "Lady",
+  },
+  {
+    ruler: "Lady Spellweaver the Sorceress",
+    personality: "Mystic",
+    honorTitle: "Lady",
+  },
+  {
+    ruler: "Lord Builder the Craftsman",
+    personality: "Artisan",
+    honorTitle: "Lord",
+  },
+  {
+    ruler: "Lady Builder the Craftswoman",
+    personality: "Artisan",
+    honorTitle: "Lady",
+  },
+  {
+    ruler: "Lord Doubter the Skeptic",
+    personality: "Heretic",
+    honorTitle: "Lord",
+  },
+  {
+    ruler: "Lady Valor the Chivalrous",
+    personality: "Paladin",
+    honorTitle: "Lady",
+  },
+  {
+    ruler: "Lord Graveborn the Reanimator",
+    personality: "Necromancer",
+    honorTitle: "Lord",
+  },
 ]) {
   test(`parseSoT — ruler title mapping for ${ruler}`, () => {
     const r = parseSoT(throneTextWithRuler(ruler));
@@ -804,7 +997,9 @@ test("parseSurvey — Obsidian (7:5) — buildings", () => {
   assert.ok(homes, "should find Homes");
   assert.equal(homes.built, 162);
 
-  const trainingGrounds = r.buildings.find((b) => b.building === "Training Grounds");
+  const trainingGrounds = r.buildings.find(
+    (b) => b.building === "Training Grounds",
+  );
   assert.ok(trainingGrounds);
   assert.equal(trainingGrounds.built, 215);
 
@@ -868,17 +1063,18 @@ test("parseSurvey — enemy survey does not emit 0-built entries", () => {
   assert.ok(r);
   // Universities is 0 in SURVEY_TEXT — should be absent for enemy surveys
   const unis = r.buildings.find((b) => b.building === "Universities");
-  assert.equal(unis, undefined, "0-built Universities should not appear in enemy survey");
+  assert.equal(
+    unis,
+    undefined,
+    "0-built Universities should not appear in enemy survey",
+  );
 });
 
 test("parseSurvey — Universities recognized when in progress", () => {
   const textWithUnis = SELF_SURVEY_TEXT.replace(
     "Exploration/Construction Schedules",
-    "Universities\t0\t0.0%\t0.0% higher generation of science books (0.99%)\nExploration/Construction Schedules"
-  ).replace(
-    "Guilds\t\t\t610",
-    "Universities\t\t\t922\nGuilds\t\t\t610"
-  );
+    "Universities\t0\t0.0%\t0.0% higher generation of science books (0.99%)\nExploration/Construction Schedules",
+  ).replace("Guilds\t\t\t610", "Universities\t\t\t922\nGuilds\t\t\t610");
   const r = parseSurvey(textWithUnis, "TestProv");
   assert.ok(r);
   const unis = r.buildings.find((b) => b.building === "Universities");
@@ -897,11 +1093,18 @@ test("parseSurvey — TPA effects — 0% when no Thieves' Dens or Watch Towers",
 });
 
 test("parseSurvey — TPA effects — non-zero values parsed correctly", () => {
-  const textWithBuildings = SURVEY_TEXT
-    .replace("Thieves' Dens\t0\t0.0%\t0.0% higher thievery effectiveness (2.53%)", "Thieves' Dens\t50\t3.2%\t8.10% higher thievery effectiveness (2.53%)")
-    .replace("Castles\t0\t0.0%\t0.0% lower resource and honor losses when attacked (1.9%)", "Castles\t70\t4.4%\t7.35% lower resource and honor losses when attacked (1.9%)")
-    .replace("Watch Towers\t0\t0.0%\t0.0% less damage caused by enemy thieves (2.11%)\n0.0% chance of preventing enemy thief missions (1.69%)",
-              "Watch Towers\t30\t1.9%\t3.21% less damage caused by enemy thieves (2.11%)\n3.21% chance of preventing enemy thief missions (1.69%)");
+  const textWithBuildings = SURVEY_TEXT.replace(
+    "Thieves' Dens\t0\t0.0%\t0.0% higher thievery effectiveness (2.53%)",
+    "Thieves' Dens\t50\t3.2%\t8.10% higher thievery effectiveness (2.53%)",
+  )
+    .replace(
+      "Castles\t0\t0.0%\t0.0% lower resource and honor losses when attacked (1.9%)",
+      "Castles\t70\t4.4%\t7.35% lower resource and honor losses when attacked (1.9%)",
+    )
+    .replace(
+      "Watch Towers\t0\t0.0%\t0.0% less damage caused by enemy thieves (2.11%)\n0.0% chance of preventing enemy thief missions (1.69%)",
+      "Watch Towers\t30\t1.9%\t3.21% less damage caused by enemy thieves (2.11%)\n3.21% chance of preventing enemy thief missions (1.69%)",
+    );
   const r = parseSurvey(textWithBuildings);
   assert.ok(r);
   assert.equal(r.thieveryEffectiveness, 8.1);
@@ -924,9 +1127,9 @@ test("parseSoM — Obsidian (7:5)", () => {
   assert.ok(home, "should find home army");
   assert.equal(home.generals, 5);
   assert.equal(home.soldiers, 10574);
-  assert.equal(home.offSpecs, 5221);  // Griffins
-  assert.equal(home.defSpecs, 6065);  // Harpies
-  assert.equal(home.elites, 2294);    // Drakes
+  assert.equal(home.offSpecs, 5221); // Griffins
+  assert.equal(home.defSpecs, 6065); // Harpies
+  assert.equal(home.elites, 2294); // Drakes
 });
 
 test("parseSoM — ignores operation summary text without target province location", () => {
@@ -1005,10 +1208,22 @@ test("parseKingdom — monarch/steward markers stripped from province names", ()
   assert.ok(protOnline, "protection+online name should not include ^ or *");
 
   // No false positives — names with markers must not appear
-  assert.ok(!r.provinces.find((p) => p.name.includes("(M)")), "no province name should contain (M)");
-  assert.ok(!r.provinces.find((p) => p.name.includes("(S)")), "no province name should contain (S)");
-  assert.ok(!r.provinces.find((p) => p.name.includes("^")), "no province name should contain ^");
-  assert.ok(!r.provinces.find((p) => /\*$/.test(p.name)), "no province name should end with *");
+  assert.ok(
+    !r.provinces.find((p) => p.name.includes("(M)")),
+    "no province name should contain (M)",
+  );
+  assert.ok(
+    !r.provinces.find((p) => p.name.includes("(S)")),
+    "no province name should contain (S)",
+  );
+  assert.ok(
+    !r.provinces.find((p) => p.name.includes("^")),
+    "no province name should contain ^",
+  );
+  assert.ok(
+    !r.provinces.find((p) => /\*$/.test(p.name)),
+    "no province name should end with *",
+  );
 });
 
 test("parseKingdom — directional relations and hostility timer", () => {
@@ -1069,8 +1284,18 @@ test("parseKingdom — war doctrines parsed correctly", () => {
   const r = parseKingdom(KINGDOM_DOCTRINE_TEXT);
   assert.ok(r, "should parse successfully");
   assert.equal(r.warDoctrines.length, 4);
-  assert.deepEqual(r.warDoctrines[0], { race: "Dwarf", provinces: 3, effect: "Specialist Credits", bonusPercent: 4.5 });
-  assert.deepEqual(r.warDoctrines[3], { race: "Undead", provinces: 4, effect: "Enemy Battle Gains", bonusPercent: -4.5 });
+  assert.deepEqual(r.warDoctrines[0], {
+    race: "Dwarf",
+    provinces: 3,
+    effect: "Specialist Credits",
+    bonusPercent: 4.5,
+  });
+  assert.deepEqual(r.warDoctrines[3], {
+    race: "Undead",
+    provinces: 4,
+    effect: "Enemy Battle Gains",
+    bonusPercent: -4.5,
+  });
 });
 
 test("parseKingdom — war doctrines: positive and negative bonuses", () => {
@@ -1171,7 +1396,9 @@ test("formatUtopiaDate — last day of last month is July 24", () => {
 // ---------------------------------------------------------------------------
 
 // Helpers
-function mkLine(date: string, text: string) { return `${date}\t${text}`; }
+function mkLine(date: string, text: string) {
+  return `${date}\t${text}`;
+}
 function parseOne(text: string) {
   const r = parseKingdomNews(text);
   assert.ok(r && r.events.length === 1, "expected exactly one event");
@@ -1179,7 +1406,12 @@ function parseOne(text: string) {
 }
 
 test("parseKingdomNews — invasion (march) with slot prefix", () => {
-  const e = parseOne(mkLine("May 1 of YR9", "12 - Napoleon Dynamite (4:9) captured 501 acres of land from 3 - Who Knows (2:6)"));
+  const e = parseOne(
+    mkLine(
+      "May 1 of YR9",
+      "12 - Napoleon Dynamite (4:9) captured 501 acres of land from 3 - Who Knows (2:6)",
+    ),
+  );
   assert.equal(e.eventType, "march");
   assert.equal(e.attackerName, "Napoleon Dynamite");
   assert.equal(e.attackerKingdom, "4:9");
@@ -1190,7 +1422,12 @@ test("parseKingdomNews — invasion (march) with slot prefix", () => {
 });
 
 test("parseKingdomNews — invasion (march) without slot prefix", () => {
-  const e = parseOne(mkLine("March 3 of YR9", "Attacker Province (1:2) captured 300 acres of land from Defender Province (3:4)"));
+  const e = parseOne(
+    mkLine(
+      "March 3 of YR9",
+      "Attacker Province (1:2) captured 300 acres of land from Defender Province (3:4)",
+    ),
+  );
   assert.equal(e.eventType, "march");
   assert.equal(e.attackerKingdom, "1:2");
   assert.equal(e.defenderKingdom, "3:4");
@@ -1198,7 +1435,12 @@ test("parseKingdomNews — invasion (march) without slot prefix", () => {
 });
 
 test("parseKingdomNews — 'invaded and captured' variant (INVASION_RE)", () => {
-  const e = parseOne(mkLine("June 10 of YR9", "Storm Rider (5:1) invaded Quiet Hamlet (7:3) and captured 425 acres"));
+  const e = parseOne(
+    mkLine(
+      "June 10 of YR9",
+      "Storm Rider (5:1) invaded Quiet Hamlet (7:3) and captured 425 acres",
+    ),
+  );
   assert.equal(e.eventType, "march");
   assert.equal(e.attackerKingdom, "5:1");
   assert.equal(e.defenderKingdom, "7:3");
@@ -1206,7 +1448,12 @@ test("parseKingdomNews — 'invaded and captured' variant (INVASION_RE)", () => 
 });
 
 test("parseKingdomNews — unknown province march", () => {
-  const e = parseOne(mkLine("April 5 of YR9", "An unknown province from Dark Kingdom (6:2) captured 200 acres of land from Border Watch (2:8)"));
+  const e = parseOne(
+    mkLine(
+      "April 5 of YR9",
+      "An unknown province from Dark Kingdom (6:2) captured 200 acres of land from Border Watch (2:8)",
+    ),
+  );
   assert.equal(e.eventType, "march");
   assert.equal(e.attackerName, null);
   assert.equal(e.attackerKingdom, "6:2");
@@ -1215,7 +1462,12 @@ test("parseKingdomNews — unknown province march", () => {
 });
 
 test("parseKingdomNews — ambush (ambushed armies from)", () => {
-  const e = parseOne(mkLine("February 8 of YR9", "Swift Strike (3:3) ambushed armies from Slow Guard (4:4) and took 150 acres"));
+  const e = parseOne(
+    mkLine(
+      "February 8 of YR9",
+      "Swift Strike (3:3) ambushed armies from Slow Guard (4:4) and took 150 acres",
+    ),
+  );
   assert.equal(e.eventType, "ambush");
   assert.equal(e.attackerKingdom, "3:3");
   assert.equal(e.defenderKingdom, "4:4");
@@ -1223,7 +1475,12 @@ test("parseKingdomNews — ambush (ambushed armies from)", () => {
 });
 
 test("parseKingdomNews — raze", () => {
-  const e = parseOne(mkLine("January 12 of YR9", "Fire Brigade (8:1) razed 80 acres of Ash Province (9:2)"));
+  const e = parseOne(
+    mkLine(
+      "January 12 of YR9",
+      "Fire Brigade (8:1) razed 80 acres of Ash Province (9:2)",
+    ),
+  );
   assert.equal(e.eventType, "raze");
   assert.equal(e.attackerKingdom, "8:1");
   assert.equal(e.defenderKingdom, "9:2");
@@ -1231,7 +1488,12 @@ test("parseKingdomNews — raze", () => {
 });
 
 test("parseKingdomNews — loot", () => {
-  const e = parseOne(mkLine("March 15 of YR9", "Book Thief (2:2) invaded and looted 500 books from Scholar's Rest (5:5)"));
+  const e = parseOne(
+    mkLine(
+      "March 15 of YR9",
+      "Book Thief (2:2) invaded and looted 500 books from Scholar's Rest (5:5)",
+    ),
+  );
   assert.equal(e.eventType, "loot");
   assert.equal(e.books, 500);
   assert.equal(e.acres, null);
@@ -1240,7 +1502,12 @@ test("parseKingdomNews — loot", () => {
 });
 
 test("parseKingdomNews — failed attack (unknown province)", () => {
-  const e = parseOne(mkLine("April 20 of YR9", "An unknown province from Shadow Realm (7:7) attempted to invade Fortress (1:1)"));
+  const e = parseOne(
+    mkLine(
+      "April 20 of YR9",
+      "An unknown province from Shadow Realm (7:7) attempted to invade Fortress (1:1)",
+    ),
+  );
   assert.equal(e.eventType, "failed_attack");
   assert.equal(e.attackerName, null);
   assert.equal(e.attackerKingdom, "7:7");
@@ -1249,7 +1516,12 @@ test("parseKingdomNews — failed attack (unknown province)", () => {
 });
 
 test("parseKingdomNews — failed attack (known province)", () => {
-  const e = parseOne(mkLine("May 5 of YR9", "Bold Charger (3:1) attempted to invade Stone Wall (1:3)"));
+  const e = parseOne(
+    mkLine(
+      "May 5 of YR9",
+      "Bold Charger (3:1) attempted to invade Stone Wall (1:3)",
+    ),
+  );
   assert.equal(e.eventType, "failed_attack");
   assert.equal(e.attackerName, "Bold Charger");
   assert.equal(e.attackerKingdom, "3:1");
@@ -1257,19 +1529,31 @@ test("parseKingdomNews — failed attack (known province)", () => {
 });
 
 test("parseKingdomNews — war declared", () => {
-  const e = parseOne(mkLine("June 1 of YR9", "We have declared WAR on Iron Fist (4:6)!"));
+  const e = parseOne(
+    mkLine("June 1 of YR9", "We have declared WAR on Iron Fist (4:6)!"),
+  );
   assert.equal(e.eventType, "war_declared");
   assert.equal(e.relationKingdom, "4:6");
 });
 
 test("parseKingdomNews — ceasefire accepted", () => {
-  const e = parseOne(mkLine("July 3 of YR9", "Peaceful Realm (2:1) has accepted our ceasefire proposal!"));
+  const e = parseOne(
+    mkLine(
+      "July 3 of YR9",
+      "Peaceful Realm (2:1) has accepted our ceasefire proposal!",
+    ),
+  );
   assert.equal(e.eventType, "ceasefire_accepted");
   assert.equal(e.relationKingdom, "2:1");
 });
 
 test("parseKingdomNews — dragon against us", () => {
-  const e = parseOne(mkLine("March 7 of YR9", "A Fire Dragon, Ignis, from Flame Kingdom (6:6) has begun ravaging our lands!"));
+  const e = parseOne(
+    mkLine(
+      "March 7 of YR9",
+      "A Fire Dragon, Ignis, from Flame Kingdom (6:6) has begun ravaging our lands!",
+    ),
+  );
   assert.equal(e.eventType, "dragon_against_us");
   assert.equal(e.dragonType, "Fire");
   assert.equal(e.dragonName, "Ignis");
@@ -1277,21 +1561,34 @@ test("parseKingdomNews — dragon against us", () => {
 });
 
 test("parseKingdomNews — aid event", () => {
-  const e = parseOne(mkLine("January 1 of YR9", "Generous Soul has sent an aid shipment to Needy Province."));
+  const e = parseOne(
+    mkLine(
+      "January 1 of YR9",
+      "Generous Soul has sent an aid shipment to Needy Province.",
+    ),
+  );
   assert.equal(e.eventType, "aid");
   assert.equal(e.senderName, "Generous Soul");
   assert.equal(e.receiverName, "Needy Province");
 });
 
 test("parseKingdomNews — unrecognized event falls through to 'other'", () => {
-  const e = parseOne(mkLine("April 1 of YR9", "Something completely unexpected happened in the kingdom."));
+  const e = parseOne(
+    mkLine(
+      "April 1 of YR9",
+      "Something completely unexpected happened in the kingdom.",
+    ),
+  );
   assert.equal(e.eventType, "other");
   assert.equal(e.attackerKingdom, null);
 });
 
 test("parseKingdomNews — multi-line input, skips blank lines", () => {
   const text = [
-    mkLine("May 1 of YR9", "Storm Rider (5:1) invaded Quiet Hamlet (7:3) and captured 425 acres"),
+    mkLine(
+      "May 1 of YR9",
+      "Storm Rider (5:1) invaded Quiet Hamlet (7:3) and captured 425 acres",
+    ),
     "",
     mkLine("May 2 of YR9", "We have declared WAR on Iron Fist (4:6)!"),
   ].join("\n");
@@ -1308,7 +1605,12 @@ test("parseKingdomNews — returns null for empty/whitespace-only input", () => 
 });
 
 test("parseKingdomNews — lines without tab separator are skipped", () => {
-  const text = "no tab here at all\n" + mkLine("May 1 of YR9", "Storm Rider (5:1) invaded Quiet Hamlet (7:3) and captured 425 acres");
+  const text =
+    "no tab here at all\n" +
+    mkLine(
+      "May 1 of YR9",
+      "Storm Rider (5:1) invaded Quiet Hamlet (7:3) and captured 425 acres",
+    );
   const r = parseKingdomNews(text);
   assert.ok(r);
   assert.equal(r.events.length, 1);
@@ -1318,7 +1620,10 @@ test("parseKingdomNews — non-Utopia date tabular chrome is skipped", () => {
   const text = [
     "Unit\tAvailable\tSend",
     "Soldiers\t0\t",
-    mkLine("May 1 of YR9", "Storm Rider (5:1) invaded Quiet Hamlet (7:3) and captured 425 acres"),
+    mkLine(
+      "May 1 of YR9",
+      "Storm Rider (5:1) invaded Quiet Hamlet (7:3) and captured 425 acres",
+    ),
   ].join("\n");
   const r = parseKingdomNews(text);
   assert.ok(r);
@@ -1327,7 +1632,12 @@ test("parseKingdomNews — non-Utopia date tabular chrome is skipped", () => {
 });
 
 test("parseKingdomNews — unknown province invasion ('invaded ... and captured')", () => {
-  const e = parseOne(mkLine("June 2 of YR9", "An unknown province from Shadow Realm (7:7) invaded Border Watch (2:8) and captured 300 acres"));
+  const e = parseOne(
+    mkLine(
+      "June 2 of YR9",
+      "An unknown province from Shadow Realm (7:7) invaded Border Watch (2:8) and captured 300 acres",
+    ),
+  );
   assert.equal(e.eventType, "march");
   assert.equal(e.attackerName, null);
   assert.equal(e.attackerKingdom, "7:7");
@@ -1337,7 +1647,12 @@ test("parseKingdomNews — unknown province invasion ('invaded ... and captured'
 });
 
 test("parseKingdomNews — unknown province ambush", () => {
-  const e = parseOne(mkLine("March 10 of YR9", "An unknown province from Night Riders (8:2) ambushed armies from Daywatch (3:5) and took 120 acres"));
+  const e = parseOne(
+    mkLine(
+      "March 10 of YR9",
+      "An unknown province from Night Riders (8:2) ambushed armies from Daywatch (3:5) and took 120 acres",
+    ),
+  );
   assert.equal(e.eventType, "ambush");
   assert.equal(e.attackerName, null);
   assert.equal(e.attackerKingdom, "8:2");
@@ -1346,7 +1661,12 @@ test("parseKingdomNews — unknown province ambush", () => {
 });
 
 test("parseKingdomNews — ambush 'recaptured' variant", () => {
-  const e = parseOne(mkLine("April 14 of YR9", "Comeback Kid (4:1) recaptured 90 acres of land from Raider (9:3)"));
+  const e = parseOne(
+    mkLine(
+      "April 14 of YR9",
+      "Comeback Kid (4:1) recaptured 90 acres of land from Raider (9:3)",
+    ),
+  );
   assert.equal(e.eventType, "ambush");
   assert.equal(e.attackerName, "Comeback Kid");
   assert.equal(e.attackerKingdom, "4:1");
@@ -1356,7 +1676,12 @@ test("parseKingdomNews — ambush 'recaptured' variant", () => {
 });
 
 test("parseKingdomNews — raze 'invaded and razed' variant", () => {
-  const e = parseOne(mkLine("May 20 of YR9", "Torch Bearer (2:4) invaded Timber Town (6:1) and razed 60 acres"));
+  const e = parseOne(
+    mkLine(
+      "May 20 of YR9",
+      "Torch Bearer (2:4) invaded Timber Town (6:1) and razed 60 acres",
+    ),
+  );
   assert.equal(e.eventType, "raze");
   assert.equal(e.attackerKingdom, "2:4");
   assert.equal(e.defenderKingdom, "6:1");
@@ -1364,7 +1689,12 @@ test("parseKingdomNews — raze 'invaded and razed' variant", () => {
 });
 
 test("parseKingdomNews — pillage", () => {
-  const e = parseOne(mkLine("February 3 of YR9", "Plunderer (5:2) attacked and pillaged the lands of Harvest Field (1:7)"));
+  const e = parseOne(
+    mkLine(
+      "February 3 of YR9",
+      "Plunderer (5:2) attacked and pillaged the lands of Harvest Field (1:7)",
+    ),
+  );
   assert.equal(e.eventType, "pillage");
   assert.equal(e.attackerKingdom, "5:2");
   assert.equal(e.defenderKingdom, "1:7");
@@ -1373,7 +1703,12 @@ test("parseKingdomNews — pillage", () => {
 });
 
 test("parseKingdomNews — failed attack with 'attempted an invasion of' variant", () => {
-  const e = parseOne(mkLine("July 5 of YR9", "Bold Charger (3:1) attempted an invasion of Stone Wall (1:3)"));
+  const e = parseOne(
+    mkLine(
+      "July 5 of YR9",
+      "Bold Charger (3:1) attempted an invasion of Stone Wall (1:3)",
+    ),
+  );
   assert.equal(e.eventType, "failed_attack");
   assert.equal(e.attackerName, "Bold Charger");
   assert.equal(e.attackerKingdom, "3:1");
@@ -1381,21 +1716,36 @@ test("parseKingdomNews — failed attack with 'attempted an invasion of' variant
 });
 
 test("parseKingdomNews — failed attack with 'In intra-kingdom war' prefix", () => {
-  const e = parseOne(mkLine("June 8 of YR9", "In intra-kingdom war An unknown province from Dark Realm (6:6) attempted to invade Citadel (4:4)"));
+  const e = parseOne(
+    mkLine(
+      "June 8 of YR9",
+      "In intra-kingdom war An unknown province from Dark Realm (6:6) attempted to invade Citadel (4:4)",
+    ),
+  );
   assert.equal(e.eventType, "failed_attack");
   assert.equal(e.attackerKingdom, "6:6");
   assert.equal(e.defenderName, "Citadel");
 });
 
 test("parseKingdomNews — dragon launched by us", () => {
-  const e = parseOne(mkLine("January 5 of YR9", "Dragonmaster has completed our dragon, Ember, and it sets flight to ravage Target Kingdom (5:8)!"));
+  const e = parseOne(
+    mkLine(
+      "January 5 of YR9",
+      "Dragonmaster has completed our dragon, Ember, and it sets flight to ravage Target Kingdom (5:8)!",
+    ),
+  );
   assert.equal(e.eventType, "dragon_by_us");
   assert.equal(e.dragonName, "Ember");
   assert.equal(e.relationKingdom, "5:8");
 });
 
 test("parseKingdomNews — dragon project started by us", () => {
-  const e = parseOne(mkLine("February 10 of YR9", "Our kingdom has begun the Ice Dragon project, Frost, targeted at Warm Kingdom (3:7)"));
+  const e = parseOne(
+    mkLine(
+      "February 10 of YR9",
+      "Our kingdom has begun the Ice Dragon project, Frost, targeted at Warm Kingdom (3:7)",
+    ),
+  );
   assert.equal(e.eventType, "dragon_by_us");
   assert.equal(e.dragonType, "Ice");
   assert.equal(e.dragonName, "Frost");
@@ -1403,44 +1753,73 @@ test("parseKingdomNews — dragon project started by us", () => {
 });
 
 test("parseKingdomNews — dragon slain", () => {
-  const e = parseOne(mkLine("March 12 of YR9", "Heroic Knight has slain the dragon, Ignis, ravaging our lands!"));
+  const e = parseOne(
+    mkLine(
+      "March 12 of YR9",
+      "Heroic Knight has slain the dragon, Ignis, ravaging our lands!",
+    ),
+  );
   assert.equal(e.eventType, "dragon_slain");
   assert.equal(e.dragonName, "Ignis");
 });
 
 test("parseKingdomNews — ritual started", () => {
-  const e = parseOne(mkLine("April 3 of YR9", "We have started developing a ritual! (Barrier of Eternity)!"));
+  const e = parseOne(
+    mkLine(
+      "April 3 of YR9",
+      "We have started developing a ritual! (Barrier of Eternity)!",
+    ),
+  );
   assert.equal(e.eventType, "ritual_started");
   assert.equal(e.dragonName, "Barrier of Eternity");
 });
 
 test("parseKingdomNews — ceasefire proposed", () => {
-  const e = parseOne(mkLine("May 15 of YR9", "We have proposed a ceasefire offer to Rival Kingdom (4:6)."));
+  const e = parseOne(
+    mkLine(
+      "May 15 of YR9",
+      "We have proposed a ceasefire offer to Rival Kingdom (4:6).",
+    ),
+  );
   assert.equal(e.eventType, "ceasefire_proposed");
   assert.equal(e.relationKingdom, "4:6");
 });
 
 test("parseKingdomNews — ceasefire broken", () => {
-  const e = parseOne(mkLine("June 20 of YR9", "Rival Kingdom (4:6) has broken their ceasefire agreement with us!"));
+  const e = parseOne(
+    mkLine(
+      "June 20 of YR9",
+      "Rival Kingdom (4:6) has broken their ceasefire agreement with us!",
+    ),
+  );
   assert.equal(e.eventType, "ceasefire_broken");
   assert.equal(e.relationKingdom, "4:6");
 });
 
 test("parseKingdomNews — ceasefire withdrawn", () => {
-  const e = parseOne(mkLine("July 10 of YR9", "We have withdrawn our ceasefire proposal to Rival Kingdom (4:6)"));
+  const e = parseOne(
+    mkLine(
+      "July 10 of YR9",
+      "We have withdrawn our ceasefire proposal to Rival Kingdom (4:6)",
+    ),
+  );
   assert.equal(e.eventType, "ceasefire_withdrawn");
   assert.equal(e.relationKingdom, "4:6");
 });
 
 test("parseKingdomNews — foiled op returns null", () => {
-  const text = "Sources have indicated the mission was foiled. We lost 2 thieves. If we are lucky, they will not rat on who sent them. I am sorry, we will train harder for the next mission.";
+  const text =
+    "Sources have indicated the mission was foiled. We lost 2 thieves. If we are lucky, they will not rat on who sent them. I am sorry, we will train harder for the next mission.";
   assert.equal(parseKingdomNews(text), null);
 });
 
 test("parseKingdomNews — successful SNATCH_NEWS extracts targetKingdom from preamble", () => {
   const text = [
     "Our thieves have stolen the last 2 month's of kingdom news from Target Province (5:8)",
-    mkLine("April 1 of YR9", "Attacker Province (5:8) captured 100 acres of land from Defender Province (3:4)"),
+    mkLine(
+      "April 1 of YR9",
+      "Attacker Province (5:8) captured 100 acres of land from Defender Province (3:4)",
+    ),
   ].join("\n");
   const r = parseKingdomNews(text);
   assert.ok(r);
@@ -1454,7 +1833,10 @@ test("parseKingdomNews — successful CRYSTAL_EYE extracts targetKingdom and emb
     "Wizards\t532 (0.77 Wizards Per Acre)\tRunes\t29,035",
     "More....",
     "April YR9 Edition",
-    mkLine("April 1 of YR9", "Attacker Province (5:8) captured 100 acres of land from Defender Province (3:4)."),
+    mkLine(
+      "April 1 of YR9",
+      "Attacker Province (5:8) captured 100 acres of land from Defender Province (3:4).",
+    ),
     "Uniques -",
     "Your wizards gather 322 runes and begin casting, and the spell succeeds. Our wizards have gleaned a glimpse into the last 2 month's of kingdom news from Target Province (5:8).",
     "Target kingdom is Target Kingdom (5:8)",
@@ -1469,7 +1851,10 @@ test("parseKingdomNews — successful CRYSTAL_EYE extracts targetKingdom and emb
 });
 
 test("parseKingdomNews — targetKingdom is null when preamble absent (own kingdom news)", () => {
-  const text = mkLine("April 1 of YR9", "Attacker Province (5:8) captured 100 acres of land from Defender Province (3:4)");
+  const text = mkLine(
+    "April 1 of YR9",
+    "Attacker Province (5:8) captured 100 acres of land from Defender Province (3:4)",
+  );
   const r = parseKingdomNews(text);
   assert.ok(r);
   assert.equal(r.targetKingdom, null);
@@ -1484,30 +1869,45 @@ function mkProvinceLine(date: string, body: string): string {
 }
 
 test("parseProvinceNews — Chastity notification maps to Chastity", () => {
-  const r = parseProvinceNews([
-    "The Province Reporter",
-    mkProvinceLine("April 1 of YR9", "The womenfolk's vow of chastity is reducing our population growth for 7 days!"),
-  ].join("\n"));
+  const r = parseProvinceNews(
+    [
+      "The Province Reporter",
+      mkProvinceLine(
+        "April 1 of YR9",
+        "The womenfolk's vow of chastity is reducing our population growth for 7 days!",
+      ),
+    ].join("\n"),
+  );
   assert.ok(r);
   assert.equal(r.events[0].eventType, "spell_chastity");
   assert.equal(r.events[0].amount, 7);
 });
 
 test("parseProvinceNews — Sloth notification maps to Sloth", () => {
-  const r = parseProvinceNews([
-    "The Province Reporter",
-    mkProvinceLine("April 2 of YR9", "Your peasants become unmotivated and less willing to join the army for 5 days"),
-  ].join("\n"));
+  const r = parseProvinceNews(
+    [
+      "The Province Reporter",
+      mkProvinceLine(
+        "April 2 of YR9",
+        "Your peasants become unmotivated and less willing to join the army for 5 days",
+      ),
+    ].join("\n"),
+  );
   assert.ok(r);
   assert.equal(r.events[0].eventType, "spell_sloth");
   assert.equal(r.events[0].amount, 5);
 });
 
 test("parseProvinceNews — land attacks keep captured acres", () => {
-  const r = parseProvinceNews([
-    "The Province Reporter",
-    mkProvinceLine("April 3 of YR9", "Forces from 12 - Attacker (1:2) came through and ravaged our lands! They captured 94 acres! We lost 10 soldiers in this battle."),
-  ].join("\n"));
+  const r = parseProvinceNews(
+    [
+      "The Province Reporter",
+      mkProvinceLine(
+        "April 3 of YR9",
+        "Forces from 12 - Attacker (1:2) came through and ravaged our lands! They captured 94 acres! We lost 10 soldiers in this battle.",
+      ),
+    ].join("\n"),
+  );
   assert.ok(r);
   assert.equal(r.events[0].eventType, "attack_trad_march");
   assert.equal(r.events[0].amount, 94);
@@ -1515,10 +1915,15 @@ test("parseProvinceNews — land attacks keep captured acres", () => {
 });
 
 test("parseProvinceNews — Learn attacks use attack_learn", () => {
-  const r = parseProvinceNews([
-    "The Province Reporter",
-    mkProvinceLine("April 4 of YR9", "Forces from 8 - Learner (3:4) came through and ravaged our lands! They looted 4,479 books! Savages! We lost 10 soldiers in this battle."),
-  ].join("\n"));
+  const r = parseProvinceNews(
+    [
+      "The Province Reporter",
+      mkProvinceLine(
+        "April 4 of YR9",
+        "Forces from 8 - Learner (3:4) came through and ravaged our lands! They looted 4,479 books! Savages! We lost 10 soldiers in this battle.",
+      ),
+    ].join("\n"),
+  );
   assert.ok(r);
   assert.equal(r.events[0].eventType, "attack_learn");
   assert.equal(r.events[0].amount, 4479);
@@ -1526,10 +1931,15 @@ test("parseProvinceNews — Learn attacks use attack_learn", () => {
 });
 
 test("parseProvinceNews — Plunder splits looted resources", () => {
-  const r = parseProvinceNews([
-    "The Province Reporter",
-    mkProvinceLine("April 5 of YR9", "Forces from 6 - Mortavelle (5:12) came through and ravaged our lands! They looted 103,542 gold coins, 117,958 bushels and 4,929 runes! We lost 10 soldiers in this battle."),
-  ].join("\n"));
+  const r = parseProvinceNews(
+    [
+      "The Province Reporter",
+      mkProvinceLine(
+        "April 5 of YR9",
+        "Forces from 6 - Mortavelle (5:12) came through and ravaged our lands! They looted 103,542 gold coins, 117,958 bushels and 4,929 runes! We lost 10 soldiers in this battle.",
+      ),
+    ].join("\n"),
+  );
   assert.ok(r);
   assert.equal(r.events.length, 3);
   assert.deepEqual(
@@ -1543,10 +1953,15 @@ test("parseProvinceNews — Plunder splits looted resources", () => {
 });
 
 test("parseProvinceNews — Meteor splits peasants and troops", () => {
-  const r = parseProvinceNews([
-    "The Province Reporter",
-    mkProvinceLine("April 6 of YR9", "Meteors rain across the lands and kill 321 peasants, 45 Skeletons and 12 Zombies!"),
-  ].join("\n"));
+  const r = parseProvinceNews(
+    [
+      "The Province Reporter",
+      mkProvinceLine(
+        "April 6 of YR9",
+        "Meteors rain across the lands and kill 321 peasants, 45 Skeletons and 12 Zombies!",
+      ),
+    ].join("\n"),
+  );
   assert.ok(r);
   assert.equal(r.events.length, 2);
   assert.deepEqual(
@@ -1559,20 +1974,24 @@ test("parseProvinceNews — Meteor splits peasants and troops", () => {
 });
 
 test("parseProvinceNews — arson singular acre maps to arson", () => {
-  const r = parseProvinceNews([
-    "The Province Reporter",
-    mkProvinceLine("April 7 of YR9", "1 acre of buildings burned down!"),
-  ].join("\n"));
+  const r = parseProvinceNews(
+    [
+      "The Province Reporter",
+      mkProvinceLine("April 7 of YR9", "1 acre of buildings burned down!"),
+    ].join("\n"),
+  );
   assert.ok(r);
   assert.equal(r.events[0].eventType, "arson");
   assert.equal(r.events[0].amount, 1);
 });
 
 test("parseProvinceNews — arson maps to arson with no actor", () => {
-  const r = parseProvinceNews([
-    "The Province Reporter",
-    mkProvinceLine("April 7 of YR9", "10 acres of buildings burned down!"),
-  ].join("\n"));
+  const r = parseProvinceNews(
+    [
+      "The Province Reporter",
+      mkProvinceLine("April 7 of YR9", "10 acres of buildings burned down!"),
+    ].join("\n"),
+  );
   assert.ok(r);
   assert.equal(r.events[0].eventType, "arson");
   assert.equal(r.events[0].amount, 10);
@@ -1581,10 +2000,15 @@ test("parseProvinceNews — arson maps to arson with no actor", () => {
 });
 
 test("parseProvinceNews — Topaz dragon building destruction maps to dragon_damage", () => {
-  const r = parseProvinceNews([
-    "The Province Reporter",
-    mkProvinceLine("April 8 of YR9", "Dragon Seen In Skies descends in flames! 20 buildings are reduced to ash and rubble."),
-  ].join("\n"));
+  const r = parseProvinceNews(
+    [
+      "The Province Reporter",
+      mkProvinceLine(
+        "April 8 of YR9",
+        "Dragon Seen In Skies descends in flames! 20 buildings are reduced to ash and rubble.",
+      ),
+    ].join("\n"),
+  );
   assert.ok(r);
   assert.equal(r.events[0].eventType, "dragon_damage");
   assert.equal(r.events[0].actorName, "Dragon Seen In Skies");
@@ -1619,12 +2043,24 @@ test("parseState — parses land, networth, population fields", () => {
 });
 
 test("parseState — returns null when networth or land absent", () => {
-  assert.equal(parseState("Current Land\t850 acres\nPeasants\t100", "SelfProv"), null, "missing networth → null");
-  assert.equal(parseState("Current Networth\t500,000 gold coins\nPeasants\t100", "SelfProv"), null, "missing land → null");
+  assert.equal(
+    parseState("Current Land\t850 acres\nPeasants\t100", "SelfProv"),
+    null,
+    "missing networth → null",
+  );
+  assert.equal(
+    parseState(
+      "Current Networth\t500,000 gold coins\nPeasants\t100",
+      "SelfProv",
+    ),
+    null,
+    "missing land → null",
+  );
 });
 
 test("parseState — optional fields default to 0 or null when absent", () => {
-  const minimal = "Current Networth\t500,000 gold coins\nCurrent Land\t400 acres";
+  const minimal =
+    "Current Networth\t500,000 gold coins\nCurrent Land\t400 acres";
   const r = parseState(minimal, "SelfProv");
   assert.ok(r);
   assert.equal(r.peasants, 0);

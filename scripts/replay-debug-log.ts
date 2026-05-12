@@ -1,4 +1,8 @@
-import { getReplayTypes, hashReplayKey, replayDebugLogs } from "../lib/replay-debug-log";
+import {
+  getReplayTypes,
+  hashReplayKey,
+  replayDebugLogs,
+} from "../lib/replay-debug-log";
 import { pool } from "../lib/db-mysql-pool";
 
 function usage() {
@@ -13,7 +17,9 @@ async function main() {
 
   const typeArg = args.find((arg) => arg.startsWith("--types="));
   const keyHashArg = args.find((arg) => arg.startsWith("--key-hash="));
-  const assumeKeyHashArg = args.find((arg) => arg.startsWith("--assume-key-hash="));
+  const assumeKeyHashArg = args.find((arg) =>
+    arg.startsWith("--assume-key-hash="),
+  );
   const assumeRawKeyArg = args.find((arg) => arg.startsWith("--assume-key="));
   const dryRun = args.includes("--dry-run");
   const refreshMetrics = args.includes("--refresh-metrics");
@@ -48,7 +54,9 @@ async function main() {
     .map(([type, count]) => `${type}=${count}`)
     .join(" ");
 
-  console.log(`lines=${summary.linesSeen} replayed=${summary.replayed} ${byType}`.trim());
+  console.log(
+    `lines=${summary.linesSeen} replayed=${summary.replayed} ${byType}`.trim(),
+  );
   await pool.end();
 }
 

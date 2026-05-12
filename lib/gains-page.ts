@@ -11,9 +11,19 @@ export interface GainsPageData {
   targetRitual: KingdomRitual | null;
 }
 
-type GainsPageDeps = Pick<AsyncDbApi, "getBoundKingdom" | "getKingdomProvinces" | "getLatestKingdomSnapshot" | "getKingdomRitual">;
+type GainsPageDeps = Pick<
+  AsyncDbApi,
+  | "getBoundKingdom"
+  | "getKingdomProvinces"
+  | "getLatestKingdomSnapshot"
+  | "getKingdomRitual"
+>;
 
-export async function getGainsPageData(targetKingdom: string, keyHash: string, deps: GainsPageDeps = getDbApi()): Promise<GainsPageData> {
+export async function getGainsPageData(
+  targetKingdom: string,
+  keyHash: string,
+  deps: GainsPageDeps = getDbApi(),
+): Promise<GainsPageData> {
   const selfKingdom = await deps.getBoundKingdom(keyHash);
 
   if (!selfKingdom) {
@@ -28,7 +38,13 @@ export async function getGainsPageData(targetKingdom: string, keyHash: string, d
     };
   }
 
-  const [selfProvinces, targetLatest, selfSnapshot, targetSnapshot, targetRitual] = await Promise.all([
+  const [
+    selfProvinces,
+    targetLatest,
+    selfSnapshot,
+    targetSnapshot,
+    targetRitual,
+  ] = await Promise.all([
     deps.getKingdomProvinces(selfKingdom, keyHash),
     deps.getKingdomProvinces(targetKingdom, keyHash),
     deps.getLatestKingdomSnapshot(selfKingdom, keyHash),
@@ -36,5 +52,13 @@ export async function getGainsPageData(targetKingdom: string, keyHash: string, d
     deps.getKingdomRitual(targetKingdom, keyHash),
   ]);
 
-  return { targetKingdom, selfKingdom, selfProvinces, targetLatest, selfSnapshot, targetSnapshot, targetRitual };
+  return {
+    targetKingdom,
+    selfKingdom,
+    selfProvinces,
+    targetLatest,
+    selfSnapshot,
+    targetSnapshot,
+    targetRitual,
+  };
 }

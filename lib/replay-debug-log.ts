@@ -4,13 +4,36 @@ import { hashKey } from "./keys";
 import readline from "node:readline";
 import { buildIntelOpAttempt } from "./intel-ops";
 import { parseIntel } from "./parsers";
-import { getIntelPathname, matchesGamePath, extractProvinceOperationsInfo } from "./parsers/detect";
+import {
+  getIntelPathname,
+  matchesGamePath,
+  extractProvinceOperationsInfo,
+} from "./parsers/detect";
 import { parseKingdomNews } from "./parsers/kingdom_news";
 import { parseSoT } from "./parsers/sot";
 import { parseProvinceNews } from "./parsers/province_news";
-import { getDbApi, setMetricsCacheRefreshEnabled, flushMetricsCacheRefreshQueue } from "./db-api";
+import {
+  getDbApi,
+  setMetricsCacheRefreshEnabled,
+  flushMetricsCacheRefreshQueue,
+} from "./db-api";
 
-export type ReplayType = "kingdom" | "survey" | "sot" | "kingdom_news" | "province_news" | "state" | "som" | "sos" | "sod" | "infiltrate" | "train_army" | "build" | "rob" | "sorcery" | "attack";
+export type ReplayType =
+  | "kingdom"
+  | "survey"
+  | "sot"
+  | "kingdom_news"
+  | "province_news"
+  | "state"
+  | "som"
+  | "sos"
+  | "sod"
+  | "infiltrate"
+  | "train_army"
+  | "build"
+  | "rob"
+  | "sorcery"
+  | "attack";
 
 export interface DebugEntry {
   url: string;
@@ -35,7 +58,23 @@ export interface ReplaySummary {
   byType: Map<string, number>;
 }
 
-export const allowedReplayTypes = new Set<ReplayType>(["kingdom", "survey", "sot", "kingdom_news", "province_news", "state", "som", "sos", "sod", "infiltrate", "train_army", "build", "rob", "sorcery", "attack"]);
+export const allowedReplayTypes = new Set<ReplayType>([
+  "kingdom",
+  "survey",
+  "sot",
+  "kingdom_news",
+  "province_news",
+  "state",
+  "som",
+  "sos",
+  "sod",
+  "infiltrate",
+  "train_army",
+  "build",
+  "rob",
+  "sorcery",
+  "attack",
+]);
 
 export function normalizeReceivedAt(receivedAt: string): string {
   const date = new Date(receivedAt);
@@ -58,45 +97,75 @@ export function hashReplayKey(rawKey: string): string {
   return hashKey(rawKey);
 }
 
-export function shouldReplayEntry(entry: DebugEntry, filterKeyHash?: string): boolean {
+export function shouldReplayEntry(
+  entry: DebugEntry,
+  filterKeyHash?: string,
+): boolean {
   if (!filterKeyHash) return true;
   return entry.key_hash === filterKeyHash;
 }
 
-export function resolveReplayKeyHash(entry: DebugEntry, assumeKeyHash?: string): string {
+export function resolveReplayKeyHash(
+  entry: DebugEntry,
+  assumeKeyHash?: string,
+): string {
   if (entry.key_hash) return entry.key_hash;
   if (assumeKeyHash) return assumeKeyHash;
-  throw new Error("Cannot resolve key_hash: entry has no key_hash and --assume-key-hash was not provided.");
+  throw new Error(
+    "Cannot resolve key_hash: entry has no key_hash and --assume-key-hash was not provided.",
+  );
 }
 
-export async function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, options: { keyHash?: string; assumeKeyHash?: string; dryRun?: boolean } = {}): Promise<string | null> {
+export async function replayEntry(
+  entry: DebugEntry,
+  allowed: Set<ReplayType>,
+  options: { keyHash?: string; assumeKeyHash?: string; dryRun?: boolean } = {},
+): Promise<string | null> {
   if (!shouldReplayEntry(entry, options.keyHash)) return null;
   const parsed = parseIntel(entry.url, entry.data_simple, entry.prov);
-  const intelOpAttempt = buildIntelOpAttempt(entry.url, entry.data_simple, parsed);
+  const intelOpAttempt = buildIntelOpAttempt(
+    entry.url,
+    entry.data_simple,
+    parsed,
+  );
   if (!parsed) {
     if (!intelOpAttempt || !allowed.has(intelOpAttempt.intelType)) return null;
 
     const keyHash = resolveReplayKeyHash(entry, options.assumeKeyHash);
-    const normalizedReceivedAt = entry.received_at ? normalizeReceivedAt(entry.received_at) : null;
+    const normalizedReceivedAt = entry.received_at
+      ? normalizeReceivedAt(entry.received_at)
+      : null;
     if (options.dryRun) return intelOpAttempt.intelType;
 
-    await getDbApi().storeIntelOp(intelOpAttempt, entry.prov, keyHash, normalizedReceivedAt ?? undefined);
+    await getDbApi().storeIntelOp(
+      intelOpAttempt,
+      entry.prov,
+      keyHash,
+      normalizedReceivedAt ?? undefined,
+    );
     return intelOpAttempt.intelType;
   }
 
   const shouldReplayParsed = allowed.has(parsed.type as ReplayType);
-  const shouldReplayIntelOp = !!intelOpAttempt && allowed.has(intelOpAttempt.intelType);
+  const shouldReplayIntelOp =
+    !!intelOpAttempt && allowed.has(intelOpAttempt.intelType);
   if (!shouldReplayParsed && !shouldReplayIntelOp) return null;
 
   const keyHash = resolveReplayKeyHash(entry, options.assumeKeyHash);
   const savedBy = entry.prov;
-  const normalizedReceivedAt = entry.received_at ? normalizeReceivedAt(entry.received_at) : null;
-  if (options.dryRun) return shouldReplayParsed ? parsed.type : intelOpAttempt?.intelType ?? null;
+  const normalizedReceivedAt = entry.received_at
+    ? normalizeReceivedAt(entry.received_at)
+    : null;
+  if (options.dryRun)
+    return shouldReplayParsed
+      ? parsed.type
+      : (intelOpAttempt?.intelType ?? null);
 
   const db = getDbApi();
   const ra = normalizedReceivedAt ?? undefined;
 
-  if (shouldReplayIntelOp) await db.storeIntelOp(intelOpAttempt, savedBy, keyHash, ra);
+  if (shouldReplayIntelOp)
+    await db.storeIntelOp(intelOpAttempt, savedBy, keyHash, ra);
   if (!shouldReplayParsed) return intelOpAttempt?.intelType ?? null;
 
   if (parsed.type === "kingdom") {
@@ -105,7 +174,10 @@ export async function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, o
   }
 
   if (parsed.type === "survey") {
-    const isSelfInternal = matchesGamePath(getIntelPathname(entry.url), "council_internal");
+    const isSelfInternal = matchesGamePath(
+      getIntelPathname(entry.url),
+      "council_internal",
+    );
     await db.storeSurvey(parsed.data, savedBy, keyHash, isSelfInternal, ra);
     return "survey";
   }
@@ -125,8 +197,15 @@ export async function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, o
     const isExternalNews =
       params.get("o")?.toUpperCase() === "SNATCH_NEWS" ||
       params.get("s")?.toUpperCase() === "CRYSTAL_EYE";
-    const urlKingdom = extractProvinceOperationsInfo(entry.url)?.kingdom ?? null;
-    await db.storeKingdomNews(parsed.data, keyHash, isExternalNews, ra, urlKingdom);
+    const urlKingdom =
+      extractProvinceOperationsInfo(entry.url)?.kingdom ?? null;
+    await db.storeKingdomNews(
+      parsed.data,
+      keyHash,
+      isExternalNews,
+      ra,
+      urlKingdom,
+    );
     return "kingdom_news";
   }
 
@@ -136,13 +215,19 @@ export async function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, o
   }
 
   if (parsed.type === "som") {
-    const isSelfMilitary = matchesGamePath(getIntelPathname(entry.url), "council_military");
+    const isSelfMilitary = matchesGamePath(
+      getIntelPathname(entry.url),
+      "council_military",
+    );
     await db.storeSoM(parsed.data, savedBy, keyHash, isSelfMilitary, ra);
     return "som";
   }
 
   if (parsed.type === "sos") {
-    const isSelfScience = matchesGamePath(getIntelPathname(entry.url), "council_science");
+    const isSelfScience = matchesGamePath(
+      getIntelPathname(entry.url),
+      "council_science",
+    );
     await db.storeSoS(parsed.data, savedBy, keyHash, isSelfScience, ra);
     return "sos";
   }
@@ -177,7 +262,8 @@ export async function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, o
     if (parsed.data.spell === "CRYSTAL_EYE") {
       const newsData = parseKingdomNews(entry.data_simple);
       if (newsData) {
-        const urlKingdom = extractProvinceOperationsInfo(entry.url)?.kingdom ?? null;
+        const urlKingdom =
+          extractProvinceOperationsInfo(entry.url)?.kingdom ?? null;
         await db.storeKingdomNews(newsData, keyHash, true, ra, urlKingdom);
       }
     }
@@ -201,8 +287,16 @@ export async function replayEntry(entry: DebugEntry, allowed: Set<ReplayType>, o
   return null;
 }
 
-export async function replayDebugLogs({ files, replayTypes, keyHash, assumeKeyHash, dryRun = false, refreshMetrics = false }: ReplayOptions): Promise<ReplaySummary> {
-  const restoreMetricsCacheRefresh = setMetricsCacheRefreshEnabled(refreshMetrics);
+export async function replayDebugLogs({
+  files,
+  replayTypes,
+  keyHash,
+  assumeKeyHash,
+  dryRun = false,
+  refreshMetrics = false,
+}: ReplayOptions): Promise<ReplaySummary> {
+  const restoreMetricsCacheRefresh =
+    setMetricsCacheRefreshEnabled(refreshMetrics);
   const byType = new Map<string, number>();
   let linesSeen = 0;
   let replayed = 0;
@@ -211,13 +305,20 @@ export async function replayDebugLogs({ files, replayTypes, keyHash, assumeKeyHa
     for (const file of files) {
       const fullPath = resolve(file);
       const stream = createReadStream(fullPath, "utf8");
-      const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+      const rl = readline.createInterface({
+        input: stream,
+        crlfDelay: Infinity,
+      });
 
       for await (const line of rl) {
         if (!line.trim()) continue;
         linesSeen += 1;
         const entry = JSON.parse(line) as DebugEntry;
-        const type = await replayEntry(entry, replayTypes, { keyHash, assumeKeyHash, dryRun });
+        const type = await replayEntry(entry, replayTypes, {
+          keyHash,
+          assumeKeyHash,
+          dryRun,
+        });
         if (!type) continue;
         replayed += 1;
         byType.set(type, (byType.get(type) ?? 0) + 1);

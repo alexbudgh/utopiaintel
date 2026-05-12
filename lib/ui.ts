@@ -1,4 +1,12 @@
-const UTOPIA_MONTHS = ["January","February","March","April","May","June","July"];
+const UTOPIA_MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+];
 
 export const UTOPIA_DAYS_PER_MONTH = 24;
 
@@ -15,10 +23,10 @@ export function parseUtopiaDate(date: string): number {
 
 /** Convert ordinal back to "Month D of YRN". */
 export function formatUtopiaDate(ord: number): string {
-  const year     = Math.floor(ord / (7 * 24));
+  const year = Math.floor(ord / (7 * 24));
   const remainder = ord % (7 * 24);
   const monthIdx = Math.floor(remainder / 24);
-  const day      = (remainder % 24) + 1;
+  const day = (remainder % 24) + 1;
   return `${UTOPIA_MONTHS[monthIdx]} ${day} of YR${year}`;
 }
 
@@ -51,7 +59,10 @@ export function formatNum(n: number | null | undefined): string {
   return n.toLocaleString();
 }
 
-export function formatExactNum(n: number | null | undefined, maximumFractionDigits = 4): string {
+export function formatExactNum(
+  n: number | null | undefined,
+  maximumFractionDigits = 4,
+): string {
   if (n == null) return "—";
   return n.toLocaleString(undefined, { maximumFractionDigits });
 }
@@ -76,11 +87,16 @@ export function formatTimestamp(iso: string | null): string {
   if (!iso) return "—";
   // "2024-04-04 10:30:00" → "Apr 4, 10:30 UTC"
   const d = new Date(iso.replace(" ", "T") + "Z");
-  return d.toLocaleString("en-US", {
-    month: "short", day: "numeric",
-    hour: "2-digit", minute: "2-digit",
-    hour12: false, timeZone: "UTC",
-  }) + " UTC";
+  return (
+    d.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: "UTC",
+    }) + " UTC"
+  );
 }
 
 export function formatLocalTimestamp(iso: string | null): string {

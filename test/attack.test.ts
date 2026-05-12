@@ -30,7 +30,7 @@ ${FORM_FOOTER}`;
   assert.equal(r.peasantsSettled, 154);
   assert.equal(r.enemyKilled, 33);
   assert.equal(r.enemyImprisoned, 65);
-  assert.ok(Math.abs((r.returnDays ?? 0) - 10.90) < 0.001);
+  assert.ok(Math.abs((r.returnDays ?? 0) - 10.9) < 0.001);
   assert.equal(r.name, "TestProvince");
   assert.equal(r.kingdom, "");
 });
@@ -90,7 +90,7 @@ Our forces will be available again in 8.20 days (on May 20 of YR0).`;
   assert.equal(r.acresTaken, 30);
   assert.equal(r.enemyKilled, 37);
   assert.equal(r.enemyImprisoned, 70);
-  assert.ok(Math.abs((r.returnDays ?? 0) - 8.20) < 0.001);
+  assert.ok(Math.abs((r.returnDays ?? 0) - 8.2) < 0.001);
   // No specialist credits or peasants for ambush
   assert.equal(r.specialistCredits, null);
   assert.equal(r.peasantsSettled, null);

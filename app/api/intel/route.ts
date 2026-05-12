@@ -4,7 +4,11 @@ import { appendDebugLog } from "@/lib/debug-log";
 import { hashKey } from "@/lib/keys";
 import { buildIntelOpAttempt } from "@/lib/intel-ops";
 import { parseIntel } from "@/lib/parsers";
-import { getIntelPathname, matchesGamePath, extractProvinceOperationsInfo } from "@/lib/parsers/detect";
+import {
+  getIntelPathname,
+  matchesGamePath,
+  extractProvinceOperationsInfo,
+} from "@/lib/parsers/detect";
 import { parseKingdomNews } from "@/lib/parsers/kingdom_news";
 import { parseProvinceNews } from "@/lib/parsers/province_news";
 import { parseSoT } from "@/lib/parsers/sot";
@@ -27,20 +31,31 @@ const REQUIRED_FIELDS: (keyof IntelFields)[] = [
 ];
 
 const TABLES: Record<string, string[]> = {
-  sot:          ["province_overview", "total_military_points", "province_troops", "province_resources", "province_status"],
-  survey:       ["survey_intel", "survey_buildings"],
-  som:          ["home_military_points", "province_troops", "military_intel", "som_armies"],
-  sos:          ["sos_intel", "sos_sciences"],
-  sod:          ["home_military_points"],
-  infiltrate:   ["province_resources"],
-  kingdom:      ["kingdom_intel", "kingdom_provinces", "province_overview"],
-  state:        ["province_overview", "province_resources", "province_troops"],
+  sot: [
+    "province_overview",
+    "total_military_points",
+    "province_troops",
+    "province_resources",
+    "province_status",
+  ],
+  survey: ["survey_intel", "survey_buildings"],
+  som: [
+    "home_military_points",
+    "province_troops",
+    "military_intel",
+    "som_armies",
+  ],
+  sos: ["sos_intel", "sos_sciences"],
+  sod: ["home_military_points"],
+  infiltrate: ["province_resources"],
+  kingdom: ["kingdom_intel", "kingdom_provinces", "province_overview"],
+  state: ["province_overview", "province_resources", "province_troops"],
   kingdom_news: ["kingdom_news"],
-  train_army:   ["province_resources"],
-  build:        ["province_resources"],
-  rob:          ["rob_ops"],
-  sorcery:      ["sorcery_ops"],
-  attack:       ["attack_ops"],
+  train_army: ["province_resources"],
+  build: ["province_resources"],
+  rob: ["rob_ops"],
+  sorcery: ["sorcery_ops"],
+  attack: ["attack_ops"],
 };
 
 // Run TTL cleanup roughly once per 100 requests
@@ -58,9 +73,12 @@ function getLogProvince(result: ParseResult): string {
 }
 
 function getLogKingdom(result: ParseResult): string {
-  if (result.type === "kingdom") return `${result.data.name} (${result.data.location})`;
-  if (result.type === "kingdom_news") return `${result.data.events.length} events`;
-  if (result.type === "province_news") return `${result.data.events.length} events`;
+  if (result.type === "kingdom")
+    return `${result.data.name} (${result.data.location})`;
+  if (result.type === "kingdom_news")
+    return `${result.data.events.length} events`;
+  if (result.type === "province_news")
+    return `${result.data.events.length} events`;
   return "kingdom" in result.data ? result.data.kingdom : "—";
 }
 
@@ -93,13 +111,24 @@ export const POST = withAxiom(async (request: AxiomRequest) => {
   }).catch(() => {});
 
   const result = parseIntel(fields.url, fields.data_simple, fields.prov);
-  const intelOpAttempt = buildIntelOpAttempt(fields.url, fields.data_simple, result);
+  const intelOpAttempt = buildIntelOpAttempt(
+    fields.url,
+    fields.data_simple,
+    result,
+  );
   const db = getDbApi();
-  if (intelOpAttempt) await db.storeIntelOp(intelOpAttempt, fields.prov, keyHash);
+  if (intelOpAttempt)
+    await db.storeIntelOp(intelOpAttempt, fields.prov, keyHash);
 
   if (!result) {
-    intelLog(`from=${fields.prov}  key=${keyHash.slice(0, 8)}  unrecognized  url=${fields.url}`);
-    request.log.warn("unrecognized intel", { url: fields.url, prov: fields.prov, keyHash: keyHash.slice(0, 8) });
+    intelLog(
+      `from=${fields.prov}  key=${keyHash.slice(0, 8)}  unrecognized  url=${fields.url}`,
+    );
+    request.log.warn("unrecognized intel", {
+      url: fields.url,
+      prov: fields.prov,
+      keyHash: keyHash.slice(0, 8),
+    });
     return NextResponse.json({
       success: true,
       parsed: false,
@@ -109,15 +138,23 @@ export const POST = withAxiom(async (request: AxiomRequest) => {
 
   const savedBy = fields.prov;
   const pathname = getIntelPathname(fields.url);
-  const isSelfThrone   = matchesGamePath(pathname, "throne");
+  const isSelfThrone = matchesGamePath(pathname, "throne");
   const isSelfMilitary = matchesGamePath(pathname, "council_military");
-  const isSelfScience  = matchesGamePath(pathname, "council_science");
+  const isSelfScience = matchesGamePath(pathname, "council_science");
   const isSelfInternal = matchesGamePath(pathname, "council_internal");
 
   const province = getLogProvince(result);
-  const kingdom  = getLogKingdom(result);
-  intelLog(`from=${savedBy}  key=${keyHash.slice(0, 8)}  ${result.type.padEnd(12)}  ${province} (${kingdom})  → ${TABLES[result.type]?.join(", ")}`);
-  request.log.info("intel", { type: result.type, province, kingdom, savedBy, keyHash: keyHash.slice(0, 8) });
+  const kingdom = getLogKingdom(result);
+  intelLog(
+    `from=${savedBy}  key=${keyHash.slice(0, 8)}  ${result.type.padEnd(12)}  ${province} (${kingdom})  → ${TABLES[result.type]?.join(", ")}`,
+  );
+  request.log.info("intel", {
+    type: result.type,
+    province,
+    kingdom,
+    savedBy,
+    keyHash: keyHash.slice(0, 8),
+  });
 
   switch (result.type) {
     case "sot":
@@ -153,8 +190,15 @@ export const POST = withAxiom(async (request: AxiomRequest) => {
       const isExternalNews =
         params.get("o")?.toUpperCase() === "SNATCH_NEWS" ||
         params.get("s")?.toUpperCase() === "CRYSTAL_EYE";
-      const urlKingdom = extractProvinceOperationsInfo(fields.url)?.kingdom ?? null;
-      await db.storeKingdomNews(result.data, keyHash, isExternalNews, undefined, urlKingdom);
+      const urlKingdom =
+        extractProvinceOperationsInfo(fields.url)?.kingdom ?? null;
+      await db.storeKingdomNews(
+        result.data,
+        keyHash,
+        isExternalNews,
+        undefined,
+        urlKingdom,
+      );
       break;
     }
     case "province_news":
@@ -174,8 +218,15 @@ export const POST = withAxiom(async (request: AxiomRequest) => {
       if (result.data.spell === "CRYSTAL_EYE") {
         const newsData = parseKingdomNews(fields.data_simple);
         if (newsData) {
-          const urlKingdom = extractProvinceOperationsInfo(fields.url)?.kingdom ?? null;
-          await db.storeKingdomNews(newsData, keyHash, true, undefined, urlKingdom);
+          const urlKingdom =
+            extractProvinceOperationsInfo(fields.url)?.kingdom ?? null;
+          await db.storeKingdomNews(
+            newsData,
+            keyHash,
+            true,
+            undefined,
+            urlKingdom,
+          );
         }
       }
       if (result.data.spell === "CRYSTAL_BALL") {

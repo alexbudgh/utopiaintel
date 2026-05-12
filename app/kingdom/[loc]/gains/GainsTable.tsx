@@ -5,7 +5,11 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { KingdomViewShell, btnBase, btnInactive } from "../KingdomTabs";
 import { Tooltip, type TooltipLine } from "@/app/components/Tooltip";
 import type { KingdomSnapshotProvince, ProvinceRow } from "@/lib/db";
-import { ATTACK_TIME_SCALING, estimateBreakability, estimateTraditionalMarchAcres } from "@/lib/gains";
+import {
+  ATTACK_TIME_SCALING,
+  estimateBreakability,
+  estimateTraditionalMarchAcres,
+} from "@/lib/gains";
 import type { GainsPageData } from "@/lib/gains-page";
 import { formatNum, formatTimestamp } from "@/lib/ui";
 
@@ -17,7 +21,9 @@ function averageNetworth(provinces: { networth: number }[]): number | null {
   return provinces.reduce((sum, p) => sum + p.networth, 0) / provinces.length;
 }
 
-function zeroAcresReason(estimate: NonNullable<ReturnType<typeof estimateTraditionalMarchAcres>>): string | null {
+function zeroAcresReason(
+  estimate: NonNullable<ReturnType<typeof estimateTraditionalMarchAcres>>,
+): string | null {
   if (estimate.rawAcres === 0 && estimate.rpnwFactor === 0) {
     return "0 acres: province NW range gives no gains";
   }
@@ -55,7 +61,10 @@ function relationStateForSnapshots(
   selfSnapshot: GainsPageData["selfSnapshot"],
   targetSnapshot: GainsPageData["targetSnapshot"],
 ): "war" | "oow" {
-  if (selfSnapshot?.warTarget === targetKingdom || targetSnapshot?.warTarget === selfKingdom) {
+  if (
+    selfSnapshot?.warTarget === targetKingdom ||
+    targetSnapshot?.warTarget === selfKingdom
+  ) {
     return "war";
   }
   return "oow";
@@ -90,27 +99,30 @@ function mapBreakdown(
   if (normalized === "moderately") {
     return {
       branch: `MAP branch: moderately -> Moderately Hit bucket (${relationState === "war" ? "war" : "out of war"})`,
-      calc: relationState === "war"
-        ? "MAP factor: war bucket = 0.800"
-        : "MAP factor: midpoint of 60-79% = 0.695",
+      calc:
+        relationState === "war"
+          ? "MAP factor: war bucket = 0.800"
+          : "MAP factor: midpoint of 60-79% = 0.695",
       tone: "warn",
     };
   }
   if (normalized === "pretty heavily") {
     return {
       branch: `MAP branch: pretty heavily -> Heavily Hit bucket (${relationState === "war" ? "war" : "out of war"})`,
-      calc: relationState === "war"
-        ? "MAP factor: war bucket = 0.800"
-        : "MAP factor: midpoint of 40-59% = 0.495",
+      calc:
+        relationState === "war"
+          ? "MAP factor: war bucket = 0.800"
+          : "MAP factor: midpoint of 40-59% = 0.495",
       tone: "warn",
     };
   }
   if (normalized === "extremely badly") {
     return {
       branch: `MAP branch: extremely badly -> Extremely Heavily Hit bucket (${relationState === "war" ? "war" : "out of war"})`,
-      calc: relationState === "war"
-        ? "MAP factor: war bucket = 0.800"
-        : "MAP factor: midpoint of 10-39% = 0.245",
+      calc:
+        relationState === "war"
+          ? "MAP factor: war bucket = 0.800"
+          : "MAP factor: midpoint of 10-39% = 0.245",
       tone: "bad",
     };
   }
@@ -200,7 +212,11 @@ function relationBreakdown(
   ];
 }
 
-function rpnwBreakdown(rpnw: number): { branch: string; calc: string; tone: TooltipLine["tone"] } {
+function rpnwBreakdown(rpnw: number): {
+  branch: string;
+  calc: string;
+  tone: TooltipLine["tone"];
+} {
   if (rpnw <= 0.567) {
     return {
       branch: `RPNW branch: x <= 0.567 (since ${rpnw.toFixed(3)} <= 0.567)`,
@@ -236,7 +252,11 @@ function rpnwBreakdown(rpnw: number): { branch: string; calc: string; tone: Tool
   };
 }
 
-function rknwBreakdown(rknw: number): { branch: string; calc: string; tone: TooltipLine["tone"] } {
+function rknwBreakdown(rknw: number): {
+  branch: string;
+  calc: string;
+  tone: TooltipLine["tone"];
+} {
   if (rknw <= 0.5) {
     return {
       branch: `RKNW branch: x <= 0.5 (since ${rknw.toFixed(3)} <= 0.5)`,
@@ -259,7 +279,8 @@ function rknwBreakdown(rknw: number): { branch: string; calc: string; tone: Tool
 }
 
 function toneClass(tone: TooltipLine["tone"] | undefined): string {
-  if (tone === "bad" || tone === "strong") return tone === "bad" ? "text-red-300" : "text-gray-100";
+  if (tone === "bad" || tone === "strong")
+    return tone === "bad" ? "text-red-300" : "text-gray-100";
   if (tone === "warn") return "text-amber-300";
   if (tone === "good") return "text-green-300";
   if (tone === "muted") return "text-gray-500";
@@ -280,18 +301,18 @@ function EstimateCell({
   attackTimeOffset = 0,
   baseAttackTime = 14,
 }: {
-  attacker: ProvinceRow,
-  defender: KingdomSnapshotProvince,
-  selfAvgNetworth: number,
-  targetAvgNetworth: number,
-  defenderLatest: ProvinceRow | null,
-  relationState: "war" | "oow",
-  ourAttitudeToThem: string | null,
-  theirAttitudeToUs: string | null,
-  defenderBarrierEffect: number | null,
-  defenderEnemyBattleGainsEffect: number | null,
-  attackTimeOffset?: number,
-  baseAttackTime?: number,
+  attacker: ProvinceRow;
+  defender: KingdomSnapshotProvince;
+  selfAvgNetworth: number;
+  targetAvgNetworth: number;
+  defenderLatest: ProvinceRow | null;
+  relationState: "war" | "oow";
+  ourAttitudeToThem: string | null;
+  theirAttitudeToUs: string | null;
+  defenderBarrierEffect: number | null;
+  defenderEnemyBattleGainsEffect: number | null;
+  attackTimeOffset?: number;
+  baseAttackTime?: number;
 }) {
   const estimate = estimateTraditionalMarchAcres({
     attackerLand: attacker.land,
@@ -337,10 +358,23 @@ function EstimateCell({
     estimate.attackTimeFactor;
   const rpnwInfo = rpnwBreakdown(estimate.rpnw);
   const rknwInfo = rknwBreakdown(estimate.rknw);
-  const mapInfo = mapBreakdown(defenderLatest?.hit_status ?? null, relationState, estimate.mapFactor);
-  const castlesInfo = castlesBreakdown(defenderLatest?.castles_effect ?? null, estimate.castlesFactor);
-  const barrierInfo = barrierBreakdown(estimate.barrierEffect, estimate.barrierFactor);
-  const siegeInfo = siegeBreakdown(attacker.siege_effect ?? null, estimate.siegeFactor);
+  const mapInfo = mapBreakdown(
+    defenderLatest?.hit_status ?? null,
+    relationState,
+    estimate.mapFactor,
+  );
+  const castlesInfo = castlesBreakdown(
+    defenderLatest?.castles_effect ?? null,
+    estimate.castlesFactor,
+  );
+  const barrierInfo = barrierBreakdown(
+    estimate.barrierEffect,
+    estimate.barrierFactor,
+  );
+  const siegeInfo = siegeBreakdown(
+    attacker.siege_effect ?? null,
+    estimate.siegeFactor,
+  );
   const mutualCeasefire =
     isNonAggressionPact(ourAttitudeToThem) &&
     isNonAggressionPact(theirAttitudeToUs);
@@ -365,53 +399,117 @@ function EstimateCell({
         estimate.ourRelationFactor,
         estimate.theirRelationFactor,
       );
-  const Section = ({ title, children }: { title: string; children: ReactNode }) => (
+  const Section = ({
+    title,
+    children,
+  }: {
+    title: string;
+    children: ReactNode;
+  }) => (
     <div className="rounded border border-gray-800 bg-gray-950/60 p-2.5">
-      <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">{title}</div>
+      <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+        {title}
+      </div>
       <div className="space-y-1 text-xs text-gray-300">{children}</div>
     </div>
   );
-  const Row = ({ label, value, tone = "text-gray-300" }: { label: string; value: ReactNode; tone?: string }) => (
+  const Row = ({
+    label,
+    value,
+    tone = "text-gray-300",
+  }: {
+    label: string;
+    value: ReactNode;
+    tone?: string;
+  }) => (
     <div className="flex items-start justify-between gap-3">
       <span className="text-gray-500">{label}</span>
       <span className={`text-right ${tone}`}>{value}</span>
     </div>
   );
   const formulaTone =
-    estimate.rpnwFactor === 0 || estimate.rawAcres === 0 ? "text-red-300"
-    : estimate.warFloorApplied ? "text-sky-300"
-    : estimate.capApplied ? "text-amber-300"
-    : "text-green-300";
+    estimate.rpnwFactor === 0 || estimate.rawAcres === 0
+      ? "text-red-300"
+      : estimate.warFloorApplied
+        ? "text-sky-300"
+        : estimate.capApplied
+          ? "text-amber-300"
+          : "text-green-300";
   const breakabilityLabel =
     breakability.status === "breakable"
       ? "Breakable"
       : breakability.status === "not_breakable"
         ? "Not breakable"
         : "Unknown";
-  const highlights: { label: string; value: string; className: string; impact: number }[] = [];
+  const highlights: {
+    label: string;
+    value: string;
+    className: string;
+    impact: number;
+  }[] = [];
   if (estimate.rpnwFactor < 1) {
-    highlights.push({ label: "RPNW", value: estimate.rpnwFactor.toFixed(3), className: factorClass(estimate.rpnwFactor), impact: Math.abs(1 - estimate.rpnwFactor) });
+    highlights.push({
+      label: "RPNW",
+      value: estimate.rpnwFactor.toFixed(3),
+      className: factorClass(estimate.rpnwFactor),
+      impact: Math.abs(1 - estimate.rpnwFactor),
+    });
   }
   if (estimate.mapFactor < 1) {
-    highlights.push({ label: "MAP", value: estimate.mapFactor.toFixed(3), className: factorClass(estimate.mapFactor), impact: Math.abs(1 - estimate.mapFactor) });
+    highlights.push({
+      label: "MAP",
+      value: estimate.mapFactor.toFixed(3),
+      className: factorClass(estimate.mapFactor),
+      impact: Math.abs(1 - estimate.mapFactor),
+    });
   }
   if (estimate.castlesFactor < 1) {
-    highlights.push({ label: "Castles", value: estimate.castlesFactor.toFixed(3), className: factorClass(estimate.castlesFactor), impact: Math.abs(1 - estimate.castlesFactor) });
+    highlights.push({
+      label: "Castles",
+      value: estimate.castlesFactor.toFixed(3),
+      className: factorClass(estimate.castlesFactor),
+      impact: Math.abs(1 - estimate.castlesFactor),
+    });
   }
   if (estimate.rknwFactor < 1) {
-    highlights.push({ label: "RKNW", value: estimate.rknwFactor.toFixed(3), className: factorClass(estimate.rknwFactor), impact: Math.abs(1 - estimate.rknwFactor) });
+    highlights.push({
+      label: "RKNW",
+      value: estimate.rknwFactor.toFixed(3),
+      className: factorClass(estimate.rknwFactor),
+      impact: Math.abs(1 - estimate.rknwFactor),
+    });
   }
   if (estimate.combinedRelationFactor !== 1) {
-    highlights.push({ label: "Relations", value: estimate.combinedRelationFactor.toFixed(3), className: factorClass(estimate.combinedRelationFactor), impact: Math.abs(1 - estimate.combinedRelationFactor) });
+    highlights.push({
+      label: "Relations",
+      value: estimate.combinedRelationFactor.toFixed(3),
+      className: factorClass(estimate.combinedRelationFactor),
+      impact: Math.abs(1 - estimate.combinedRelationFactor),
+    });
   }
   if (estimate.siegeFactor > 1) {
-    highlights.push({ label: "Siege", value: estimate.siegeFactor.toFixed(3), className: factorClass(estimate.siegeFactor), impact: Math.abs(1 - estimate.siegeFactor) });
+    highlights.push({
+      label: "Siege",
+      value: estimate.siegeFactor.toFixed(3),
+      className: factorClass(estimate.siegeFactor),
+      impact: Math.abs(1 - estimate.siegeFactor),
+    });
   }
   if (estimate.enemyBattleGainsFactor !== 1) {
-    highlights.push({ label: "Doctrine", value: estimate.enemyBattleGainsFactor.toFixed(3), className: factorClass(estimate.enemyBattleGainsFactor), impact: Math.abs(1 - estimate.enemyBattleGainsFactor) });
+    highlights.push({
+      label: "Doctrine",
+      value: estimate.enemyBattleGainsFactor.toFixed(3),
+      className: factorClass(estimate.enemyBattleGainsFactor),
+      impact: Math.abs(1 - estimate.enemyBattleGainsFactor),
+    });
   }
   if (estimate.attackTimeFactor !== 1) {
-    highlights.push({ label: "Atk Time", value: estimate.attackTimeFactor.toFixed(3), className: factorClass(estimate.attackTimeFactor), impact: Math.abs(1 - estimate.attackTimeFactor) });
+    highlights.push({
+      label: "Atk Time",
+      value: estimate.attackTimeFactor.toFixed(3),
+      className: factorClass(estimate.attackTimeFactor),
+      impact: Math.abs(1 - estimate.attackTimeFactor),
+    });
   }
   const summaryHighlights = [...highlights].sort((a, b) => b.impact - a.impact);
 
@@ -420,23 +518,37 @@ function EstimateCell({
       <div className="rounded border border-gray-700 bg-gray-950/80 px-3 py-2">
         <div className="text-sm font-medium text-gray-100">
           {attacker.slot != null && (
-            <span className="mr-1.5 text-xs tabular-nums text-gray-400">#{attacker.slot}</span>
+            <span className="mr-1.5 text-xs tabular-nums text-gray-400">
+              #{attacker.slot}
+            </span>
           )}
           {attacker.name}
           <span className="mx-2 text-gray-500">→</span>
           {defender.slot != null && (
-            <span className="mr-1.5 text-xs tabular-nums text-gray-400">#{defender.slot}</span>
+            <span className="mr-1.5 text-xs tabular-nums text-gray-400">
+              #{defender.slot}
+            </span>
           )}
           {defender.name}
         </div>
         <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-gray-400">
-          <div>Attacker: {formatNum(attacker.networth)} NW / {attacker.land?.toLocaleString() ?? "—"}a</div>
-          <div>Defender: {defender.networth.toLocaleString()} NW / {defender.land.toLocaleString()}a</div>
+          <div>
+            Attacker: {formatNum(attacker.networth)} NW /{" "}
+            {attacker.land?.toLocaleString() ?? "—"}a
+          </div>
+          <div>
+            Defender: {defender.networth.toLocaleString()} NW /{" "}
+            {defender.land.toLocaleString()}a
+          </div>
           <div>Self avg NW: {Math.round(selfAvgNetworth).toLocaleString()}</div>
-          <div>Target avg NW: {Math.round(targetAvgNetworth).toLocaleString()}</div>
+          <div>
+            Target avg NW: {Math.round(targetAvgNetworth).toLocaleString()}
+          </div>
         </div>
         {zeroReason && (
-          <div className={`mt-2 rounded border px-2 py-1 text-[11px] ${estimate.rpnwFactor === 0 ? "border-red-900/60 bg-red-950/30 text-red-200" : "border-amber-900/60 bg-amber-950/30 text-amber-200"}`}>
+          <div
+            className={`mt-2 rounded border px-2 py-1 text-[11px] ${estimate.rpnwFactor === 0 ? "border-red-900/60 bg-red-950/30 text-red-200" : "border-amber-900/60 bg-amber-950/30 text-amber-200"}`}
+          >
             {zeroReason}
           </div>
         )}
@@ -444,7 +556,13 @@ function EstimateCell({
 
       <div className="grid gap-2 md:grid-cols-2">
         <Section title="Summary">
-          <Row label="Displayed" value={estimate.roundedAcres.toLocaleString()} tone={estimate.roundedAcres === 0 ? "text-amber-300" : "text-gray-100"} />
+          <Row
+            label="Displayed"
+            value={estimate.roundedAcres.toLocaleString()}
+            tone={
+              estimate.roundedAcres === 0 ? "text-amber-300" : "text-gray-100"
+            }
+          />
           <Row
             label="Breakability"
             value={breakabilityLabel}
@@ -456,21 +574,50 @@ function EstimateCell({
                   : "text-gray-300"
             }
           />
-          <Row label="Raw acres" value={fmt(estimate.rawAcres)} tone={estimate.rawAcres === 0 ? "text-red-300" : estimate.capApplied ? "text-amber-300" : estimate.warFloorApplied ? "text-sky-300" : "text-green-300"} />
-          <Row label="Cap" value={fmt(estimate.cap)} tone={estimate.capApplied ? "text-amber-300" : "text-gray-300"} />
+          <Row
+            label="Raw acres"
+            value={fmt(estimate.rawAcres)}
+            tone={
+              estimate.rawAcres === 0
+                ? "text-red-300"
+                : estimate.capApplied
+                  ? "text-amber-300"
+                  : estimate.warFloorApplied
+                    ? "text-sky-300"
+                    : "text-green-300"
+            }
+          />
+          <Row
+            label="Cap"
+            value={fmt(estimate.cap)}
+            tone={estimate.capApplied ? "text-amber-300" : "text-gray-300"}
+          />
           {estimate.relationState === "war" && (
-            <Row label="War floor" value={fmt(estimate.warFloor)} tone={estimate.warFloorApplied ? "text-sky-300" : "text-gray-300"} />
+            <Row
+              label="War floor"
+              value={fmt(estimate.warFloor)}
+              tone={estimate.warFloorApplied ? "text-sky-300" : "text-gray-300"}
+            />
           )}
         </Section>
 
         <Section title="Top Factors">
-          {summaryHighlights.length > 0 ? summaryHighlights.slice(0, 4).map((item) => (
-            <div key={item.label} className="flex items-start justify-between gap-3">
-              <span className="text-gray-500">{item.label}</span>
-              <span className={`text-right ${item.className}`}>{item.value}</span>
+          {summaryHighlights.length > 0 ? (
+            summaryHighlights.slice(0, 4).map((item) => (
+              <div
+                key={item.label}
+                className="flex items-start justify-between gap-3"
+              >
+                <span className="text-gray-500">{item.label}</span>
+                <span className={`text-right ${item.className}`}>
+                  {item.value}
+                </span>
+              </div>
+            ))
+          ) : (
+            <div className="text-gray-500">
+              No major modifiers beyond the base path
             </div>
-          )) : (
-            <div className="text-gray-500">No major modifiers beyond the base path</div>
           )}
         </Section>
       </div>
@@ -492,30 +639,46 @@ function EstimateCell({
               <tbody>
                 <tr className="align-top">
                   <td className="py-0.5 pr-3 text-gray-500">
-                    <Tooltip content={[
-                      { text: `${fmt(defender.networth)} / ${fmt(attacker.networth ?? 0)} = ${estimate.rpnw.toFixed(3)} (${(estimate.rpnw * 100).toFixed(1)}%)` },
-                      { text: rpnwInfo.branch, tone: rpnwInfo.tone },
-                      { text: rpnwInfo.calc, tone: rpnwInfo.tone },
-                    ]}>
-                      <span className="cursor-help underline decoration-dotted decoration-gray-600">RPNW</span>
+                    <Tooltip
+                      content={[
+                        {
+                          text: `${fmt(defender.networth)} / ${fmt(attacker.networth ?? 0)} = ${estimate.rpnw.toFixed(3)} (${(estimate.rpnw * 100).toFixed(1)}%)`,
+                        },
+                        { text: rpnwInfo.branch, tone: rpnwInfo.tone },
+                        { text: rpnwInfo.calc, tone: rpnwInfo.tone },
+                      ]}
+                    >
+                      <span className="cursor-help underline decoration-dotted decoration-gray-600">
+                        RPNW
+                      </span>
                     </Tooltip>
                   </td>
                   <td className="py-0.5 text-right tabular-nums">
-                    <span className={factorClass(estimate.rpnwFactor)}>{estimate.rpnwFactor.toFixed(3)}</span>
+                    <span className={factorClass(estimate.rpnwFactor)}>
+                      {estimate.rpnwFactor.toFixed(3)}
+                    </span>
                   </td>
                 </tr>
                 <tr className="align-top">
                   <td className="py-0.5 pr-3 text-gray-500">
-                    <Tooltip content={[
-                      { text: `${fmt(targetAvgNetworth)} / ${fmt(selfAvgNetworth)} = ${estimate.rknw.toFixed(3)} (${(estimate.rknw * 100).toFixed(1)}%)` },
-                      { text: rknwInfo.branch, tone: rknwInfo.tone },
-                      { text: rknwInfo.calc, tone: rknwInfo.tone },
-                    ]}>
-                      <span className="cursor-help underline decoration-dotted decoration-gray-600">RKNW</span>
+                    <Tooltip
+                      content={[
+                        {
+                          text: `${fmt(targetAvgNetworth)} / ${fmt(selfAvgNetworth)} = ${estimate.rknw.toFixed(3)} (${(estimate.rknw * 100).toFixed(1)}%)`,
+                        },
+                        { text: rknwInfo.branch, tone: rknwInfo.tone },
+                        { text: rknwInfo.calc, tone: rknwInfo.tone },
+                      ]}
+                    >
+                      <span className="cursor-help underline decoration-dotted decoration-gray-600">
+                        RKNW
+                      </span>
                     </Tooltip>
                   </td>
                   <td className="py-0.5 text-right tabular-nums">
-                    <span className={factorClass(estimate.rknwFactor)}>{estimate.rknwFactor.toFixed(3)}</span>
+                    <span className={factorClass(estimate.rknwFactor)}>
+                      {estimate.rknwFactor.toFixed(3)}
+                    </span>
                   </td>
                 </tr>
               </tbody>
@@ -533,97 +696,190 @@ function EstimateCell({
               <tbody>
                 <tr className="align-top">
                   <td className="py-0.5 pr-3 text-gray-500">
-                    <Tooltip content={[
-                      { text: relationState === "war" ? "War" : "Out of war", tone: relationState === "war" ? "good" : "default" },
-                      ...relationInfo,
-                    ]}>
-                      <span className="cursor-help underline decoration-dotted decoration-gray-600">Relations</span>
+                    <Tooltip
+                      content={[
+                        {
+                          text: relationState === "war" ? "War" : "Out of war",
+                          tone: relationState === "war" ? "good" : "default",
+                        },
+                        ...relationInfo,
+                      ]}
+                    >
+                      <span className="cursor-help underline decoration-dotted decoration-gray-600">
+                        Relations
+                      </span>
                     </Tooltip>
                   </td>
                   <td className="py-0.5 text-right tabular-nums">
-                    <span className={factorClass(estimate.combinedRelationFactor)}>{estimate.combinedRelationFactor.toFixed(3)}</span>
+                    <span
+                      className={factorClass(estimate.combinedRelationFactor)}
+                    >
+                      {estimate.combinedRelationFactor.toFixed(3)}
+                    </span>
                   </td>
                 </tr>
                 <tr className="align-top">
                   <td className="py-0.5 pr-3 text-gray-500">
-                    <Tooltip content={[
-                      { text: defenderLatest?.hit_status ?? "unknown", tone: defenderLatest?.hit_status ? "default" : "muted" },
-                      { text: mapInfo.branch, tone: mapInfo.tone },
-                      { text: mapInfo.calc, tone: mapInfo.tone },
-                    ]}>
-                      <span className="cursor-help underline decoration-dotted decoration-gray-600">MAP</span>
+                    <Tooltip
+                      content={[
+                        {
+                          text: defenderLatest?.hit_status ?? "unknown",
+                          tone: defenderLatest?.hit_status
+                            ? "default"
+                            : "muted",
+                        },
+                        { text: mapInfo.branch, tone: mapInfo.tone },
+                        { text: mapInfo.calc, tone: mapInfo.tone },
+                      ]}
+                    >
+                      <span className="cursor-help underline decoration-dotted decoration-gray-600">
+                        MAP
+                      </span>
                     </Tooltip>
                   </td>
                   <td className="py-0.5 text-right tabular-nums">
-                    <span className={factorClass(estimate.mapFactor)}>{estimate.mapFactor.toFixed(3)}</span>
+                    <span className={factorClass(estimate.mapFactor)}>
+                      {estimate.mapFactor.toFixed(3)}
+                    </span>
                   </td>
                 </tr>
                 <tr className="align-top">
                   <td className="py-0.5 pr-3 text-gray-500">
-                    <Tooltip content={[
-                      { text: estimate.castlesEffect != null ? `${estimate.castlesEffect.toFixed(2)}% protection` : "unknown", tone: estimate.castlesEffect != null ? "default" : "muted" },
-                      { text: castlesInfo.branch, tone: castlesInfo.tone },
-                      { text: castlesInfo.calc, tone: castlesInfo.tone },
-                    ]}>
-                      <span className="cursor-help underline decoration-dotted decoration-gray-600">Castles</span>
+                    <Tooltip
+                      content={[
+                        {
+                          text:
+                            estimate.castlesEffect != null
+                              ? `${estimate.castlesEffect.toFixed(2)}% protection`
+                              : "unknown",
+                          tone:
+                            estimate.castlesEffect != null
+                              ? "default"
+                              : "muted",
+                        },
+                        { text: castlesInfo.branch, tone: castlesInfo.tone },
+                        { text: castlesInfo.calc, tone: castlesInfo.tone },
+                      ]}
+                    >
+                      <span className="cursor-help underline decoration-dotted decoration-gray-600">
+                        Castles
+                      </span>
                     </Tooltip>
                   </td>
                   <td className="py-0.5 text-right tabular-nums">
-                    <span className={factorClass(estimate.castlesFactor)}>{estimate.castlesFactor.toFixed(3)}</span>
+                    <span className={factorClass(estimate.castlesFactor)}>
+                      {estimate.castlesFactor.toFixed(3)}
+                    </span>
                   </td>
                 </tr>
                 <tr className="align-top">
                   <td className="py-0.5 pr-3 text-gray-500">
-                    <Tooltip content={[
-                      { text: estimate.barrierEffect != null ? `${estimate.barrierEffect.toFixed(2)}% battle loss reduction` : "not active", tone: estimate.barrierEffect != null ? "default" : "muted" },
-                      { text: barrierInfo.branch, tone: barrierInfo.tone },
-                      { text: barrierInfo.calc, tone: barrierInfo.tone },
-                    ]}>
-                      <span className="cursor-help underline decoration-dotted decoration-gray-600">Barrier</span>
+                    <Tooltip
+                      content={[
+                        {
+                          text:
+                            estimate.barrierEffect != null
+                              ? `${estimate.barrierEffect.toFixed(2)}% battle loss reduction`
+                              : "not active",
+                          tone:
+                            estimate.barrierEffect != null
+                              ? "default"
+                              : "muted",
+                        },
+                        { text: barrierInfo.branch, tone: barrierInfo.tone },
+                        { text: barrierInfo.calc, tone: barrierInfo.tone },
+                      ]}
+                    >
+                      <span className="cursor-help underline decoration-dotted decoration-gray-600">
+                        Barrier
+                      </span>
                     </Tooltip>
                   </td>
                   <td className="py-0.5 text-right tabular-nums">
-                    <span className={factorClass(estimate.barrierFactor)}>{estimate.barrierFactor.toFixed(3)}</span>
+                    <span className={factorClass(estimate.barrierFactor)}>
+                      {estimate.barrierFactor.toFixed(3)}
+                    </span>
                   </td>
                 </tr>
                 <tr className="align-top">
                   <td className="py-0.5 pr-3 text-gray-500">
-                    <Tooltip content={[
-                      { text: estimate.siegeEffect != null ? `${estimate.siegeEffect.toFixed(2)}% battle gains` : "unknown", tone: estimate.siegeEffect != null ? "default" : "muted" },
-                      { text: siegeInfo.branch, tone: siegeInfo.tone },
-                      { text: siegeInfo.calc, tone: siegeInfo.tone },
-                    ]}>
-                      <span className="cursor-help underline decoration-dotted decoration-gray-600">Siege</span>
+                    <Tooltip
+                      content={[
+                        {
+                          text:
+                            estimate.siegeEffect != null
+                              ? `${estimate.siegeEffect.toFixed(2)}% battle gains`
+                              : "unknown",
+                          tone:
+                            estimate.siegeEffect != null ? "default" : "muted",
+                        },
+                        { text: siegeInfo.branch, tone: siegeInfo.tone },
+                        { text: siegeInfo.calc, tone: siegeInfo.tone },
+                      ]}
+                    >
+                      <span className="cursor-help underline decoration-dotted decoration-gray-600">
+                        Siege
+                      </span>
                     </Tooltip>
                   </td>
                   <td className="py-0.5 text-right tabular-nums">
-                    <span className={factorClass(estimate.siegeFactor)}>{estimate.siegeFactor.toFixed(3)}</span>
+                    <span className={factorClass(estimate.siegeFactor)}>
+                      {estimate.siegeFactor.toFixed(3)}
+                    </span>
                   </td>
                 </tr>
                 <tr className="align-top">
                   <td className="py-0.5 pr-3 text-gray-500">
-                    <Tooltip content={[
-                      { text: estimate.enemyBattleGainsEffect != null ? `${estimate.enemyBattleGainsEffect > 0 ? "+" : ""}${estimate.enemyBattleGainsEffect.toFixed(1)}% battle gains` : "none", tone: estimate.enemyBattleGainsEffect != null ? "default" : "muted" },
-                    ]}>
-                      <span className="cursor-help underline decoration-dotted decoration-gray-600">Doctrine</span>
+                    <Tooltip
+                      content={[
+                        {
+                          text:
+                            estimate.enemyBattleGainsEffect != null
+                              ? `${estimate.enemyBattleGainsEffect > 0 ? "+" : ""}${estimate.enemyBattleGainsEffect.toFixed(1)}% battle gains`
+                              : "none",
+                          tone:
+                            estimate.enemyBattleGainsEffect != null
+                              ? "default"
+                              : "muted",
+                        },
+                      ]}
+                    >
+                      <span className="cursor-help underline decoration-dotted decoration-gray-600">
+                        Doctrine
+                      </span>
                     </Tooltip>
                   </td>
                   <td className="py-0.5 text-right tabular-nums">
-                    <span className={factorClass(estimate.enemyBattleGainsFactor)}>{estimate.enemyBattleGainsFactor.toFixed(3)}</span>
+                    <span
+                      className={factorClass(estimate.enemyBattleGainsFactor)}
+                    >
+                      {estimate.enemyBattleGainsFactor.toFixed(3)}
+                    </span>
                   </td>
                 </tr>
                 {estimate.attackTimeOffset !== 0 && (
                   <tr className="align-top">
                     <td className="py-0.5 pr-3 text-gray-500">
-                      <Tooltip content={[
-                        { text: `${estimate.attackTimeOffset > 0 ? "+" : ""}${estimate.attackTimeOffset}h / base ${estimate.baseAttackTime}h` },
-                        { text: `1 + (${estimate.attackTimeOffset}/${estimate.baseAttackTime}) × ${((ATTACK_TIME_SCALING[estimate.attackTimeOffset] ?? 0) * 100).toFixed(0)}% = ${estimate.attackTimeFactor.toFixed(3)}`, tone: "muted" },
-                      ]}>
-                        <span className="cursor-help underline decoration-dotted decoration-gray-600">Atk Time</span>
+                      <Tooltip
+                        content={[
+                          {
+                            text: `${estimate.attackTimeOffset > 0 ? "+" : ""}${estimate.attackTimeOffset}h / base ${estimate.baseAttackTime}h`,
+                          },
+                          {
+                            text: `1 + (${estimate.attackTimeOffset}/${estimate.baseAttackTime}) × ${((ATTACK_TIME_SCALING[estimate.attackTimeOffset] ?? 0) * 100).toFixed(0)}% = ${estimate.attackTimeFactor.toFixed(3)}`,
+                            tone: "muted",
+                          },
+                        ]}
+                      >
+                        <span className="cursor-help underline decoration-dotted decoration-gray-600">
+                          Atk Time
+                        </span>
                       </Tooltip>
                     </td>
                     <td className="py-0.5 text-right tabular-nums">
-                      <span className={factorClass(estimate.attackTimeFactor)}>{estimate.attackTimeFactor.toFixed(3)}</span>
+                      <span className={factorClass(estimate.attackTimeFactor)}>
+                        {estimate.attackTimeFactor.toFixed(3)}
+                      </span>
                     </td>
                   </tr>
                 )}
@@ -634,46 +890,96 @@ function EstimateCell({
 
         <div className="mt-2">
           <Section title="Calculation">
-          <div className={`rounded border px-2 py-1 ${formulaTone === "text-red-300" ? "border-red-900/60 bg-red-950/20" : formulaTone === "text-amber-300" ? "border-amber-900/60 bg-amber-950/20" : formulaTone === "text-sky-300" ? "border-sky-900/60 bg-sky-950/20" : "border-green-900/60 bg-green-950/20"} ${formulaTone}`}>
-            <span className="text-gray-300">base acres = </span>
-            <span className="text-gray-100">{fmt(defender.land)}</span>
-          <span className="text-gray-500"> * </span>
-          <span className="text-gray-100">0.12</span>
-          <span className="text-gray-500"> * </span>
-          <span className={factorClass(estimate.rpnwFactor)}>{estimate.rpnwFactor.toFixed(3)}</span>
-          <span className="text-gray-500"> * </span>
-          <span className={factorClass(estimate.rknwFactor)}>{estimate.rknwFactor.toFixed(3)}</span>
-          <span className="text-gray-500"> * </span>
-          <span className={factorClass(estimate.mapFactor)}>{estimate.mapFactor.toFixed(3)}</span>
-          <span className="text-gray-500"> * </span>
-          <span className={factorClass(estimate.castlesFactor)}>{estimate.castlesFactor.toFixed(3)}</span>
-          <span className="text-gray-500"> * </span>
-          <span className={factorClass(estimate.barrierFactor)}>{estimate.barrierFactor.toFixed(3)}</span>
-          <span className="text-gray-500"> * </span>
-          <span className={factorClass(estimate.siegeFactor)}>{estimate.siegeFactor.toFixed(3)}</span>
-          <span className="text-gray-500"> * </span>
-          <span className={factorClass(estimate.combinedRelationFactor)}>{estimate.combinedRelationFactor.toFixed(3)}</span>
-          {estimate.enemyBattleGainsFactor !== 1 && (<>
-            <span className="text-gray-500"> * </span>
-            <span className={factorClass(estimate.enemyBattleGainsFactor)}>{estimate.enemyBattleGainsFactor.toFixed(3)}</span>
-          </>)}
-          {estimate.attackTimeFactor !== 1 && (<>
-            <span className="text-gray-500"> * </span>
-            <span className={factorClass(estimate.attackTimeFactor)}>{estimate.attackTimeFactor.toFixed(3)}</span>
-          </>)}
-          <span className="text-gray-500"> = </span>
-          <span className="text-gray-100">{fmt(baseAcres)}</span>
-        </div>
-        {estimate.relationState === "war" && (
-          <Row
-            label="War floor"
-            value={`max(${fmt(baseAcres)}, ${fmt(estimate.warFloor)}) = ${fmt(Math.max(baseAcres, estimate.warFloor))}`}
-            tone={estimate.warFloorApplied ? "text-sky-300" : "text-gray-300"}
-          />
-          )}
-          <Row label="Cap" value={`min(${fmt(attacker.land ?? 0)}, ${fmt(defender.land)}) * 0.20 = ${fmt(estimate.cap)}`} tone={estimate.capApplied ? "text-amber-300" : "text-gray-300"} />
-          <Row label="Raw acres" value={`min(${fmt(Math.max(baseAcres, estimate.warFloor))}, ${fmt(estimate.cap)}) = ${fmt(estimate.rawAcres)}`} tone={estimate.rawAcres === 0 ? "text-red-300" : estimate.capApplied ? "text-amber-300" : estimate.warFloorApplied ? "text-sky-300" : "text-green-300"} />
-          <Row label="Displayed" value={estimate.roundedAcres.toLocaleString()} tone={estimate.roundedAcres === 0 ? "text-amber-300" : "text-gray-100"} />
+            <div
+              className={`rounded border px-2 py-1 ${formulaTone === "text-red-300" ? "border-red-900/60 bg-red-950/20" : formulaTone === "text-amber-300" ? "border-amber-900/60 bg-amber-950/20" : formulaTone === "text-sky-300" ? "border-sky-900/60 bg-sky-950/20" : "border-green-900/60 bg-green-950/20"} ${formulaTone}`}
+            >
+              <span className="text-gray-300">base acres = </span>
+              <span className="text-gray-100">{fmt(defender.land)}</span>
+              <span className="text-gray-500"> * </span>
+              <span className="text-gray-100">0.12</span>
+              <span className="text-gray-500"> * </span>
+              <span className={factorClass(estimate.rpnwFactor)}>
+                {estimate.rpnwFactor.toFixed(3)}
+              </span>
+              <span className="text-gray-500"> * </span>
+              <span className={factorClass(estimate.rknwFactor)}>
+                {estimate.rknwFactor.toFixed(3)}
+              </span>
+              <span className="text-gray-500"> * </span>
+              <span className={factorClass(estimate.mapFactor)}>
+                {estimate.mapFactor.toFixed(3)}
+              </span>
+              <span className="text-gray-500"> * </span>
+              <span className={factorClass(estimate.castlesFactor)}>
+                {estimate.castlesFactor.toFixed(3)}
+              </span>
+              <span className="text-gray-500"> * </span>
+              <span className={factorClass(estimate.barrierFactor)}>
+                {estimate.barrierFactor.toFixed(3)}
+              </span>
+              <span className="text-gray-500"> * </span>
+              <span className={factorClass(estimate.siegeFactor)}>
+                {estimate.siegeFactor.toFixed(3)}
+              </span>
+              <span className="text-gray-500"> * </span>
+              <span className={factorClass(estimate.combinedRelationFactor)}>
+                {estimate.combinedRelationFactor.toFixed(3)}
+              </span>
+              {estimate.enemyBattleGainsFactor !== 1 && (
+                <>
+                  <span className="text-gray-500"> * </span>
+                  <span
+                    className={factorClass(estimate.enemyBattleGainsFactor)}
+                  >
+                    {estimate.enemyBattleGainsFactor.toFixed(3)}
+                  </span>
+                </>
+              )}
+              {estimate.attackTimeFactor !== 1 && (
+                <>
+                  <span className="text-gray-500"> * </span>
+                  <span className={factorClass(estimate.attackTimeFactor)}>
+                    {estimate.attackTimeFactor.toFixed(3)}
+                  </span>
+                </>
+              )}
+              <span className="text-gray-500"> = </span>
+              <span className="text-gray-100">{fmt(baseAcres)}</span>
+            </div>
+            {estimate.relationState === "war" && (
+              <Row
+                label="War floor"
+                value={`max(${fmt(baseAcres)}, ${fmt(estimate.warFloor)}) = ${fmt(Math.max(baseAcres, estimate.warFloor))}`}
+                tone={
+                  estimate.warFloorApplied ? "text-sky-300" : "text-gray-300"
+                }
+              />
+            )}
+            <Row
+              label="Cap"
+              value={`min(${fmt(attacker.land ?? 0)}, ${fmt(defender.land)}) * 0.20 = ${fmt(estimate.cap)}`}
+              tone={estimate.capApplied ? "text-amber-300" : "text-gray-300"}
+            />
+            <Row
+              label="Raw acres"
+              value={`min(${fmt(Math.max(baseAcres, estimate.warFloor))}, ${fmt(estimate.cap)}) = ${fmt(estimate.rawAcres)}`}
+              tone={
+                estimate.rawAcres === 0
+                  ? "text-red-300"
+                  : estimate.capApplied
+                    ? "text-amber-300"
+                    : estimate.warFloorApplied
+                      ? "text-sky-300"
+                      : "text-green-300"
+              }
+            />
+            <Row
+              label="Displayed"
+              value={estimate.roundedAcres.toLocaleString()}
+              tone={
+                estimate.roundedAcres === 0 ? "text-amber-300" : "text-gray-100"
+              }
+            />
           </Section>
 
           <div className="mt-2 grid gap-2">
@@ -691,16 +997,48 @@ function EstimateCell({
               />
               <Row
                 label="Offense"
-                value={breakability.offense != null ? breakability.offense.toLocaleString() : "unknown"}
-                tone={breakability.offense != null ? "text-gray-100" : "text-amber-300"}
+                value={
+                  breakability.offense != null
+                    ? breakability.offense.toLocaleString()
+                    : "unknown"
+                }
+                tone={
+                  breakability.offense != null
+                    ? "text-gray-100"
+                    : "text-amber-300"
+                }
               />
-              <Row label="Offense source" value={breakability.offenseSource ?? "missing"} tone={breakability.offenseSource ? "text-gray-300" : "text-amber-300"} />
+              <Row
+                label="Offense source"
+                value={breakability.offenseSource ?? "missing"}
+                tone={
+                  breakability.offenseSource
+                    ? "text-gray-300"
+                    : "text-amber-300"
+                }
+              />
               <Row
                 label="Defense"
-                value={breakability.defense != null ? breakability.defense.toLocaleString() : "unknown"}
-                tone={breakability.defense != null ? "text-gray-100" : "text-amber-300"}
+                value={
+                  breakability.defense != null
+                    ? breakability.defense.toLocaleString()
+                    : "unknown"
+                }
+                tone={
+                  breakability.defense != null
+                    ? "text-gray-100"
+                    : "text-amber-300"
+                }
               />
-              <Row label="Defense source" value={breakability.defenseSource ?? "missing"} tone={breakability.defenseSource ? "text-gray-300" : "text-amber-300"} />
+              <Row
+                label="Defense source"
+                value={breakability.defenseSource ?? "missing"}
+                tone={
+                  breakability.defenseSource
+                    ? "text-gray-300"
+                    : "text-amber-300"
+                }
+              />
             </Section>
           </div>
         </div>
@@ -709,67 +1047,162 @@ function EstimateCell({
   );
 }
 
-function breakMarker(attacker: ProvinceRow, defenderLatest: ProvinceRow | null) {
+function breakMarker(
+  attacker: ProvinceRow,
+  defenderLatest: ProvinceRow | null,
+) {
   const breakability = estimateBreakability(attacker, defenderLatest);
   if (breakability.status === "breakable") {
-    return <span className="text-[10px] uppercase tracking-wide text-green-400">B</span>;
+    return (
+      <span className="text-[10px] uppercase tracking-wide text-green-400">
+        B
+      </span>
+    );
   }
   if (breakability.status === "not_breakable") {
-    return <span className="text-[10px] uppercase tracking-wide text-red-400">X</span>;
+    return (
+      <span className="text-[10px] uppercase tracking-wide text-red-400">
+        X
+      </span>
+    );
   }
-  return <span className="text-[10px] uppercase tracking-wide text-gray-500">?</span>;
+  return (
+    <span className="text-[10px] uppercase tracking-wide text-gray-500">?</span>
+  );
 }
 
 function gainsTone(
-  estimate: NonNullable<ReturnType<typeof estimateTraditionalMarchAcres>> | null,
+  estimate: NonNullable<
+    ReturnType<typeof estimateTraditionalMarchAcres>
+  > | null,
   defenderLand: number,
 ): { cell: string; value: string } {
   if (!estimate) return { cell: "bg-gray-950/40", value: "text-gray-500" };
-  if (estimate.roundedAcres === 0) return { cell: "bg-gray-950/60", value: "text-gray-400" };
+  if (estimate.roundedAcres === 0)
+    return { cell: "bg-gray-950/60", value: "text-gray-400" };
   const pct = defenderLand > 0 ? (estimate.rawAcres / defenderLand) * 100 : 0;
-  if (pct < 5)  return { cell: "bg-red-950/30",    value: "text-red-300" };
-  if (pct < 8)  return { cell: "bg-amber-950/25",  value: "text-amber-200" };
-  if (pct < 10) return { cell: "bg-gray-950/40",   value: "text-gray-200" };
-  if (pct < 11) return { cell: "bg-lime-950/25",   value: "text-lime-200" };
-  return           { cell: "bg-green-950/30",   value: "text-green-200" };
+  if (pct < 5) return { cell: "bg-red-950/30", value: "text-red-300" };
+  if (pct < 8) return { cell: "bg-amber-950/25", value: "text-amber-200" };
+  if (pct < 10) return { cell: "bg-gray-950/40", value: "text-gray-200" };
+  if (pct < 11) return { cell: "bg-lime-950/25", value: "text-lime-200" };
+  return { cell: "bg-green-950/30", value: "text-green-200" };
 }
 
 function stateBadges(
-  estimate: NonNullable<ReturnType<typeof estimateTraditionalMarchAcres>> | null,
+  estimate: NonNullable<
+    ReturnType<typeof estimateTraditionalMarchAcres>
+  > | null,
   breakability: ReturnType<typeof estimateBreakability>,
 ) {
   const badges: React.ReactNode[] = [];
   if (!estimate) return badges;
   if (estimate.rpnwFactor === 0) {
-    badges.push(<span key="nw0" className="text-[9px] font-medium uppercase tracking-wide text-red-400">NW0</span>);
+    badges.push(
+      <span
+        key="nw0"
+        className="text-[9px] font-medium uppercase tracking-wide text-red-400"
+      >
+        NW0
+      </span>,
+    );
   } else if (estimate.rpnwFactor < 1 || estimate.rknwFactor < 1) {
-    badges.push(<span key="reduced" className="text-[9px] font-medium uppercase tracking-wide text-amber-400">REDUCED</span>);
+    badges.push(
+      <span
+        key="reduced"
+        className="text-[9px] font-medium uppercase tracking-wide text-amber-400"
+      >
+        REDUCED
+      </span>,
+    );
   }
   if (estimate.capApplied) {
-    badges.push(<span key="cap" className="text-[9px] font-medium uppercase tracking-wide text-amber-300">CAP</span>);
+    badges.push(
+      <span
+        key="cap"
+        className="text-[9px] font-medium uppercase tracking-wide text-amber-300"
+      >
+        CAP
+      </span>,
+    );
   }
   if (estimate.warFloorApplied) {
-    badges.push(<span key="floor" className="text-[9px] font-medium uppercase tracking-wide text-sky-300">FLOOR</span>);
+    badges.push(
+      <span
+        key="floor"
+        className="text-[9px] font-medium uppercase tracking-wide text-sky-300"
+      >
+        FLOOR
+      </span>,
+    );
   }
   if (estimate.mapFactor < 1) {
-    badges.push(<span key="map" className="text-[9px] font-medium uppercase tracking-wide text-rose-300">MAP</span>);
+    badges.push(
+      <span
+        key="map"
+        className="text-[9px] font-medium uppercase tracking-wide text-rose-300"
+      >
+        MAP
+      </span>,
+    );
   }
   if (estimate.castlesFactor < 1) {
-    badges.push(<span key="castles" className="text-[9px] font-medium uppercase tracking-wide text-orange-300">CASTLES</span>);
+    badges.push(
+      <span
+        key="castles"
+        className="text-[9px] font-medium uppercase tracking-wide text-orange-300"
+      >
+        CASTLES
+      </span>,
+    );
   }
   if (estimate.barrierFactor < 1) {
-    badges.push(<span key="barrier" className="text-[9px] font-medium uppercase tracking-wide text-purple-300">BARRIER</span>);
+    badges.push(
+      <span
+        key="barrier"
+        className="text-[9px] font-medium uppercase tracking-wide text-purple-300"
+      >
+        BARRIER
+      </span>,
+    );
   }
   if (estimate.siegeFactor > 1) {
-    badges.push(<span key="siege" className="text-[9px] font-medium uppercase tracking-wide text-emerald-300">SIEGE</span>);
+    badges.push(
+      <span
+        key="siege"
+        className="text-[9px] font-medium uppercase tracking-wide text-emerald-300"
+      >
+        SIEGE
+      </span>,
+    );
   }
   if (estimate.combinedRelationFactor > 1) {
-    badges.push(<span key="rel" className="text-[9px] font-medium uppercase tracking-wide text-violet-300">REL</span>);
+    badges.push(
+      <span
+        key="rel"
+        className="text-[9px] font-medium uppercase tracking-wide text-violet-300"
+      >
+        REL
+      </span>,
+    );
   }
   if (breakability.status === "not_breakable") {
-    badges.push(<span key="x" className="text-[9px] font-medium uppercase tracking-wide text-red-400">X</span>);
+    badges.push(
+      <span
+        key="x"
+        className="text-[9px] font-medium uppercase tracking-wide text-red-400"
+      >
+        X
+      </span>,
+    );
   } else if (breakability.status === "unknown") {
-    badges.push(<span key="q" className="text-[9px] font-medium uppercase tracking-wide text-sky-300">?</span>);
+    badges.push(
+      <span
+        key="q"
+        className="text-[9px] font-medium uppercase tracking-wide text-sky-300"
+      >
+        ?
+      </span>,
+    );
   }
   return badges;
 }
@@ -796,32 +1229,63 @@ export function GainsTable({
 
   useEffect(() => {
     const id = setInterval(async () => {
-      const res = await fetch(`/api/kingdom/${encodeURIComponent(data.targetKingdom)}/gains`);
+      const res = await fetch(
+        `/api/kingdom/${encodeURIComponent(data.targetKingdom)}/gains`,
+      );
       if (res.ok) setData(await res.json());
     }, 30_000);
     return () => clearInterval(id);
   }, [data.targetKingdom]);
 
-  const { targetKingdom, selfKingdom, selfProvinces, targetLatest, selfSnapshot, targetSnapshot, targetRitual } = data;
-  const defenderBarrierEffect = targetRitual?.name === "Barrier ritual" && targetRitual.effectivenessPercent != null
-    ? (targetRitual.effectivenessPercent / 100) * 10
-    : null;
-  const enemyBattleGainsEffect = targetSnapshot?.warDoctrines.find((d) => d.effect === "Enemy Battle Gains")?.bonusPercent ?? null;
+  const {
+    targetKingdom,
+    selfKingdom,
+    selfProvinces,
+    targetLatest,
+    selfSnapshot,
+    targetSnapshot,
+    targetRitual,
+  } = data;
+  const defenderBarrierEffect =
+    targetRitual?.name === "Barrier ritual" &&
+    targetRitual.effectivenessPercent != null
+      ? (targetRitual.effectivenessPercent / 100) * 10
+      : null;
+  const enemyBattleGainsEffect =
+    targetSnapshot?.warDoctrines.find((d) => d.effect === "Enemy Battle Gains")
+      ?.bonusPercent ?? null;
   const baseAttackTime = selfKingdom === targetKingdom ? 7 : 14;
   const tabExtras = (
     <>
       <Tooltip
         content={[
           { text: "Traditional March land gains only.", tone: "strong" },
-          { text: "Kingdom averages come from the latest accessible kingdom page snapshots." },
-          { text: "Rows use your latest visible intel; target columns use the latest target kingdom snapshot." },
+          {
+            text: "Kingdom averages come from the latest accessible kingdom page snapshots.",
+          },
+          {
+            text: "Rows use your latest visible intel; target columns use the latest target kingdom snapshot.",
+          },
           { text: "MAP uses SoT bucket midpoints." },
-          { text: "War applies a 4% minimum-gains floor based on defender land." },
-          { text: "Castles uses the direct lower-loss percentage shown on the latest survey." },
-          { text: "Siege uses the direct Battle Gains percentage shown on the latest SoS." },
-          { text: "Relations use the current directional Unfriendly and Hostile gains modifiers from the target snapshot." },
-          { text: "Barrier ritual uses effectivenessPercent × 10% as the battle loss reduction applied to defender." },
-          { text: "Still assumes neutral race/personality gains mods, dragons, anonymity, and mist.", tone: "muted" },
+          {
+            text: "War applies a 4% minimum-gains floor based on defender land.",
+          },
+          {
+            text: "Castles uses the direct lower-loss percentage shown on the latest survey.",
+          },
+          {
+            text: "Siege uses the direct Battle Gains percentage shown on the latest SoS.",
+          },
+          {
+            text: "Relations use the current directional Unfriendly and Hostile gains modifiers from the target snapshot.",
+          },
+          {
+            text: "Barrier ritual uses effectivenessPercent × 10% as the battle loss reduction applied to defender.",
+          },
+          {
+            text: "Still assumes neutral race/personality gains mods, dragons, anonymity, and mist.",
+            tone: "muted",
+          },
         ]}
       >
         <span className={`${btnBase} ${btnInactive}`}>Assumptions</span>
@@ -843,16 +1307,27 @@ export function GainsTable({
         </select>
       </div>
       <div className="ml-auto text-xs text-gray-500">
-        Self snapshot: <span className="text-gray-300">{formatTimestamp(selfSnapshot?.receivedAt ?? null)}</span>
+        Self snapshot:{" "}
+        <span className="text-gray-300">
+          {formatTimestamp(selfSnapshot?.receivedAt ?? null)}
+        </span>
         {" · "}
-        Target snapshot: <span className="text-gray-300">{formatTimestamp(targetSnapshot?.receivedAt ?? null)}</span>
+        Target snapshot:{" "}
+        <span className="text-gray-300">
+          {formatTimestamp(targetSnapshot?.receivedAt ?? null)}
+        </span>
       </div>
     </>
   );
 
   const wrap = (content: React.ReactNode) => {
     const shell = (
-      <KingdomViewShell kingdom={targetKingdom} boundKingdom={selfKingdom} active="gains" tabExtras={tabExtras}>
+      <KingdomViewShell
+        kingdom={targetKingdom}
+        boundKingdom={selfKingdom}
+        active="gains"
+        tabExtras={tabExtras}
+      >
         {content}
       </KingdomViewShell>
     );
@@ -860,42 +1335,85 @@ export function GainsTable({
   };
 
   if (!selfKingdom) {
-    return wrap(emptyState("No bound kingdom yet. Submit a self /throne page first so the site can identify your kingdom."));
+    return wrap(
+      emptyState(
+        "No bound kingdom yet. Submit a self /throne page first so the site can identify your kingdom.",
+      ),
+    );
   }
 
   if (selfProvinces.length === 0) {
-    return wrap(emptyState(`No visible provinces found for your bound kingdom ${selfKingdom}.`));
+    return wrap(
+      emptyState(
+        `No visible provinces found for your bound kingdom ${selfKingdom}.`,
+      ),
+    );
   }
 
   if (!selfSnapshot) {
-    return wrap(emptyState(`Your kingdom ${selfKingdom} needs a kingdom page submission before gains can be estimated.`));
+    return wrap(
+      emptyState(
+        `Your kingdom ${selfKingdom} needs a kingdom page submission before gains can be estimated.`,
+      ),
+    );
   }
 
   if (!targetSnapshot) {
-    return wrap(emptyState(`No kingdom page snapshot is available for ${targetKingdom} yet. Submit a kingdom_details page for that target first.`));
+    return wrap(
+      emptyState(
+        `No kingdom page snapshot is available for ${targetKingdom} yet. Submit a kingdom_details page for that target first.`,
+      ),
+    );
   }
 
   const selfAvgNetworth = averageNetworth(selfSnapshot.provinces);
   const targetAvgNetworth = averageNetworth(targetSnapshot.provinces);
-  const relationState = relationStateForSnapshots(selfKingdom, targetKingdom, selfSnapshot, targetSnapshot);
+  const relationState = relationStateForSnapshots(
+    selfKingdom,
+    targetKingdom,
+    selfSnapshot,
+    targetSnapshot,
+  );
 
   if (!selfAvgNetworth || !targetAvgNetworth) {
-    return wrap(emptyState("One of the kingdom snapshots is missing networth data, so gains cannot be estimated."));
+    return wrap(
+      emptyState(
+        "One of the kingdom snapshots is missing networth data, so gains cannot be estimated.",
+      ),
+    );
   }
 
-  const targetLatestByName = new Map(targetLatest.map((p) => [p.name, p] as const));
+  const targetLatestByName = new Map(
+    targetLatest.map((p) => [p.name, p] as const),
+  );
 
-  const renderTargetHeader = (defender: KingdomSnapshotProvince, defHome: number | null) => (
-    <Tooltip content={`${defender.slot != null ? `Slot ${defender.slot}\n` : ""}${defender.name}\nNW ${defender.networth.toLocaleString()}\nLand ${defender.land.toLocaleString()}${defHome != null ? `\nDef Home ${defHome.toLocaleString()}` : ""}`}>
-      <Link href={`/kingdom/${encodeURIComponent(targetKingdom)}/${encodeURIComponent(defender.name)}`} className="hover:text-blue-300 transition-colors">
+  const renderTargetHeader = (
+    defender: KingdomSnapshotProvince,
+    defHome: number | null,
+  ) => (
+    <Tooltip
+      content={`${defender.slot != null ? `Slot ${defender.slot}\n` : ""}${defender.name}\nNW ${defender.networth.toLocaleString()}\nLand ${defender.land.toLocaleString()}${defHome != null ? `\nDef Home ${defHome.toLocaleString()}` : ""}`}
+    >
+      <Link
+        href={`/kingdom/${encodeURIComponent(targetKingdom)}/${encodeURIComponent(defender.name)}`}
+        className="hover:text-blue-300 transition-colors"
+      >
         <div>
           {defender.slot != null && (
-            <span className="mr-1.5 text-[10px] tabular-nums text-gray-500">#{defender.slot}</span>
+            <span className="mr-1.5 text-[10px] tabular-nums text-gray-500">
+              #{defender.slot}
+            </span>
           )}
           {defender.name}
         </div>
         <div className="mt-1 text-[10px] font-normal text-gray-500">
-          {formatNum(defender.networth)} / {defender.land.toLocaleString()}a{defHome != null && <> / <span className="text-sky-600">{formatNum(defHome)} def</span></>}
+          {formatNum(defender.networth)} / {defender.land.toLocaleString()}a
+          {defHome != null && (
+            <>
+              {" "}
+              / <span className="text-sky-600">{formatNum(defHome)} def</span>
+            </>
+          )}
         </div>
       </Link>
     </Tooltip>
@@ -910,7 +1428,9 @@ export function GainsTable({
         <table className="border-separate border-spacing-0 text-xs">
           <thead>
             <tr>
-              <th className={`${ATTACKER_COL_WIDTH} sticky left-0 z-30 border-r border-gray-800 bg-gray-950 px-3 py-2 text-left font-medium text-gray-300`}>
+              <th
+                className={`${ATTACKER_COL_WIDTH} sticky left-0 z-30 border-r border-gray-800 bg-gray-950 px-3 py-2 text-left font-medium text-gray-300`}
+              >
                 {selfKingdom}
                 <div className="mt-1 text-[10px] font-normal text-gray-500">
                   avg NW {formatNum(Math.round(selfAvgNetworth))}
@@ -921,7 +1441,10 @@ export function GainsTable({
                   key={defender.name}
                   className={`${TARGET_COL_WIDTH} border-r border-gray-800 bg-gray-950 px-3 py-2 text-right font-medium text-gray-300`}
                 >
-                  {renderTargetHeader(defender, targetLatestByName.get(defender.name)?.def_home ?? null)}
+                  {renderTargetHeader(
+                    defender,
+                    targetLatestByName.get(defender.name)?.def_home ?? null,
+                  )}
                 </th>
               ))}
             </tr>
@@ -943,7 +1466,9 @@ export function GainsTable({
                 key={attacker.id}
                 onClick={() => setSelectedRowId(attacker.id)}
                 className={`cursor-pointer hover:bg-gray-900/40 ${
-                  selectedRowId === attacker.id ? "bg-blue-950/20 ring-1 ring-inset ring-blue-500/50" : ""
+                  selectedRowId === attacker.id
+                    ? "bg-blue-950/20 ring-1 ring-inset ring-blue-500/50"
+                    : ""
                 }`}
               >
                 <th
@@ -953,23 +1478,35 @@ export function GainsTable({
                       : "bg-gray-950 text-gray-200"
                   }`}
                 >
-                  <Tooltip content={`${attacker.slot != null ? `Slot ${attacker.slot}\n` : ""}${attacker.name}\nNW ${attacker.networth?.toLocaleString() ?? "—"}\nLand ${attacker.land?.toLocaleString() ?? "—"}`}>
+                  <Tooltip
+                    content={`${attacker.slot != null ? `Slot ${attacker.slot}\n` : ""}${attacker.name}\nNW ${attacker.networth?.toLocaleString() ?? "—"}\nLand ${attacker.land?.toLocaleString() ?? "—"}`}
+                  >
                     <Link
                       href={`/kingdom/${encodeURIComponent(selfKingdom)}/${encodeURIComponent(attacker.name)}`}
-                      className={selectedRowId === attacker.id ? "text-blue-100" : "hover:text-blue-400"}
+                      className={
+                        selectedRowId === attacker.id
+                          ? "text-blue-100"
+                          : "hover:text-blue-400"
+                      }
                     >
                       {attacker.slot != null && (
-                        <span className="mr-1.5 text-[10px] tabular-nums text-gray-500">#{attacker.slot}</span>
+                        <span className="mr-1.5 text-[10px] tabular-nums text-gray-500">
+                          #{attacker.slot}
+                        </span>
                       )}
                       {attacker.name}
                     </Link>
-                    <div className={`mt-1 text-[10px] font-normal ${selectedRowId === attacker.id ? "text-blue-300/80" : "text-gray-500"}`}>
-                      {formatNum(attacker.networth)} / {attacker.land?.toLocaleString() ?? "—"}a
+                    <div
+                      className={`mt-1 text-[10px] font-normal ${selectedRowId === attacker.id ? "text-blue-300/80" : "text-gray-500"}`}
+                    >
+                      {formatNum(attacker.networth)} /{" "}
+                      {attacker.land?.toLocaleString() ?? "—"}a
                     </div>
                   </Tooltip>
                 </th>
                 {targetSnapshot.provinces.map((defender) => {
-                  const defenderLatest = targetLatestByName.get(defender.name) ?? null;
+                  const defenderLatest =
+                    targetLatestByName.get(defender.name) ?? null;
                   const estimate = estimateTraditionalMarchAcres({
                     attackerLand: attacker.land,
                     attackerNetworth: attacker.networth,
@@ -978,7 +1515,8 @@ export function GainsTable({
                     selfKingdomAvgNetworth: selfAvgNetworth,
                     targetKingdomAvgNetworth: targetAvgNetworth,
                     defenderHitStatus: defenderLatest?.hit_status ?? null,
-                    defenderCastlesEffect: defenderLatest?.castles_effect ?? null,
+                    defenderCastlesEffect:
+                      defenderLatest?.castles_effect ?? null,
                     defenderBarrierEffect,
                     attackerSiegeEffect: attacker.siege_effect ?? null,
                     defenderEnemyBattleGainsEffect: enemyBattleGainsEffect,
@@ -988,7 +1526,10 @@ export function GainsTable({
                     attackTimeOffset,
                     baseAttackTime,
                   });
-                  const breakability = estimateBreakability(attacker, defenderLatest);
+                  const breakability = estimateBreakability(
+                    attacker,
+                    defenderLatest,
+                  );
                   const tone = gainsTone(estimate, defender.land);
                   const badges = stateBadges(estimate, breakability);
 
@@ -996,19 +1537,45 @@ export function GainsTable({
                     <td
                       key={`${attacker.id}:${defender.name}`}
                       className={`${TARGET_COL_WIDTH} border-b border-r border-gray-800 px-3 py-2 text-right tabular-nums transition-colors ${
-                        selectedRowId === attacker.id ? "shadow-[inset_0_1px_0_rgba(59,130,246,0.45),inset_0_-1px_0_rgba(59,130,246,0.45)]" : ""
+                        selectedRowId === attacker.id
+                          ? "shadow-[inset_0_1px_0_rgba(59,130,246,0.45),inset_0_-1px_0_rgba(59,130,246,0.45)]"
+                          : ""
                       } ${tone.cell}`}
                     >
-                      <Tooltip content={<EstimateCell attacker={attacker} defender={defender} selfAvgNetworth={selfAvgNetworth} targetAvgNetworth={targetAvgNetworth} defenderLatest={defenderLatest} relationState={relationState} ourAttitudeToThem={targetSnapshot.ourAttitudeToThem} theirAttitudeToUs={targetSnapshot.theirAttitudeToUs} defenderBarrierEffect={defenderBarrierEffect} defenderEnemyBattleGainsEffect={enemyBattleGainsEffect} attackTimeOffset={attackTimeOffset} baseAttackTime={baseAttackTime} />}>
+                      <Tooltip
+                        content={
+                          <EstimateCell
+                            attacker={attacker}
+                            defender={defender}
+                            selfAvgNetworth={selfAvgNetworth}
+                            targetAvgNetworth={targetAvgNetworth}
+                            defenderLatest={defenderLatest}
+                            relationState={relationState}
+                            ourAttitudeToThem={targetSnapshot.ourAttitudeToThem}
+                            theirAttitudeToUs={targetSnapshot.theirAttitudeToUs}
+                            defenderBarrierEffect={defenderBarrierEffect}
+                            defenderEnemyBattleGainsEffect={
+                              enemyBattleGainsEffect
+                            }
+                            attackTimeOffset={attackTimeOffset}
+                            baseAttackTime={baseAttackTime}
+                          />
+                        }
+                      >
                         <div className={tone.value}>
-                          {estimate ? `${estimate.roundedAcres.toLocaleString()}a` : "—"}
+                          {estimate
+                            ? `${estimate.roundedAcres.toLocaleString()}a`
+                            : "—"}
                         </div>
                         <div className="mt-0.5 text-[10px] text-gray-500">
-                          {estimate ? `${((estimate.rawAcres / defender.land) * 100).toFixed(1)}%` : "—"}
+                          {estimate
+                            ? `${((estimate.rawAcres / defender.land) * 100).toFixed(1)}%`
+                            : "—"}
                         </div>
                         <div className="mt-1 flex items-center justify-end gap-1">
                           {badges}
-                          {!badges.length && breakMarker(attacker, defenderLatest)}
+                          {!badges.length &&
+                            breakMarker(attacker, defenderLatest)}
                         </div>
                       </Tooltip>
                     </td>
@@ -1019,6 +1586,6 @@ export function GainsTable({
           </tbody>
         </table>
       </div>
-    </>
+    </>,
   );
 }

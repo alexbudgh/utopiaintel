@@ -10,7 +10,9 @@ const Database = require("better-sqlite3");
 
 const key = process.env.KEY;
 if (!key) {
-  console.error("Usage: KEY=your_kingdom_key node scripts/backfill-partitions.mjs");
+  console.error(
+    "Usage: KEY=your_kingdom_key node scripts/backfill-partitions.mjs",
+  );
   process.exit(1);
 }
 
@@ -19,7 +21,9 @@ const dbPath = join(fileURLToPath(import.meta.url), "../../intel.db");
 const db = new Database(dbPath);
 
 const provinces = db.prepare("SELECT id FROM provinces").all();
-const ins = db.prepare("INSERT OR IGNORE INTO intel_partitions (key_hash, province_id) VALUES (?, ?)");
+const ins = db.prepare(
+  "INSERT OR IGNORE INTO intel_partitions (key_hash, province_id) VALUES (?, ?)",
+);
 const backfill = db.transaction(() => {
   for (const p of provinces) ins.run(keyHash, p.id);
 });

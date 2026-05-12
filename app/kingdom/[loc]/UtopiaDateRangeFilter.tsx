@@ -3,7 +3,15 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
-const UTOPIA_MONTHS = ["January", "February", "March", "April", "May", "June", "July"];
+const UTOPIA_MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+];
 
 interface DateParts {
   month: string;
@@ -30,7 +38,8 @@ function DateSelector({
   value: DateParts;
   onChange: (v: DateParts) => void;
 }) {
-  const sel = "rounded border border-gray-700 bg-gray-900 px-1.5 py-1 text-gray-300 focus:border-gray-500 focus:outline-none";
+  const sel =
+    "rounded border border-gray-700 bg-gray-900 px-1.5 py-1 text-gray-300 focus:border-gray-500 focus:outline-none";
   return (
     <span className="inline-flex items-center gap-1">
       <select
@@ -39,7 +48,11 @@ function DateSelector({
         className={sel}
       >
         <option value="">Month</option>
-        {UTOPIA_MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
+        {UTOPIA_MONTHS.map((m) => (
+          <option key={m} value={m}>
+            {m}
+          </option>
+        ))}
       </select>
       <input
         type="number"
@@ -81,7 +94,9 @@ export function UtopiaDateRangeFilter({
   latestWarDate?: string;
 }) {
   const router = useRouter();
-  const [fromParts, setFromParts] = useState<DateParts>(() => parseDateParts(from ?? effectiveFrom));
+  const [fromParts, setFromParts] = useState<DateParts>(() =>
+    parseDateParts(from ?? effectiveFrom),
+  );
   const [toParts, setToParts] = useState<DateParts>(() => parseDateParts(to));
   const [toLatest, setToLatest] = useState(!to);
 
@@ -117,7 +132,10 @@ export function UtopiaDateRangeFilter({
   const btnBase = "rounded border px-2.5 py-1 transition-colors";
 
   return (
-    <form onSubmit={apply} className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+    <form
+      onSubmit={apply}
+      className="mb-3 flex flex-wrap items-center gap-2 text-xs"
+    >
       {latestWarDate && (
         <button
           type="button"
@@ -160,7 +178,11 @@ export function UtopiaDateRangeFilter({
         Filter
       </button>
       {hasFilter && (
-        <button type="button" onClick={clear} className="text-gray-500 hover:text-gray-300 transition-colors">
+        <button
+          type="button"
+          onClick={clear}
+          className="text-gray-500 hover:text-gray-300 transition-colors"
+        >
           x clear
         </button>
       )}

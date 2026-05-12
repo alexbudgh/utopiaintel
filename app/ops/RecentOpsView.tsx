@@ -17,10 +17,10 @@ const OP_COLORS: Record<string, string> = {
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  intel:    "border-gray-500/40 bg-gray-500/10 text-gray-300",
+  intel: "border-gray-500/40 bg-gray-500/10 text-gray-300",
   thievery: "border-red-500/40 bg-red-500/10 text-red-300",
-  sorcery:  "border-cyan-500/40 bg-cyan-500/10 text-cyan-300",
-  attack:   "border-amber-500/40 bg-amber-500/10 text-amber-300",
+  sorcery: "border-cyan-500/40 bg-cyan-500/10 text-cyan-300",
+  attack: "border-amber-500/40 bg-amber-500/10 text-amber-300",
 };
 
 const MAX_OPS = 200;
@@ -28,12 +28,7 @@ const PAGE_SIZE = 50;
 const POLL_MS = 10_000;
 const ALL_FILTER = "__all__";
 const UNKNOWN_FILTER = "__unknown__";
-const OP_ORDER = [
-  ...Object.keys(OP_COLORS),
-  "granaries",
-  "towers",
-  "vaults",
-];
+const OP_ORDER = [...Object.keys(OP_COLORS), "granaries", "towers", "vaults"];
 
 const OP_LABELS: Record<string, string> = {
   sot: "SoT",
@@ -108,7 +103,11 @@ function formatDetail(op: RecentOp): string {
 }
 
 function formatResult(op: RecentOp): string {
-  const outcome = op.outcome ? (op.outcome === "success" ? "Success" : "Failed") : "";
+  const outcome = op.outcome
+    ? op.outcome === "success"
+      ? "Success"
+      : "Failed"
+    : "";
   const detail = formatDetail(op);
   if (outcome && detail) return `${outcome} · ${detail}`;
   return outcome || detail || "—";
@@ -139,17 +138,26 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
     return types.sort((a, b) => {
       const ai = OP_ORDER.indexOf(a);
       const bi = OP_ORDER.indexOf(b);
-      if (ai === -1 && bi === -1) return formatOpType(a).localeCompare(formatOpType(b));
+      if (ai === -1 && bi === -1)
+        return formatOpType(a).localeCompare(formatOpType(b));
       if (ai === -1) return 1;
       if (bi === -1) return -1;
       return ai - bi;
     });
   }, [ops]);
 
-  const kingdoms = useMemo(() => [...new Set(ops.map((op) => op.kingdom))].sort(), [ops]);
-  const targets = useMemo(() => [...new Set(ops.map((op) => op.province_name))].sort(), [ops]);
+  const kingdoms = useMemo(
+    () => [...new Set(ops.map((op) => op.kingdom))].sort(),
+    [ops],
+  );
+  const targets = useMemo(
+    () => [...new Set(ops.map((op) => op.province_name))].sort(),
+    [ops],
+  );
   const senders = useMemo(() => {
-    const names = [...new Set(ops.map((op) => op.saved_by).filter((v): v is string => !!v))].sort();
+    const names = [
+      ...new Set(ops.map((op) => op.saved_by).filter((v): v is string => !!v)),
+    ].sort();
     return ops.some((op) => !op.saved_by) ? [UNKNOWN_FILTER, ...names] : names;
   }, [ops]);
   const hasOutcomes = useMemo(() => ops.some((op) => op.outcome), [ops]);
@@ -157,12 +165,21 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
   const visibleOps = useMemo(() => {
     const q = query.trim().toLowerCase();
     return ops.filter((op) => {
-      if (activeTypes.size > 0 && !activeTypes.has(opTypeKey(op.op_type))) return false;
-      if (kingdomFilter !== ALL_FILTER && op.kingdom !== kingdomFilter) return false;
-      if (targetFilter !== ALL_FILTER && op.province_name !== targetFilter) return false;
+      if (activeTypes.size > 0 && !activeTypes.has(opTypeKey(op.op_type)))
+        return false;
+      if (kingdomFilter !== ALL_FILTER && op.kingdom !== kingdomFilter)
+        return false;
+      if (targetFilter !== ALL_FILTER && op.province_name !== targetFilter)
+        return false;
       if (senderFilter === UNKNOWN_FILTER && op.saved_by) return false;
-      if (senderFilter !== ALL_FILTER && senderFilter !== UNKNOWN_FILTER && op.saved_by !== senderFilter) return false;
-      if (outcomeFilter !== ALL_FILTER && op.outcome !== outcomeFilter) return false;
+      if (
+        senderFilter !== ALL_FILTER &&
+        senderFilter !== UNKNOWN_FILTER &&
+        op.saved_by !== senderFilter
+      )
+        return false;
+      if (outcomeFilter !== ALL_FILTER && op.outcome !== outcomeFilter)
+        return false;
       if (!q) return true;
 
       return [
@@ -183,9 +200,23 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
         op.slot != null ? String(op.slot) : "",
       ].some((value) => value.toLowerCase().includes(q));
     });
-  }, [ops, activeTypes, kingdomFilter, targetFilter, senderFilter, outcomeFilter, query]);
+  }, [
+    ops,
+    activeTypes,
+    kingdomFilter,
+    targetFilter,
+    senderFilter,
+    outcomeFilter,
+    query,
+  ]);
 
-  const hasFilters = activeTypes.size > 0 || kingdomFilter !== ALL_FILTER || targetFilter !== ALL_FILTER || senderFilter !== ALL_FILTER || outcomeFilter !== ALL_FILTER || query.trim() !== "";
+  const hasFilters =
+    activeTypes.size > 0 ||
+    kingdomFilter !== ALL_FILTER ||
+    targetFilter !== ALL_FILTER ||
+    senderFilter !== ALL_FILTER ||
+    outcomeFilter !== ALL_FILTER ||
+    query.trim() !== "";
   const pagedOps = visibleOps.slice(0, visibleLimit);
   const groupedOps = useMemo(() => {
     const groups: Array<{ label: string; ops: RecentOp[] }> = [];
@@ -225,7 +256,14 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
 
   useEffect(() => {
     setVisibleLimit(PAGE_SIZE);
-  }, [activeTypes, kingdomFilter, targetFilter, senderFilter, outcomeFilter, query]);
+  }, [
+    activeTypes,
+    kingdomFilter,
+    targetFilter,
+    senderFilter,
+    outcomeFilter,
+    query,
+  ]);
 
   const clearFilters = () => {
     setActiveTypes(new Set());
@@ -239,13 +277,23 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
   useEffect(() => {
     const interval = setInterval(async () => {
       const since = latestRef.current;
-      const res = await fetch(`/api/ops${since ? `?since=${encodeURIComponent(since)}` : ""}`);
+      const res = await fetch(
+        `/api/ops${since ? `?since=${encodeURIComponent(since)}` : ""}`,
+      );
       if (!res.ok) return;
       const fresh: RecentOp[] = await res.json();
       if (fresh.length === 0) return;
 
       latestRef.current = fresh[0].received_at;
-      const keys = new Set(fresh.map((op) => op.received_at + op.op_type + op.province_name + (op.actor_name ?? "")));
+      const keys = new Set(
+        fresh.map(
+          (op) =>
+            op.received_at +
+            op.op_type +
+            op.province_name +
+            (op.actor_name ?? ""),
+        ),
+      );
       setNewKeys(keys);
       setOps((prev) => [...fresh, ...prev].slice(0, MAX_OPS));
       setTimeout(() => setNewKeys(new Set()), 2000);
@@ -257,7 +305,8 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
     return <p className="text-sm text-gray-500">No ops recorded yet.</p>;
   }
 
-  const controlClass = "rounded border border-gray-700 bg-gray-900 px-2.5 py-1 text-xs text-gray-300 placeholder-gray-600 focus:border-gray-500 focus:outline-none";
+  const controlClass =
+    "rounded border border-gray-700 bg-gray-900 px-2.5 py-1 text-xs text-gray-300 placeholder-gray-600 focus:border-gray-500 focus:outline-none";
   const buttonBase = "rounded border px-2 py-1 text-xs transition-colors";
 
   return (
@@ -270,26 +319,48 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
           placeholder="Filter ops..."
           className={`${controlClass} w-44`}
         />
-        <select value={kingdomFilter} onChange={(e) => setKingdomFilter(e.target.value)} className={controlClass}>
+        <select
+          value={kingdomFilter}
+          onChange={(e) => setKingdomFilter(e.target.value)}
+          className={controlClass}
+        >
           <option value={ALL_FILTER}>All kingdoms</option>
           {kingdoms.map((kingdom) => (
-            <option key={kingdom} value={kingdom}>{kingdom}</option>
+            <option key={kingdom} value={kingdom}>
+              {kingdom}
+            </option>
           ))}
         </select>
-        <select value={targetFilter} onChange={(e) => setTargetFilter(e.target.value)} className={controlClass}>
+        <select
+          value={targetFilter}
+          onChange={(e) => setTargetFilter(e.target.value)}
+          className={controlClass}
+        >
           <option value={ALL_FILTER}>All targets</option>
           {targets.map((target) => (
-            <option key={target} value={target}>{target}</option>
+            <option key={target} value={target}>
+              {target}
+            </option>
           ))}
         </select>
-        <select value={senderFilter} onChange={(e) => setSenderFilter(e.target.value)} className={controlClass}>
+        <select
+          value={senderFilter}
+          onChange={(e) => setSenderFilter(e.target.value)}
+          className={controlClass}
+        >
           <option value={ALL_FILTER}>All submitters</option>
           {senders.map((sender) => (
-            <option key={sender} value={sender}>{sender === UNKNOWN_FILTER ? "Unknown submitter" : sender}</option>
+            <option key={sender} value={sender}>
+              {sender === UNKNOWN_FILTER ? "Unknown submitter" : sender}
+            </option>
           ))}
         </select>
         {hasOutcomes && (
-          <select value={outcomeFilter} onChange={(e) => setOutcomeFilter(e.target.value)} className={controlClass}>
+          <select
+            value={outcomeFilter}
+            onChange={(e) => setOutcomeFilter(e.target.value)}
+            className={controlClass}
+          >
             <option value={ALL_FILTER}>All results</option>
             <option value="success">Success</option>
             <option value="failure">Failed</option>
@@ -311,7 +382,11 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
           })}
         </div>
         {hasFilters && (
-          <button type="button" onClick={clearFilters} className={`${buttonBase} border-gray-700 bg-gray-900 text-gray-500 hover:text-gray-300`}>
+          <button
+            type="button"
+            onClick={clearFilters}
+            className={`${buttonBase} border-gray-700 bg-gray-900 text-gray-500 hover:text-gray-300`}
+          >
             Clear
           </button>
         )}
@@ -334,17 +409,27 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
         {groupedOps.map((group) => (
           <tbody key={group.label}>
             <tr>
-              <td colSpan={6} className="bg-gray-950 py-2 pt-5 text-xs font-medium uppercase text-gray-500">
+              <td
+                colSpan={6}
+                className="bg-gray-950 py-2 pt-5 text-xs font-medium uppercase text-gray-500"
+              >
                 {group.label}
               </td>
             </tr>
             {group.ops.map((op) => {
-              const key = op.received_at + op.op_type + op.province_name + (op.actor_name ?? "");
+              const key =
+                op.received_at +
+                op.op_type +
+                op.province_name +
+                (op.actor_name ?? "");
               const kdHref = `/kingdom/${encodeURIComponent(op.kingdom)}`;
               const provHref = `${kdHref}/${encodeURIComponent(op.province_name)}`;
               const unknownProvince = isUnknownProvinceName(op.province_name);
               const typeKey = opTypeKey(op.op_type);
-              const color = OP_COLORS[typeKey] ?? CATEGORY_COLORS[op.op_category] ?? "border-gray-600 bg-gray-800/40 text-gray-400";
+              const color =
+                OP_COLORS[typeKey] ??
+                CATEGORY_COLORS[op.op_category] ??
+                "border-gray-600 bg-gray-800/40 text-gray-400";
               const isNew = newKeys.has(key);
               const detail = formatDetail(op);
               return (
@@ -356,7 +441,9 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
                     <button
                       type="button"
                       onClick={() => filterToType(typeKey)}
-                      aria-pressed={activeTypes.size === 1 && activeTypes.has(typeKey)}
+                      aria-pressed={
+                        activeTypes.size === 1 && activeTypes.has(typeKey)
+                      }
                       className={`rounded border px-1.5 py-0.5 text-[11px] font-medium transition-colors hover:border-white/40 hover:text-white ${color}`}
                       title={`Filter to ${formatOpType(op.op_type)}`}
                     >
@@ -366,7 +453,9 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
                   <td className="py-2 pr-4">
                     {unknownProvince ? (
                       <span>
-                        <span className="text-gray-500 italic">Unknown province</span>
+                        <span className="text-gray-500 italic">
+                          Unknown province
+                        </span>
                         {op.kingdom && (
                           <>
                             {" "}
@@ -389,7 +478,9 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
                           title={`Filter to ${op.province_name}`}
                         >
                           {op.slot != null && (
-                            <span className="mr-1.5 text-xs tabular-nums text-gray-500">#{op.slot}</span>
+                            <span className="mr-1.5 text-xs tabular-nums text-gray-500">
+                              #{op.slot}
+                            </span>
                           )}
                           {op.province_name}
                         </button>
@@ -406,7 +497,10 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
                     )}
                   </td>
                   <td className="py-2 pr-4">
-                    <Link href={kdHref} className="font-mono text-[11px] text-gray-400 hover:text-gray-200 transition-colors">
+                    <Link
+                      href={kdHref}
+                      className="font-mono text-[11px] text-gray-400 hover:text-gray-200 transition-colors"
+                    >
                       {op.kingdom || "—"}
                     </Link>
                   </td>
@@ -422,7 +516,9 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
                         >
                           {op.outcome === "success" ? "Success" : "Failed"}
                         </button>
-                        {detail && <span className="text-gray-500"> · {detail}</span>}
+                        {detail && (
+                          <span className="text-gray-500"> · {detail}</span>
+                        )}
                       </>
                     ) : (
                       detail || "—"
@@ -432,7 +528,9 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
                     <button
                       type="button"
                       onClick={() => filterToSender(op.saved_by)}
-                      aria-pressed={senderFilter === (op.saved_by ?? UNKNOWN_FILTER)}
+                      aria-pressed={
+                        senderFilter === (op.saved_by ?? UNKNOWN_FILTER)
+                      }
                       className="rounded px-1 py-0.5 text-gray-400 transition-colors hover:bg-gray-800 hover:text-gray-200"
                       title={`Filter to ${op.saved_by ?? "unknown submitter"}`}
                     >
@@ -452,7 +550,10 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
         <tbody>
           {visibleOps.length === 0 && (
             <tr>
-              <td colSpan={6} className="py-6 text-center text-sm text-gray-500">
+              <td
+                colSpan={6}
+                className="py-6 text-center text-sm text-gray-500"
+              >
                 No ops match the current filters.
               </td>
             </tr>

@@ -1,10 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { KingdomDragon, KingdomRitual, KingdomSnapshot, ProvinceRow } from "@/lib/db";
+import type {
+  KingdomDragon,
+  KingdomRitual,
+  KingdomSnapshot,
+  ProvinceRow,
+} from "@/lib/db";
 import type { RelationContext } from "@/lib/relation-context";
 import { ProvinceTable } from "./ProvinceTable";
-import { KingdomShellWrapper, type KingdomPollPayload } from "./KingdomShellWrapper";
+import {
+  KingdomShellWrapper,
+  type KingdomPollPayload,
+} from "./KingdomShellWrapper";
 import { KingdomViewShell } from "./KingdomTabs";
 
 export function KingdomProvinceView({
@@ -28,7 +36,9 @@ export function KingdomProvinceView({
 }) {
   const [provinces, setProvinces] = useState(initialProvinces);
 
-  useEffect(() => { setProvinces(initialProvinces); }, [initialProvinces]);
+  useEffect(() => {
+    setProvinces(initialProvinces);
+  }, [initialProvinces]);
 
   const onPollResult = useCallback((payload: KingdomPollPayload) => {
     setProvinces(payload.provinces);
@@ -46,7 +56,11 @@ export function KingdomProvinceView({
       initialProvinceCount={initialProvinces.length}
       onPollResult={onPollResult}
     >
-      <KingdomViewShell kingdom={kingdom} boundKingdom={boundKingdom} active="table">
+      <KingdomViewShell
+        kingdom={kingdom}
+        boundKingdom={boundKingdom}
+        active="table"
+      >
         <ProvinceTable kingdom={kingdom} provinces={provinces} />
       </KingdomViewShell>
     </KingdomShellWrapper>

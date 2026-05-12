@@ -9,21 +9,24 @@ const SLIDES = [
     width: 2812,
     height: 1534,
     alt: "Kingdom news view",
-    caption: "Kingdom news — combat events broken down by province, with march gains, ambushes, and raze totals at a glance.",
+    caption:
+      "Kingdom news — combat events broken down by province, with march gains, ambushes, and raze totals at a glance.",
   },
   {
     src: "/static/screenshot-history.png",
     width: 2828,
     height: 1086,
     alt: "Kingdom history charts",
-    caption: "Snapshot history — compare NW, land, and honor trends across kingdoms over time to track war progress and growth.",
+    caption:
+      "Snapshot history — compare NW, land, and honor trends across kingdoms over time to track war progress and growth.",
   },
   {
     src: "/static/screenshot-gains.png",
     width: 2796,
     height: 1518,
     alt: "Gains matrix view",
-    caption: "Gains matrix — Traditional March gain estimates for every attacker vs. target pairing, factoring in relative NW, MAP status, castles, and siege.",
+    caption:
+      "Gains matrix — Traditional March gain estimates for every attacker vs. target pairing, factoring in relative NW, MAP status, castles, and siege.",
   },
 ];
 
@@ -54,7 +57,9 @@ export function ScreenshotCarousel() {
         {/* Prev / Next */}
         <button
           type="button"
-          onClick={() => setIndex((i) => (i - 1 + SLIDES.length) % SLIDES.length)}
+          onClick={() =>
+            setIndex((i) => (i - 1 + SLIDES.length) % SLIDES.length)
+          }
           className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-stone-700 bg-stone-900/80 p-2 text-stone-300 backdrop-blur-sm transition-colors hover:border-stone-500 hover:text-stone-100"
           aria-label="Previous screenshot"
         >
@@ -72,7 +77,9 @@ export function ScreenshotCarousel() {
 
       {/* Caption + dots */}
       <div className="flex items-center gap-4 px-1">
-        <p className="flex-1 text-sm leading-6 text-stone-400">{slide.caption}</p>
+        <p className="flex-1 text-sm leading-6 text-stone-400">
+          {slide.caption}
+        </p>
         <div className="flex shrink-0 gap-1.5">
           {SLIDES.map((_, i) => (
             <button

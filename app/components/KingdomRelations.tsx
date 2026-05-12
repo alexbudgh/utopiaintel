@@ -10,10 +10,14 @@ function formatRelationPoints(points: number | null): string {
 
 function relationBadgeClass(status: string | null): string {
   const value = (status ?? "").toLowerCase();
-  if (value.includes("hostile") || value.includes("war")) return "border-red-500/40 bg-red-950/40 text-red-200";
-  if (value.includes("unfriendly")) return "border-amber-500/40 bg-amber-950/40 text-amber-200";
-  if (value.includes("non aggression")) return "border-sky-500/40 bg-sky-950/40 text-sky-200";
-  if (value.includes("normal")) return "border-gray-700 bg-gray-800/60 text-gray-200";
+  if (value.includes("hostile") || value.includes("war"))
+    return "border-red-500/40 bg-red-950/40 text-red-200";
+  if (value.includes("unfriendly"))
+    return "border-amber-500/40 bg-amber-950/40 text-amber-200";
+  if (value.includes("non aggression"))
+    return "border-sky-500/40 bg-sky-950/40 text-sky-200";
+  if (value.includes("normal"))
+    return "border-gray-700 bg-gray-800/60 text-gray-200";
   return "border-violet-500/40 bg-violet-950/40 text-violet-200";
 }
 
@@ -34,15 +38,26 @@ export function KingdomRelations({
   relationContexts?: RelationContext[];
 }) {
   const openRelations = snapshot?.openRelations ?? [];
-  const isSelfWarPage = !!snapshot?.warTarget && !!boundKingdom && kingdom === boundKingdom;
+  const isSelfWarPage =
+    !!snapshot?.warTarget && !!boundKingdom && kingdom === boundKingdom;
   const relationTone = "border-gray-800 bg-gray-900/50 text-gray-300";
   const sections: Array<{ standalone: boolean; node: ReactNode }> = [];
-  const contextsByLocation = new Map(relationContexts.map((context) => [context.location, context]));
+  const contextsByLocation = new Map(
+    relationContexts.map((context) => [context.location, context]),
+  );
   const snapshotMutualCeasefire =
     isCeasefireLike(snapshot?.theirAttitudeToUs ?? null) &&
     isCeasefireLike(snapshot?.ourAttitudeToThem ?? null);
 
-  if (!(openRelations.length > 0 || snapshot?.warTarget || snapshot?.hostilityMeterVisibleUntil || snapshot?.theirAttitudeToUs || snapshot?.ourAttitudeToThem)) {
+  if (
+    !(
+      openRelations.length > 0 ||
+      snapshot?.warTarget ||
+      snapshot?.hostilityMeterVisibleUntil ||
+      snapshot?.theirAttitudeToUs ||
+      snapshot?.ourAttitudeToThem
+    )
+  ) {
     return null;
   }
 
@@ -50,7 +65,10 @@ export function KingdomRelations({
     sections.push({
       standalone: true,
       node: (
-        <Link href={`/kingdom/${encodeURIComponent(snapshot.warTarget)}`} className="rounded border border-orange-500/40 bg-orange-950/30 px-2 py-0.5 font-semibold tracking-wide text-orange-200 hover:border-orange-400/60 transition-colors">
+        <Link
+          href={`/kingdom/${encodeURIComponent(snapshot.warTarget)}`}
+          className="rounded border border-orange-500/40 bg-orange-950/30 px-2 py-0.5 font-semibold tracking-wide text-orange-200 hover:border-orange-400/60 transition-colors"
+        >
           War · {snapshot.warTarget}
         </Link>
       ),
@@ -82,7 +100,9 @@ export function KingdomRelations({
       node: snapshotMutualCeasefire ? (
         <div className="flex flex-wrap items-center gap-2 text-gray-300">
           <Tooltip content="Hostile actions are blocked while a Non-Aggression Pact or ceasefire is active.">
-            <span className={`rounded border px-2 py-0.5 text-[11px] font-medium ${relationBadgeClass(snapshot.ourAttitudeToThem ?? snapshot.theirAttitudeToUs ?? null)}`}>
+            <span
+              className={`rounded border px-2 py-0.5 text-[11px] font-medium ${relationBadgeClass(snapshot.ourAttitudeToThem ?? snapshot.theirAttitudeToUs ?? null)}`}
+            >
               Non-Aggression Pact
             </span>
           </Tooltip>
@@ -92,19 +112,27 @@ export function KingdomRelations({
           {snapshot.theirAttitudeToUs && (
             <div className="flex flex-wrap items-center gap-2 text-gray-300">
               <span className="w-20 text-gray-500">They → us</span>
-              <span className={`rounded border px-2 py-0.5 text-[11px] font-medium ${relationBadgeClass(snapshot.theirAttitudeToUs)}`}>
+              <span
+                className={`rounded border px-2 py-0.5 text-[11px] font-medium ${relationBadgeClass(snapshot.theirAttitudeToUs)}`}
+              >
                 {snapshot.theirAttitudeToUs}
               </span>
-              <span className="text-gray-400">({formatRelationPoints(snapshot.theirAttitudePoints)})</span>
+              <span className="text-gray-400">
+                ({formatRelationPoints(snapshot.theirAttitudePoints)})
+              </span>
             </div>
           )}
           {snapshot.ourAttitudeToThem && (
             <div className="flex flex-wrap items-center gap-2 text-gray-300">
               <span className="w-20 text-gray-500">Us → them</span>
-              <span className={`rounded border px-2 py-0.5 text-[11px] font-medium ${relationBadgeClass(snapshot.ourAttitudeToThem)}`}>
+              <span
+                className={`rounded border px-2 py-0.5 text-[11px] font-medium ${relationBadgeClass(snapshot.ourAttitudeToThem)}`}
+              >
                 {snapshot.ourAttitudeToThem}
               </span>
-              <span className="text-gray-400">({formatRelationPoints(snapshot.ourAttitudePoints)})</span>
+              <span className="text-gray-400">
+                ({formatRelationPoints(snapshot.ourAttitudePoints)})
+              </span>
             </div>
           )}
         </div>
@@ -128,14 +156,21 @@ export function KingdomRelations({
             return (
               <div key={relation.location} className="space-y-1">
                 <div className="text-gray-500">
-                  <Link href={`/kingdom/${encodeURIComponent(relation.location)}`} className="hover:text-gray-300 transition-colors">
-                    {context.name} <span className="font-mono">({relation.location})</span>
+                  <Link
+                    href={`/kingdom/${encodeURIComponent(relation.location)}`}
+                    className="hover:text-gray-300 transition-colors"
+                  >
+                    {context.name}{" "}
+                    <span className="font-mono">({relation.location})</span>
                   </Link>
                 </div>
                 {mutualCeasefire ? (
                   <div className="flex flex-wrap items-center gap-2 text-gray-300">
                     <Tooltip content="Hostile actions are blocked while a Non-Aggression Pact or ceasefire is active.">
-                      <Link href={`/kingdom/${encodeURIComponent(relation.location)}`} className={`rounded border px-2 py-0.5 text-[11px] font-medium hover:opacity-80 transition-opacity ${relationBadgeClass(context.ourAttitudeToThem ?? context.theirAttitudeToUs ?? null)}`}>
+                      <Link
+                        href={`/kingdom/${encodeURIComponent(relation.location)}`}
+                        className={`rounded border px-2 py-0.5 text-[11px] font-medium hover:opacity-80 transition-opacity ${relationBadgeClass(context.ourAttitudeToThem ?? context.theirAttitudeToUs ?? null)}`}
+                      >
                         Non-Aggression Pact
                       </Link>
                     </Tooltip>
@@ -144,17 +179,27 @@ export function KingdomRelations({
                   <>
                     <div className="flex flex-wrap items-center gap-2 text-gray-300">
                       <span className="w-20 text-gray-500">They → us</span>
-                      <Link href={`/kingdom/${encodeURIComponent(relation.location)}`} className={`rounded border px-2 py-0.5 text-[11px] font-medium hover:opacity-80 transition-opacity ${relationBadgeClass(context.theirAttitudeToUs)}`}>
+                      <Link
+                        href={`/kingdom/${encodeURIComponent(relation.location)}`}
+                        className={`rounded border px-2 py-0.5 text-[11px] font-medium hover:opacity-80 transition-opacity ${relationBadgeClass(context.theirAttitudeToUs)}`}
+                      >
                         {context.theirAttitudeToUs ?? "Unknown"}
                       </Link>
-                      <span className="text-gray-400">({formatRelationPoints(context.theirAttitudePoints)})</span>
+                      <span className="text-gray-400">
+                        ({formatRelationPoints(context.theirAttitudePoints)})
+                      </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 text-gray-300">
                       <span className="w-20 text-gray-500">Us → them</span>
-                      <Link href={`/kingdom/${encodeURIComponent(relation.location)}`} className={`rounded border px-2 py-0.5 text-[11px] font-medium hover:opacity-80 transition-opacity ${relationBadgeClass(context.ourAttitudeToThem)}`}>
+                      <Link
+                        href={`/kingdom/${encodeURIComponent(relation.location)}`}
+                        className={`rounded border px-2 py-0.5 text-[11px] font-medium hover:opacity-80 transition-opacity ${relationBadgeClass(context.ourAttitudeToThem)}`}
+                      >
                         {context.ourAttitudeToThem ?? "Unknown"}
                       </Link>
-                      <span className="text-gray-400">({formatRelationPoints(context.ourAttitudePoints)})</span>
+                      <span className="text-gray-400">
+                        ({formatRelationPoints(context.ourAttitudePoints)})
+                      </span>
                     </div>
                   </>
                 )}
@@ -170,7 +215,10 @@ export function KingdomRelations({
     sections.push({
       standalone: true,
       node: (
-        <Link href={`/kingdom/${encodeURIComponent(snapshot.warTarget)}`} className="rounded border border-orange-500/40 bg-orange-950/30 px-2 py-0.5 font-medium text-orange-200 hover:border-orange-400/60 transition-colors">
+        <Link
+          href={`/kingdom/${encodeURIComponent(snapshot.warTarget)}`}
+          className="rounded border border-orange-500/40 bg-orange-950/30 px-2 py-0.5 font-medium text-orange-200 hover:border-orange-400/60 transition-colors"
+        >
           War · {snapshot.warTarget}
         </Link>
       ),
@@ -182,7 +230,10 @@ export function KingdomRelations({
       standalone: false,
       node: (
         <div className="text-gray-300">
-          Hostility meter visible until <span className="text-gray-200">{snapshot.hostilityMeterVisibleUntil}</span>
+          Hostility meter visible until{" "}
+          <span className="text-gray-200">
+            {snapshot.hostilityMeterVisibleUntil}
+          </span>
         </div>
       ),
     });
@@ -193,7 +244,9 @@ export function KingdomRelations({
   }
 
   return (
-    <div className={`mt-2 max-w-sm rounded-md border px-3 py-2 text-xs ${relationTone}`}>
+    <div
+      className={`mt-2 max-w-sm rounded-md border px-3 py-2 text-xs ${relationTone}`}
+    >
       <div className="flex flex-wrap gap-1.5">
         {sections.map((section, i) => (
           <div key={i} className={section.standalone ? "" : "w-full"}>

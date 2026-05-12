@@ -13,8 +13,8 @@ export function computeAmbushRawOff(
   const r = getRaceByName(race);
   if (!r) return null;
   const totalDef =
-    army.elites   * r.eliteDefStr +
-    army.offSpecs * r.defSpecStr  +
+    army.elites * r.eliteDefStr +
+    army.offSpecs * r.defSpecStr +
     army.soldiers * r.soldierStr;
   return totalDef * 0.8 + 1;
 }

@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { KingdomViewShell, btnBase, btnActive, btnInactive } from "../KingdomTabs";
+import {
+  KingdomViewShell,
+  btnBase,
+  btnActive,
+  btnInactive,
+} from "../KingdomTabs";
 import { Tooltip } from "@/app/components/Tooltip";
 import type { ProvinceRow } from "@/lib/db";
 import type { GainsPageData } from "@/lib/gains-page";
@@ -12,7 +17,10 @@ import { formatExactNum, formatNum } from "@/lib/ui";
 const ATTACKER_COL_WIDTH = "w-52 min-w-52";
 const TARGET_COL_WIDTH = "w-36 min-w-36";
 
-function cellTone(value: number | null, maxValue: number): { cell: string; text: string } {
+function cellTone(
+  value: number | null,
+  maxValue: number,
+): { cell: string; text: string } {
   if (value == null) return { cell: "bg-gray-950/40", text: "text-gray-600" };
   if (maxValue === 0) return { cell: "bg-gray-950/40", text: "text-gray-400" };
   const pct = value / maxValue;
@@ -52,14 +60,18 @@ function cellTooltip(
     return (
       <div className="max-w-md space-y-2 text-xs">
         <div className="font-medium text-gray-100">
-          {attacker.slot != null ? `#${attacker.slot} ` : ""}{attacker.name}
+          {attacker.slot != null ? `#${attacker.slot} ` : ""}
+          {attacker.name}
           <span className="mx-1 text-gray-500">→</span>
-          {defender.slot != null ? `#${defender.slot} ` : ""}{defender.name}
+          {defender.slot != null ? `#${defender.slot} ` : ""}
+          {defender.name}
         </div>
 
         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-gray-400">
           <div>Attacker thieves</div>
-          <div className="text-right text-gray-200">{exact(ns.attackerThieves)}</div>
+          <div className="text-right text-gray-200">
+            {exact(ns.attackerThieves)}
+          </div>
           <div>Displayed total</div>
           <div className="text-right text-gray-200">{whole(result.value)}</div>
           <div>Theoretical cap</div>
@@ -69,19 +81,33 @@ function cellTooltip(
         <table className="w-full border-separate border-spacing-0 text-xs">
           <thead>
             <tr className="text-gray-500">
-              <th className="border-b border-gray-800 pb-1 pr-3 text-left font-normal">Unit</th>
-              <th className="border-b border-gray-800 pb-1 pr-3 text-right font-normal">Target</th>
-              <th className="border-b border-gray-800 pb-1 pr-3 text-right font-normal">Cap</th>
-              <th className="border-b border-gray-800 pb-1 text-right font-normal">Actual</th>
+              <th className="border-b border-gray-800 pb-1 pr-3 text-left font-normal">
+                Unit
+              </th>
+              <th className="border-b border-gray-800 pb-1 pr-3 text-right font-normal">
+                Target
+              </th>
+              <th className="border-b border-gray-800 pb-1 pr-3 text-right font-normal">
+                Cap
+              </th>
+              <th className="border-b border-gray-800 pb-1 text-right font-normal">
+                Actual
+              </th>
             </tr>
           </thead>
           <tbody>
             {ns.breakdown.map((unit) => (
               <tr key={unit.key}>
                 <td className="py-1 pr-3 text-gray-200">{unit.label}</td>
-                <td className="py-1 pr-3 text-right text-gray-400">{exact(unit.targetTotal)}</td>
-                <td className="py-1 pr-3 text-right text-gray-300">{exact(unit.adjustedCap)}</td>
-                <td className="py-1 text-right text-gray-200">{exact(unit.adjustedActual ?? unit.adjustedCap)}</td>
+                <td className="py-1 pr-3 text-right text-gray-400">
+                  {exact(unit.targetTotal)}
+                </td>
+                <td className="py-1 pr-3 text-right text-gray-300">
+                  {exact(unit.adjustedCap)}
+                </td>
+                <td className="py-1 text-right text-gray-200">
+                  {exact(unit.adjustedActual ?? unit.adjustedCap)}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -91,16 +117,35 @@ function cellTooltip(
           <div>{nwLine}</div>
           <div>{shieldingLine}</div>
           <div>{watchtowersLine}</div>
-          <div>{ns.partial ? "Partial result: one or more defender troop counts are missing." : "All four Night Strike troop pools available."}</div>
-          <div>{ns.attackerThieves == null ? "Actual-by-send unavailable: attacker thieves unknown, so the cell falls back to the cap total." : "Actual estimate assumes sending all currently available thieves."}</div>
-          <div>{ns.usedFallback ? "Out-of-war specialist values are best-effort: missing guide values fall back to war cap/rate assumptions." : "Guide-derived values used directly for all displayed Night Strike units."}</div>
-          <div>Night Strike affects total troops, including armies away from home.</div>
+          <div>
+            {ns.partial
+              ? "Partial result: one or more defender troop counts are missing."
+              : "All four Night Strike troop pools available."}
+          </div>
+          <div>
+            {ns.attackerThieves == null
+              ? "Actual-by-send unavailable: attacker thieves unknown, so the cell falls back to the cap total."
+              : "Actual estimate assumes sending all currently available thieves."}
+          </div>
+          <div>
+            {ns.usedFallback
+              ? "Out-of-war specialist values are best-effort: missing guide values fall back to war cap/rate assumptions."
+              : "Guide-derived values used directly for all displayed Night Strike units."}
+          </div>
+          <div>
+            Night Strike affects total troops, including armies away from home.
+          </div>
         </div>
       </div>
     );
   }
 
-  if (result.rawCap == null || result.resource == null || result.capRate == null || result.unit == null) {
+  if (
+    result.rawCap == null ||
+    result.resource == null ||
+    result.capRate == null ||
+    result.unit == null
+  ) {
     return "No resource data for this target province.";
   }
 
@@ -136,7 +181,12 @@ function emptyState(message: string) {
 }
 
 function defenderNightStrikeTotal(defender: ProvinceRow): number | null {
-  const values = [defender.soldiers, defender.off_specs, defender.def_specs, defender.elites];
+  const values = [
+    defender.soldiers,
+    defender.off_specs,
+    defender.def_specs,
+    defender.elites,
+  ];
   let hasValue = false;
   let total = 0;
   for (const value of values) {
@@ -152,7 +202,8 @@ function cellSubline(result: CellResult): string | null {
     const ns = result.nightStrike!;
     if (ns.partial) return "Partial";
     if (ns.actualValue == null) return "No thief data";
-    if (ns.capValue != null && Math.abs(ns.actualValue - ns.capValue) < 0.01) return "Cap-limited";
+    if (ns.capValue != null && Math.abs(ns.actualValue - ns.capValue) < 0.01)
+      return "Cap-limited";
     return "Thief-limited";
   }
 
@@ -165,7 +216,8 @@ function cellSubline(result: CellResult): string | null {
 
 function displayCellValue(result: CellResult): string {
   if (result.value == null) return "—";
-  if (result.kind === "night_strike") return Math.round(result.value).toLocaleString();
+  if (result.kind === "night_strike")
+    return Math.round(result.value).toLocaleString();
   return formatNum(result.value);
 }
 
@@ -183,13 +235,22 @@ export function ThieveryTable({
 
   useEffect(() => {
     const id = setInterval(async () => {
-      const res = await fetch(`/api/kingdom/${encodeURIComponent(data.targetKingdom)}/thievery`);
+      const res = await fetch(
+        `/api/kingdom/${encodeURIComponent(data.targetKingdom)}/thievery`,
+      );
       if (res.ok) setData(await res.json());
     }, 30_000);
     return () => clearInterval(id);
   }, [data.targetKingdom]);
 
-  const { targetKingdom, selfKingdom, selfProvinces, targetLatest, selfSnapshot, targetSnapshot } = data;
+  const {
+    targetKingdom,
+    selfKingdom,
+    selfProvinces,
+    targetLatest,
+    selfSnapshot,
+    targetSnapshot,
+  } = data;
   const isWar = !!(
     selfSnapshot?.warTarget === targetKingdom ||
     targetSnapshot?.warTarget === selfKingdom
@@ -198,7 +259,9 @@ export function ThieveryTable({
   const targetSorted = sortBySlot(targetLatest);
 
   const allValues = selfSorted
-    .flatMap((att) => targetSorted.map((def) => computeCell(att, def, op, isWar).value))
+    .flatMap((att) =>
+      targetSorted.map((def) => computeCell(att, def, op, isWar).value),
+    )
     .filter((v): v is number => v != null);
   const maxValue = allValues.length > 0 ? Math.max(...allValues) : 0;
 
@@ -216,31 +279,62 @@ export function ThieveryTable({
       ))}
       <Tooltip
         content={[
-          { text: "Resource ops show adjusted max steals. Night Strike shows adjusted troop kills.", tone: "strong" },
-          { text: "Resource cells = resource × cap% × NW ratio × (1 − Shielding%) × (1 − Watchtowers%)." },
-          { text: "Night Strike assumes sending all available thieves and shows actual total when thief count is known, otherwise the adjusted cap total." },
-          { text: "Night Strike affects total troops, including armies away from home." },
-          { text: "NW ratio: min(attackerNW/defenderNW, defenderNW/attackerNW). Defaults to 1.0 if NW unknown." },
-          { text: "Shielding from latest SoS. Watchtowers from latest Survey. Both default to 1.0 if unavailable." },
-          { text: "War rates apply when either kingdom has declared war on the other." },
-          { text: "Out-of-war Night Strike specialist values are best-effort where the guide is incomplete.", tone: "warn" },
-          { text: "Night Strike itself requires at least Unfriendly relations; the matrix is still shown for planning.", tone: "muted" },
-          { text: "No race/personality modifiers affect thievery gains as of age 114.", tone: "muted" },
+          {
+            text: "Resource ops show adjusted max steals. Night Strike shows adjusted troop kills.",
+            tone: "strong",
+          },
+          {
+            text: "Resource cells = resource × cap% × NW ratio × (1 − Shielding%) × (1 − Watchtowers%).",
+          },
+          {
+            text: "Night Strike assumes sending all available thieves and shows actual total when thief count is known, otherwise the adjusted cap total.",
+          },
+          {
+            text: "Night Strike affects total troops, including armies away from home.",
+          },
+          {
+            text: "NW ratio: min(attackerNW/defenderNW, defenderNW/attackerNW). Defaults to 1.0 if NW unknown.",
+          },
+          {
+            text: "Shielding from latest SoS. Watchtowers from latest Survey. Both default to 1.0 if unavailable.",
+          },
+          {
+            text: "War rates apply when either kingdom has declared war on the other.",
+          },
+          {
+            text: "Out-of-war Night Strike specialist values are best-effort where the guide is incomplete.",
+            tone: "warn",
+          },
+          {
+            text: "Night Strike itself requires at least Unfriendly relations; the matrix is still shown for planning.",
+            tone: "muted",
+          },
+          {
+            text: "No race/personality modifiers affect thievery gains as of age 114.",
+            tone: "muted",
+          },
         ]}
       >
         <span className={`${btnBase} ${btnInactive}`}>Assumptions</span>
       </Tooltip>
       <div className="ml-auto text-xs">
-        {isWar
-          ? <span className="text-amber-400">War rates active</span>
-          : <span className="text-gray-500">Non-war rates</span>}
+        {isWar ? (
+          <span className="text-amber-400">War rates active</span>
+        ) : (
+          <span className="text-gray-500">Non-war rates</span>
+        )}
       </div>
     </>
   );
 
   const wrap = (content: React.ReactNode) => {
     const shell = (
-      <KingdomViewShell kingdom={targetKingdom} boundKingdom={selfKingdom} active="thievery" tabExtras={tabExtras}>
+      <KingdomViewShell
+        kingdom={targetKingdom}
+        boundKingdom={selfKingdom}
+        active="thievery"
+        tabExtras={tabExtras}
+      >
         {content}
       </KingdomViewShell>
     );
@@ -248,13 +342,23 @@ export function ThieveryTable({
   };
 
   if (!selfKingdom) {
-    return wrap(emptyState("No bound kingdom yet. Submit a self /throne page first so the site can identify your kingdom."));
+    return wrap(
+      emptyState(
+        "No bound kingdom yet. Submit a self /throne page first so the site can identify your kingdom.",
+      ),
+    );
   }
   if (selfProvinces.length === 0) {
-    return wrap(emptyState(`No visible provinces found for your bound kingdom ${selfKingdom}.`));
+    return wrap(
+      emptyState(
+        `No visible provinces found for your bound kingdom ${selfKingdom}.`,
+      ),
+    );
   }
   if (targetLatest.length === 0) {
-    return wrap(emptyState(`No province intel available for ${targetKingdom} yet.`));
+    return wrap(
+      emptyState(`No province intel available for ${targetKingdom} yet.`),
+    );
   }
 
   return wrap(
@@ -272,7 +376,10 @@ export function ThieveryTable({
                 {selfKingdom}
               </th>
               {targetSorted.map((defender) => {
-                const resource = OPS[op].kind === "resource" ? OPS[op].resource(defender) : null;
+                const resource =
+                  OPS[op].kind === "resource"
+                    ? OPS[op].resource(defender)
+                    : null;
                 const nsTotal = defenderNightStrikeTotal(defender);
                 return (
                   <th
@@ -359,7 +466,9 @@ export function ThieveryTable({
                     <Link
                       href={`/kingdom/${encodeURIComponent(selfKingdom)}/${encodeURIComponent(attacker.name)}`}
                       className={
-                        selectedRowId === attacker.id ? "text-blue-100" : "hover:text-blue-400"
+                        selectedRowId === attacker.id
+                          ? "text-blue-100"
+                          : "hover:text-blue-400"
                       }
                     >
                       {attacker.slot != null && (
@@ -371,10 +480,13 @@ export function ThieveryTable({
                     </Link>
                     <div
                       className={`mt-1 text-[10px] font-normal ${
-                        selectedRowId === attacker.id ? "text-blue-300/80" : "text-gray-500"
+                        selectedRowId === attacker.id
+                          ? "text-blue-300/80"
+                          : "text-gray-500"
                       }`}
                     >
-                      {formatNum(attacker.networth)} / {attacker.land?.toLocaleString() ?? "—"}a
+                      {formatNum(attacker.networth)} /{" "}
+                      {attacker.land?.toLocaleString() ?? "—"}a
                     </div>
                   </Tooltip>
                 </th>
@@ -392,10 +504,22 @@ export function ThieveryTable({
                           : ""
                       } ${tone.cell}`}
                     >
-                      <Tooltip content={cellTooltip(attacker, defender, op, isWar, result)}>
-                        <div className={tone.text}>{displayCellValue(result)}</div>
+                      <Tooltip
+                        content={cellTooltip(
+                          attacker,
+                          defender,
+                          op,
+                          isWar,
+                          result,
+                        )}
+                      >
+                        <div className={tone.text}>
+                          {displayCellValue(result)}
+                        </div>
                         {cellSubline(result) && (
-                          <div className={`mt-0.5 text-[10px] ${result.kind === "night_strike" ? "text-gray-500" : "text-amber-500"}`}>
+                          <div
+                            className={`mt-0.5 text-[10px] ${result.kind === "night_strike" ? "text-gray-500" : "text-amber-500"}`}
+                          >
                             {cellSubline(result)}
                           </div>
                         )}
@@ -408,6 +532,6 @@ export function ThieveryTable({
           </tbody>
         </table>
       </div>
-    </>
+    </>,
   );
 }

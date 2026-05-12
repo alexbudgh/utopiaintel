@@ -4,16 +4,19 @@
 // NW/wiz=7 → 6,534 computed (~1% error); NW/wiz=5 → 9,148 (way off)
 export const NW_PER_WIZARD = 7;
 
-export const RACE_NW: Record<string, { offSpecs: number; defSpecs: number; elites: number; warHorses: number }> = {
-  Avian:      { offSpecs: 4.8, defSpecs: 5.0, elites: 7.0, warHorses: 0   },
+export const RACE_NW: Record<
+  string,
+  { offSpecs: number; defSpecs: number; elites: number; warHorses: number }
+> = {
+  Avian: { offSpecs: 4.8, defSpecs: 5.0, elites: 7.0, warHorses: 0 },
   "Dark Elf": { offSpecs: 6.0, defSpecs: 5.5, elites: 7.0, warHorses: 0.6 },
-  Dwarf:      { offSpecs: 4.0, defSpecs: 5.0, elites: 7.0, warHorses: 0.6 },
-  Elf:        { offSpecs: 4.0, defSpecs: 6.5, elites: 6.0, warHorses: 0.6 },
-  Faery:      { offSpecs: 4.0, defSpecs: 5.0, elites: 8.5, warHorses: 0.6 },
-  Halfling:   { offSpecs: 4.0, defSpecs: 5.0, elites: 7.5, warHorses: 0.6 },
-  Human:      { offSpecs: 4.8, defSpecs: 5.0, elites: 6.5, warHorses: 0.6 },
-  Orc:        { offSpecs: 5.2, defSpecs: 5.0, elites: 7.0, warHorses: 0.6 },
-  Undead:     { offSpecs: 4.4, defSpecs: 5.0, elites: 7.0, warHorses: 0.6 },
+  Dwarf: { offSpecs: 4.0, defSpecs: 5.0, elites: 7.0, warHorses: 0.6 },
+  Elf: { offSpecs: 4.0, defSpecs: 6.5, elites: 6.0, warHorses: 0.6 },
+  Faery: { offSpecs: 4.0, defSpecs: 5.0, elites: 8.5, warHorses: 0.6 },
+  Halfling: { offSpecs: 4.0, defSpecs: 5.0, elites: 7.5, warHorses: 0.6 },
+  Human: { offSpecs: 4.8, defSpecs: 5.0, elites: 6.5, warHorses: 0.6 },
+  Orc: { offSpecs: 5.2, defSpecs: 5.0, elites: 7.0, warHorses: 0.6 },
+  Undead: { offSpecs: 4.4, defSpecs: 5.0, elites: 7.0, warHorses: 0.6 },
 };
 
 export interface NwInputs {
@@ -39,9 +42,15 @@ export function computeWizardCount(p: NwInputs): number | null {
   if (!p.networth || !p.land || !p.race) return null;
   const raceNw = RACE_NW[p.race];
   if (!raceNw) return null;
-  if (p.thieves == null || p.buildings_built == null || p.science_total_books == null) return null;
+  if (
+    p.thieves == null ||
+    p.buildings_built == null ||
+    p.science_total_books == null
+  )
+    return null;
 
-  const offSpecNw = raceNw.offSpecs + (p.personality === "War Hero" ? 2 * 0.4 : 0);
+  const offSpecNw =
+    raceNw.offSpecs + (p.personality === "War Hero" ? 2 * 0.4 : 0);
   // Paladin horse NW is empirically treated as 0 for the wizard residual.
   //
   // The guide says Paladin gets "+2 War Horse Strength (affects NW)"
@@ -67,9 +76,8 @@ export function computeWizardCount(p: NwInputs): number | null {
   // Residual form of: barren acres * 40 + completed buildings * 60 + in-progress buildings * 50.
   // Since p.land * 40 already gives every acre its barren-land NW, completed buildings add +20
   // and in-progress buildings add only +10 more, not the full 50 again.
-  const landBuildingNw = p.land * 40
-    + p.buildings_built * 20
-    + (p.buildings_in_progress ?? 0) * 10;
+  const landBuildingNw =
+    p.land * 40 + p.buildings_built * 20 + (p.buildings_in_progress ?? 0) * 10;
 
   const scienceNw = p.science_total_books * 0.000007 * p.land;
 
@@ -77,7 +85,8 @@ export function computeWizardCount(p: NwInputs): number | null {
 
   const thievesNw = p.thieves * 5;
 
-  const residual = p.networth - troopNw - thievesNw - moneyNw - landBuildingNw - scienceNw;
+  const residual =
+    p.networth - troopNw - thievesNw - moneyNw - landBuildingNw - scienceNw;
 
   if (residual < 0) return null;
   return residual / NW_PER_WIZARD;

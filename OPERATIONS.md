@@ -16,6 +16,7 @@ pm2 reload ecosystem.config.js --update-env
 ```
 
 Operational notes:
+
 - keep `--exclude=intel.db` on deploy syncs
 - set `INTEL_DEBUG_PATH` outside the deployed app directory in production, e.g. `/home/ec2-user/utopiaintel-data/intel_debug.jsonl`
 - optional rotation env vars:
@@ -116,6 +117,7 @@ pm2 startup
 ```
 
 Current PM2 env in `ecosystem.config.js` includes:
+
 - `HOSTNAME=127.0.0.1`
 - `INTEL_DB_PATH=/home/ec2-user/utopiaintel-data/intel.db`
 - `INTEL_DEBUG=0`

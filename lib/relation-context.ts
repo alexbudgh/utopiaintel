@@ -11,7 +11,9 @@ export interface RelationContext {
   hostilityMeterVisibleUntil: string | null;
 }
 
-export function toRelationContext(snapshot: KingdomSnapshot | null): RelationContext | null {
+export function toRelationContext(
+  snapshot: KingdomSnapshot | null,
+): RelationContext | null {
   if (!snapshot) return null;
   return {
     location: snapshot.location,

@@ -3,11 +3,11 @@ import fs from "fs";
 import path from "path";
 
 export const pool = mysql.createPool({
-  host:     process.env.DB_HOST     ?? "localhost",
-  port:     Number(process.env.DB_PORT ?? 3306),
-  user:     process.env.DB_USER     ?? "utopiaintel",
+  host: process.env.DB_HOST ?? "localhost",
+  port: Number(process.env.DB_PORT ?? 3306),
+  user: process.env.DB_USER ?? "utopiaintel",
   password: process.env.DB_PASSWORD ?? "",
-  database: process.env.DB_NAME     ?? "utopiaintel",
+  database: process.env.DB_NAME ?? "utopiaintel",
   waitForConnections: true,
   connectionLimit: 10,
   charset: "utf8mb4",
@@ -500,7 +500,6 @@ export async function initDb(): Promise<void> {
   } catch {
     // May not have SUPER privilege; ignore
   }
-
 }
 
 export async function runMigrations(): Promise<void> {
@@ -515,7 +514,10 @@ export async function runMigrations(): Promise<void> {
   const migrationsDir = path.join(process.cwd(), "migrations");
   let files: string[];
   try {
-    files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).sort();
+    files = fs
+      .readdirSync(migrationsDir)
+      .filter((f) => f.endsWith(".sql"))
+      .sort();
   } catch {
     return;
   }
@@ -523,7 +525,10 @@ export async function runMigrations(): Promise<void> {
   for (const file of files) {
     if (applied.has(file)) continue;
     const sql = fs.readFileSync(path.join(migrationsDir, file), "utf8");
-    const stmts = sql.split(";").map((s) => s.trim()).filter(Boolean);
+    const stmts = sql
+      .split(";")
+      .map((s) => s.trim())
+      .filter(Boolean);
     for (const stmt of stmts) {
       await pool.query(stmt);
     }

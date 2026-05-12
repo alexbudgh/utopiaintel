@@ -15,15 +15,114 @@ export interface RaceData {
 
 // Age 115 unit stats.
 export const RACES: RaceData[] = [
-  { name: "Avian",    shortName: "AV", offSpec: "Griffins",              defSpec: "Harpies",            elite: "Drakes",             soldierStr: 3, offSpecStr: 12, defSpecStr: 10, eliteOffStr: 16, eliteDefStr:  3 },
-  { name: "Dark Elf", shortName: "DE", offSpec: "Night Rangers",         defSpec: "Druids",             elite: "Drows",              soldierStr: 3, offSpecStr: 15, defSpecStr: 11, eliteOffStr:  4, eliteDefStr: 12 },
-  { name: "Dwarf",    shortName: "DW", offSpec: "Warriors",              defSpec: "Axemen",             elite: "Berserkers",         soldierStr: 3, offSpecStr: 10, defSpecStr: 10, eliteOffStr: 15, eliteDefStr:  5 },
-  { name: "Elf",      shortName: "EL", offSpec: "Rangers",               defSpec: "Archers",            elite: "Elf Lords",          soldierStr: 3, offSpecStr: 10, defSpecStr: 13, eliteOffStr: 15, eliteDefStr:  4 },
-  { name: "Faery",    shortName: "FA", offSpec: "Magicians",             defSpec: "Druids",             elite: "Beastmasters",       soldierStr: 3, offSpecStr: 10, defSpecStr: 10, eliteOffStr:  4, eliteDefStr: 16 },
-  { name: "Halfling", shortName: "HA", offSpec: "Strongarms",            defSpec: "Slingers",           elite: "Brutes",             soldierStr: 3, offSpecStr: 10, defSpecStr: 10, eliteOffStr:  6, eliteDefStr: 12 },
-  { name: "Human",    shortName: "HU", offSpec: "Swordsmen",             defSpec: "Archers",            elite: "Knights",            soldierStr: 3, offSpecStr: 12, defSpecStr: 10, eliteOffStr: 16, eliteDefStr:  3 },
-  { name: "Orc",      shortName: "OR", offSpec: "Goblins",               defSpec: "Trolls",             elite: "Ogres",              soldierStr: 3, offSpecStr: 13, defSpecStr: 10, eliteOffStr: 18, eliteDefStr:  2 },
-  { name: "Undead",   shortName: "UD", offSpec: "Skeletons",             defSpec: "Zombies",            elite: "Ghouls",             soldierStr: 3, offSpecStr: 11, defSpecStr: 10, eliteOffStr: 17, eliteDefStr:  4 },
+  {
+    name: "Avian",
+    shortName: "AV",
+    offSpec: "Griffins",
+    defSpec: "Harpies",
+    elite: "Drakes",
+    soldierStr: 3,
+    offSpecStr: 12,
+    defSpecStr: 10,
+    eliteOffStr: 16,
+    eliteDefStr: 3,
+  },
+  {
+    name: "Dark Elf",
+    shortName: "DE",
+    offSpec: "Night Rangers",
+    defSpec: "Druids",
+    elite: "Drows",
+    soldierStr: 3,
+    offSpecStr: 15,
+    defSpecStr: 11,
+    eliteOffStr: 4,
+    eliteDefStr: 12,
+  },
+  {
+    name: "Dwarf",
+    shortName: "DW",
+    offSpec: "Warriors",
+    defSpec: "Axemen",
+    elite: "Berserkers",
+    soldierStr: 3,
+    offSpecStr: 10,
+    defSpecStr: 10,
+    eliteOffStr: 15,
+    eliteDefStr: 5,
+  },
+  {
+    name: "Elf",
+    shortName: "EL",
+    offSpec: "Rangers",
+    defSpec: "Archers",
+    elite: "Elf Lords",
+    soldierStr: 3,
+    offSpecStr: 10,
+    defSpecStr: 13,
+    eliteOffStr: 15,
+    eliteDefStr: 4,
+  },
+  {
+    name: "Faery",
+    shortName: "FA",
+    offSpec: "Magicians",
+    defSpec: "Druids",
+    elite: "Beastmasters",
+    soldierStr: 3,
+    offSpecStr: 10,
+    defSpecStr: 10,
+    eliteOffStr: 4,
+    eliteDefStr: 16,
+  },
+  {
+    name: "Halfling",
+    shortName: "HA",
+    offSpec: "Strongarms",
+    defSpec: "Slingers",
+    elite: "Brutes",
+    soldierStr: 3,
+    offSpecStr: 10,
+    defSpecStr: 10,
+    eliteOffStr: 6,
+    eliteDefStr: 12,
+  },
+  {
+    name: "Human",
+    shortName: "HU",
+    offSpec: "Swordsmen",
+    defSpec: "Archers",
+    elite: "Knights",
+    soldierStr: 3,
+    offSpecStr: 12,
+    defSpecStr: 10,
+    eliteOffStr: 16,
+    eliteDefStr: 3,
+  },
+  {
+    name: "Orc",
+    shortName: "OR",
+    offSpec: "Goblins",
+    defSpec: "Trolls",
+    elite: "Ogres",
+    soldierStr: 3,
+    offSpecStr: 13,
+    defSpecStr: 10,
+    eliteOffStr: 18,
+    eliteDefStr: 2,
+  },
+  {
+    name: "Undead",
+    shortName: "UD",
+    offSpec: "Skeletons",
+    defSpec: "Zombies",
+    elite: "Ghouls",
+    soldierStr: 3,
+    offSpecStr: 11,
+    defSpecStr: 10,
+    eliteOffStr: 17,
+    eliteDefStr: 4,
+  },
 ];
 
 export const RACE_NAMES = RACES.flatMap((r) => [r.name, r.shortName]);
@@ -38,11 +137,27 @@ export const DEF_SPEC_GROUP = [...new Set(DEF_SPECS)].join("|");
 export const ELITE_GROUP = [...new Set(ELITES)].join("|");
 
 export const BUILDINGS = [
-  "Barren Land", "Homes", "Farms", "Mills", "Banks",
-  "Training Grounds", "Armouries", "Military Barracks",
-  "Forts", "Guard Stations", "Hospitals", "Guilds",
-  "Towers", "Thieves' Dens", "Watch Towers", "Universities", "Libraries",
-  "Schools", "Stables", "Dungeons", "Unknown",
+  "Barren Land",
+  "Homes",
+  "Farms",
+  "Mills",
+  "Banks",
+  "Training Grounds",
+  "Armouries",
+  "Military Barracks",
+  "Forts",
+  "Guard Stations",
+  "Hospitals",
+  "Guilds",
+  "Towers",
+  "Thieves' Dens",
+  "Watch Towers",
+  "Universities",
+  "Libraries",
+  "Schools",
+  "Stables",
+  "Dungeons",
+  "Unknown",
 ];
 export const BUILDING_GROUP = BUILDINGS.join("|");
 
@@ -51,9 +166,24 @@ export const BUILDING_GROUP = BUILDINGS.join("|");
 // Military: Strategy, Siege, Tactics, Valor, Heroism, Resilience
 // Arcane Arts: Crime, Channeling, Shielding, Cunning, Sorcery, Finesse
 export const SCIENCES = [
-  "Alchemy", "Tools", "Housing", "Production", "Bookkeeping", "Artisan",
-  "Strategy", "Siege", "Tactics", "Valor", "Heroism", "Resilience",
-  "Crime", "Channeling", "Shielding", "Cunning", "Sorcery", "Finesse",
+  "Alchemy",
+  "Tools",
+  "Housing",
+  "Production",
+  "Bookkeeping",
+  "Artisan",
+  "Strategy",
+  "Siege",
+  "Tactics",
+  "Valor",
+  "Heroism",
+  "Resilience",
+  "Crime",
+  "Channeling",
+  "Shielding",
+  "Cunning",
+  "Sorcery",
+  "Finesse",
 ];
 // Legacy / alternate names (Angel addon format, old science names)
 export const SCIENCE_ALTS: Record<string, string> = {
@@ -67,30 +197,58 @@ export const SCIENCE_ALTS: Record<string, string> = {
   "Magic Effectiveness & Rune Production": "Channeling",
   "Magic Effectiveness": "Channeling",
 };
-export const SCIENCE_GROUP = [...SCIENCES, ...Object.keys(SCIENCE_ALTS)].join("|");
+export const SCIENCE_GROUP = [...SCIENCES, ...Object.keys(SCIENCE_ALTS)].join(
+  "|",
+);
 
 // Age 114 personalities. "Hero" is what appears after "the " in SoT ruler text
 // (the full design name is "War Hero" but the game displays just "Hero").
 export const PERSONALITIES = [
-  "Artisan", "Paladin", "Heretic", "Mystic",
-  "Rogue", "Tactician", "Warrior", "Necromancer",
-  "General", "Hero",
+  "Artisan",
+  "Paladin",
+  "Heretic",
+  "Mystic",
+  "Rogue",
+  "Tactician",
+  "Warrior",
+  "Necromancer",
+  "General",
+  "Hero",
 ];
 export const PERSONALITY_GROUP = PERSONALITIES.join("|");
 
 export const HONOR_TITLES = [
-  "Peasant", "Knight", "Lord", "Baron", "Viscount",
-  "Count", "Marquis", "Duke", "Prince", "King",
+  "Peasant",
+  "Knight",
+  "Lord",
+  "Baron",
+  "Viscount",
+  "Count",
+  "Marquis",
+  "Duke",
+  "Prince",
+  "King",
   // Female variants
-  "Mr.", "Mrs.", "Sir", "Lady", "Noble Lady",
-  "Baroness", "Viscountess", "Countess", "Marchioness",
-  "Duchess", "Princess", "Queen",
+  "Mr.",
+  "Mrs.",
+  "Sir",
+  "Lady",
+  "Noble Lady",
+  "Baroness",
+  "Viscountess",
+  "Countess",
+  "Marchioness",
+  "Duchess",
+  "Princess",
+  "Queen",
 ];
 export const HONOR_TITLE_GROUP = HONOR_TITLES.join("|");
 
 export function getRaceByName(name: string): RaceData | undefined {
   return RACES.find(
-    (r) => r.name.toLowerCase() === name.toLowerCase() || r.shortName.toLowerCase() === name.toLowerCase(),
+    (r) =>
+      r.name.toLowerCase() === name.toLowerCase() ||
+      r.shortName.toLowerCase() === name.toLowerCase(),
   );
 }
 

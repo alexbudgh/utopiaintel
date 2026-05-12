@@ -2,7 +2,11 @@ import type { ProvinceRow } from "@/lib/db";
 
 export type Op = "vaults" | "granaries" | "towers" | "night_strike";
 export type ResourceOp = Exclude<Op, "night_strike">;
-export type NightStrikeUnitKey = "soldiers" | "off_specs" | "def_specs" | "elites";
+export type NightStrikeUnitKey =
+  | "soldiers"
+  | "off_specs"
+  | "def_specs"
+  | "elites";
 
 export interface ResourceOpConfig {
   kind: "resource";
@@ -21,9 +25,30 @@ export interface NightStrikeOpConfig {
 export type OpConfig = ResourceOpConfig | NightStrikeOpConfig;
 
 export const OPS = {
-  vaults:       { kind: "resource", label: "Vaults",       resource: (p) => p.money, capOow: 0.052, capWar: 0.14,  unit: "gc" },
-  granaries:    { kind: "resource", label: "Granaries",    resource: (p) => p.food,  capOow: 0.315, capWar: 0.46,  unit: "bushels" },
-  towers:       { kind: "resource", label: "Towers",       resource: (p) => p.runes, capOow: 0.245, capWar: 0.35,  unit: "runes" },
+  vaults: {
+    kind: "resource",
+    label: "Vaults",
+    resource: (p) => p.money,
+    capOow: 0.052,
+    capWar: 0.14,
+    unit: "gc",
+  },
+  granaries: {
+    kind: "resource",
+    label: "Granaries",
+    resource: (p) => p.food,
+    capOow: 0.315,
+    capWar: 0.46,
+    unit: "bushels",
+  },
+  towers: {
+    kind: "resource",
+    label: "Towers",
+    resource: (p) => p.runes,
+    capOow: 0.245,
+    capWar: 0.35,
+    unit: "runes",
+  },
   night_strike: { kind: "night_strike", label: "Night Strike" },
 } satisfies Record<Op, OpConfig>;
 
@@ -61,14 +86,17 @@ export interface CellResult {
   };
 }
 
-export const NIGHT_STRIKE_UNITS: Record<NightStrikeUnitKey, {
-  label: string;
-  total: (p: ProvinceRow) => number | null;
-  warCap: number;
-  warRate: number;
-  oowCap: number | null;
-  oowRate: number | null;
-}> = {
+export const NIGHT_STRIKE_UNITS: Record<
+  NightStrikeUnitKey,
+  {
+    label: string;
+    total: (p: ProvinceRow) => number | null;
+    warCap: number;
+    warRate: number;
+    oowCap: number | null;
+    oowRate: number | null;
+  }
+> = {
   soldiers: {
     label: "Soldiers",
     total: (p) => p.soldiers,
@@ -103,18 +131,28 @@ export const NIGHT_STRIKE_UNITS: Record<NightStrikeUnitKey, {
   },
 };
 
-function getNwRatio(attacker: ProvinceRow, defender: ProvinceRow): number | null {
+function getNwRatio(
+  attacker: ProvinceRow,
+  defender: ProvinceRow,
+): number | null {
   return attacker.networth && defender.networth
-    ? Math.min(attacker.networth / defender.networth, defender.networth / attacker.networth)
+    ? Math.min(
+        attacker.networth / defender.networth,
+        defender.networth / attacker.networth,
+      )
     : null;
 }
 
 function getShieldingFactor(defender: ProvinceRow): number {
-  return defender.shielding_effect != null ? 1 - defender.shielding_effect / 100 : 1;
+  return defender.shielding_effect != null
+    ? 1 - defender.shielding_effect / 100
+    : 1;
 }
 
 function getWatchtowersFactor(defender: ProvinceRow): number {
-  return defender.watch_towers_effect != null ? 1 - defender.watch_towers_effect / 100 : 1;
+  return defender.watch_towers_effect != null
+    ? 1 - defender.watch_towers_effect / 100
+    : 1;
 }
 
 function sumKnown(values: Array<number | null>): number | null {
@@ -128,39 +166,51 @@ function sumKnown(values: Array<number | null>): number | null {
   return hasValue ? total : null;
 }
 
-function computeNightStrikeCell(attacker: ProvinceRow, defender: ProvinceRow, isWar: boolean): CellResult {
+function computeNightStrikeCell(
+  attacker: ProvinceRow,
+  defender: ProvinceRow,
+  isWar: boolean,
+): CellResult {
   const nwRatio = getNwRatio(attacker, defender);
   const shieldingFactor = getShieldingFactor(defender);
   const watchtowersFactor = getWatchtowersFactor(defender);
   const factor = (nwRatio ?? 1) * shieldingFactor * watchtowersFactor;
 
-  const breakdown = (Object.entries(NIGHT_STRIKE_UNITS) as Array<[NightStrikeUnitKey, typeof NIGHT_STRIKE_UNITS[NightStrikeUnitKey]]>)
-    .map(([key, config]) => {
-      const targetTotal = config.total(defender);
-      const capRate = isWar ? config.warCap : (config.oowCap ?? config.warCap);
-      const ratePerThief = isWar ? config.warRate : (config.oowRate ?? config.warRate);
-      const rawCap = targetTotal != null ? targetTotal * capRate : null;
-      const rawActual = rawCap != null && attacker.thieves != null
+  const breakdown = (
+    Object.entries(NIGHT_STRIKE_UNITS) as Array<
+      [NightStrikeUnitKey, (typeof NIGHT_STRIKE_UNITS)[NightStrikeUnitKey]]
+    >
+  ).map(([key, config]) => {
+    const targetTotal = config.total(defender);
+    const capRate = isWar ? config.warCap : (config.oowCap ?? config.warCap);
+    const ratePerThief = isWar
+      ? config.warRate
+      : (config.oowRate ?? config.warRate);
+    const rawCap = targetTotal != null ? targetTotal * capRate : null;
+    const rawActual =
+      rawCap != null && attacker.thieves != null
         ? Math.min(rawCap, attacker.thieves * ratePerThief)
         : null;
 
-      return {
-        key,
-        label: config.label,
-        targetTotal,
-        capRate,
-        ratePerThief,
-        rawCap,
-        rawActual,
-        adjustedCap: rawCap != null ? rawCap * factor : null,
-        adjustedActual: rawActual != null ? rawActual * factor : null,
-        usedFallback: !isWar && (config.oowCap == null || config.oowRate == null),
-      };
-    });
+    return {
+      key,
+      label: config.label,
+      targetTotal,
+      capRate,
+      ratePerThief,
+      rawCap,
+      rawActual,
+      adjustedCap: rawCap != null ? rawCap * factor : null,
+      adjustedActual: rawActual != null ? rawActual * factor : null,
+      usedFallback: !isWar && (config.oowCap == null || config.oowRate == null),
+    };
+  });
 
   const capValue = sumKnown(breakdown.map((unit) => unit.adjustedCap));
   const actualValue = sumKnown(breakdown.map((unit) => unit.adjustedActual));
-  const partial = breakdown.some((unit) => unit.targetTotal == null) && breakdown.some((unit) => unit.targetTotal != null);
+  const partial =
+    breakdown.some((unit) => unit.targetTotal == null) &&
+    breakdown.some((unit) => unit.targetTotal != null);
   const hasAnyTroopData = breakdown.some((unit) => unit.targetTotal != null);
 
   return {
@@ -182,7 +232,12 @@ function computeNightStrikeCell(attacker: ProvinceRow, defender: ProvinceRow, is
   };
 }
 
-export function computeCell(attacker: ProvinceRow, defender: ProvinceRow, op: Op, isWar: boolean): CellResult {
+export function computeCell(
+  attacker: ProvinceRow,
+  defender: ProvinceRow,
+  op: Op,
+  isWar: boolean,
+): CellResult {
   const config = OPS[op];
   if (config.kind === "night_strike") {
     return computeNightStrikeCell(attacker, defender, isWar);

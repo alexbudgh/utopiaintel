@@ -1,6 +1,13 @@
 import { SCIENCE_GROUP, normalizeScienceName } from "../game";
 import type { SoSData, ScienceEntry } from "./types";
-import { INT, FLOAT, KDLOC, parseNum, parseFloat_, parseAccuracy } from "./util";
+import {
+  INT,
+  FLOAT,
+  KDLOC,
+  parseNum,
+  parseFloat_,
+  parseAccuracy,
+} from "./util";
 
 const PROVINCE_RE = new RegExp(
   `Our thieves visit the research centers of ([^(]+)${KDLOC}`,

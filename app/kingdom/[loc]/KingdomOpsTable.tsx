@@ -4,35 +4,39 @@ import Link from "next/link";
 import { useState } from "react";
 import { KingdomViewShell } from "./KingdomTabs";
 import { UtopiaDateRangeFilter } from "./UtopiaDateRangeFilter";
-import type { KingdomOpsStats, OpProvEntry, OpTypeBreakdown } from "@/lib/db-api";
+import type {
+  KingdomOpsStats,
+  OpProvEntry,
+  OpTypeBreakdown,
+} from "@/lib/db-api";
 
 const OP_LABELS: Record<string, string> = {
-  vaults:             "Rob Vaults",
-  granaries:          "Rob Granaries",
-  towers:             "Rob Towers",
-  night_strike:       "Night Strike",
-  kidnap:             "Kidnap",
-  incite_riots:       "Incite Riots",
-  bribe_generals:     "Bribe Generals",
-  bribe_thieves:      "Bribe Thieves",
-  sabotage_wizards:   "Sabotage Wizards",
+  vaults: "Rob Vaults",
+  granaries: "Rob Granaries",
+  towers: "Rob Towers",
+  night_strike: "Night Strike",
+  kidnap: "Kidnap",
+  incite_riots: "Incite Riots",
+  bribe_generals: "Bribe Generals",
+  bribe_thieves: "Bribe Thieves",
+  sabotage_wizards: "Sabotage Wizards",
   destabilize_guilds: "Destabilize Guilds",
-  arson:              "Arson",
-  greater_arson:      "Greater Arson",
-  propaganda:         "Propaganda",
-  detected:           "Detected",
+  arson: "Arson",
+  greater_arson: "Greater Arson",
+  propaganda: "Propaganda",
+  detected: "Detected",
 };
 
 const OP_AMOUNT_LABEL: Record<string, string> = {
-  vaults:             "Gold",
-  granaries:          "Food",
-  towers:             "Runes",
-  night_strike:       "Troops",
-  kidnap:             "Peasants",
-  arson:              "Acres",
-  greater_arson:      "Acres",
-  propaganda:         "Stolen",
-  detected:           "Caught",
+  vaults: "Gold",
+  granaries: "Food",
+  towers: "Runes",
+  night_strike: "Troops",
+  kidnap: "Peasants",
+  arson: "Acres",
+  greater_arson: "Acres",
+  propaganda: "Stolen",
+  detected: "Caught",
 };
 
 function amountLabel(op: string): string {
@@ -44,10 +48,22 @@ function Num({ n, color }: { n: number; color?: string }) {
   return <span className={color ?? "text-gray-300"}>{n.toLocaleString()}</span>;
 }
 
-function ProvName({ e, kingdom, linkable }: { e: OpProvEntry; kingdom: string; linkable: boolean }) {
+function ProvName({
+  e,
+  kingdom,
+  linkable,
+}: {
+  e: OpProvEntry;
+  kingdom: string;
+  linkable: boolean;
+}) {
   return (
     <>
-      {e.slot != null && <span className="text-gray-600 font-mono mr-1 text-[10px]">{e.slot}</span>}
+      {e.slot != null && (
+        <span className="text-gray-600 font-mono mr-1 text-[10px]">
+          {e.slot}
+        </span>
+      )}
       {linkable ? (
         <Link
           href={`/kingdom/${encodeURIComponent(kingdom)}/${encodeURIComponent(e.provinceName)}`}
@@ -84,7 +100,10 @@ function ProvTable({
     // Propaganda layout: Province | Unit | Stolen, plus failures footer.
     const successRows = entries.filter((e) => e.unitType !== null);
     const totalStolen = successRows.reduce((s, e) => s + e.amount, 0);
-    const totalFailures = entries.reduce((s, e) => s + Math.max(0, e.attempts - e.successes), 0);
+    const totalFailures = entries.reduce(
+      (s, e) => s + Math.max(0, e.attempts - e.successes),
+      0,
+    );
     const totalThievesLost = entries.reduce((s, e) => s + e.thievesLost, 0);
     const thievesWord = totalThievesLost === 1 ? "thief" : "thieves";
 
@@ -100,11 +119,16 @@ function ProvTable({
         </thead>
         <tbody>
           {successRows.map((e) => (
-            <tr key={`${e.provinceName}|${e.unitType}`} className="border-b border-gray-800/30">
+            <tr
+              key={`${e.provinceName}|${e.unitType}`}
+              className="border-b border-gray-800/30"
+            >
               <td className="py-1 pr-2 whitespace-nowrap">
                 <ProvName e={e} kingdom={kingdom} linkable={linkable} />
               </td>
-              <td className="py-1 px-1 whitespace-nowrap text-yellow-600">{e.unitType}</td>
+              <td className="py-1 px-1 whitespace-nowrap text-yellow-600">
+                {e.unitType}
+              </td>
               <td className="text-right font-mono py-1 px-1 text-gray-500">
                 <Num n={e.successes} />
               </td>
@@ -131,9 +155,13 @@ function ProvTable({
             <tr className="border-t border-gray-800/40 text-red-400">
               <td className="py-1 pr-2">—</td>
               <td className="py-1 px-1">failed</td>
-              <td className="text-right font-mono py-1 px-1">{totalFailures}</td>
+              <td className="text-right font-mono py-1 px-1">
+                {totalFailures}
+              </td>
               <td className="py-1 pl-1">
-                {totalThievesLost > 0 ? `${totalThievesLost} ${thievesWord} lost` : ""}
+                {totalThievesLost > 0
+                  ? `${totalThievesLost} ${thievesWord} lost`
+                  : ""}
               </td>
             </tr>
           )}
@@ -143,7 +171,11 @@ function ProvTable({
   }
 
   const total = entries.reduce(
-    (acc, e) => ({ attempts: acc.attempts + e.attempts, successes: acc.successes + e.successes, amount: acc.amount + e.amount }),
+    (acc, e) => ({
+      attempts: acc.attempts + e.attempts,
+      successes: acc.successes + e.successes,
+      amount: acc.amount + e.amount,
+    }),
     { attempts: 0, successes: 0, amount: 0 },
   );
 
@@ -154,12 +186,17 @@ function ProvTable({
           <th className="text-left py-1 pr-2 font-normal">Province</th>
           <th className="text-right py-1 px-1 font-normal">Attempts</th>
           <th className="text-right py-1 px-1 font-normal">Successes</th>
-          {!isEffect && <th className="text-right py-1 pl-1 font-normal">{amtLabel}</th>}
+          {!isEffect && (
+            <th className="text-right py-1 pl-1 font-normal">{amtLabel}</th>
+          )}
         </tr>
       </thead>
       <tbody>
         {entries.map((e) => (
-          <tr key={`${e.provinceName}|${e.unitType ?? ""}`} className="border-b border-gray-800/30">
+          <tr
+            key={`${e.provinceName}|${e.unitType ?? ""}`}
+            className="border-b border-gray-800/30"
+          >
             <td className="py-1 pr-2 whitespace-nowrap">
               <ProvName e={e} kingdom={kingdom} linkable={linkable} />
             </td>
@@ -181,8 +218,12 @@ function ProvTable({
         <tfoot>
           <tr className="border-t border-gray-700 text-gray-300 font-medium bg-gray-800/50">
             <td className="py-1 pr-2">Total</td>
-            <td className="text-right font-mono py-1 px-1"><Num n={total.attempts} /></td>
-            <td className="text-right font-mono py-1 px-1"><Num n={total.successes} color="text-gray-400" /></td>
+            <td className="text-right font-mono py-1 px-1">
+              <Num n={total.attempts} />
+            </td>
+            <td className="text-right font-mono py-1 px-1">
+              <Num n={total.successes} color="text-gray-400" />
+            </td>
             {!isEffect && (
               <td className="text-right font-mono py-1 pl-1">
                 <Num n={total.amount} color={amtColorTotal} />
@@ -199,7 +240,7 @@ function OpSection({ bd, kingdom }: { bd: OpTypeBreakdown; kingdom: string }) {
   const [open, setOpen] = useState(false);
   const label = OP_LABELS[bd.op] ?? bd.op;
   const totalOut = bd.outgoing.reduce((s, e) => s + e.amount, 0);
-  const totalIn  = bd.incoming.reduce((s, e) => s + e.amount, 0);
+  const totalIn = bd.incoming.reduce((s, e) => s + e.amount, 0);
   const isEffect = !OP_AMOUNT_LABEL[bd.op];
   const amtLbl = amountLabel(bd.op);
 
@@ -220,7 +261,11 @@ function OpSection({ bd, kingdom }: { bd: OpTypeBreakdown; kingdom: string }) {
             </span>
           )}
           {bd.incoming.length > 0 && (
-            <span className={bd.op === "detected" ? "text-orange-400" : "text-red-400"}>
+            <span
+              className={
+                bd.op === "detected" ? "text-orange-400" : "text-red-400"
+              }
+            >
               {isEffect
                 ? `${bd.incoming.reduce((s, e) => s + e.successes, 0)} in`
                 : `${totalIn.toLocaleString()} ${amtLbl.toLowerCase()} in`}
@@ -236,15 +281,31 @@ function OpSection({ bd, kingdom }: { bd: OpTypeBreakdown; kingdom: string }) {
               <div className="text-[10px] uppercase tracking-wide text-green-700 font-medium mb-2">
                 We did to them
               </div>
-              <ProvTable entries={bd.outgoing} kingdom={kingdom} op={bd.op} linkable={false} showUnitType={bd.op === "propaganda"} />
+              <ProvTable
+                entries={bd.outgoing}
+                kingdom={kingdom}
+                op={bd.op}
+                linkable={false}
+                showUnitType={bd.op === "propaganda"}
+              />
             </div>
           )}
           {bd.incoming.length > 0 && (
             <div>
-              <div className={`text-[10px] uppercase tracking-wide font-medium mb-2 ${bd.op === "detected" ? "text-orange-700" : "text-red-700"}`}>
-                {bd.op === "detected" ? "Their thieves caught" : "They did to us"}
+              <div
+                className={`text-[10px] uppercase tracking-wide font-medium mb-2 ${bd.op === "detected" ? "text-orange-700" : "text-red-700"}`}
+              >
+                {bd.op === "detected"
+                  ? "Their thieves caught"
+                  : "They did to us"}
               </div>
-              <ProvTable entries={bd.incoming} kingdom={kingdom} op={bd.op} linkable={true} showUnitType={bd.op === "propaganda"} />
+              <ProvTable
+                entries={bd.incoming}
+                kingdom={kingdom}
+                op={bd.op}
+                linkable={true}
+                showUnitType={bd.op === "propaganda"}
+              />
             </div>
           )}
         </div>
@@ -269,7 +330,11 @@ export function KingdomOpsTable({
   latestWarDate?: string;
 }) {
   return (
-    <KingdomViewShell kingdom={kingdom} boundKingdom={boundKingdom} active="ops">
+    <KingdomViewShell
+      kingdom={kingdom}
+      boundKingdom={boundKingdom}
+      active="ops"
+    >
       <UtopiaDateRangeFilter
         kingdom={kingdom}
         view="ops"

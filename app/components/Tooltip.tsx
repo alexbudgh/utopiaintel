@@ -1,6 +1,14 @@
 "use client";
 
-import { type CSSProperties, type ReactNode, createContext, useContext, useLayoutEffect, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type ReactNode,
+  createContext,
+  useContext,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
 const TooltipKeepAliveContext = createContext<(() => void) | null>(null);
 import { createPortal } from "react-dom";
@@ -24,16 +32,28 @@ function lineClass(tone: TooltipLine["tone"], isFirst: boolean): string {
   return isFirst ? "text-gray-100 font-medium" : "text-gray-400";
 }
 
-function isTooltipLines(content: ReactNode | string | TooltipLine[]): content is TooltipLine[] {
-  return Array.isArray(content) && content.every((item) =>
-    typeof item === "object" &&
-    item !== null &&
-    "text" in item &&
-    typeof (item as { text?: unknown }).text === "string",
+function isTooltipLines(
+  content: ReactNode | string | TooltipLine[],
+): content is TooltipLine[] {
+  return (
+    Array.isArray(content) &&
+    content.every(
+      (item) =>
+        typeof item === "object" &&
+        item !== null &&
+        "text" in item &&
+        typeof (item as { text?: unknown }).text === "string",
+    )
   );
 }
 
-export function Tooltip({ content, children }: { content: ReactNode | string | TooltipLine[]; children: ReactNode }) {
+export function Tooltip({
+  content,
+  children,
+}: {
+  content: ReactNode | string | TooltipLine[];
+  children: ReactNode;
+}) {
   const keepParentAlive = useContext(TooltipKeepAliveContext);
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
   const [style, setStyle] = useState<CSSProperties | null>(null);
@@ -48,8 +68,14 @@ export function Tooltip({ content, children }: { content: ReactNode | string | T
     const rect = tipRef.current.getBoundingClientRect();
     const viewportPadding = 8;
     const anchorCenter = anchor.left + anchor.width / 2;
-    const maxLeft = Math.max(viewportPadding, window.innerWidth - rect.width - viewportPadding);
-    const maxTop = Math.max(viewportPadding, window.innerHeight - rect.height - viewportPadding);
+    const maxLeft = Math.max(
+      viewportPadding,
+      window.innerWidth - rect.width - viewportPadding,
+    );
+    const maxTop = Math.max(
+      viewportPadding,
+      window.innerHeight - rect.height - viewportPadding,
+    );
 
     const centeredLeft = anchorCenter - rect.width / 2;
     const left = Math.min(Math.max(centeredLeft, viewportPadding), maxLeft);
@@ -124,59 +150,65 @@ export function Tooltip({ content, children }: { content: ReactNode | string | T
   }, [anchor, open]);
 
   if (!content) return <>{children}</>;
-  const lines: TooltipLine[] | null = typeof content === "string"
-    ? content.split("\n").map((text) => ({ text }))
-    : isTooltipLines(content)
-      ? content
-      : null;
+  const lines: TooltipLine[] | null =
+    typeof content === "string"
+      ? content.split("\n").map((text) => ({ text }))
+      : isTooltipLines(content)
+        ? content
+        : null;
   const customContent: ReactNode | null = lines ? null : (content as ReactNode);
 
   return (
     <TooltipKeepAliveContext.Provider value={clearCloseTimer}>
-    <span
-      className="inline-block"
-      onMouseEnter={(e) => {
-        clearCloseTimer();
-        setAnchor(e.currentTarget.getBoundingClientRect());
-        setOpen(true);
-      }}
-      onMouseLeave={() => scheduleClose()}
-      onFocus={(e) => {
-        clearCloseTimer();
-        setAnchor(e.currentTarget.getBoundingClientRect());
-        setOpen(true);
-      }}
-      onBlur={() => scheduleClose()}
-    >
-      {children}
-      {anchor && open && createPortal(
-        <div
-          ref={tipRef}
-          className={`fixed z-50 max-w-[calc(100vw-16px)] select-text overflow-auto rounded border border-gray-700 bg-gray-900 shadow-lg ${
-            lines
-              ? "flex max-h-[calc(100vh-16px)] flex-col gap-0.5 w-max max-w-xs px-2 py-1.5 text-xs"
-              : "max-h-[calc(100vh-16px)] w-max p-2"
-          }`}
-          style={style ?? { left: anchor.left, top: anchor.top - 8 }}
-          onMouseDown={() => { isSelectingRef.current = true; clearCloseTimer(); }}
-          onMouseEnter={() => {
-            clearCloseTimer();
-            keepParentAlive?.();
-            setOpen(true);
-          }}
-          onMouseLeave={() => scheduleClose()}
-        >
-          {lines
-            ? lines.map((line, i) => (
-                <span key={i} className={lineClass(line.tone, i === 0)}>
-                  {line.text}
-                </span>
-              ))
-            : customContent}
-        </div>,
-        document.body,
-      )}
-    </span>
+      <span
+        className="inline-block"
+        onMouseEnter={(e) => {
+          clearCloseTimer();
+          setAnchor(e.currentTarget.getBoundingClientRect());
+          setOpen(true);
+        }}
+        onMouseLeave={() => scheduleClose()}
+        onFocus={(e) => {
+          clearCloseTimer();
+          setAnchor(e.currentTarget.getBoundingClientRect());
+          setOpen(true);
+        }}
+        onBlur={() => scheduleClose()}
+      >
+        {children}
+        {anchor &&
+          open &&
+          createPortal(
+            <div
+              ref={tipRef}
+              className={`fixed z-50 max-w-[calc(100vw-16px)] select-text overflow-auto rounded border border-gray-700 bg-gray-900 shadow-lg ${
+                lines
+                  ? "flex max-h-[calc(100vh-16px)] flex-col gap-0.5 w-max max-w-xs px-2 py-1.5 text-xs"
+                  : "max-h-[calc(100vh-16px)] w-max p-2"
+              }`}
+              style={style ?? { left: anchor.left, top: anchor.top - 8 }}
+              onMouseDown={() => {
+                isSelectingRef.current = true;
+                clearCloseTimer();
+              }}
+              onMouseEnter={() => {
+                clearCloseTimer();
+                keepParentAlive?.();
+                setOpen(true);
+              }}
+              onMouseLeave={() => scheduleClose()}
+            >
+              {lines
+                ? lines.map((line, i) => (
+                    <span key={i} className={lineClass(line.tone, i === 0)}>
+                      {line.text}
+                    </span>
+                  ))
+                : customContent}
+            </div>,
+            document.body,
+          )}
+      </span>
     </TooltipKeepAliveContext.Provider>
   );
 }

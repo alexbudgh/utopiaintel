@@ -1,6 +1,21 @@
 // Shared types for all parsers
 
-export type IntelType = "sot" | "survey" | "som" | "sos" | "sod" | "infiltrate" | "kingdom" | "state" | "kingdom_news" | "province_news" | "train_army" | "build" | "rob" | "sorcery" | "attack";
+export type IntelType =
+  | "sot"
+  | "survey"
+  | "som"
+  | "sos"
+  | "sod"
+  | "infiltrate"
+  | "kingdom"
+  | "state"
+  | "kingdom_news"
+  | "province_news"
+  | "train_army"
+  | "build"
+  | "rob"
+  | "sorcery"
+  | "attack";
 
 export interface ProvinceId {
   name: string;
@@ -60,8 +75,8 @@ export interface SurveyBuilding {
 export interface SurveyData extends ProvinceId {
   buildings: SurveyBuilding[];
   thieveryEffectiveness: number | null; // "X% higher thievery effectiveness" (Thieves' Dens)
-  thiefPreventChance: number | null;    // "X% chance of preventing enemy thief missions" (Watch Towers)
-  castlesEffect: number | null;         // "X% lower resource and honor losses when attacked" (Castles)
+  thiefPreventChance: number | null; // "X% chance of preventing enemy thief missions" (Watch Towers)
+  castlesEffect: number | null; // "X% lower resource and honor losses when attacked" (Castles)
   accuracy: number;
 }
 
@@ -187,10 +202,19 @@ export interface SorceryData extends ProvinceId {
 }
 
 export type RobOp =
-  | "towers" | "vaults" | "granaries"
-  | "night_strike" | "kidnap" | "bribe_generals" | "incite_riots"
-  | "sabotage_wizards" | "arson" | "greater_arson" | "destabilize_guilds"
-  | "bribe_thieves" | "propaganda";
+  | "towers"
+  | "vaults"
+  | "granaries"
+  | "night_strike"
+  | "kidnap"
+  | "bribe_generals"
+  | "incite_riots"
+  | "sabotage_wizards"
+  | "arson"
+  | "greater_arson"
+  | "destabilize_guilds"
+  | "bribe_thieves"
+  | "propaganda";
 
 export interface RobData extends ProvinceId {
   op: RobOp;
@@ -202,12 +226,12 @@ export interface RobData extends ProvinceId {
   thievesLost: number;
   thieves: number | null;
   stealth: number | null;
-  troopsAssassinated: number | null;  // night_strike
-  kidnapped: number | null;           // kidnap
-  acresBurned: number | null;         // arson, greater_arson
-  effectDuration: number | null;      // incite_riots, sabotage_wizards, destabilize_guilds
-  deserters: number | null;           // propaganda
-  deserterType: string | null;        // propaganda — unit type (wizards, soldiers, etc.)
+  troopsAssassinated: number | null; // night_strike
+  kidnapped: number | null; // kidnap
+  acresBurned: number | null; // arson, greater_arson
+  effectDuration: number | null; // incite_riots, sabotage_wizards, destabilize_guilds
+  deserters: number | null; // propaganda
+  deserterType: string | null; // propaganda — unit type (wizards, soldiers, etc.)
 }
 
 export type AttackType =

@@ -136,9 +136,10 @@ function LoggedOutHome({ endpointUrl }: { endpointUrl: string }) {
                 Shared intel for your kingdom.
               </h1>
               <p className="max-w-2xl text-lg leading-8 text-stone-300">
-                Sign in with your kingdom key if you already have one. If not, set
-                Utopia to send intel here and the site will turn your kingdom’s
-                usual browsing into a shared record of targets, news, and state.
+                Sign in with your kingdom key if you already have one. If not,
+                set Utopia to send intel here and the site will turn your
+                kingdom’s usual browsing into a shared record of targets, news,
+                and state.
               </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
@@ -164,15 +165,20 @@ function LoggedOutHome({ endpointUrl }: { endpointUrl: string }) {
 
           <div className="rounded-[1.75rem] border border-stone-800 bg-[linear-gradient(180deg,rgba(38,27,22,0.96),rgba(15,14,16,0.95))] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.45)] backdrop-blur">
             <div className="mb-6">
-              <div className="text-sm font-medium text-stone-200">Already have a kingdom key?</div>
+              <div className="text-sm font-medium text-stone-200">
+                Already have a kingdom key?
+              </div>
               <p className="mt-2 text-sm leading-6 text-stone-400">
-                Sign in here and you will land in your bound kingdom immediately if
-                the site has already seen a self throne page for your key.
+                Sign in here and you will land in your bound kingdom immediately
+                if the site has already seen a self throne page for your key.
               </p>
             </div>
             <form action={login} className="space-y-4">
               <div>
-                <label htmlFor="home-key" className="mb-1 block text-sm text-stone-400">
+                <label
+                  htmlFor="home-key"
+                  className="mb-1 block text-sm text-stone-400"
+                >
                   Kingdom key
                 </label>
                 <input
@@ -193,8 +199,8 @@ function LoggedOutHome({ endpointUrl }: { endpointUrl: string }) {
               </button>
             </form>
             <p className="mt-4 text-xs leading-5 text-stone-500">
-              The same key is also used in Utopia’s “Send intel to your own Intel
-              site” setting. Keep it secret inside your kingdom.
+              The same key is also used in Utopia’s “Send intel to your own
+              Intel site” setting. Keep it secret inside your kingdom.
             </p>
           </div>
         </section>
@@ -208,7 +214,10 @@ function LoggedOutHome({ endpointUrl }: { endpointUrl: string }) {
             </div>
             <dl className="divide-y divide-stone-800/80 rounded-2xl border border-stone-800 bg-black/20">
               {FEATURE_LIST.map((feature) => (
-                <div key={feature.label} className="grid gap-1.5 px-3.5 py-3 sm:grid-cols-[11rem_minmax(0,1fr)] sm:gap-4 sm:px-5 sm:py-4">
+                <div
+                  key={feature.label}
+                  className="grid gap-1.5 px-3.5 py-3 sm:grid-cols-[11rem_minmax(0,1fr)] sm:gap-4 sm:px-5 sm:py-4"
+                >
                   <dt className="text-[15px] font-semibold leading-6 text-stone-100">
                     {feature.label}
                   </dt>
@@ -262,40 +271,51 @@ export default async function Home() {
     db.getBoundKingdom(keyHash),
     db.getKingdoms(keyHash),
   ]);
-  const kingdomRows = await Promise.all(kingdoms.map(async (kd) => {
-    const [snapshot, ritual, dragon] = await Promise.all([
-      db.getLatestKingdomSnapshot(kd.location, keyHash),
-      db.getKingdomRitual(kd.location, keyHash),
-      db.getKingdomDragon(kd.location, keyHash),
-    ]);
-    const relationContexts =
-      boundKingdom && kd.location === boundKingdom
-        ? await Promise.all(
-            (snapshot?.openRelations ?? []).map((relation) =>
-              db.getLatestKingdomSnapshot(relation.location, keyHash)
+  const kingdomRows = await Promise.all(
+    kingdoms.map(async (kd) => {
+      const [snapshot, ritual, dragon] = await Promise.all([
+        db.getLatestKingdomSnapshot(kd.location, keyHash),
+        db.getKingdomRitual(kd.location, keyHash),
+        db.getKingdomDragon(kd.location, keyHash),
+      ]);
+      const relationContexts =
+        boundKingdom && kd.location === boundKingdom
+          ? await Promise.all(
+              (snapshot?.openRelations ?? []).map((relation) =>
+                db.getLatestKingdomSnapshot(relation.location, keyHash),
+              ),
+            ).then((snaps) =>
+              snaps.map(toRelationContext).filter((ctx) => ctx != null),
             )
-          ).then((snaps) => snaps.map(toRelationContext).filter((ctx) => ctx != null))
-        : [];
-    return { kd, snapshot, relationContexts, ritual, dragon };
-  }));
+          : [];
+      return { kd, snapshot, relationContexts, ritual, dragon };
+    }),
+  );
 
   const selfWarTarget = boundKingdom
-    ? (kingdomRows.find((r) => r.kd.location === boundKingdom)?.snapshot?.warTarget ?? null)
+    ? (kingdomRows.find((r) => r.kd.location === boundKingdom)?.snapshot
+        ?.warTarget ?? null)
     : null;
 
   const ourRelationLocations = new Set(
-    (kingdomRows.find((r) => r.kd.location === boundKingdom)?.snapshot?.openRelations ?? []).map(
-      (r) => r.location
-    )
+    (
+      kingdomRows.find((r) => r.kd.location === boundKingdom)?.snapshot
+        ?.openRelations ?? []
+    ).map((r) => r.location),
   );
 
   const groups = [
-    { label: null, collapsible: false, rows: kingdomRows.filter((r) => r.kd.location === boundKingdom) },
+    {
+      label: null,
+      collapsible: false,
+      rows: kingdomRows.filter((r) => r.kd.location === boundKingdom),
+    },
     {
       label: "AT WAR",
       collapsible: false,
       rows: kingdomRows.filter(
-        (r) => r.kd.location !== boundKingdom && r.kd.location === selfWarTarget
+        (r) =>
+          r.kd.location !== boundKingdom && r.kd.location === selfWarTarget,
       ),
     },
     {
@@ -305,7 +325,7 @@ export default async function Home() {
         (r) =>
           r.kd.location !== boundKingdom &&
           r.kd.location !== selfWarTarget &&
-          ourRelationLocations.has(r.kd.location)
+          ourRelationLocations.has(r.kd.location),
       ),
     },
     {
@@ -315,7 +335,7 @@ export default async function Home() {
         (r) =>
           r.kd.location !== boundKingdom &&
           r.kd.location !== selfWarTarget &&
-          !ourRelationLocations.has(r.kd.location)
+          !ourRelationLocations.has(r.kd.location),
       ),
     },
   ].filter((g) => g.rows.length > 0);
@@ -329,7 +349,10 @@ export default async function Home() {
       />
 
       {kingdoms.length === 0 ? (
-        <IntelSetupCard endpointUrl={`${baseUrl}/api/intel`} title="No intel received yet." />
+        <IntelSetupCard
+          endpointUrl={`${baseUrl}/api/intel`}
+          title="No intel received yet."
+        />
       ) : (
         <div className="space-y-4">
           {groups.map((group) => (
@@ -337,65 +360,91 @@ export default async function Home() {
               {group.collapsible && group.label ? (
                 <details className="group/details">
                   <summary className="flex cursor-pointer list-none items-center gap-2 px-1 pt-2 pb-1 text-[10px] font-semibold tracking-widest text-gray-500 uppercase hover:text-gray-400">
-                    <span className="transition-transform group-open/details:rotate-90">▶</span>
+                    <span className="transition-transform group-open/details:rotate-90">
+                      ▶
+                    </span>
                     {group.label} ({group.rows.length})
                   </summary>
                   <ul className="mt-2 space-y-2">
-                    {group.rows.map(({ kd, snapshot, relationContexts, ritual, dragon }) => (
-                      <li key={kd.location}>
-                        <div className="rounded-lg bg-gray-800 px-4 py-3">
-                          <Link
-                            href={`/kingdom/${kd.location}`}
-                            className="flex items-center justify-between gap-4 hover:opacity-80 transition-opacity"
-                          >
-                            <div className="min-w-0">
-                              <span className="font-mono font-semibold text-gray-100">
-                                {kd.location}
+                    {group.rows.map(
+                      ({ kd, snapshot, relationContexts, ritual, dragon }) => (
+                        <li key={kd.location}>
+                          <div className="rounded-lg bg-gray-800 px-4 py-3">
+                            <Link
+                              href={`/kingdom/${kd.location}`}
+                              className="flex items-center justify-between gap-4 hover:opacity-80 transition-opacity"
+                            >
+                              <div className="min-w-0">
+                                <span className="font-mono font-semibold text-gray-100">
+                                  {kd.location}
+                                </span>
+                                {kd.location === boundKingdom && (
+                                  <span className="ml-1.5 text-xs font-medium text-blue-400">
+                                    ★
+                                  </span>
+                                )}
+                                {kd.location === selfWarTarget && (
+                                  <span className="ml-1.5 text-xs font-medium text-orange-400">
+                                    ⚔
+                                  </span>
+                                )}
+                                {snapshot?.name && (
+                                  <div className="text-xs text-gray-500">
+                                    {snapshot.name}
+                                  </div>
+                                )}
+                              </div>
+                              <span className="text-sm text-gray-400">
+                                {kd.province_count} province
+                                {kd.province_count !== 1 ? "s" : ""}
                               </span>
-                              {kd.location === boundKingdom && (
-                                <span className="ml-1.5 text-xs font-medium text-blue-400">★</span>
-                              )}
-                              {kd.location === selfWarTarget && (
-                                <span className="ml-1.5 text-xs font-medium text-orange-400">⚔</span>
-                              )}
-                              {snapshot?.name && (
-                                <div className="text-xs text-gray-500">{snapshot.name}</div>
-                              )}
+                              <span
+                                className={`text-sm ${freshnessColor(kd.last_seen)}`}
+                              >
+                                {timeAgo(kd.last_seen)}
+                              </span>
+                            </Link>
+                            {(ritual || dragon) && (
+                              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+                                {dragon && (
+                                  <a
+                                    href="https://utopiaguide.chaos-intel.com/main/Dragons/"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="rounded border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 font-medium text-rose-300 hover:border-rose-400/60 transition-colors"
+                                  >
+                                    {dragon.dragonType} Dragon ·{" "}
+                                    {dragon.dragonName}
+                                  </a>
+                                )}
+                                {ritual && (
+                                  <a
+                                    href="https://utopiaguide.chaos-intel.com/misc/Ritual/"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="rounded border border-purple-500/40 bg-purple-500/10 px-2 py-0.5 font-medium text-purple-300 hover:border-purple-400/60 transition-colors"
+                                  >
+                                    {ritual.name}
+                                    {ritual.remainingTicks != null &&
+                                      ` · ${ritual.remainingTicks}t`}
+                                    {ritual.effectivenessPercent != null &&
+                                      ` · ${ritual.effectivenessPercent.toFixed(1)}%`}
+                                  </a>
+                                )}
+                              </div>
+                            )}
+                            <div className="mt-2">
+                              <KingdomRelations
+                                kingdom={kd.location}
+                                boundKingdom={boundKingdom}
+                                snapshot={snapshot}
+                                relationContexts={relationContexts}
+                              />
                             </div>
-                            <span className="text-sm text-gray-400">
-                              {kd.province_count} province{kd.province_count !== 1 ? "s" : ""}
-                            </span>
-                            <span className={`text-sm ${freshnessColor(kd.last_seen)}`}>
-                              {timeAgo(kd.last_seen)}
-                            </span>
-                          </Link>
-                          {(ritual || dragon) && (
-                            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
-                              {dragon && (
-                                <a href="https://utopiaguide.chaos-intel.com/main/Dragons/" target="_blank" rel="noopener noreferrer" className="rounded border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 font-medium text-rose-300 hover:border-rose-400/60 transition-colors">
-                                  {dragon.dragonType} Dragon · {dragon.dragonName}
-                                </a>
-                              )}
-                              {ritual && (
-                                <a href="https://utopiaguide.chaos-intel.com/misc/Ritual/" target="_blank" rel="noopener noreferrer" className="rounded border border-purple-500/40 bg-purple-500/10 px-2 py-0.5 font-medium text-purple-300 hover:border-purple-400/60 transition-colors">
-                                  {ritual.name}
-                                  {ritual.remainingTicks != null && ` · ${ritual.remainingTicks}t`}
-                                  {ritual.effectivenessPercent != null && ` · ${ritual.effectivenessPercent.toFixed(1)}%`}
-                                </a>
-                              )}
-                            </div>
-                          )}
-                          <div className="mt-2">
-                            <KingdomRelations
-                              kingdom={kd.location}
-                              boundKingdom={boundKingdom}
-                              snapshot={snapshot}
-                              relationContexts={relationContexts}
-                            />
                           </div>
-                        </div>
-                      </li>
-                    ))}
+                        </li>
+                      ),
+                    )}
                   </ul>
                 </details>
               ) : (
@@ -406,61 +455,85 @@ export default async function Home() {
                     </div>
                   )}
                   <ul className="space-y-2">
-                    {group.rows.map(({ kd, snapshot, relationContexts, ritual, dragon }) => (
-                  <li key={kd.location}>
-                    <div className="rounded-lg bg-gray-800 px-4 py-3">
-                      <Link
-                        href={`/kingdom/${kd.location}`}
-                        className="flex items-center justify-between gap-4 hover:opacity-80 transition-opacity"
-                      >
-                        <div className="min-w-0">
-                          <span className="font-mono font-semibold text-gray-100">
-                            {kd.location}
-                          </span>
-                          {kd.location === boundKingdom && (
-                            <span className="ml-1.5 text-xs font-medium text-blue-400">★</span>
-                          )}
-                          {kd.location === selfWarTarget && (
-                            <span className="ml-1.5 text-xs font-medium text-orange-400">⚔</span>
-                          )}
-                          {snapshot?.name && (
-                            <div className="text-xs text-gray-500">{snapshot.name}</div>
-                          )}
-                        </div>
-                        <span className="text-sm text-gray-400">
-                          {kd.province_count} province{kd.province_count !== 1 ? "s" : ""}
-                        </span>
-                        <span className={`text-sm ${freshnessColor(kd.last_seen)}`}>
-                          {timeAgo(kd.last_seen)}
-                        </span>
-                      </Link>
-                      {(ritual || dragon) && (
-                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
-                          {dragon && (
-                            <a href="https://utopiaguide.chaos-intel.com/main/Dragons/" target="_blank" rel="noopener noreferrer" className="rounded border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 font-medium text-rose-300 hover:border-rose-400/60 transition-colors">
-                              {dragon.dragonType} Dragon · {dragon.dragonName}
-                            </a>
-                          )}
-                          {ritual && (
-                            <a href="https://utopiaguide.chaos-intel.com/misc/Ritual/" target="_blank" rel="noopener noreferrer" className="rounded border border-purple-500/40 bg-purple-500/10 px-2 py-0.5 font-medium text-purple-300 hover:border-purple-400/60 transition-colors">
-                              {ritual.name}
-                              {ritual.remainingTicks != null && ` · ${ritual.remainingTicks}t`}
-                              {ritual.effectivenessPercent != null && ` · ${ritual.effectivenessPercent.toFixed(1)}%`}
-                            </a>
-                          )}
-                        </div>
-                      )}
-                      <div className="mt-2">
-                        <KingdomRelations
-                          kingdom={kd.location}
-                          boundKingdom={boundKingdom}
-                          snapshot={snapshot}
-                          relationContexts={relationContexts}
-                        />
-                      </div>
-                    </div>
-                  </li>
-                    ))}
+                    {group.rows.map(
+                      ({ kd, snapshot, relationContexts, ritual, dragon }) => (
+                        <li key={kd.location}>
+                          <div className="rounded-lg bg-gray-800 px-4 py-3">
+                            <Link
+                              href={`/kingdom/${kd.location}`}
+                              className="flex items-center justify-between gap-4 hover:opacity-80 transition-opacity"
+                            >
+                              <div className="min-w-0">
+                                <span className="font-mono font-semibold text-gray-100">
+                                  {kd.location}
+                                </span>
+                                {kd.location === boundKingdom && (
+                                  <span className="ml-1.5 text-xs font-medium text-blue-400">
+                                    ★
+                                  </span>
+                                )}
+                                {kd.location === selfWarTarget && (
+                                  <span className="ml-1.5 text-xs font-medium text-orange-400">
+                                    ⚔
+                                  </span>
+                                )}
+                                {snapshot?.name && (
+                                  <div className="text-xs text-gray-500">
+                                    {snapshot.name}
+                                  </div>
+                                )}
+                              </div>
+                              <span className="text-sm text-gray-400">
+                                {kd.province_count} province
+                                {kd.province_count !== 1 ? "s" : ""}
+                              </span>
+                              <span
+                                className={`text-sm ${freshnessColor(kd.last_seen)}`}
+                              >
+                                {timeAgo(kd.last_seen)}
+                              </span>
+                            </Link>
+                            {(ritual || dragon) && (
+                              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+                                {dragon && (
+                                  <a
+                                    href="https://utopiaguide.chaos-intel.com/main/Dragons/"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="rounded border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 font-medium text-rose-300 hover:border-rose-400/60 transition-colors"
+                                  >
+                                    {dragon.dragonType} Dragon ·{" "}
+                                    {dragon.dragonName}
+                                  </a>
+                                )}
+                                {ritual && (
+                                  <a
+                                    href="https://utopiaguide.chaos-intel.com/misc/Ritual/"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="rounded border border-purple-500/40 bg-purple-500/10 px-2 py-0.5 font-medium text-purple-300 hover:border-purple-400/60 transition-colors"
+                                  >
+                                    {ritual.name}
+                                    {ritual.remainingTicks != null &&
+                                      ` · ${ritual.remainingTicks}t`}
+                                    {ritual.effectivenessPercent != null &&
+                                      ` · ${ritual.effectivenessPercent.toFixed(1)}%`}
+                                  </a>
+                                )}
+                              </div>
+                            )}
+                            <div className="mt-2">
+                              <KingdomRelations
+                                kingdom={kd.location}
+                                boundKingdom={boundKingdom}
+                                snapshot={snapshot}
+                                relationContexts={relationContexts}
+                              />
+                            </div>
+                          </div>
+                        </li>
+                      ),
+                    )}
                   </ul>
                 </>
               )}

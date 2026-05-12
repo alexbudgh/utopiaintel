@@ -1,7 +1,9 @@
 import type { InfiltrateData } from "./types";
 import { KDLOC, INT, parseNum, parseAccuracy } from "./util";
 
-const PROVINCE_RE = new RegExp(`infiltrated the Thieves' Guilds of ([^(]+)${KDLOC}`);
+const PROVINCE_RE = new RegExp(
+  `infiltrated the Thieves' Guilds of ([^(]+)${KDLOC}`,
+);
 const THIEVES_RE = new RegExp(`about (${INT}) thieves employed`);
 
 export function parseInfiltrate(text: string): InfiltrateData | null {

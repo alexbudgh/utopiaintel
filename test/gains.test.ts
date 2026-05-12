@@ -354,14 +354,17 @@ test("estimateTraditionalMarchAcres caps oversized gains", () => {
 });
 
 test("estimateTraditionalMarchAcres returns null when required values are missing", () => {
-  assert.equal(estimateTraditionalMarchAcres({
-    attackerLand: null,
-    attackerNetworth: 300000,
-    defenderLand: 1200,
-    defenderNetworth: 280000,
-    selfKingdomAvgNetworth: 250000,
-    targetKingdomAvgNetworth: 240000,
-  }), null);
+  assert.equal(
+    estimateTraditionalMarchAcres({
+      attackerLand: null,
+      attackerNetworth: 300000,
+      defenderLand: 1200,
+      defenderNetworth: 280000,
+      selfKingdomAvgNetworth: 250000,
+      targetKingdomAvgNetworth: 240000,
+    }),
+    null,
+  );
 });
 
 test("estimateBreakability prefers home offense and home defense", () => {

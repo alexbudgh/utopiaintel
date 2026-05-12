@@ -32,10 +32,12 @@ export const FLOAT = "[\\d,]*\\.?\\d+";
 export const KDLOC = "\\((\\d{1,2}:\\d{1,2})\\)";
 
 /** Game date pattern: "Month D of YRN" */
-export const GAME_DATE_RE = /^(January|February|March|April|May|June|July) \d+ of YR\d+$/;
+export const GAME_DATE_RE =
+  /^(January|February|March|April|May|June|July) \d+ of YR\d+$/;
 
 /** Accuracy pattern used by most spy ops */
-export const ACCURACY_RE = /we have\s*([\d,]+)%\s*confidence in the information retrieved/;
+export const ACCURACY_RE =
+  /we have\s*([\d,]+)%\s*confidence in the information retrieved/;
 
 export function parseAccuracy(text: string): number {
   const m = ACCURACY_RE.exec(text);

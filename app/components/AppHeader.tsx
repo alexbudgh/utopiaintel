@@ -15,13 +15,19 @@ export function AppHeader({
   return (
     <div className="mb-6 space-y-3">
       <div className="flex items-center justify-between">
-        <Link href="/" className="text-2xl font-bold tracking-tight text-gray-100 hover:text-gray-200 transition-colors">
+        <Link
+          href="/"
+          className="text-2xl font-bold tracking-tight text-gray-100 hover:text-gray-200 transition-colors"
+        >
           Chaos Intel
         </Link>
         <div className="flex items-center gap-3">
           <HeaderActions endpointUrl={endpointUrl} />
           <form action={logout}>
-            <button type="submit" className="text-sm text-gray-500 hover:text-gray-300 transition-colors">
+            <button
+              type="submit"
+              className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
+            >
               Sign out
             </button>
           </form>

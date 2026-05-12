@@ -1,18 +1,54 @@
-import { RACE_GROUP, HONOR_TITLE_GROUP, OFF_SPEC_GROUP, DEF_SPEC_GROUP, ELITE_GROUP } from "../game";
+import {
+  RACE_GROUP,
+  HONOR_TITLE_GROUP,
+  OFF_SPEC_GROUP,
+  DEF_SPEC_GROUP,
+  ELITE_GROUP,
+} from "../game";
 import type { SoTData } from "./types";
 import { INT, SIGNED_INT, KDLOC, parseNum, parseAccuracy } from "./util";
 
 const PROVINCE_RE = new RegExp(`The Province of ([^(]+)${KDLOC}`);
-const RACE_SOLD_RE = new RegExp(`Race\\s*(${RACE_GROUP})\\s*Soldiers\\s*(${INT})`, "i");
-const RULER_OFF_RE = new RegExp(`Ruler\\s*(.*?)\\s*(?:${OFF_SPEC_GROUP})\\s*(${INT})`, "i");
-const LAND_DEF_RE = new RegExp(`Land\\s*(${INT})\\s*(?:${DEF_SPEC_GROUP})\\s*(${INT})`, "i");
-const PEASANTS_ELITES_RE = new RegExp(`Peasants\\s*(${INT})(?:\\s*\\(\\d+\\.\\d+ ppa\\))?\\s*(?:${ELITE_GROUP})\\s*(${INT})`, "i");
-const BE_THIEVES_RE = new RegExp(`Building Eff\\.\\s*(${INT})%\\s*Thieves\\s*(?:(${INT}) \\((\\d+)%\\)|Unknown)`, "i");
-const MONEY_WIZ_RE = new RegExp(`Money\\s*(${INT})\\s*Wizards\\s*(?:(${INT}) \\((\\d+)%\\)|Unknown)`, "i");
-const FOOD_HORSES_RE = new RegExp(`Food\\s*(${INT})\\s*War Horses\\s*(${INT})`, "i");
-const RUNES_PRISONERS_RE = new RegExp(`Runes\\s*(${INT})\\s*Prisoners\\s*(${INT})`, "i");
-const TB_OFF_RE = new RegExp(`Trade Balance\\s*(${SIGNED_INT})\\s*Off\\. Points\\s*(${INT})`, "i");
-const NW_DEF_RE = new RegExp(`Networth\\s*(${INT}) gold coins\\s*(?:\\(\\d+\\.\\d+ nwpa\\))?\\s*Def\\. Points\\s*(${INT})`, "i");
+const RACE_SOLD_RE = new RegExp(
+  `Race\\s*(${RACE_GROUP})\\s*Soldiers\\s*(${INT})`,
+  "i",
+);
+const RULER_OFF_RE = new RegExp(
+  `Ruler\\s*(.*?)\\s*(?:${OFF_SPEC_GROUP})\\s*(${INT})`,
+  "i",
+);
+const LAND_DEF_RE = new RegExp(
+  `Land\\s*(${INT})\\s*(?:${DEF_SPEC_GROUP})\\s*(${INT})`,
+  "i",
+);
+const PEASANTS_ELITES_RE = new RegExp(
+  `Peasants\\s*(${INT})(?:\\s*\\(\\d+\\.\\d+ ppa\\))?\\s*(?:${ELITE_GROUP})\\s*(${INT})`,
+  "i",
+);
+const BE_THIEVES_RE = new RegExp(
+  `Building Eff\\.\\s*(${INT})%\\s*Thieves\\s*(?:(${INT}) \\((\\d+)%\\)|Unknown)`,
+  "i",
+);
+const MONEY_WIZ_RE = new RegExp(
+  `Money\\s*(${INT})\\s*Wizards\\s*(?:(${INT}) \\((\\d+)%\\)|Unknown)`,
+  "i",
+);
+const FOOD_HORSES_RE = new RegExp(
+  `Food\\s*(${INT})\\s*War Horses\\s*(${INT})`,
+  "i",
+);
+const RUNES_PRISONERS_RE = new RegExp(
+  `Runes\\s*(${INT})\\s*Prisoners\\s*(${INT})`,
+  "i",
+);
+const TB_OFF_RE = new RegExp(
+  `Trade Balance\\s*(${SIGNED_INT})\\s*Off\\. Points\\s*(${INT})`,
+  "i",
+);
+const NW_DEF_RE = new RegExp(
+  `Networth\\s*(${INT}) gold coins\\s*(?:\\(\\d+\\.\\d+ nwpa\\))?\\s*Def\\. Points\\s*(${INT})`,
+  "i",
+);
 const HONOR_PREFIX_RE = new RegExp(`^(${HONOR_TITLE_GROUP})\\b`, "i");
 const PREFIX_PERSONALITY_MAP: Record<string, string> = {
   Conniving: "Tactician",
@@ -34,8 +70,14 @@ const SUFFIX_PERSONALITY_MAP: Record<string, string> = {
 };
 const PREFIX_PERSONALITY_GROUP = Object.keys(PREFIX_PERSONALITY_MAP).join("|");
 const SUFFIX_PERSONALITY_GROUP = Object.keys(SUFFIX_PERSONALITY_MAP).join("|");
-const PREFIX_PERS_TITLE_RE = new RegExp(`^[tT]he (${PREFIX_PERSONALITY_GROUP})\\s+(${HONOR_TITLE_GROUP})\\b`, "i");
-const SUFFIX_PERS_TITLE_RE = new RegExp(`\\bthe (${SUFFIX_PERSONALITY_GROUP})\\b`, "i");
+const PREFIX_PERS_TITLE_RE = new RegExp(
+  `^[tT]he (${PREFIX_PERSONALITY_GROUP})\\s+(${HONOR_TITLE_GROUP})\\b`,
+  "i",
+);
+const SUFFIX_PERS_TITLE_RE = new RegExp(
+  `\\bthe (${SUFFIX_PERSONALITY_GROUP})\\b`,
+  "i",
+);
 
 const THIEF_OP_DURATION_NAMES = new Set(["Incite Riots"]);
 
@@ -44,11 +86,14 @@ const ARMY_GROUP_RE = /\((\d+\.?\d*)\s*days?\s*left\)\s*\(([\d,]+)\)/g;
 const PLAGUE_RE = /The Plague has spread throughout our people/;
 const OVERPOP_RE = /Riots due to housing shortages/;
 const DRAGON_RE = /The (\w+) Dragon, ([^,]+), ravages our lands!/;
-const OVERPOP_DESERTERS_RE = /We expect roughly ([\d,]+) men from our military will desert/;
-const HIT_RE = /province has been attacked (pretty heavily|moderately|a little|extremely badly)/;
+const OVERPOP_DESERTERS_RE =
+  /We expect roughly ([\d,]+) men from our military will desert/;
+const HIT_RE =
+  /province has been attacked (pretty heavily|moderately|a little|extremely badly)/;
 const WAR_RE = /Our Kingdom is at WAR(?: with [^(]+\((\d{1,2}:\d{1,2})\))?!/;
 const DURATION_RE = /^Duration:\s*(.+)$/im;
-const RITUAL_RE = /We are covered by the ([^.]+?) ritual with ([\d.]+%) effectiveness left! The ritual will be lifted in ([^.]+)\./i;
+const RITUAL_RE =
+  /We are covered by the ([^.]+?) ritual with ([\d.]+%) effectiveness left! The ritual will be lifted in ([^.]+)\./i;
 
 function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
@@ -58,10 +103,14 @@ function parseDurationEffects(text: string): SoTData["activeEffects"] {
   const match = DURATION_RE.exec(text);
   if (!match) return [];
 
-  return [...match[1].matchAll(/([A-Za-z][A-Za-z' ]*[A-Za-z])\s*\(\s*([^)]+?)\s*\)/g)]
+  return [
+    ...match[1].matchAll(/([A-Za-z][A-Za-z' ]*[A-Za-z])\s*\(\s*([^)]+?)\s*\)/g),
+  ]
     .map(([, name, duration]) => ({
       name: normalizeWhitespace(name),
-      kind: (THIEF_OP_DURATION_NAMES.has(normalizeWhitespace(name)) ? "thievery" : "spell") as "spell" | "thievery",
+      kind: (THIEF_OP_DURATION_NAMES.has(normalizeWhitespace(name))
+        ? "thievery"
+        : "spell") as "spell" | "thievery",
       durationText: normalizeWhitespace(duration),
       remainingTicks: parseDurationTicks(duration),
       effectivenessPercent: null,
@@ -74,7 +123,9 @@ function parseDurationTicks(duration: string): number | null {
   return match ? parseInt(match[1], 10) : null;
 }
 
-function parseRitualEffect(text: string): SoTData["activeEffects"][number] | null {
+function parseRitualEffect(
+  text: string,
+): SoTData["activeEffects"][number] | null {
   const match = RITUAL_RE.exec(text);
   if (!match) return null;
   return {
@@ -189,7 +240,10 @@ export function parseSoT(text: string): SoTData | null {
     defPoints: parseNum(nd[2]),
     plagued: PLAGUE_RE.test(text),
     overpopulated: OVERPOP_RE.test(text),
-    overpopDeserters: (() => { const m = OVERPOP_DESERTERS_RE.exec(text); return m ? parseNum(m[1]) : null; })(),
+    overpopDeserters: (() => {
+      const m = OVERPOP_DESERTERS_RE.exec(text);
+      return m ? parseNum(m[1]) : null;
+    })(),
     dragonType: dragonMatch ? dragonMatch[1] : null,
     dragonName: dragonMatch ? dragonMatch[2].trim() : null,
     hitStatus: hitMatch ? hitMatch[1] : "",

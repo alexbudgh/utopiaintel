@@ -2,10 +2,18 @@ import { BUILDING_GROUP } from "../game";
 import type { SurveyData, SurveyBuilding } from "./types";
 import { INT, KDLOC, parseNum, parseFloat_, parseAccuracy } from "./util";
 
-const PROVINCE_RE = new RegExp(`Our thieves scour the lands of ([^(]+)${KDLOC}`);
-const BUILDING_RE = new RegExp(`(${BUILDING_GROUP})\\s+((?:${INT}(?:\\s+|\\*))+)`, "gi");
+const PROVINCE_RE = new RegExp(
+  `Our thieves scour the lands of ([^(]+)${KDLOC}`,
+);
+const BUILDING_RE = new RegExp(
+  `(${BUILDING_GROUP})\\s+((?:${INT}(?:\\s+|\\*))+)`,
+  "gi",
+);
 
-export function parseSurvey(text: string, selfProv?: string): SurveyData | null {
+export function parseSurvey(
+  text: string,
+  selfProv?: string,
+): SurveyData | null {
   const provMatch = PROVINCE_RE.exec(text);
   if (!provMatch && !selfProv) return null;
 
@@ -19,7 +27,10 @@ export function parseSurvey(text: string, selfProv?: string): SurveyData | null 
   let m: RegExpExecArray | null;
   while ((m = BUILDING_RE.exec(text)) !== null) {
     const building = m[1];
-    const amounts = m[2].trim().split(/[\s*]+/).map(parseNum);
+    const amounts = m[2]
+      .trim()
+      .split(/[\s*]+/)
+      .map(parseNum);
     const total = amounts.reduce((a, b) => a + b, 0);
 
     // For self surveys, keep 0-built entries so razed buildings overwrite stale DB data.
@@ -42,9 +53,19 @@ export function parseSurvey(text: string, selfProv?: string): SurveyData | null 
   const thieveryMatch = THIEF_EFFECT_RE.exec(text);
   const preventMatch = PREVENT_RE.exec(text);
   const castlesMatch = CASTLES_RE.exec(text);
-  const thieveryEffectiveness = thieveryMatch ? parseFloat_(thieveryMatch[1]) : null;
+  const thieveryEffectiveness = thieveryMatch
+    ? parseFloat_(thieveryMatch[1])
+    : null;
   const thiefPreventChance = preventMatch ? parseFloat_(preventMatch[1]) : null;
   const castlesEffect = castlesMatch ? parseFloat_(castlesMatch[1]) : null;
 
-  return { name, kingdom, buildings, thieveryEffectiveness, thiefPreventChance, castlesEffect, accuracy };
+  return {
+    name,
+    kingdom,
+    buildings,
+    thieveryEffectiveness,
+    thiefPreventChance,
+    castlesEffect,
+    accuracy,
+  };
 }

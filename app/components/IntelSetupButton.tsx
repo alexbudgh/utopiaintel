@@ -42,7 +42,10 @@ export function IntelSetupButton({ endpointUrl }: { endpointUrl: string }) {
         Setup
       </button>
       {open && (
-        <div ref={dropdownRef} className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-[28rem] max-w-[calc(100vw-2rem)]">
+        <div
+          ref={dropdownRef}
+          className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-[28rem] max-w-[calc(100vw-2rem)]"
+        >
           <IntelSetupCard endpointUrl={endpointUrl} compact />
         </div>
       )}

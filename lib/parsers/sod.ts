@@ -3,9 +3,7 @@ import { INT, KDLOC, parseNum, parseAccuracy } from "./util";
 
 // Example: "Our thieves have infiltrated the military ranks of Grimhilde (1:11).
 //           We were able to determine there is currently 27,191 defense points defending their lands."
-const PROVINCE_RE = new RegExp(
-  `military ranks of ([^(]+)${KDLOC}`,
-);
+const PROVINCE_RE = new RegExp(`military ranks of ([^(]+)${KDLOC}`);
 const DEF_RE = new RegExp(`(${INT}) defense points defending`);
 
 export function parseSoD(text: string): SoDData | null {

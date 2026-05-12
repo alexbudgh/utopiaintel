@@ -4,10 +4,15 @@ import { readFileSync } from "fs";
 
 const args = process.argv.slice(2);
 const filePath = args.find((a) => !a.startsWith("--"));
-const topN = parseInt(args.find((a) => a.startsWith("--top="))?.slice(6) ?? "15", 10);
+const topN = parseInt(
+  args.find((a) => a.startsWith("--top="))?.slice(6) ?? "15",
+  10,
+);
 
 if (!filePath) {
-  console.error("Usage: node scripts/analyze-cpuprofile.mjs <file.cpuprofile> [--top=N]");
+  console.error(
+    "Usage: node scripts/analyze-cpuprofile.mjs <file.cpuprofile> [--top=N]",
+  );
   process.exit(1);
 }
 
@@ -45,7 +50,7 @@ function formatFrame(cf) {
   const fn = cf.functionName || "(anonymous)";
   const url = cf.url
     .replace(/^file:\/\//, "")
-    .replace(/^.*utopiaintel\//, "")   // trim common prefix
+    .replace(/^.*utopiaintel\//, "") // trim common prefix
     .replace(/^.*node_modules\//, "node_modules/");
   if (!url) return fn;
   const loc = cf.lineNumber >= 0 ? `:${cf.lineNumber}` : "";
@@ -53,12 +58,19 @@ function formatFrame(cf) {
 }
 
 // Idle sample IDs (functionName === "(idle)")
-const idleIds = new Set(nodes.filter((n) => n.callFrame.functionName === "(idle)").map((n) => n.id));
-const activeMs = (samples.filter((id) => !idleIds.has(id)).length / samples.length) * totalMs;
+const idleIds = new Set(
+  nodes.filter((n) => n.callFrame.functionName === "(idle)").map((n) => n.id),
+);
+const activeMs =
+  (samples.filter((id) => !idleIds.has(id)).length / samples.length) * totalMs;
 
 console.log(`\nProfile: ${filePath}`);
-console.log(`Wall time: ${totalMs.toFixed(0)} ms   Active: ${activeMs.toFixed(0)} ms   Idle: ${((1 - activeMs / totalMs) * 100).toFixed(1)}%`);
-console.log(`Samples: ${samples.length}   (~${(totalMs / samples.length).toFixed(2)} ms/sample)\n`);
+console.log(
+  `Wall time: ${totalMs.toFixed(0)} ms   Active: ${activeMs.toFixed(0)} ms   Idle: ${((1 - activeMs / totalMs) * 100).toFixed(1)}%`,
+);
+console.log(
+  `Samples: ${samples.length}   (~${(totalMs / samples.length).toFixed(2)} ms/sample)\n`,
+);
 
 // Sort by self-time descending, skip (root)/(idle)/GC noise for display
 const SKIP = new Set(["(root)", "(idle)", "(garbage collector)", "(program)"]);
@@ -75,7 +87,9 @@ for (const [id, count] of ranked) {
   const selfMs = (count / samples.length) * totalMs;
   const pct = ((selfMs / activeMs) * 100).toFixed(1);
   const stack = callStack(id);
-  console.log(`  ${selfMs.toFixed(0).padStart(6)} ms  (${pct.padStart(5)}% of active)  ${formatFrame(stack[0])}`);
+  console.log(
+    `  ${selfMs.toFixed(0).padStart(6)} ms  (${pct.padStart(5)}% of active)  ${formatFrame(stack[0])}`,
+  );
   for (const cf of stack.slice(1, 5)) {
     const fn = cf.functionName || "(anonymous)";
     if (SKIP.has(fn)) break;
