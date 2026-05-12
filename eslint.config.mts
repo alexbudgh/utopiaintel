@@ -1,12 +1,12 @@
 import js from "@eslint/js";
-import globals from "globals";
 import tseslint from "typescript-eslint";
 import pluginReact from "eslint-plugin-react";
+import nextPlugin from "@next/eslint-plugin-next";
 import { defineConfig } from "eslint/config";
 
 export default defineConfig([
   {
-    // Global ignores
+    // 1. Global ignores (Keep this first!)
     ignores: [
       ".next/*",
       "node_modules/*",
@@ -16,17 +16,29 @@ export default defineConfig([
       "**/*.json", // Skip large JSON data files
     ],
   },
+  // 2. Base JS & TS Recommended rules
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+  // 3. React Recommended
+  pluginReact.configs.flat.recommended,
   {
     files: ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
-    plugins: { js, react: pluginReact, ts: tseslint },
-    extends: ["js/recommended"],
-    languageOptions: { globals: { ...globals.browser, ...globals.node } },
+    plugins: {
+      "@next/next": nextPlugin,
+    },
     settings: {
       react: {
         version: "detect",
       },
     },
+    rules: {
+      // 4. The "Best Practice" Next.js sets
+      ...nextPlugin.configs.recommended.rules,
+      ...nextPlugin.configs["core-web-vitals"].rules,
+
+      // 5. Necessary overrides for Next.js 16
+      "react/react-in-jsx-scope": "off",
+      "react/prop-types": "off", // Since you use TypeScript
+    },
   },
-  tseslint.configs.recommended,
-  pluginReact.configs.flat.recommended,
 ]);
