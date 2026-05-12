@@ -105,12 +105,33 @@ function NewsDateFilter({ loc, prov, from, to, effectiveFrom }: {
 type Category = "Combat" | "Thievery" | "Sorcery" | "Dragon" | "Aid" | "Misc";
 
 const CATEGORY_TYPES: Record<Category, string[]> = {
-  Combat:   ["attack_trad_march", "attack_conquest", "attack_razed", "attack_massacre", "attack_loot", "attack_plunder", "attack_ambush", "attack_failed"],
-  Thievery: ["thief_detected", "thief_detected_unknown", "thief_foiled", "thief_foiled_shadowlight", "thief_propaganda", "arson", "resource_stolen", "troops_killed", "peasants_kidnapped", "desertions", "rioting", "turncoat_general", "turncoat_thieves", "thief_sabotage_wizards"],
-  Sorcery:  ["spell_detected", "spell_fireball", "spell_lightning", "spell_meteor_start", "spell_meteor", "spell_blizzard", "spell_gluttony", "spell_greed", "spell_explosions", "spell_tornado", "spell_land_lust", "spell_mystic_vortex", "spell_drought", "spell_pitfalls", "spell_chastity", "spell_nightmares", "spell_animate_dead", "spell_vermin", "spell_storms", "spell_expose_thieves", "spell_fools_gold"],
+  Combat: [
+    "attack_trad_march", "attack_conquest", "attack_razed", "attack_massacre",
+    "attack_loot", "attack_plunder", "attack_ambush", "attack_failed",
+  ],
+  Thievery: [
+    "thief_detected", "thief_detected_unknown", "thief_foiled",
+    "thief_foiled_shadowlight", "thief_propaganda", "arson",
+    "resource_stolen", "troops_killed", "peasants_kidnapped", "desertions",
+    "rioting", "turncoat_general", "turncoat_thieves",
+    "thief_sabotage_wizards",
+  ],
+  Sorcery: [
+    "spell_detected", "spell_fireball", "spell_lightning", "spell_meteor_start",
+    "spell_meteor", "spell_blizzard", "spell_gluttony", "spell_greed",
+    "spell_explosions", "spell_tornado", "spell_land_lust",
+    "spell_mystic_vortex", "spell_drought", "spell_pitfalls",
+    "spell_chastity", "spell_sloth", "spell_nightmares", "spell_animate_dead",
+    "spell_vermin", "spell_storms", "spell_expose_thieves",
+    "spell_fools_gold",
+  ],
   Dragon:   ["dragon_damage"],
   Aid:      ["aid_received"],
-  Misc:     ["exploration", "monthly_dedication", "war_ended", "war_loss_penalty", "war_victory_reward", "starvation", "ritual_shortened", "plague_ended", "utopian_lords_reward", "new_scientist", "inactivity_penalty", "other"],
+  Misc: [
+    "exploration", "monthly_dedication", "war_ended", "war_loss_penalty",
+    "war_victory_reward", "starvation", "ritual_shortened", "plague_ended",
+    "utopian_lords_reward", "new_scientist", "inactivity_penalty", "other",
+  ],
 };
 
 const TYPE_TO_CATEGORY = new Map<string, Category>(
@@ -164,6 +185,7 @@ const EVENT_LABEL: Record<string, string> = {
   spell_drought:       "Drought",
   spell_pitfalls:      "Pitfalls",
   spell_chastity:      "Chastity",
+  spell_sloth:         "Sloth",
   spell_nightmares:    "Nightmares",
   spell_animate_dead:  "Animate Dead",
   spell_vermin:        "Vermin",
@@ -264,6 +286,7 @@ function formatDetail(row: ProvinceNewsRow): string | null {
     case "spell_drought":
     case "spell_pitfalls":
     case "spell_chastity":
+    case "spell_sloth":
     case "spell_nightmares":   return amount != null ? `${n(amount)} ticks`              : null;
     // Dragon
     case "dragon_damage":      return amount != null ? `${n(amount)} soldiers killed`    : null;

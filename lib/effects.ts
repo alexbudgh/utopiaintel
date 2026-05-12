@@ -14,6 +14,7 @@ export const BAD_SPELL_NAMES = [
   "Meteor Showers",
   "Nightmares",
   "Pitfalls",
+  "Sloth",
   "Storms",
   "Vermin",
 ] as const;

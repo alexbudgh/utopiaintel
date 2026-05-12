@@ -17,6 +17,7 @@ import { parseKingdom } from "../lib/parsers/kingdom";
 import { parseTrainArmy } from "../lib/parsers/train_army";
 import { parseBuild } from "../lib/parsers/build";
 import { parseKingdomNews } from "../lib/parsers/kingdom_news";
+import { parseProvinceNews } from "../lib/parsers/province_news";
 import { parseState } from "../lib/parsers/state";
 import { parseUtopiaDate, formatUtopiaDate } from "../lib/ui";
 import { buildIntelOpAttempt } from "../lib/intel-ops";
@@ -1472,6 +1473,34 @@ test("parseKingdomNews — targetKingdom is null when preamble absent (own kingd
   const r = parseKingdomNews(text);
   assert.ok(r);
   assert.equal(r.targetKingdom, null);
+});
+
+// ---------------------------------------------------------------------------
+// parseProvinceNews
+// ---------------------------------------------------------------------------
+
+function mkProvinceLine(date: string, body: string): string {
+  return `${date}\t${body}`;
+}
+
+test("parseProvinceNews — Chastity notification maps to Chastity", () => {
+  const r = parseProvinceNews([
+    "The Province Reporter",
+    mkProvinceLine("April 1 of YR9", "The womenfolk's vow of chastity is reducing our population growth for 7 days!"),
+  ].join("\n"));
+  assert.ok(r);
+  assert.equal(r.events[0].eventType, "spell_chastity");
+  assert.equal(r.events[0].amount, 7);
+});
+
+test("parseProvinceNews — Sloth notification maps to Sloth", () => {
+  const r = parseProvinceNews([
+    "The Province Reporter",
+    mkProvinceLine("April 2 of YR9", "Your peasants become unmotivated and less willing to join the army for 5 days"),
+  ].join("\n"));
+  assert.ok(r);
+  assert.equal(r.events[0].eventType, "spell_sloth");
+  assert.equal(r.events[0].amount, 5);
 });
 
 // ---------------------------------------------------------------------------

@@ -65,6 +65,7 @@ const LABELS: Record<string, string> = {
   spell_drought:            "Drought",
   spell_pitfalls:           "Pitfalls",
   spell_chastity:           "Chastity",
+  spell_sloth:              "Sloth",
   spell_nightmares:         "Nightmares",
   spell_vermin:             "Vermin",
   spell_storms:             "Storms",
@@ -162,6 +163,7 @@ const AMOUNT_UNITS: Partial<Record<string, string>> = {
   spell_drought:          " days",     // duration of harvest penalty, not food
   spell_pitfalls:         " days",     // duration, not troops
   spell_chastity:         " days",     // duration, not pop
+  spell_sloth:            " days",     // duration of draft penalty
   spell_nightmares:       " troops disrupted",
   spell_vermin:           " food",
   spell_fools_gold:       " gold",

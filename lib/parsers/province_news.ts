@@ -41,6 +41,7 @@ export type ProvinceNewsEventType =
   | "spell_drought"
   | "spell_pitfalls"
   | "spell_chastity"
+  | "spell_sloth"
   | "spell_nightmares"
   | "spell_vermin"
   | "spell_storms"
@@ -216,8 +217,8 @@ const DROUGHT_RE = new RegExp(`^Droughts are reducing our daily harvests.*for ($
 const PITFALLS_RE = new RegExp(`^Pitfalls are haunting our lands for (${INT}) days`);
 // Chastity: "The womenfolk's vow of chastity is reducing our population growth for N days!"
 const CHASTITY_RE = new RegExp(`^The womenfolk.s vow of chastity is reducing our population growth for (${INT}) days`);
-// Also: "Your peasants become unmotivated and less willing to join the army for N days"
-const CHASTITY2_RE = new RegExp(`^Your peasants become unmotivated and less willing to join the army for (${INT}) days`);
+// Sloth: "Your peasants become unmotivated and less willing to join the army for N days"
+const SLOTH_RE = new RegExp(`^Your peasants become unmotivated and less willing to join the army for (${INT}) days`);
 // Nightmares: "This morning, N of our men from our armies and thieves' guild turned up unfit."
 const NIGHTMARES_RE = new RegExp(`^This morning, (${INT}) of our men from our armies`);
 // "Our Wizards' ability to regain their mana has been disrupted! Our mana recovery will be affected for N days!" (Sabotage Wizards thievery)
@@ -414,8 +415,8 @@ function classifyEvent(text: string): Omit<ProvinceNewsEvent, "gameDate" | "rawT
   m = CHASTITY_RE.exec(text);
   if (m) return { ...nil, eventType: "spell_chastity", amount: parseNum(m[1]) };
 
-  m = CHASTITY2_RE.exec(text);
-  if (m) return { ...nil, eventType: "spell_chastity", amount: parseNum(m[1]) };
+  m = SLOTH_RE.exec(text);
+  if (m) return { ...nil, eventType: "spell_sloth", amount: parseNum(m[1]) };
 
   m = NIGHTMARES_RE.exec(text);
   if (m) return { ...nil, eventType: "spell_nightmares", amount: parseNum(m[1]) };
