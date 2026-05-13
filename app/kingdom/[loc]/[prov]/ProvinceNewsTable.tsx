@@ -392,7 +392,7 @@ export function ProvinceNewsTable({
       <button
         type="button"
         onClick={() => setExpanded(true)}
-        className="text-sm text-gray-500 hover:text-gray-300 transition-colors text-left"
+        className="cursor-pointer text-left text-sm text-gray-500 transition-colors hover:text-gray-300"
       >
         {events.length} events{dateLabel ? ` from ${dateLabel}` : ""} —{" "}
         {summary} · <span className="text-gray-600">show</span>
@@ -412,7 +412,7 @@ export function ProvinceNewsTable({
         <button
           type="button"
           onClick={() => setExpanded(false)}
-          className={`${pillBase} border-gray-700 bg-gray-900 text-gray-600 hover:text-gray-300`}
+          className={`${pillBase} cursor-pointer border-gray-700 bg-gray-900 text-gray-600 hover:text-gray-300`}
         >
           hide
         </button>
