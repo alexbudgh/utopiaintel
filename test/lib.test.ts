@@ -110,7 +110,6 @@ test("computeWizardCount — pure land/building NW with no units or resources", 
 test("computeWizardCount — troops contribute to NW correctly (Orc elites)", () => {
   // Orc elite NW weight = 7.0 (from RACE_NW)
   const land = 1000;
-  const buildings = 0;
   const elites = 500;
   const landNw = land * 40;
   const eliteNw = elites * RACE_NW["Orc"].elites;

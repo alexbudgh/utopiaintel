@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { ScreenshotCarousel } from "@/app/components/ScreenshotCarousel";
 import { cookies, headers } from "next/headers";
-import { getDbApi, type KingdomSnapshot } from "@/lib/db-api";
+import { getDbApi } from "@/lib/db-api";
 import { hashKey } from "@/lib/keys";
 import { IntelSetupCard } from "@/app/components/IntelSetupCard";
 import { freshnessColor, timeAgo } from "@/lib/ui";

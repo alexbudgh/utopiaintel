@@ -24,18 +24,11 @@ export interface KingdomNewsData {
 
 // Matches optional slot prefix "N - " followed by name and (X:Y)
 const PROV_REF = `(?:\\d+ - )?([^(]+?)\\s*${KDLOC}`;
-const PROV_REF_RE = new RegExp(`^${PROV_REF}$`);
 
 // Unknown attacker prefix
 const UNKNOWN_PROV_RE = new RegExp(
   `An unknown province from ([^(]+?)\\s*${KDLOC}`,
 );
-
-function parseProvRef(text: string): { name: string; kingdom: string } | null {
-  const m = PROV_REF_RE.exec(text.trim());
-  if (!m) return null;
-  return { name: m[1].trim(), kingdom: m[2] };
-}
 
 // Patterns for each event type. Capture groups named inline via positional indices.
 // Format: attacker PROV_REF ... verb ... defender PROV_REF

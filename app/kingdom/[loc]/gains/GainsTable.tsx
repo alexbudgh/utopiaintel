@@ -33,12 +33,6 @@ function zeroAcresReason(
   return null;
 }
 
-function factorTone(factor: number): TooltipLine["tone"] {
-  if (factor === 0) return "bad";
-  if (factor < 1) return "warn";
-  return "good";
-}
-
 function factorClass(factor: number): string {
   if (factor === 0) return "text-red-300";
   if (factor < 0.5) return "text-red-300";
@@ -276,15 +270,6 @@ function rknwBreakdown(rknw: number): {
     calc: "RKNW factor: 1",
     tone: "good",
   };
-}
-
-function toneClass(tone: TooltipLine["tone"] | undefined): string {
-  if (tone === "bad" || tone === "strong")
-    return tone === "bad" ? "text-red-300" : "text-gray-100";
-  if (tone === "warn") return "text-amber-300";
-  if (tone === "good") return "text-green-300";
-  if (tone === "muted") return "text-gray-500";
-  return "text-gray-300";
 }
 
 function EstimateCell({

@@ -1660,7 +1660,9 @@ export function ProvinceTable({
         setCustomCols(new Set(JSON.parse(savedCols) as ColKey[]));
         setActiveView(null);
       }
-    } catch {}
+    } catch (err) {
+      console.warn("Failed to load saved province table preferences", err);
+    }
   }, []);
 
   // Persist prefs
@@ -1699,7 +1701,11 @@ export function ProvinceTable({
   const toggleCustomCol = (key: ColKey) => {
     const base = activeView ? new Set(allViews[activeView] ?? []) : customCols;
     const next = new Set(base);
-    next.has(key) ? next.delete(key) : next.add(key);
+    if (next.has(key)) {
+      next.delete(key);
+    } else {
+      next.add(key);
+    }
     setActiveView(null);
     setCustomCols(next);
   };

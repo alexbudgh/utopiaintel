@@ -3,7 +3,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   ComposedChart,
-  Legend,
   Line,
   ResponsiveContainer,
   Scatter,

@@ -26,15 +26,13 @@ import type {
   InfiltrateData,
   KingdomData,
   StateData,
-  KingdomOpenRelation,
-  WarDoctrine,
   TrainArmyData,
   BuildData,
   RobData,
   SorceryData,
   AttackData,
 } from "./parsers/types";
-import type { KingdomNewsData, KingdomNewsEvent } from "./parsers/kingdom_news";
+import type { KingdomNewsData } from "./parsers/kingdom_news";
 import type { ProvinceNewsData } from "./parsers/province_news";
 import type { IntelOpAttempt } from "./intel-ops";
 import type { GameDateStamp, TimeRangeMode } from "./db-api";
@@ -42,12 +40,9 @@ import type {
   KingdomRow,
   KingdomSnapshot,
   KingdomSnapshotHistoryPoint,
-  KingdomSnapshotProvince,
   RecentOp,
   ProvinceRow,
   ArmyRow,
-  BuildingRow,
-  ScienceRow,
   ProvinceDetail,
   KingdomRitual,
   KingdomDragon,
@@ -56,9 +51,6 @@ import type {
   NewsKingdomSummary,
   KingdomNewsSummary,
   ProvinceHistoryPoint,
-  ProvinceHistoryAttack,
-  ProvinceHistoryThieveryOp,
-  ProvinceHistorySorceryOp,
   ProvinceNewsRow,
   OpProvEntry,
   OpTypeBreakdown,
@@ -106,10 +98,6 @@ export async function withTransaction<T>(
 
 const TTL_DAYS = 7;
 const COMBAT_TYPES_SQL = COMBAT_EVENT_TYPES.map((t) => `'${t}'`).join(",");
-
-// Same-tick check: integer division of UNIX_TIMESTAMP by 3600 (one Utopia hour)
-const SAME_TICK_EXPR = (a: string, b: string) =>
-  `(UNIX_TIMESTAMP(${a}) DIV 3600) = (UNIX_TIMESTAMP(${b}) DIV 3600)`;
 
 const BAD_SPELL_SQL_LIST = BAD_SPELL_NAMES.map(
   (name) => `'${name.replaceAll("'", "''")}'`,

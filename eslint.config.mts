@@ -3,6 +3,7 @@ import tseslint from "typescript-eslint";
 import pluginReact from "eslint-plugin-react";
 import nextPlugin from "@next/eslint-plugin-next";
 import { defineConfig } from "eslint/config";
+import globals from "globals";
 
 export default defineConfig([
   {
@@ -26,6 +27,12 @@ export default defineConfig([
     plugins: {
       "@next/next": nextPlugin,
     },
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+      },
+    },
     settings: {
       react: {
         version: "detect",
@@ -39,6 +46,12 @@ export default defineConfig([
       // 5. Necessary overrides for Next.js 16
       "react/react-in-jsx-scope": "off",
       "react/prop-types": "off", // Since you use TypeScript
+    },
+  },
+  {
+    files: ["lib/db.ts", "lib/db-mysql.ts", "lib/db-mysql-pool.ts", "test/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
     },
   },
 ]);
