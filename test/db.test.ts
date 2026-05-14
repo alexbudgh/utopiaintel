@@ -2426,7 +2426,7 @@ test("getKingdomNewsSummary: aggregates combat totals, slots, and unique attacke
     assert.equal(ours.kingdomName, "Our KD");
     assert.equal(ours.totalHitsMade, 2);
     assert.equal(ours.totalMarchAcresGained, 120);
-    assert.equal(ours.totalLootMade, 1);
+    assert.equal(ours.totalLearnMade, 1);
     assert.equal(ours.provinces[0].provinceName, "Alpha");
     assert.equal(ours.provinces[0].slot, 3);
     assert.equal(ours.provinces[0].marchAcresGained, 120);

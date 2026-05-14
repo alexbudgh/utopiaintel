@@ -2150,7 +2150,7 @@ export async function getKingdomNewsSummary(
     ambushHits: number;
     razeHits: number;
     pillageHits: number;
-    lootHits: number;
+    learnHits: number;
     failedHits: number;
     marchAcres: number;
     ambushAcres: number;
@@ -2165,7 +2165,7 @@ export async function getKingdomNewsSummary(
     ambushHits: number;
     razeHits: number;
     pillageHits: number;
-    lootHits: number;
+    learnHits: number;
     failedHits: number;
     marchAcres: number;
     ambushAcres: number;
@@ -2179,7 +2179,7 @@ export async function getKingdomNewsSummary(
     ambushHits: 0,
     razeHits: 0,
     pillageHits: 0,
-    lootHits: 0,
+    learnHits: 0,
     failedHits: 0,
     marchAcres: 0,
     ambushAcres: 0,
@@ -2194,7 +2194,7 @@ export async function getKingdomNewsSummary(
     ambushHits: 0,
     razeHits: 0,
     pillageHits: 0,
-    lootHits: 0,
+    learnHits: 0,
     failedHits: 0,
     marchAcres: 0,
     ambushAcres: 0,
@@ -2220,8 +2220,10 @@ export async function getKingdomNewsSummary(
       a.razeAcres += r.acres ?? 0;
     } else if (r.event_type === "pillage") {
       a.pillageHits++;
-    } else if (r.event_type === "loot") {
-      a.lootHits++;
+    } else if (r.event_type === "learn" || r.event_type === "loot") {
+      // Legacy kingdom news rows used "loot" for Learn attacks because the
+      // source text says books were looted. Treat both as Learn at read time.
+      a.learnHits++;
       a.books += r.books ?? 0;
     } else if (r.event_type === "failed_attack") {
       a.failedHits++;
@@ -2243,8 +2245,8 @@ export async function getKingdomNewsSummary(
       d.razeAcres += r.acres ?? 0;
     } else if (r.event_type === "pillage") {
       d.pillageHits++;
-    } else if (r.event_type === "loot") {
-      d.lootHits++;
+    } else if (r.event_type === "learn" || r.event_type === "loot") {
+      d.learnHits++;
     } else if (r.event_type === "failed_attack") {
       d.failedHits++;
     }
@@ -2263,18 +2265,18 @@ export async function getKingdomNewsSummary(
     ambushMade: number;
     razeMade: number;
     pillageMade: number;
-    lootMade: number;
+    learnMade: number;
     failedMade: number;
     marchAcresGained: number;
     ambushAcresGained: number;
     razeAcresDealt: number;
-    booksLooted: number;
+    booksLearned: number;
     hitsTaken: number;
     marchTaken: number;
     ambushTaken: number;
     razeTaken: number;
     pillageTaken: number;
-    lootTaken: number;
+    learnTaken: number;
     failedTaken: number;
     marchAcresLost: number;
     ambushAcresLost: number;
@@ -2290,18 +2292,18 @@ export async function getKingdomNewsSummary(
     ambushMade: 0,
     razeMade: 0,
     pillageMade: 0,
-    lootMade: 0,
+    learnMade: 0,
     failedMade: 0,
     marchAcresGained: 0,
     ambushAcresGained: 0,
     razeAcresDealt: 0,
-    booksLooted: 0,
+    booksLearned: 0,
     hitsTaken: 0,
     marchTaken: 0,
     ambushTaken: 0,
     razeTaken: 0,
     pillageTaken: 0,
-    lootTaken: 0,
+    learnTaken: 0,
     failedTaken: 0,
     marchAcresLost: 0,
     ambushAcresLost: 0,
@@ -2316,12 +2318,12 @@ export async function getKingdomNewsSummary(
     p.ambushMade += r.ambushHits;
     p.razeMade += r.razeHits;
     p.pillageMade += r.pillageHits;
-    p.lootMade += r.lootHits;
+    p.learnMade += r.learnHits;
     p.failedMade += r.failedHits;
     p.marchAcresGained += r.marchAcres;
     p.ambushAcresGained += r.ambushAcres;
     p.razeAcresDealt += r.razeAcres;
-    p.booksLooted += r.books;
+    p.booksLearned += r.books;
     provMap.set(k, p);
   }
   for (const r of asDefender) {
@@ -2332,7 +2334,7 @@ export async function getKingdomNewsSummary(
     p.ambushTaken += r.ambushHits;
     p.razeTaken += r.razeHits;
     p.pillageTaken += r.pillageHits;
-    p.lootTaken += r.lootHits;
+    p.learnTaken += r.learnHits;
     p.failedTaken += r.failedHits;
     p.marchAcresLost += r.marchAcres;
     p.ambushAcresLost += r.ambushAcres;
@@ -2371,18 +2373,18 @@ export async function getKingdomNewsSummary(
       ambushMade: p.ambushMade,
       razeMade: p.razeMade,
       plunderMade: p.pillageMade,
-      lootMade: p.lootMade,
+      learnMade: p.learnMade,
       failedMade: p.failedMade,
       marchAcresGained: p.marchAcresGained,
       ambushAcresGained: p.ambushAcresGained,
       razeAcresDealt: p.razeAcresDealt,
-      booksLooted: p.booksLooted,
+      booksLearned: p.booksLearned,
       hitsTaken: p.hitsTaken,
       marchTaken: p.marchTaken,
       ambushTaken: p.ambushTaken,
       razeTaken: p.razeTaken,
       plunderTaken: p.pillageTaken,
-      lootTaken: p.lootTaken,
+      learnTaken: p.learnTaken,
       failedTaken: p.failedTaken,
       marchAcresLost: p.marchAcresLost,
       ambushAcresLost: p.ambushAcresLost,
@@ -2421,7 +2423,7 @@ export async function getKingdomNewsSummary(
         totalAmbushMade: sum("ambushMade"),
         totalRazeMade: sum("razeMade"),
         totalPlunderMade: sum("plunderMade"),
-        totalLootMade: sum("lootMade"),
+        totalLearnMade: sum("learnMade"),
         totalFailedMade: sum("failedMade"),
         totalMarchAcresGained: sum("marchAcresGained"),
         totalAmbushAcresGained: sum("ambushAcresGained"),
@@ -2431,7 +2433,7 @@ export async function getKingdomNewsSummary(
         totalAmbushTaken: sum("ambushTaken"),
         totalRazeTaken: sum("razeTaken"),
         totalPlunderTaken: sum("plunderTaken"),
-        totalLootTaken: sum("lootTaken"),
+        totalLearnTaken: sum("learnTaken"),
         totalFailedTaken: sum("failedTaken"),
         totalMarchAcresLost: sum("marchAcresLost"),
         totalAmbushAcresLost: sum("ambushAcresLost"),

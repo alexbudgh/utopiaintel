@@ -1487,14 +1487,14 @@ test("parseKingdomNews — raze", () => {
   assert.equal(e.acres, 80);
 });
 
-test("parseKingdomNews — loot", () => {
+test("parseKingdomNews — learn", () => {
   const e = parseOne(
     mkLine(
       "March 15 of YR9",
       "Book Thief (2:2) invaded and looted 500 books from Scholar's Rest (5:5)",
     ),
   );
-  assert.equal(e.eventType, "loot");
+  assert.equal(e.eventType, "learn");
   assert.equal(e.books, 500);
   assert.equal(e.acres, null);
   assert.equal(e.attackerKingdom, "2:2");

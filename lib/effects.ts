@@ -3,6 +3,7 @@ export const COMBAT_EVENT_TYPES = [
   "ambush",
   "raze",
   "pillage",
+  "learn",
   "loot",
   "failed_attack",
 ] as const;

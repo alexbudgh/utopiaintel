@@ -57,8 +57,8 @@ const RAZE_INVADED_RE = new RegExp(
 const PILLAGE_RE = new RegExp(
   `^${PROV_REF} (?:attacked and pillaged the lands of|invaded and pillaged) ${PROV_REF}`,
 );
-// "invaded/attacked and looted N books from"
-const LOOT_RE = new RegExp(
+// Learn attacks are reported as "invaded/attacked and looted N books from".
+const LEARN_RE = new RegExp(
   `^${PROV_REF} (?:invaded|attacked) and looted (${INT}) books from ${PROV_REF}`,
 );
 // Traditional march: "captured N acres of land from"
@@ -260,10 +260,10 @@ function classifyEvent(
       dragonName: null,
     };
 
-  m = LOOT_RE.exec(text);
+  m = LEARN_RE.exec(text);
   if (m)
     return {
-      eventType: "loot",
+      eventType: "learn",
       attackerName: m[1].trim(),
       attackerKingdom: m[2],
       defenderName: m[4].trim(),

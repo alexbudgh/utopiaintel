@@ -26,7 +26,15 @@ import { UtopiaDateRangeFilter } from "./UtopiaDateRangeFilter";
 const TYPE_GROUPS: { label: string; types: string[] }[] = [
   {
     label: "Combat",
-    types: ["march", "ambush", "raze", "pillage", "loot", "failed_attack"],
+    types: [
+      "march",
+      "ambush",
+      "raze",
+      "pillage",
+      "learn",
+      "loot",
+      "failed_attack",
+    ],
   },
   {
     label: "Relations",
@@ -56,7 +64,8 @@ const EVENT_LABEL: Record<string, string> = {
   ambush: "Ambush",
   raze: "Raze",
   pillage: "Pillage",
-  loot: "Loot",
+  learn: "Learn",
+  loot: "Learn",
   failed_attack: "Failed",
   aid: "Aid",
   war_declared: "War",
@@ -195,11 +204,11 @@ function EventDescription({ event }: { event: KingdomNewsRow }) {
     );
   }
 
-  if (eventType === "loot") {
+  if (eventType === "learn" || eventType === "loot") {
     return (
       <span>
         <ProvLink name={attackerName} kingdom={attackerKingdom} />{" "}
-        <span className="text-gray-500">looted</span>{" "}
+        <span className="text-gray-500">learned from</span>{" "}
         <ProvLink name={defenderName} kingdom={defenderKingdom} />
         {books != null && (
           <span className="text-gray-400">
@@ -335,6 +344,7 @@ const COMBAT_TYPES_SET = new Set([
   "ambush",
   "raze",
   "pillage",
+  "learn",
   "loot",
   "failed_attack",
 ]);
@@ -606,7 +616,7 @@ export function KingdomNewsTable({
     | "ambushMade"
     | "razeMade"
     | "plunderMade"
-    | "lootMade"
+    | "learnMade"
     | "failedMade"
     | "marchAcresGained"
     | "ambushAcresGained"
@@ -616,13 +626,13 @@ export function KingdomNewsTable({
     | "ambushTaken"
     | "razeTaken"
     | "plunderTaken"
-    | "lootTaken"
+    | "learnTaken"
     | "failedTaken"
     | "marchAcresLost"
     | "ambushAcresLost"
     | "razeAcresLost"
     | "net"
-    | "booksLooted";
+    | "booksLearned";
 
   function provSortVal(
     p: (typeof summary.byKingdom)[0]["provinces"][0],
@@ -940,7 +950,7 @@ export function KingdomNewsTable({
                             Net
                           </SortTh>
                           <SortTh
-                            col="booksLooted"
+                            col="booksLearned"
                             className="text-right"
                             rowSpan={2}
                           >
@@ -983,7 +993,7 @@ export function KingdomNewsTable({
                             Pl
                           </SortTh>
                           <SortTh
-                            col="lootMade"
+                            col="learnMade"
                             className="text-right"
                             title="Learn"
                           >
@@ -1052,7 +1062,7 @@ export function KingdomNewsTable({
                             Pl
                           </SortTh>
                           <SortTh
-                            col="lootTaken"
+                            col="learnTaken"
                             className="text-right"
                             title="Learn"
                           >
@@ -1155,7 +1165,7 @@ export function KingdomNewsTable({
                                 <Num n={p.plunderMade} color={gc} />
                               </td>
                               <td className="px-2 py-1.5 text-right font-mono">
-                                <Num n={p.lootMade} color={gc} />
+                                <Num n={p.learnMade} color={gc} />
                               </td>
                               <td className="px-2 py-1.5 text-right font-mono">
                                 <Num n={p.failedMade} color={gc} />
@@ -1185,7 +1195,7 @@ export function KingdomNewsTable({
                                 <Num n={p.plunderTaken} color={lc} />
                               </td>
                               <td className="px-2 py-1.5 text-right font-mono">
-                                <Num n={p.lootTaken} color={lc} />
+                                <Num n={p.learnTaken} color={lc} />
                               </td>
                               <td className="px-2 py-1.5 text-right font-mono">
                                 <Num n={p.failedTaken} color={lc} />
@@ -1216,7 +1226,10 @@ export function KingdomNewsTable({
                                 )}
                               </td>
                               <td className="px-3 py-1.5 text-right font-mono">
-                                <Num n={p.booksLooted} color="text-amber-300" />
+                                <Num
+                                  n={p.booksLearned}
+                                  color="text-amber-300"
+                                />
                               </td>
                             </tr>
                           );
@@ -1251,7 +1264,7 @@ export function KingdomNewsTable({
                                   <Num n={kd.totalPlunderMade} color={gc} />
                                 </td>
                                 <td className="px-2 py-1.5 text-right font-mono">
-                                  <Num n={kd.totalLootMade} color={gc} />
+                                  <Num n={kd.totalLearnMade} color={gc} />
                                 </td>
                                 <td className="px-2 py-1.5 text-right font-mono">
                                   <Num n={kd.totalFailedMade} color={gc} />
@@ -1287,7 +1300,7 @@ export function KingdomNewsTable({
                                   <Num n={kd.totalPlunderTaken} color={lc} />
                                 </td>
                                 <td className="px-2 py-1.5 text-right font-mono">
-                                  <Num n={kd.totalLootTaken} color={lc} />
+                                  <Num n={kd.totalLearnTaken} color={lc} />
                                 </td>
                                 <td className="px-2 py-1.5 text-right font-mono">
                                   <Num n={kd.totalFailedTaken} color={lc} />
@@ -1320,7 +1333,7 @@ export function KingdomNewsTable({
                                 <td className="px-3 py-1.5 text-right font-mono">
                                   <Num
                                     n={kd.provinces.reduce(
-                                      (s, p) => s + p.booksLooted,
+                                      (s, p) => s + p.booksLearned,
                                       0,
                                     )}
                                     color="text-amber-300"
@@ -1516,7 +1529,10 @@ export function KingdomNewsTable({
                     razeOut += acres;
                   } else if (e.eventType === "pillage") {
                     pm++;
-                  } else if (e.eventType === "loot") {
+                  } else if (
+                    e.eventType === "learn" ||
+                    e.eventType === "loot"
+                  ) {
                     lm++;
                     books += e.books ?? 0;
                   } else if (e.eventType === "failed_attack") {
@@ -1535,7 +1551,10 @@ export function KingdomNewsTable({
                     razeIn += acres;
                   } else if (e.eventType === "pillage") {
                     pt++;
-                  } else if (e.eventType === "loot") {
+                  } else if (
+                    e.eventType === "learn" ||
+                    e.eventType === "loot"
+                  ) {
                     lt++;
                   } else if (e.eventType === "failed_attack") {
                     ft++;
