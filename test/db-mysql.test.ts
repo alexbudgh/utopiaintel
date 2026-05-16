@@ -1,6 +1,6 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import type { RowDataPacket } from "mysql2/promise";
+import mysql, { type RowDataPacket } from "mysql2/promise";
 import {
   pool,
   initDb,
@@ -24,8 +24,27 @@ import {
   storeSurvey,
 } from "../lib/db-mysql";
 
+const mysqlTestDbName = process.env.DB_NAME ?? "";
+if (!/(^|[_-])test($|[_-])/.test(mysqlTestDbName)) {
+  throw new Error(
+    `Refusing to run MySQL DB tests against non-test DB_NAME=${mysqlTestDbName || "<unset>"}`,
+  );
+}
+
 after(async () => {
   await pool.end();
+  if (process.env.MYSQL_DROP_TEST_DB_AFTER !== "1") return;
+  const conn = await mysql.createConnection({
+    host: process.env.DB_HOST ?? "localhost",
+    port: Number(process.env.DB_PORT ?? 3306),
+    user: process.env.DB_USER ?? "utopiaintel",
+    password: process.env.DB_PASSWORD ?? "",
+  });
+  try {
+    await conn.query(`DROP DATABASE IF EXISTS \`${mysqlTestDbName}\``);
+  } finally {
+    await conn.end();
+  }
 });
 
 test("initDb: creates all expected tables", async () => {
