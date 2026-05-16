@@ -8,6 +8,7 @@ import type { ProvinceRow } from "@/lib/db";
 import {
   freshnessColor,
   formatLand,
+  formatLocalTimestamp,
   formatNetworth,
   formatNum,
   timeAgo,
@@ -710,7 +711,11 @@ function sourceFor(p: ProvinceRow, key: ColKey): string | null {
 
 function metricAgeSummary(entries: Array<[string, string | null]>): string {
   return entries
-    .map(([label, age]) => `${label} ${age ? timeAgo(age) : "missing"}`)
+    .map(([label, age]) =>
+      age
+        ? `${label} ${timeAgo(age)} · ${formatLocalTimestamp(age)}`
+        : `${label} missing`,
+    )
     .join(", ");
 }
 
