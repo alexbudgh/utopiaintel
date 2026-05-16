@@ -64,6 +64,11 @@ export function formatLand(n: number | null | undefined): string {
   return `${n.toLocaleString()}a`;
 }
 
+export function formatNetworth(n: number | null | undefined): string {
+  if (n == null) return "—";
+  return `${n.toLocaleString()} gc`;
+}
+
 export function formatExactNum(
   n: number | null | undefined,
   maximumFractionDigits = 4,

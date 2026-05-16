@@ -11,7 +11,12 @@ import {
   estimateTraditionalMarchAcres,
 } from "@/lib/gains";
 import type { GainsPageData } from "@/lib/gains-page";
-import { formatNum, formatTimestamp } from "@/lib/ui";
+import {
+  formatLand,
+  formatNetworth,
+  formatNum,
+  formatTimestamp,
+} from "@/lib/ui";
 
 const ATTACKER_COL_WIDTH = "w-52 min-w-52";
 const TARGET_COL_WIDTH = "w-36 min-w-36";
@@ -518,12 +523,12 @@ function EstimateCell({
         </div>
         <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-gray-400">
           <div>
-            Attacker: {formatNum(attacker.networth)} NW /{" "}
-            {attacker.land?.toLocaleString() ?? "—"}a
+            Attacker: {formatNetworth(attacker.networth)} /{" "}
+            {formatLand(attacker.land)}
           </div>
           <div>
-            Defender: {defender.networth.toLocaleString()} NW /{" "}
-            {defender.land.toLocaleString()}a
+            Defender: {formatNetworth(defender.networth)} /{" "}
+            {formatLand(defender.land)}
           </div>
           <div>Self avg NW: {Math.round(selfAvgNetworth).toLocaleString()}</div>
           <div>
@@ -1377,7 +1382,7 @@ export function GainsTable({
     defHome: number | null,
   ) => (
     <Tooltip
-      content={`${defender.slot != null ? `Slot ${defender.slot}\n` : ""}${defender.name}\nNW ${defender.networth.toLocaleString()}\nLand ${defender.land.toLocaleString()}${defHome != null ? `\nDef Home ${defHome.toLocaleString()}` : ""}`}
+      content={`${defender.slot != null ? `Slot ${defender.slot}\n` : ""}${defender.name}\nNW ${formatNetworth(defender.networth)}\nLand ${formatLand(defender.land)}${defHome != null ? `\nDef Home ${defHome.toLocaleString()}` : ""}`}
     >
       <Link
         href={`/kingdom/${encodeURIComponent(targetKingdom)}/${encodeURIComponent(defender.name)}`}
@@ -1392,7 +1397,7 @@ export function GainsTable({
           {defender.name}
         </div>
         <div className="mt-1 text-[10px] font-normal text-gray-500">
-          {formatNum(defender.networth)} / {defender.land.toLocaleString()}a
+          {formatNetworth(defender.networth)} / {formatLand(defender.land)}
           {defHome != null && (
             <>
               {" "}
@@ -1464,7 +1469,7 @@ export function GainsTable({
                   }`}
                 >
                   <Tooltip
-                    content={`${attacker.slot != null ? `Slot ${attacker.slot}\n` : ""}${attacker.name}\nNW ${attacker.networth?.toLocaleString() ?? "—"}\nLand ${attacker.land?.toLocaleString() ?? "—"}`}
+                    content={`${attacker.slot != null ? `Slot ${attacker.slot}\n` : ""}${attacker.name}\nNW ${formatNetworth(attacker.networth)}\nLand ${formatLand(attacker.land)}`}
                   >
                     <Link
                       href={`/kingdom/${encodeURIComponent(selfKingdom)}/${encodeURIComponent(attacker.name)}`}
@@ -1484,8 +1489,8 @@ export function GainsTable({
                     <div
                       className={`mt-1 text-[10px] font-normal ${selectedRowId === attacker.id ? "text-blue-300/80" : "text-gray-500"}`}
                     >
-                      {formatNum(attacker.networth)} /{" "}
-                      {attacker.land?.toLocaleString() ?? "—"}a
+                      {formatNetworth(attacker.networth)} /{" "}
+                      {formatLand(attacker.land)}
                     </div>
                   </Tooltip>
                 </th>

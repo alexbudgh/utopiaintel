@@ -6,7 +6,12 @@ import { hashKey } from "@/lib/keys";
 import { Tooltip, type TooltipLine } from "@/app/components/Tooltip";
 import { getDbApi } from "@/lib/db-api";
 import { ProvinceHistoryChart } from "./ProvinceHistoryChart";
-import { freshnessColor, timeAgo, fullValueTooltip } from "@/lib/ui";
+import {
+  freshnessColor,
+  timeAgo,
+  fullValueTooltip,
+  formatNetworth,
+} from "@/lib/ui";
 import { BAD_SPELL_NAMES } from "@/lib/effects";
 import { computeAmbushRawOff } from "@/lib/ambush";
 import { estimatePop } from "@/lib/population";
@@ -278,11 +283,7 @@ export default async function ProvincePage({
               />
               <KV
                 label="Networth"
-                value={
-                  d.overview.networth != null
-                    ? d.overview.networth.toLocaleString()
-                    : "—"
-                }
+                value={formatNetworth(d.overview.networth)}
               />
               {d.sot && (
                 <KV

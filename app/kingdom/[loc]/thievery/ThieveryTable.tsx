@@ -12,7 +12,12 @@ import { Tooltip } from "@/app/components/Tooltip";
 import type { ProvinceRow } from "@/lib/db";
 import type { GainsPageData } from "@/lib/gains-page";
 import { OPS, computeCell, type Op, type CellResult } from "@/lib/thievery";
-import { formatExactNum, formatNum } from "@/lib/ui";
+import {
+  formatExactNum,
+  formatLand,
+  formatNetworth,
+  formatNum,
+} from "@/lib/ui";
 
 const ATTACKER_COL_WIDTH = "w-52 min-w-52";
 const TARGET_COL_WIDTH = "w-36 min-w-36";
@@ -389,8 +394,8 @@ export function ThieveryTable({
                     <Tooltip
                       content={[
                         `${defender.slot != null ? `#${defender.slot} ` : ""}${defender.name}`,
-                        `NW ${formatNum(defender.networth)}`,
-                        `Land ${defender.land?.toLocaleString() ?? "—"}a`,
+                        `NW ${formatNetworth(defender.networth)}`,
+                        `Land ${formatLand(defender.land)}`,
                         OPS[op].kind === "resource"
                           ? `${OPS[op].label}: ${formatNum(resource)} ${OPS[op].unit}`
                           : `Night Strike troops: ${formatNum(nsTotal)}`,
@@ -412,7 +417,7 @@ export function ThieveryTable({
                           {defender.name}
                         </div>
                         <div className="mt-1 text-[10px] font-normal text-gray-500">
-                          {formatNum(defender.networth)} NW
+                          {formatNetworth(defender.networth)}
                         </div>
                         <div className="mt-0.5 text-[10px] font-normal text-gray-600">
                           {OPS[op].kind === "resource"
@@ -459,8 +464,8 @@ export function ThieveryTable({
                   <Tooltip
                     content={[
                       `${attacker.slot != null ? `#${attacker.slot} ` : ""}${attacker.name}`,
-                      `NW ${formatNum(attacker.networth)}`,
-                      `Land ${attacker.land?.toLocaleString() ?? "—"}a`,
+                      `NW ${formatNetworth(attacker.networth)}`,
+                      `Land ${formatLand(attacker.land)}`,
                     ].join("\n")}
                   >
                     <Link
@@ -485,8 +490,8 @@ export function ThieveryTable({
                           : "text-gray-500"
                       }`}
                     >
-                      {formatNum(attacker.networth)} /{" "}
-                      {attacker.land?.toLocaleString() ?? "—"}a
+                      {formatNetworth(attacker.networth)} /{" "}
+                      {formatLand(attacker.land)}
                     </div>
                   </Tooltip>
                 </th>

@@ -8,6 +8,7 @@ import type { ProvinceRow } from "@/lib/db";
 import {
   freshnessColor,
   formatLand,
+  formatNetworth,
   formatNum,
   timeAgo,
   formatTimestamp,
@@ -1254,7 +1255,7 @@ function tipFor(
       );
     }
     const rwpa = w / p.land;
-    return `wizards ≈ (${formatNum(p.networth)} NW residual) ÷ ${NW_PER_WIZARD} = ${Math.round(w).toLocaleString()}\nrWPA = ${Math.round(w).toLocaleString()} ÷ ${formatLand(p.land)} = ${rwpa.toFixed(2)}${metricAgeLine(
+    return `wizards ≈ (${formatNetworth(p.networth)} residual) ÷ ${NW_PER_WIZARD} = ${Math.round(w).toLocaleString()}\nrWPA = ${Math.round(w).toLocaleString()} ÷ ${formatLand(p.land)} = ${rwpa.toFixed(2)}${metricAgeLine(
       [
         ["infiltrate", p.thieves_age],
         ["overview", p.overview_age],
@@ -1517,7 +1518,7 @@ function cellValue(p: ProvinceRow, key: ColKey): React.ReactNode {
     case "land":
       return formatLand(p.land);
     case "networth":
-      return formatNum(p.networth);
+      return formatNetworth(p.networth);
     case "hit_status":
       return p.hit_status ?? "—";
     case "off_points":
