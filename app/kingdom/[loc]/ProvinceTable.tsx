@@ -61,6 +61,12 @@ const COLUMNS = [
     desc: "Current population / max population\nSelf: direct from council state\nEnemy: estimated from SoT+SoM+Survey+SoS\n~prefix = wizards estimated from NW residual",
   },
   {
+    key: "ppa",
+    label: "PPA",
+    group: "Overview",
+    desc: "Peasants per acre = peasants ÷ land\nNeeds peasants and land from the same tick",
+  },
+  {
     key: "hit_status",
     label: "MAP",
     group: "Overview",
@@ -463,6 +469,8 @@ function sortValueFor(p: ProvinceRow, key: SortKey): number | string | null {
       return displayedMetricValue(p, "mwpa");
     case "pop_pct":
       return computePopPct(p)?.pct ?? null;
+    case "ppa":
+      return computePpa(p);
     case "guild_pct":
       return p.guilds_built != null && p.land ? p.guilds_built / p.land : null;
     case "ritual_cost":
@@ -535,6 +543,12 @@ function computePopPct(
   if (pop.currentPop == null || pop.maxPop == null || pop.maxPop === 0)
     return null;
   return { pct: pop.currentPop / pop.maxPop, estimated: pop.wizardsEstimated };
+}
+
+function computePpa(p: ProvinceRow): number | null {
+  if (p.peasants == null || !p.land) return null;
+  if (!sameTick(p.troops_age, p.overview_age)) return null;
+  return p.peasants / p.land;
 }
 
 function ageFor(p: ProvinceRow, key: ColKey): string | null {
@@ -637,6 +651,7 @@ function ageFor(p: ProvinceRow, key: ColKey): string | null {
     );
   }
   if (key === "pop_pct") return p.resources_age ?? p.survey_age;
+  if (key === "ppa") return oldest(p.troops_age, p.overview_age);
   return p.overview_age;
 }
 
@@ -686,6 +701,7 @@ function sourceFor(p: ProvinceRow, key: ColKey): string | null {
     return p.home_mil_age ? "som/sod" : null;
   if (key === "age")
     return p.overview_source ?? (p.military_age ? "sot" : null);
+  if (key === "ppa") return null;
   if (["rtpa", "mtpa", "otpa", "dtpa"].includes(key)) return null;
   return p.overview_source;
 }
@@ -1035,6 +1051,19 @@ function tipFor(
     return (
       `rTPA = ${formatNum(p.thieves)} ÷ ${formatNum(p.land)} = ${val}${ages}` +
       (ok ? "" : `\n(${tpaStaleReason(p, false, false)})${cached}`)
+    );
+  }
+  if (key === "ppa") {
+    if (p.peasants == null || !p.land) return "No peasants or land data";
+    const ok = sameTick(p.troops_age, p.overview_age);
+    const val = ok ? (computePpa(p)?.toFixed(2) ?? "—") : "—";
+    const ages = metricAgeLine([
+      ["peasants", p.troops_age],
+      ["overview", p.overview_age],
+    ]);
+    return (
+      `PPA = ${p.peasants.toLocaleString()} ÷ ${p.land.toLocaleString()} = ${val}${ages}` +
+      (ok ? "" : "\n(peasants and land are not from the same tick)")
     );
   }
   if (key === "mtpa") {
@@ -1578,6 +1607,10 @@ function cellValue(p: ProvinceRow, key: ColKey): React.ReactNode {
     case "mwpa": {
       const v = computeMwpa(p);
       return v != null ? v.toFixed(2) : metricFallbackCell(p, "mwpa");
+    }
+    case "ppa": {
+      const v = computePpa(p);
+      return v != null ? v.toFixed(2) : "—";
     }
     case "guild_pct": {
       if (p.guilds_built == null || !p.land) return "—";
