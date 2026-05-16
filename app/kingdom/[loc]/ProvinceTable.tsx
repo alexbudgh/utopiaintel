@@ -7,6 +7,7 @@ import { Tooltip, toneClass, type TooltipLine } from "@/app/components/Tooltip";
 import type { ProvinceRow } from "@/lib/db";
 import {
   freshnessColor,
+  formatLand,
   formatNum,
   timeAgo,
   formatTimestamp,
@@ -981,7 +982,7 @@ function tipFor(
                     {a.elites ? a.elites.toLocaleString() : "—"}
                   </td>
                   <td className={td}>
-                    {a.land > 0 ? a.land.toLocaleString() : "—"}
+                    {a.land > 0 ? formatLand(a.land) : "—"}
                   </td>
                   <td className={td}>
                     {srcAge
@@ -1049,7 +1050,7 @@ function tipFor(
       ["overview", p.overview_age],
     ]);
     return (
-      `rTPA = ${formatNum(p.thieves)} ÷ ${formatNum(p.land)} = ${val}${ages}` +
+      `rTPA = ${formatNum(p.thieves)} ÷ ${formatLand(p.land)} = ${val}${ages}` +
       (ok ? "" : `\n(${tpaStaleReason(p, false, false)})${cached}`)
     );
   }
@@ -1062,7 +1063,7 @@ function tipFor(
       ["overview", p.overview_age],
     ]);
     return (
-      `PPA = ${p.peasants.toLocaleString()} ÷ ${p.land.toLocaleString()} = ${val}${ages}` +
+      `PPA = ${p.peasants.toLocaleString()} ÷ ${formatLand(p.land)} = ${val}${ages}` +
       (ok ? "" : "\n(peasants and land are not from the same tick)")
     );
   }
@@ -1216,7 +1217,7 @@ function tipFor(
           ],
         )}${cached}`;
       }
-      return `rWPA = ${formatNum(p.wizards)} ÷ ${formatNum(p.land)} = ${(p.wizards / p.land).toFixed(2)}\n(direct from throne/self-intel)${metricAgeLine(
+      return `rWPA = ${formatNum(p.wizards)} ÷ ${formatLand(p.land)} = ${(p.wizards / p.land).toFixed(2)}\n(direct from throne/self-intel)${metricAgeLine(
         [
           ["wizards", p.resources_age],
           ["overview", p.overview_age],
@@ -1253,7 +1254,7 @@ function tipFor(
       );
     }
     const rwpa = w / p.land;
-    return `wizards ≈ (${formatNum(p.networth)} NW residual) ÷ ${NW_PER_WIZARD} = ${Math.round(w).toLocaleString()}\nrWPA = ${Math.round(w).toLocaleString()} ÷ ${formatNum(p.land)} = ${rwpa.toFixed(2)}${metricAgeLine(
+    return `wizards ≈ (${formatNum(p.networth)} NW residual) ÷ ${NW_PER_WIZARD} = ${Math.round(w).toLocaleString()}\nrWPA = ${Math.round(w).toLocaleString()} ÷ ${formatLand(p.land)} = ${rwpa.toFixed(2)}${metricAgeLine(
       [
         ["infiltrate", p.thieves_age],
         ["overview", p.overview_age],
@@ -1492,8 +1493,7 @@ function cellValue(p: ProvinceRow, key: ColKey): React.ReactNode {
         p.earliest_return != null ? adjustEta(p.earliest_return, srcAge) : null;
       return (
         <span className="font-mono text-xs">
-          {out}✦
-          {p.land_incoming ? ` +${p.land_incoming.toLocaleString()}a` : ""}
+          {out}✦{p.land_incoming ? ` +${formatLand(p.land_incoming)}` : ""}
           {eta != null ? (eta > 0 ? ` ${eta.toFixed(1)}d` : " ret?") : ""}
         </span>
       );
@@ -1515,7 +1515,7 @@ function cellValue(p: ProvinceRow, key: ColKey): React.ReactNode {
         "—"
       );
     case "land":
-      return p.land != null ? p.land.toLocaleString() : "—";
+      return formatLand(p.land);
     case "networth":
       return formatNum(p.networth);
     case "hit_status":

@@ -59,6 +59,11 @@ export function formatNum(n: number | null | undefined): string {
   return n.toLocaleString();
 }
 
+export function formatLand(n: number | null | undefined): string {
+  if (n == null) return "—";
+  return `${n.toLocaleString()}a`;
+}
+
 export function formatExactNum(
   n: number | null | undefined,
   maximumFractionDigits = 4,
