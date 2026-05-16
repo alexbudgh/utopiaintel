@@ -260,6 +260,35 @@ async function mysqlUpdateMetricsCache(
 
   type EV = import("mysql2").ExecuteValues;
 
+  // ── PPA ──────────────────────────────────────────────────────────────────
+  interface PpaRow extends RowDataPacket {
+    peasants: number;
+    land: number;
+    age: string;
+  }
+  const ppaP: unknown[] = [provinceId, keyHash];
+  const [[ppaRow]] = await pool.execute<PpaRow[]>(
+    `
+    SELECT pt.peasants, po.land, pt.received_at AS age
+    FROM province_troops pt
+    JOIN province_overview po
+      ON po.province_id = pt.province_id AND po.key_hash = pt.key_hash
+      AND po.land > 0 AND ${SAME_TICK("pt.received_at", "po.received_at")}
+    WHERE pt.province_id = ? AND pt.key_hash = ?
+      AND pt.source IN ('sot','throne') AND pt.peasants IS NOT NULL
+      AND ${wc("pt", ppaP)} AND ${wc("po", ppaP)}
+    ORDER BY pt.received_at DESC LIMIT 1
+  `,
+    ppaP as EV,
+  );
+
+  let cached_ppa: number | null = null,
+    cached_ppa_age: string | null = null;
+  if (ppaRow) {
+    cached_ppa = rawPerAcreValue(ppaRow.peasants, ppaRow.land);
+    cached_ppa_age = ppaRow.age;
+  }
+
   // ── rTPA ─────────────────────────────────────────────────────────────────
   interface RtpaRow extends RowDataPacket {
     thieves: number;
@@ -559,6 +588,7 @@ async function mysqlUpdateMetricsCache(
   // ── Persist ───────────────────────────────────────────────────────────────
   await pool.execute(
     `UPDATE provinces SET
+      cached_ppa=COALESCE(?, cached_ppa), cached_ppa_age=COALESCE(?, cached_ppa_age),
       cached_rtpa=COALESCE(?, cached_rtpa), cached_rtpa_age=COALESCE(?, cached_rtpa_age),
       cached_mtpa=COALESCE(?, cached_mtpa), cached_mtpa_age=COALESCE(?, cached_mtpa_age),
       cached_otpa=COALESCE(?, cached_otpa), cached_otpa_age=COALESCE(?, cached_otpa_age),
@@ -567,6 +597,8 @@ async function mysqlUpdateMetricsCache(
       cached_mwpa=COALESCE(?, cached_mwpa), cached_mwpa_age=COALESCE(?, cached_mwpa_age)
     WHERE id=?`,
     [
+      cached_ppa,
+      cached_ppa_age,
       cached_rtpa,
       cached_rtpa_age,
       cached_mtpa,
@@ -3346,6 +3378,7 @@ export async function getKingdomProvinces(
            (SELECT ls.slot FROM latest_slot ls WHERE ls.kingdom = p.kingdom AND ls.name = p.name) AS slot,
            ${OVERVIEW_RACE_SQL}, ${OVERVIEW_PERS_SQL}, ${OVERVIEW_HONOR_SQL},
            po.land, po.networth, po.received_at AS overview_age, po.source AS overview_source,
+           p.cached_ppa, p.cached_ppa_age,
            p.cached_rtpa, p.cached_rtpa_age,
            p.cached_mtpa, p.cached_mtpa_age,
            p.cached_otpa, p.cached_otpa_age,

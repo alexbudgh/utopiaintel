@@ -2281,6 +2281,8 @@ export interface ProvinceRow {
   som_armies_json: string | null;
   throne_armies_json: string | null;
   armies_out_json: string | null;
+  cached_ppa?: number | null;
+  cached_ppa_age?: string | null;
   cached_rtpa?: number | null;
   cached_rtpa_age?: string | null;
   cached_mtpa?: number | null;

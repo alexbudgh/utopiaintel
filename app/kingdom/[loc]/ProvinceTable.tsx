@@ -472,7 +472,7 @@ function sortValueFor(p: ProvinceRow, key: SortKey): number | string | null {
     case "pop_pct":
       return computePopPct(p)?.pct ?? null;
     case "ppa":
-      return computePpa(p);
+      return displayedMetricValue(p, "ppa");
     case "guild_pct":
       return p.guilds_built != null && p.land ? p.guilds_built / p.land : null;
     case "ritual_cost":
@@ -735,13 +735,15 @@ function tpaStaleReason(
   return `${reason}: ${metricAgeSummary(entries)}`;
 }
 
-type MetricKey = "rtpa" | "mtpa" | "otpa" | "dtpa" | "rwpa" | "mwpa";
+type MetricKey = "ppa" | "rtpa" | "mtpa" | "otpa" | "dtpa" | "rwpa" | "mwpa";
 
 function cachedMetric(
   p: ProvinceRow,
   key: MetricKey,
 ): { value: number | null | undefined; age: string | null | undefined } {
   switch (key) {
+    case "ppa":
+      return { value: p.cached_ppa, age: p.cached_ppa_age };
     case "rtpa":
       return { value: p.cached_rtpa, age: p.cached_rtpa_age };
     case "mtpa":
@@ -820,6 +822,7 @@ function metricFallbackCell(p: ProvinceRow, key: MetricKey): React.ReactNode {
 
 function metricKeyForColumn(key: ColKey): MetricKey | null {
   switch (key) {
+    case "ppa":
     case "rtpa":
     case "mtpa":
     case "otpa":
@@ -834,6 +837,8 @@ function metricKeyForColumn(key: ColKey): MetricKey | null {
 
 function liveMetricValue(p: ProvinceRow, key: MetricKey): number | null {
   switch (key) {
+    case "ppa":
+      return computePpa(p);
     case "rtpa":
       return computeRtpa(p);
     case "mtpa":
@@ -1056,16 +1061,20 @@ function tipFor(
     );
   }
   if (key === "ppa") {
-    if (p.peasants == null || !p.land) return "No peasants or land data";
+    if (p.peasants == null || !p.land) {
+      const cached = includeLastValid ? metricLastValidLine(p, "ppa") : "";
+      return `No peasants or land data${cached}`;
+    }
     const ok = sameTick(p.troops_age, p.overview_age);
     const val = ok ? (computePpa(p)?.toFixed(2) ?? "—") : "—";
+    const cached = includeLastValid && !ok ? metricLastValidLine(p, "ppa") : "";
     const ages = metricAgeLine([
       ["peasants", p.troops_age],
       ["overview", p.overview_age],
     ]);
     return (
       `PPA = ${p.peasants.toLocaleString()} ÷ ${formatLand(p.land)} = ${val}${ages}` +
-      (ok ? "" : "\n(peasants and land are not from the same tick)")
+      (ok ? "" : `\n(peasants and land are not from the same tick)${cached}`)
     );
   }
   if (key === "mtpa") {
@@ -1611,7 +1620,7 @@ function cellValue(p: ProvinceRow, key: ColKey): React.ReactNode {
     }
     case "ppa": {
       const v = computePpa(p);
-      return v != null ? v.toFixed(2) : "—";
+      return v != null ? v.toFixed(2) : metricFallbackCell(p, "ppa");
     }
     case "guild_pct": {
       if (p.guilds_built == null || !p.land) return "—";

@@ -33,6 +33,8 @@ export async function initDb(): Promise<void> {
       name VARCHAR(255) NOT NULL,
       kingdom VARCHAR(64) NOT NULL,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      cached_ppa DOUBLE,
+      cached_ppa_age DATETIME,
       cached_rtpa DOUBLE,
       cached_rtpa_age DATETIME,
       cached_mtpa DOUBLE,
