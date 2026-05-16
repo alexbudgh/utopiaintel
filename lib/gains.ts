@@ -1,4 +1,4 @@
-import type { ProvinceRow } from "@/lib/db";
+import type { ProvinceRow } from "@/lib/db-types";
 
 export interface TraditionalMarchEstimate {
   rawAcres: number;

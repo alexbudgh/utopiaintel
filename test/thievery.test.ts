@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { computeCell, NIGHT_STRIKE_UNITS, OPS } from "../lib/thievery";
-import type { ProvinceRow } from "../lib/db";
+import type { ProvinceRow } from "../lib/db-types";
 import { assertApprox } from "./helpers";
 
 function makeProvince(overrides: Partial<ProvinceRow>): ProvinceRow {

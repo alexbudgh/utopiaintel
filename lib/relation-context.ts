@@ -1,4 +1,4 @@
-import type { KingdomSnapshot } from "@/lib/db";
+import type { KingdomSnapshot } from "@/lib/db-types";
 
 export interface RelationContext {
   location: string;

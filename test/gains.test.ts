@@ -13,7 +13,7 @@ import {
   siegeScienceFactor,
   warMinimumGainsFloor,
 } from "../lib/gains";
-import type { ProvinceRow } from "../lib/db";
+import type { ProvinceRow } from "../lib/db-types";
 
 function makeProvince(overrides: Partial<ProvinceRow>): ProvinceRow {
   return {

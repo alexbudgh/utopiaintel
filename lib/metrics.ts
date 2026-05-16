@@ -1,5 +1,5 @@
 import { sameTick } from "./ui";
-import type { ProvinceRow } from "./db";
+import type { ProvinceRow } from "./db-types";
 import { computeWizardCount } from "./nw";
 
 // Pure metric value helpers. Callers are responsible for ensuring their inputs

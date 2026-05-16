@@ -12,7 +12,7 @@ import {
 } from "recharts";
 import type { TooltipContentProps } from "recharts/types/component/Tooltip";
 import type { Payload } from "recharts/types/component/DefaultTooltipContent";
-import type { ProvinceHistoryPoint } from "@/lib/db";
+import type { ProvinceHistoryPoint } from "@/lib/db-types";
 import { formatNum } from "@/lib/ui";
 
 type MetricKey = keyof Omit<

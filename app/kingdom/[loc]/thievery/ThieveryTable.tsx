@@ -9,7 +9,7 @@ import {
   btnInactive,
 } from "../KingdomTabs";
 import { Tooltip } from "@/app/components/Tooltip";
-import type { ProvinceRow } from "@/lib/db";
+import type { ProvinceRow } from "@/lib/db-types";
 import type { GainsPageData } from "@/lib/gains-page";
 import { OPS, computeCell, type Op, type CellResult } from "@/lib/thievery";
 import {

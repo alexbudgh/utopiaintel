@@ -58,7 +58,7 @@ import type {
   IncomingProvinceEvent,
   IncomingDamageProvinceStat,
   IncomingDamageStats,
-} from "./db";
+} from "./db-types";
 
 // ── Named-param helper ───────────────────────────────────────────────────────
 // Converts `:name` placeholders to `?` and collects values in order.

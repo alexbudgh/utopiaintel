@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Tooltip, toneClass, type TooltipLine } from "@/app/components/Tooltip";
-import type { ProvinceRow } from "@/lib/db";
+import type { ProvinceRow } from "@/lib/db-types";
 import {
   formatAgeWithLocalTimestamp,
   freshnessColor,

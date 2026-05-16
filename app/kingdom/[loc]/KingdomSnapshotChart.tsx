@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { KingdomSnapshotHistoryPoint } from "@/lib/db";
+import type { KingdomSnapshotHistoryPoint } from "@/lib/db-types";
 import { formatNum, formatTimestamp } from "@/lib/ui";
 
 type MetricKey = "totalNetworth" | "totalLand" | "totalHonor";

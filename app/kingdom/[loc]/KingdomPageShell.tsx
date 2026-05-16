@@ -1,5 +1,9 @@
 import type { ReactNode } from "react";
-import type { KingdomDragon, KingdomRitual, KingdomSnapshot } from "@/lib/db";
+import type {
+  KingdomDragon,
+  KingdomRitual,
+  KingdomSnapshot,
+} from "@/lib/db-types";
 import type { RelationContext } from "@/lib/relation-context";
 import { KingdomHeader } from "./KingdomHeader";
 

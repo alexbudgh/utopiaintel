@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { formatLocalDate, formatLocalTimestamp, timeAgo } from "@/lib/ui";
-import type { RecentOp } from "@/lib/db";
+import type { RecentOp } from "@/lib/db-types";
 import { Tooltip } from "@/app/components/Tooltip";
 
 const OP_COLORS: Record<string, string> = {

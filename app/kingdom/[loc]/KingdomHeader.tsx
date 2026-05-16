@@ -2,7 +2,11 @@ import Link from "next/link";
 import { HeaderActions } from "@/app/components/HeaderActions";
 import { KingdomRelations } from "@/app/components/KingdomRelations";
 import { Tooltip, type TooltipLine } from "@/app/components/Tooltip";
-import type { KingdomDragon, KingdomRitual, KingdomSnapshot } from "@/lib/db";
+import type {
+  KingdomDragon,
+  KingdomRitual,
+  KingdomSnapshot,
+} from "@/lib/db-types";
 import type { RelationContext } from "@/lib/relation-context";
 import { getKingdomTitleDetails } from "@/lib/kingdom-recognition";
 import { timeAgo } from "@/lib/ui";

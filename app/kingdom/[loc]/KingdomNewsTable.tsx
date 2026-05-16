@@ -19,7 +19,7 @@ import {
   Legend,
 } from "recharts";
 import { Tooltip as UiTooltip } from "@/app/components/Tooltip";
-import type { KingdomNewsRow, KingdomNewsSummary } from "@/lib/db";
+import type { KingdomNewsRow, KingdomNewsSummary } from "@/lib/db-types";
 import { parseUtopiaDate } from "@/lib/ui";
 import { UtopiaDateRangeFilter } from "./UtopiaDateRangeFilter";
 

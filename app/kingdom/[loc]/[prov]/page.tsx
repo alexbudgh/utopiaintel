@@ -16,7 +16,7 @@ import { BAD_SPELL_NAMES } from "@/lib/effects";
 import { computeAmbushRawOff } from "@/lib/ambush";
 import { estimatePop } from "@/lib/population";
 import { overpopulationTone } from "@/lib/overpopulation";
-import type { ArmyRow, BuildingRow, ScienceRow } from "@/lib/db";
+import type { ArmyRow, BuildingRow, ScienceRow } from "@/lib/db-types";
 import AutoRefresh from "./AutoRefresh";
 import { ProvinceNewsTable } from "./ProvinceNewsTable";
 

@@ -6,7 +6,7 @@ import type {
   KingdomRitual,
   KingdomSnapshot,
   ProvinceRow,
-} from "@/lib/db";
+} from "@/lib/db-types";
 import type { RelationContext } from "@/lib/relation-context";
 import { KingdomPageShell } from "./KingdomPageShell";
 

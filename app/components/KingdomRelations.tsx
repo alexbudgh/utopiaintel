@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Tooltip } from "@/app/components/Tooltip";
-import type { KingdomSnapshot } from "@/lib/db";
+import type { KingdomSnapshot } from "@/lib/db-types";
 import type { RelationContext } from "@/lib/relation-context";
 
 function formatRelationPoints(points: number | null): string {

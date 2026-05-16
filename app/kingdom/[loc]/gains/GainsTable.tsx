@@ -4,7 +4,7 @@ import Link from "next/link";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { KingdomViewShell, btnBase, btnInactive } from "../KingdomTabs";
 import { Tooltip, type TooltipLine } from "@/app/components/Tooltip";
-import type { KingdomSnapshotProvince, ProvinceRow } from "@/lib/db";
+import type { KingdomSnapshotProvince, ProvinceRow } from "@/lib/db-types";
 import {
   ATTACK_TIME_SCALING,
   estimateBreakability,

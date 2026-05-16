@@ -1,4 +1,4 @@
-import type { ProvinceRow } from "@/lib/db";
+import type { ProvinceRow } from "@/lib/db-types";
 
 export type Op = "vaults" | "granaries" | "towers" | "night_strike";
 export type ResourceOp = Exclude<Op, "night_strike">;
