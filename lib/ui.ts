@@ -124,6 +124,11 @@ export function formatLocalTimestamp(iso: string | null): string {
   });
 }
 
+export function formatAgeWithLocalTimestamp(iso: string | null): string {
+  if (!iso) return "—";
+  return `${timeAgo(iso)} · ${formatLocalTimestamp(iso)}`;
+}
+
 export function formatLocalDate(iso: string | null): string {
   if (!iso) return "Unknown date";
   const d = new Date(iso.replace(" ", "T") + "Z");

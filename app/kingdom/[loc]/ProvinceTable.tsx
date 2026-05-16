@@ -6,13 +6,12 @@ import Link from "next/link";
 import { Tooltip, toneClass, type TooltipLine } from "@/app/components/Tooltip";
 import type { ProvinceRow } from "@/lib/db";
 import {
+  formatAgeWithLocalTimestamp,
   freshnessColor,
   formatLand,
-  formatLocalTimestamp,
   formatNetworth,
   formatNum,
   timeAgo,
-  formatTimestamp,
   sameTick,
   fullValueTooltip,
   parseUtc,
@@ -712,9 +711,7 @@ function sourceFor(p: ProvinceRow, key: ColKey): string | null {
 function metricAgeSummary(entries: Array<[string, string | null]>): string {
   return entries
     .map(([label, age]) =>
-      age
-        ? `${label} ${timeAgo(age)} · ${formatLocalTimestamp(age)}`
-        : `${label} missing`,
+      age ? `${label} ${formatAgeWithLocalTimestamp(age)}` : `${label} missing`,
     )
     .join(", ");
 }
@@ -929,7 +926,7 @@ function tipFor(
     return [
       { text: "Intel ages", tone: "strong" },
       ...entries.map(({ label, age }) => ({
-        text: `${label}: ${timeAgo(age)} · ${formatTimestamp(age)}`,
+        text: `${label}: ${formatAgeWithLocalTimestamp(age)}`,
         tone: freshnessToTone(age),
       })),
     ];
@@ -1017,12 +1014,12 @@ function tipFor(
         {p.som_age && (
           <div
             className={`mt-1 text-xs ${toneClass(freshnessToTone(p.som_age))}`}
-          >{`som: ${timeAgo(p.som_age)} · ${formatTimestamp(p.som_age)}`}</div>
+          >{`som: ${formatAgeWithLocalTimestamp(p.som_age)}`}</div>
         )}
         {p.throne_age && (
           <div
             className={`mt-0.5 text-xs ${toneClass(freshnessToTone(p.throne_age))}`}
-          >{`throne: ${timeAgo(p.throne_age)} · ${formatTimestamp(p.throne_age)}`}</div>
+          >{`throne: ${formatAgeWithLocalTimestamp(p.throne_age)}`}</div>
         )}
       </div>
     );
@@ -1032,9 +1029,7 @@ function tipFor(
     if (p.good_spell_details)
       lines.push(p.good_spell_details.split(" | ").join(", "));
     if (p.effects_age)
-      lines.push(
-        `throne: ${timeAgo(p.effects_age)} · ${formatTimestamp(p.effects_age)}`,
-      );
+      lines.push(`throne: ${formatAgeWithLocalTimestamp(p.effects_age)}`);
     return lines.length ? lines.join("\n") : "No active good spell data";
   }
   if (key === "bad_spells") {
@@ -1042,9 +1037,7 @@ function tipFor(
     if (p.bad_spell_details)
       lines.push(p.bad_spell_details.split(" | ").join(", "));
     if (p.effects_age)
-      lines.push(
-        `throne: ${timeAgo(p.effects_age)} · ${formatTimestamp(p.effects_age)}`,
-      );
+      lines.push(`throne: ${formatAgeWithLocalTimestamp(p.effects_age)}`);
     return lines.length ? lines.join("\n") : "No active bad spell data";
   }
   if (key === "rtpa") {
@@ -1392,9 +1385,7 @@ function tipFor(
   const age = ageFor(p, key);
   const source = sourceFor(p, key);
   if (!age) return "";
-  return [source, timeAgo(age), formatTimestamp(age)]
-    .filter(Boolean)
-    .join(" · ");
+  return [source, formatAgeWithLocalTimestamp(age)].filter(Boolean).join(" · ");
 }
 
 function roundedValueTipFor(p: ProvinceRow, key: ColKey): string | null {
