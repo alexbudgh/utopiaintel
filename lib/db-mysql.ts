@@ -1901,6 +1901,7 @@ export async function getRecentOps(
     detail_value: number | null;
     detail_kind: string | null;
     slot: number | null;
+    submitter_slot: number | null;
   }
 
   const sinceClause = since ? "WHERE received_at > :since" : "";
@@ -2025,7 +2026,12 @@ export async function getRecentOps(
     )
     SELECT op_type, op_category, received_at, saved_by, province_name, kingdom,
            actor_name, actor_kingdom, outcome, summary, detail_value, detail_kind,
-           (SELECT ls.slot FROM latest_slot ls WHERE ls.kingdom = ops.kingdom AND ls.name = ops.province_name) AS slot
+           (SELECT ls.slot FROM latest_slot ls WHERE ls.kingdom = ops.kingdom AND ls.name = ops.province_name) AS slot,
+           (
+             SELECT CASE WHEN COUNT(DISTINCT ls.slot) = 1 THEN MIN(ls.slot) ELSE NULL END
+             FROM latest_slot ls
+             WHERE ls.name = ops.saved_by
+           ) AS submitter_slot
     FROM ops
     ${sinceClause}
     ORDER BY received_at DESC

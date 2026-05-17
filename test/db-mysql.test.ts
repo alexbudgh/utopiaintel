@@ -1857,6 +1857,17 @@ test("getRecentOps: returns a SoT op after storeSoT", async () => {
   assert.equal(ops[0].outcome, "success");
 });
 
+test("getRecentOps: includes submitter slot when known", async () => {
+  await truncateAll();
+  await storeKingdom(baseKingdom, "scout1", "keyhash1", "2025-06-01 11:00:00");
+  await storeSoT(baseSoT, "ProvB", "keyhash1", false, "2025-06-01 12:00:00");
+
+  const ops = await getRecentOps("keyhash1");
+  assert.equal(ops.length, 1);
+  assert.equal(ops[0].saved_by, "ProvB");
+  assert.equal(ops[0].submitter_slot, 2);
+});
+
 test("getRecentOps: returns a SoM op after storeSoM", async () => {
   await truncateAll();
   await storeSoM(baseSoM, "scout1", "keyhash1", false, "2025-06-01 12:00:00");

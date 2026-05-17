@@ -70,6 +70,7 @@ export interface RecentOp {
   detail_value: number | null;
   detail_kind: string | null;
   slot: number | null;
+  submitter_slot: number | null;
 }
 
 export interface ProvinceRow {

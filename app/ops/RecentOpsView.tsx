@@ -121,6 +121,10 @@ function isUnknownProvinceName(name: string): boolean {
   return name === "Unknown" || name === "Unknown province";
 }
 
+function formatProvinceWithSlot(name: string, slot: number | null): string {
+  return slot == null ? name : `#${slot} ${name}`;
+}
+
 export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
   const [ops, setOps] = useState(initialOps);
   const [newKeys, setNewKeys] = useState<Set<string>>(new Set());
@@ -155,10 +159,24 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
     [ops],
   );
   const senders = useMemo(() => {
-    const names = [
-      ...new Set(ops.map((op) => op.saved_by).filter((v): v is string => !!v)),
-    ].sort();
-    return ops.some((op) => !op.saved_by) ? [UNKNOWN_FILTER, ...names] : names;
+    const byName = new Map<string, number | null>();
+    for (const op of ops) {
+      if (!op.saved_by) continue;
+      const existing = byName.get(op.saved_by);
+      if (existing === undefined) {
+        byName.set(op.saved_by, op.submitter_slot);
+      } else if (existing !== op.submitter_slot) {
+        byName.set(op.saved_by, null);
+      }
+    }
+    const names = [...byName.keys()].sort();
+    const options = names.map((name) => ({
+      name,
+      slot: byName.get(name) ?? null,
+    }));
+    return ops.some((op) => !op.saved_by)
+      ? [{ name: UNKNOWN_FILTER, slot: null }, ...options]
+      : options;
   }, [ops]);
   const hasOutcomes = useMemo(() => ops.some((op) => op.outcome), [ops]);
 
@@ -196,6 +214,8 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
         op.detail_kind ?? "",
         op.detail_value != null ? String(op.detail_value) : "",
         op.saved_by ?? "",
+        op.submitter_slot != null ? `#${op.submitter_slot}` : "",
+        op.submitter_slot != null ? String(op.submitter_slot) : "",
         op.slot != null ? `#${op.slot}` : "",
         op.slot != null ? String(op.slot) : "",
       ].some((value) => value.toLowerCase().includes(q));
@@ -350,8 +370,10 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
         >
           <option value={ALL_FILTER}>All submitters</option>
           {senders.map((sender) => (
-            <option key={sender} value={sender}>
-              {sender === UNKNOWN_FILTER ? "Unknown submitter" : sender}
+            <option key={sender.name} value={sender.name}>
+              {sender.name === UNKNOWN_FILTER
+                ? "Unknown submitter"
+                : formatProvinceWithSlot(sender.name, sender.slot)}
             </option>
           ))}
         </select>
@@ -534,7 +556,18 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
                       className="rounded px-1 py-0.5 text-gray-400 transition-colors hover:bg-gray-800 hover:text-gray-200"
                       title={`Filter to ${op.saved_by ?? "unknown submitter"}`}
                     >
-                      {op.saved_by ?? <span className="text-gray-600">—</span>}
+                      {op.saved_by ? (
+                        <>
+                          {op.submitter_slot != null && (
+                            <span className="mr-1 text-gray-600 tabular-nums">
+                              #{op.submitter_slot}
+                            </span>
+                          )}
+                          {op.saved_by}
+                        </>
+                      ) : (
+                        <span className="text-gray-600">—</span>
+                      )}
                     </button>
                   </td>
                   <td className="py-2 text-right text-gray-500 text-[12px] tabular-nums">
