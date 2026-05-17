@@ -30,8 +30,8 @@ export function formatUtopiaDate(ord: number): string {
   return `${UTOPIA_MONTHS[monthIdx]} ${day} of YR${year}`;
 }
 
-// SQLite datetime('now') produces "YYYY-MM-DD HH:MM:SS" without timezone —
-// treat as UTC by normalising to an ISO 8601 string with Z suffix.
+// Stored DB timestamps use "YYYY-MM-DD HH:MM:SS" without timezone; treat them
+// as UTC by normalising to an ISO 8601 string with Z suffix.
 export function parseUtc(iso: string): number {
   return new Date(iso.replace(" ", "T") + "Z").getTime();
 }

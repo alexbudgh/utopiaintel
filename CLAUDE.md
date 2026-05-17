@@ -73,7 +73,7 @@ Do not store real province names, kingdom names, or player names in source code,
 ## Code style
 
 - Prefer reusing existing utilities over duplicating logic. For example, use `parseUtc` from `lib/ui.ts` wherever stored UTC timestamps need parsing, rather than reimplementing the `replace(" ", "T") + "Z"` pattern inline.
-- Add tests when adding features or fixing bugs to prevent regressions. Aim for good coverage — test the happy path, edge cases, and any tricky conditions that motivated the change. New DB query functions should be added to `createDbApi` so they can be tested via `withRealDb` in `test/db.test.ts`.
+- Add tests when adding features or fixing bugs to prevent regressions. Aim for good coverage — test the happy path, edge cases, and any tricky conditions that motivated the change. New DB query functions should be exercised through the MySQL integration suite in `test/db-mysql.test.ts`, using `utopiaintel_test`.
 
 ## Implementation notes
 

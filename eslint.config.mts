@@ -49,7 +49,7 @@ export default defineConfig([
     },
   },
   {
-    files: ["lib/db.ts", "lib/db-mysql.ts", "lib/db-mysql-pool.ts", "test/**/*.ts"],
+    files: ["lib/db-mysql.ts", "lib/db-mysql-pool.ts", "test/**/*.ts"],
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
     },

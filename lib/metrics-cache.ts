@@ -1,5 +1,4 @@
-// Shared metrics cache refresh queue infrastructure.
-// db.ts (SQLite) has its own inline copy; this is used by db-mysql.ts.
+// Shared metrics cache refresh queue infrastructure for MySQL writes.
 
 const BATCH_DELAY_MS = 250;
 const CHUNK_SIZE = 5;

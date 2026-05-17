@@ -133,8 +133,8 @@ function normalizeRealDateTime(value: string | undefined): string | null {
 
 // latestSlotCte uses :keyHash (and optionally :kingdom) — callers pass through n().
 // Inner subquery is non-correlated (GROUP BY location, slot) so the optimizer can
-// compute it once rather than once per outer row. When a kingdom filter is present,
-// both outer and inner are scoped to that kingdom, matching the SQLite behaviour.
+// compute it once rather than once per outer row. When a kingdom filter is
+// present, both outer and inner are scoped to that kingdom.
 const latestSlotCte = (extraWhere = "") => {
   const kingdomKnown = extraWhere.includes(":kingdom");
   const innerWhere = kingdomKnown ? "AND ki2.location = :kingdom" : "";

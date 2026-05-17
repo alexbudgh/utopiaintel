@@ -34,14 +34,14 @@ is not enough to reconstruct them.
 ## Province Identity
 
 Province identity is stored in the `provinces` table. The stable application
-identity is the `(name, kingdom)` pair, and SQLite assigns the integer `id` when
+identity is the `(name, kingdom)` pair, and MySQL assigns the integer `id` when
 that pair is first inserted.
 
-Most province-scoped writes call `ensureProvince(db, name, kingdom)` before
-storing intel. It performs:
+Most province-scoped writes call `ensureProvince(name, kingdom)` before storing
+intel. It performs:
 
 ```sql
-INSERT OR IGNORE INTO provinces (name, kingdom) VALUES (?, ?);
+INSERT IGNORE INTO provinces (name, kingdom) VALUES (?, ?);
 SELECT id FROM provinces WHERE name = ? AND kingdom = ?;
 ```
 
@@ -145,12 +145,11 @@ same-tick source rows are not currently reconstructable from retained history.
 Those cache values are produced by `updateMetricsCache()`.
 
 CPU profiles from production-like runs showed occasional spikes dominated by
-synchronous SQLite `Statement#get` calls inside `updateMetricsCache()`, especially
-when called from SoS and sorcery/resource writes. The expensive work is not
-React rendering or recent-ops polling; it is same-tick metric reconstruction
-queries joining historical source tables such as `province_resources`,
-`province_overview`, `sos_intel`, `sos_sciences`, `survey_intel`,
-`survey_buildings`, and `province_troops`.
+same-tick metric reconstruction inside `updateMetricsCache()`, especially when
+called from SoS and sorcery/resource writes. The expensive work is not React
+rendering or recent-ops polling; it is queries joining historical source tables
+such as `province_resources`, `province_overview`, `sos_intel`, `sos_sciences`,
+`survey_intel`, `survey_buildings`, and `province_troops`.
 
 Coalescing refreshes by `(province_id, key_hash)` can reduce duplicate work
 during bursts because several writes for the same province collapse into one

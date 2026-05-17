@@ -345,7 +345,7 @@ function createMysqlDbApi(): AsyncDbApi {
 }
 
 // ── Factory ──────────────────────────────────────────────────────────────────
-// Runtime storage is MySQL-only. Legacy SQLite tests import lib/db.ts directly.
+// Runtime storage is MySQL-only.
 
 export function getDbApi(): AsyncDbApi {
   if (process.env.DB_DRIVER && process.env.DB_DRIVER !== "mysql") {
