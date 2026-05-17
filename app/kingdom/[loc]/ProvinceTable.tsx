@@ -708,16 +708,18 @@ function sourceFor(p: ProvinceRow, key: ColKey): string | null {
   return p.overview_source;
 }
 
-function metricAgeSummary(entries: Array<[string, string | null]>): string {
+function metricAgeBullets(entries: Array<[string, string | null]>): string {
   return entries
     .map(([label, age]) =>
-      age ? `${label} ${formatAgeWithLocalTimestamp(age)}` : `${label} missing`,
+      age
+        ? `- ${label}: ${formatAgeWithLocalTimestamp(age)}`
+        : `- ${label}: missing`,
     )
-    .join(", ");
+    .join("\n");
 }
 
 function metricAgeLine(entries: Array<[string, string | null]>): string {
-  return `\nCurrent data: ${metricAgeSummary(entries)}`;
+  return `\nCurrent data:\n${metricAgeBullets(entries)}`;
 }
 
 function tpaStaleReason(
@@ -734,7 +736,7 @@ function tpaStaleReason(
   const reason = entries.some(([, age]) => !age)
     ? "current data is missing required inputs"
     : "current data is not from the same tick";
-  return `${reason}: ${metricAgeSummary(entries)}`;
+  return `${reason}:\n${metricAgeBullets(entries)}`;
 }
 
 type MetricKey = "ppa" | "rtpa" | "mtpa" | "otpa" | "dtpa" | "rwpa" | "mwpa";
@@ -1205,7 +1207,7 @@ function tipFor(
       const ok = sameTick(p.resources_age, p.overview_age);
       if (!ok) {
         const cached = includeLastValid ? metricLastValidLine(p, "rwpa") : "";
-        return `Current wizard and land data is not from the same tick: ${metricAgeSummary(
+        return `Current wizard and land data is not from the same tick:\n${metricAgeBullets(
           [
             ["wizards", p.resources_age],
             ["overview", p.overview_age],
@@ -1234,7 +1236,7 @@ function tipFor(
     const w = ok ? computeWizardCount(p) : null;
     if (w == null) {
       const cached = includeLastValid ? metricLastValidLine(p, "rwpa") : "";
-      const detail = metricAgeSummary([
+      const detail = metricAgeBullets([
         ["infiltrate", p.thieves_age],
         ["overview", p.overview_age],
         ["troops (SoT)", p.troops_age],
@@ -1245,7 +1247,7 @@ function tipFor(
       return (
         (ok
           ? "Current data is missing SoT/SoS/Survey/Infiltrate inputs"
-          : `Current data is not from the same tick: ${detail}`) + cached
+          : `Current data is not from the same tick:\n${detail}`) + cached
       );
     }
     const rwpa = w / p.land;
@@ -1309,7 +1311,7 @@ function tipFor(
             ]
           : []),
       ];
-      const lines = `Current WPA data is not from the same tick: ${metricAgeSummary(
+      const lines = `Current WPA data is not from the same tick:\n${metricAgeBullets(
         [
           ["wizards", p.resources_age],
           ["overview", p.overview_age],
