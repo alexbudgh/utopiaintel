@@ -239,11 +239,15 @@ export function ThieveryTable({
   const headerScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    if (!data.targetKingdom) return;
     const id = setInterval(async () => {
       const res = await fetch(
         `/api/kingdom/${encodeURIComponent(data.targetKingdom)}/thievery`,
       );
-      if (res.ok) setData(await res.json());
+      if (res.ok) {
+        const next = await res.json();
+        if (next.targetKingdom) setData(next);
+      }
     }, 30_000);
     return () => clearInterval(id);
   }, [data.targetKingdom]);

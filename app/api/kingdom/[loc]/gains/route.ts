@@ -13,6 +13,6 @@ export const GET = withAxiomRouteHandler(
     const kingdom = decodeURIComponent(loc);
     const key = (await cookies()).get("auth")?.value ?? "";
     const keyHash = hashKey(key);
-    return NextResponse.json(getGainsPageData(kingdom, keyHash));
+    return NextResponse.json(await getGainsPageData(kingdom, keyHash));
   },
 );
