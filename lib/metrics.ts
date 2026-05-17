@@ -90,23 +90,22 @@ export function computeMtpaValue(
   race: string | null,
   honorTitle: string | null,
   personality: string | null,
+  thievesDensEffect: number | null,
 ): number | null {
-  if (rtpa == null || crimeEffect == null) return null;
+  if (rtpa == null || crimeEffect == null || thievesDensEffect == null)
+    return null;
   return (
     rtpa *
     (1 + crimeEffect / 100) *
     (1 + tpaRaceEffectValue(race) / 100) *
     (1 + tpaHonorEffectValue(honorTitle, personality) / 100) *
-    (1 + tpaPersonalityEffectValue(personality) / 100)
+    (1 + tpaPersonalityEffectValue(personality) / 100) *
+    (1 + thievesDensEffect / 100)
   );
 }
 
-export function computeOtpaValue(
-  mtpa: number | null,
-  thievesDensEffect: number | null,
-): number | null {
-  if (mtpa == null || thievesDensEffect == null) return null;
-  return mtpa * (1 + thievesDensEffect / 100);
+export function computeOtpaValue(mtpa: number | null): number | null {
+  return mtpa;
 }
 
 export function computeDtpaValue(
@@ -175,21 +174,21 @@ export function computeRtpa(p: ProvinceRow): number | null {
 
 export function computeMtpa(p: ProvinceRow): number | null {
   const rtpa = computeRtpa(p);
-  if (!sameTick(p.thieves_age, p.overview_age, p.sciences_age)) return null;
+  if (!sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age))
+    return null;
   return computeMtpaValue(
     rtpa,
     p.crime_effect,
     p.race,
     p.honor_title,
     p.personality,
+    p.thieves_dens_effect,
   );
 }
 
 export function computeOtpa(p: ProvinceRow): number | null {
   const mtpa = computeMtpa(p);
-  if (!sameTick(p.thieves_age, p.overview_age, p.sciences_age, p.survey_age))
-    return null;
-  return computeOtpaValue(mtpa, p.thieves_dens_effect);
+  return computeOtpaValue(mtpa);
 }
 
 export function computeDtpa(p: ProvinceRow): number | null {

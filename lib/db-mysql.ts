@@ -327,44 +327,8 @@ async function mysqlUpdateMetricsCache(
     crime_effect: number;
     age: string;
   }
-  const mtpaP: unknown[] = [provinceId, keyHash];
-  const [[mtpaRow]] = await pool.execute<MtpaRow[]>(
-    `
-    SELECT pr.thieves, po.land, po.race,
-      COALESCE(po.honor_title, (SELECT po2.honor_title FROM province_overview po2
-        WHERE po2.province_id = pr.province_id AND po2.honor_title IS NOT NULL
-        ORDER BY po2.received_at DESC LIMIT 1)) AS honor_title,
-      COALESCE(po.personality, (SELECT po2.personality FROM province_overview po2
-        WHERE po2.province_id = pr.province_id AND po2.personality IS NOT NULL
-        ORDER BY po2.received_at DESC LIMIT 1)) AS personality,
-      ss.effect AS crime_effect, pr.received_at AS age
-    FROM province_resources pr
-    JOIN province_overview po
-      ON po.province_id = pr.province_id AND po.key_hash = pr.key_hash
-      AND po.land > 0 AND ${SAME_TICK("pr.received_at", "po.received_at")}
-    JOIN sos_intel si ON si.province_id = pr.province_id AND si.key_hash = pr.key_hash
-      AND ${SAME_TICK("pr.received_at", "si.received_at")}
-    JOIN sos_sciences ss ON ss.sos_intel_id = si.id AND ss.science = 'Crime'
-    WHERE pr.province_id = ? AND pr.key_hash = ? AND pr.thieves IS NOT NULL
-      AND ${wc("pr", mtpaP)} AND ${wc("po", mtpaP)} AND ${wc("si", mtpaP)}
-    ORDER BY pr.received_at DESC LIMIT 1
-  `,
-    mtpaP as EV,
-  );
-
   let cached_mtpa: number | null = null,
     cached_mtpa_age: string | null = null;
-  if (mtpaRow) {
-    const rtpa = rawPerAcreValue(mtpaRow.thieves, mtpaRow.land);
-    cached_mtpa = computeMtpaValue(
-      rtpa,
-      mtpaRow.crime_effect,
-      mtpaRow.race,
-      mtpaRow.honor_title,
-      mtpaRow.personality,
-    );
-    cached_mtpa_age = mtpaRow.age;
-  }
 
   // ── oTPA / dTPA ──────────────────────────────────────────────────────────
   interface OdtpaRow extends MtpaRow {
@@ -413,8 +377,11 @@ async function mysqlUpdateMetricsCache(
       odtpaRow.race,
       odtpaRow.honor_title,
       odtpaRow.personality,
+      odtpaRow.thieves_dens_effect,
     );
-    cached_otpa = computeOtpaValue(mtpa, odtpaRow.thieves_dens_effect);
+    cached_mtpa = mtpa;
+    if (cached_mtpa != null) cached_mtpa_age = odtpaRow.age;
+    cached_otpa = computeOtpaValue(mtpa);
     if (cached_otpa != null) cached_otpa_age = odtpaRow.age;
     cached_dtpa = computeDtpaValue(mtpa, odtpaRow.watch_towers_effect);
     if (cached_dtpa != null) cached_dtpa_age = odtpaRow.age;

@@ -246,13 +246,13 @@ const COLUMNS = [
     key: "mtpa",
     label: "mTPA",
     group: "T/M",
-    desc: "Modified TPA = rTPA × Crime × Race × Honor × Personality\nNeeds: rTPA sources + SoS (same tick)",
+    desc: "Modified TPA = rTPA × Crime × Race × Honor × Personality × Thieves' Den\nNeeds: rTPA sources + SoS + Survey (same tick)",
   },
   {
     key: "otpa",
     label: "oTPA",
     group: "T/M",
-    desc: "Offensive TPA = mTPA × Thieves' Den\nNeeds: mTPA sources + Survey (same tick)",
+    desc: "Offensive TPA = mTPA",
   },
   {
     key: "dtpa",
@@ -1085,7 +1085,16 @@ function tipFor(
       const cached = includeLastValid ? metricLastValidLine(p, "mtpa") : "";
       return `rTPA = ${rtpa.toFixed(2)}\nNo Crime science data${cached}`;
     }
-    const ok = sameTick(p.thieves_age, p.overview_age, p.sciences_age);
+    if (p.thieves_dens_effect == null) {
+      const cached = includeLastValid ? metricLastValidLine(p, "mtpa") : "";
+      return `rTPA = ${rtpa.toFixed(2)}\nNo Survey data${cached}`;
+    }
+    const ok = sameTick(
+      p.thieves_age,
+      p.overview_age,
+      p.sciences_age,
+      p.survey_age,
+    );
     const personalityEffect = tpaPersonalityEffect(p);
     const raceEffect = tpaRaceEffect(p);
     const honorEffect = tpaHonorEffect(p);
@@ -1096,6 +1105,7 @@ function tipFor(
       ["infiltrate", p.thieves_age],
       ["overview", p.overview_age],
       ["SoS", p.sciences_age],
+      ["Survey", p.survey_age],
     ]);
     const parts: FormulaPart[] = [
       { text: `mTPA = ${rtpa.toFixed(2)}` },
@@ -1122,12 +1132,16 @@ function tipFor(
             },
           ]
         : []),
+      {
+        text: effectFactorLabel(p.thieves_dens_effect, "Thieves' Den"),
+        effect: p.thieves_dens_effect,
+      },
       { text: ` = ${val}` },
     ];
     return (
       <FormulaTooltip
         parts={parts}
-        lines={`${ages}${ok ? "" : `\n(${tpaStaleReason(p, true, false)})${cached}`}`}
+        lines={`${ages}${ok ? "" : `\n(${tpaStaleReason(p, true, true)})${cached}`}`}
       />
     );
   }
@@ -1137,36 +1151,9 @@ function tipFor(
       const cached = includeLastValid ? metricLastValidLine(p, "otpa") : "";
       return missingDependencyReason("mTPA") + cached;
     }
-    if (p.thieves_dens_effect == null) {
-      const cached = includeLastValid ? metricLastValidLine(p, "otpa") : "";
-      return `mTPA = ${mtpa.toFixed(2)}\nNo Survey data${cached}`;
-    }
-    const ok = sameTick(
-      p.thieves_age,
-      p.overview_age,
-      p.sciences_age,
-      p.survey_age,
-    );
-    const val = ok ? (computeOtpa(p)?.toFixed(2) ?? "—") : "—";
-    const cached =
-      includeLastValid && !ok ? metricLastValidLine(p, "otpa") : "";
-    const ages = metricAgeLine([
-      ["infiltrate", p.thieves_age],
-      ["overview", p.overview_age],
-      ["SoS", p.sciences_age],
-      ["Survey", p.survey_age],
-    ]);
     return (
       <FormulaTooltip
-        parts={[
-          { text: `oTPA = ${mtpa.toFixed(2)}` },
-          {
-            text: effectFactorLabel(p.thieves_dens_effect, "Thieves' Den"),
-            effect: p.thieves_dens_effect,
-          },
-          { text: ` = ${val}` },
-        ]}
-        lines={`${ages}${ok ? "" : `\n(${tpaStaleReason(p, true, true)})${cached}`}`}
+        parts={[{ text: `oTPA = mTPA = ${computeOtpa(p)?.toFixed(2) ?? "—"}` }]}
       />
     );
   }

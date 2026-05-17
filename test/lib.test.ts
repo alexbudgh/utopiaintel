@@ -1,7 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { computeWizardCount, NW_PER_WIZARD, RACE_NW } from "../lib/nw";
-import { computeRwpa } from "../lib/metrics";
+import {
+  computeDtpaValue,
+  computeMtpaValue,
+  computeRwpa,
+} from "../lib/metrics";
 import { computeAmbushRawOff } from "../lib/ambush";
 import { formatNum, fullValueTooltip, parseUtopiaDate } from "../lib/ui";
 import { getRaceByName, normalizeScienceName } from "../lib/game";
@@ -225,6 +229,26 @@ test("computeRwpa — rejects back-calc when SoT troop data is not same-tick", (
   } as any);
 
   assert.equal(result, null);
+});
+
+test("computeMtpaValue — applies Thieves' Dens to modified TPA", () => {
+  const result = computeMtpaValue(10, 0, null, null, null, 20);
+  assert.ok(result != null);
+  assert.ok(Math.abs(result - 12) < 0.0001, `expected 12, got ${result}`);
+});
+
+test("computeMtpaValue — requires Thieves' Dens effect", () => {
+  assert.equal(computeMtpaValue(10, 0, null, null, null, null), null);
+});
+
+test("computeDtpaValue — applies Watch Towers to mTPA", () => {
+  const result = computeDtpaValue(12, 15);
+  assert.ok(result != null);
+  assert.ok(Math.abs(result - 13.8) < 0.0001, `expected 13.8, got ${result}`);
+});
+
+test("computeDtpaValue — requires Watch Towers effect", () => {
+  assert.equal(computeDtpaValue(10, null), null);
 });
 
 test("computeWizardCount — buildings_in_progress add 10 NW over barren land", () => {
