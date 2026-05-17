@@ -4,13 +4,13 @@
 
 `utopiaintel` is a Next.js app for collecting, storing, and browsing Utopia intel.
 It receives submitted game pages at `/api/intel`, parses them into structured data,
-stores them in SQLite, and exposes kingdom- and province-level views for analysis.
+stores them in MySQL, and exposes kingdom- and province-level views for analysis.
 
 Current stack:
 
 - Next.js 16
 - React 19
-- SQLite via `better-sqlite3`
+- MySQL via `mysql2`
 
 ## What It Does
 
@@ -172,7 +172,7 @@ Behavior:
 
 - identifies the intel type from the submitted URL/content
 - parses into structured data
-- stores rows into the appropriate SQLite tables
+- stores rows into the appropriate MySQL tables
 - returns `{ success, parsed, type }`
 - runs TTL cleanup periodically
 

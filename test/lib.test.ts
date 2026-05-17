@@ -466,7 +466,7 @@ test("parseUtopiaDate — returns -1 for invalid month", () => {
 // replay-debug-log helpers
 // ---------------------------------------------------------------------------
 
-test("normalizeReceivedAt normalizes ISO timestamps to sqlite UTC format", () => {
+test("normalizeReceivedAt normalizes ISO timestamps to DB UTC format", () => {
   assert.equal(
     normalizeReceivedAt("2026-04-15T12:34:56.000Z"),
     "2026-04-15 12:34:56",

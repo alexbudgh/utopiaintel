@@ -6,7 +6,6 @@ module.exports = {
       log_date_format: "YYYY-MM-DD HH:mm:ss",
       env: {
         HOSTNAME: "127.0.0.1",
-        INTEL_DB_PATH: "/home/ec2-user/utopiaintel-data/intel.db",
         DB_DRIVER: "mysql",
         DB_HOST: process.env.DB_HOST ?? "localhost",
         DB_PORT: "3306",

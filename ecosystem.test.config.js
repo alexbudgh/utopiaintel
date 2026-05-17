@@ -8,7 +8,6 @@ module.exports = {
         HOSTNAME: "127.0.0.1",
         PORT: "3001",
         STAGING: "true",
-        INTEL_DB_PATH: "/home/ec2-user/utopiaintel-data/intel.db",
         AXIOM_TOKEN: "",
         AXIOM_DATASET: "",
         AXIOM_LOG_LEVEL: "off",

@@ -1962,3 +1962,44 @@ test("getRecentOps: sorcery op appears with correct category", async () => {
   assert.equal(ops[0].detail_kind, "duration_days");
   assert.equal(ops[0].detail_value, 6);
 });
+
+test("replayEntry inserts original received_at directly", async () => {
+  await truncateAll();
+  const { replayEntry, normalizeReceivedAt } =
+    await import("../lib/replay-debug-log");
+  const { flushMetricsCacheRefreshQueue } = await import("../lib/db-api");
+
+  const receivedAt = "2026-05-03T03:57:27.581Z";
+  const expected = normalizeReceivedAt(receivedAt);
+  const type = await replayEntry(
+    {
+      url: "https://utopia-game.com/wol/game/council_state",
+      prov: "Replay Timestamp",
+      received_at: receivedAt,
+      key_hash: "timestamp-key",
+      data_simple: [
+        "Current Networth\t500,000 gold coins",
+        "Current Land\t850 acres",
+        "Peasants\t1,234",
+        "Thieves\t567",
+        "Wizards\t89",
+        "Total\t1,890",
+        "Max Population\t2,100",
+      ].join("\n"),
+    },
+    new Set(["state"]),
+  );
+
+  assert.equal(type, "state");
+  for (const table of [
+    "province_overview",
+    "province_resources",
+    "province_troops",
+  ]) {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT received_at FROM ${table}`,
+    );
+    assert.equal(rows[0]?.received_at, expected, table);
+  }
+  await flushMetricsCacheRefreshQueue();
+});

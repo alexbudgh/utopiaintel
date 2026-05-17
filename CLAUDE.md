@@ -6,7 +6,7 @@ Next.js API endpoint that receives game data from utopia-game.com.
 
 - Collects Utopia intel automatically via `/api/intel` when kingdom members browse the game with "Send intel to your own Intel site" configured.
 - Parses SoT, SoD, SoM, SoS, Survey, Infiltrate, Kingdom pages, and self-intel council pages such as state/science/military/internal.
-- Stores intel in SQLite as timestamped records across separate domain tables rather than a single flat snapshot.
+- Stores intel in MySQL as timestamped records across separate domain tables rather than a single flat snapshot.
 - Serves a private dashboard:
   - `/` lists kingdoms visible to the current key
   - `/kingdom/[loc]` shows a kingdom province table
@@ -64,7 +64,7 @@ Writes JSONL to `intel_debug.jsonl` by default and rotates it in-app. Use
 
 ## Privacy
 
-Do not store real province names, kingdom names, or player names in source code, comments, commit messages, or test fixtures. Use generic placeholders (e.g. "TestProvince", "7:5") instead. Real game data lives only in `intel.db` and `intel_debug.jsonl`, which are gitignored.
+Do not store real province names, kingdom names, or player names in source code, comments, commit messages, or test fixtures. Use generic placeholders (e.g. "TestProvince", "7:5") instead. Real game data lives only in MySQL and `intel_debug.jsonl`, which are not committed.
 
 ## Utopia time
 
@@ -72,7 +72,7 @@ Do not store real province names, kingdom names, or player names in source code,
 
 ## Code style
 
-- Prefer reusing existing utilities over duplicating logic. For example, use `parseUtc` from `lib/ui.ts` wherever SQLite timestamps need parsing, rather than reimplementing the `replace(" ", "T") + "Z"` pattern inline.
+- Prefer reusing existing utilities over duplicating logic. For example, use `parseUtc` from `lib/ui.ts` wherever stored UTC timestamps need parsing, rather than reimplementing the `replace(" ", "T") + "Z"` pattern inline.
 - Add tests when adding features or fixing bugs to prevent regressions. Aim for good coverage — test the happy path, edge cases, and any tricky conditions that motivated the change. New DB query functions should be added to `createDbApi` so they can be tested via `withRealDb` in `test/db.test.ts`.
 
 ## Implementation notes
@@ -84,9 +84,8 @@ Do not store real province names, kingdom names, or player names in source code,
 - What each op reveals about an enemy province: SoT gives troops (soldiers, specs, elites, peasants, war horses), money, food, runes, prisoners, trade balance, building efficiency, off/def points — but **not** thieves, stealth, or wizards (shown as "Unknown"). The "Number of thieves / Stealth X%" shown at the bottom of every thievery op page is your _own_ thievery stats, not the target's. Infiltrate gives only the enemy thieves count (no stealth). Stealth is never revealed for enemy provinces; only available from self-state (throne page). Wizards are never directly measurable on enemy provinces; they must be inferred from NW residuals. SoS gives science books and effect percentages only (no troop or resource data).
 - Utopia kingdom pages can arrive as `/wol/game/kingdom_details/<x>/<y>`, not just bare `/wol/game/kingdom_details`.
 - This repo is on Next.js 16. Root request interception now uses `proxy.ts`, not `middleware.ts`.
-- The app supports `INTEL_DB_PATH`. In production, point it at a path outside `~/utopiaintel` so the live SQLite file is not part of the deployed app tree.
 - The real Utopia `Slot` value from `kingdom_details` is stored on `kingdom_provinces` and should be treated as data, not inferred from current table order.
-- `scripts/replay-debug-log.ts` can replay local or production `intel_debug.jsonl` files, including rotated `.1`, `.2`, etc., into the local `intel.db` for one-off backfills such as kingdom slots, war losses, or direct survey effects.
+- `scripts/replay-debug-log.ts` can replay local or production `intel_debug.jsonl` files, including rotated `.1`, `.2`, etc., into MySQL for one-off backfills such as kingdom slots, war losses, or direct survey effects.
 - For modern logs that already carry `key_hash`, use `--key-hash=<sha256>` to replay only entries explicitly tagged for that shard.
 - `--assume-key-hash=<sha256>` is the fallback for older unkeyed logs. It applies untagged entries to the assumed shard, so looping it across every key is a broad all-to-all backfill, not strict per-key replay.
 - Gains are a same-page kingdom view, switched with `/kingdom/[loc]?view=gains`, rather than a separate standalone page.
@@ -102,7 +101,7 @@ Do not store real province names, kingdom names, or player names in source code,
 ```bash
 npm test
 npm run build
-rsync -avz --exclude=intel.db --exclude=node_modules/better-sqlite3 .next/standalone/ utopiaintel:~/utopiaintel/
+rsync -avz .next/standalone/ utopiaintel:~/utopiaintel/
 rsync -avz .next/static/ utopiaintel:~/utopiaintel/.next/static/
 rsync -avz public/ utopiaintel:~/utopiaintel/public/
 scp ecosystem.config.js utopiaintel:~/utopiaintel/
@@ -112,7 +111,7 @@ ssh utopiaintel "pm2 reload ~/utopiaintel/ecosystem.config.js"
 For the test instance (same SSH host, different directory and PM2 process):
 
 ```bash
-rsync -avz --exclude=intel.db --exclude=node_modules/better-sqlite3 .next/standalone/ utopiaintel:~/utopiaintel-test/
+rsync -avz .next/standalone/ utopiaintel:~/utopiaintel-test/
 rsync -avz .next/static/ utopiaintel:~/utopiaintel-test/.next/static/
 rsync -avz public/ utopiaintel:~/utopiaintel-test/public/
 scp ecosystem.test.config.js utopiaintel:~/utopiaintel-test/ecosystem.config.js
@@ -131,19 +130,12 @@ PM2 env rule: use the ecosystem file when changing process environment. A
 plain app-name reload is fine for code-only reloads, but do not use
 `pm2 reload utopiaintel --update-env` / `-a` with only ad hoc shell variables.
 That can refresh the process without re-reading `ecosystem.config.js`, dropping
-config-managed values such as `HOSTNAME=127.0.0.1` and `INTEL_DB_PATH`. For a
+config-managed values such as `HOSTNAME=127.0.0.1` and `DB_DRIVER=mysql`. For a
 temporary debug toggle, use:
 
 ```bash
 ssh utopiaintel "INTEL_DEBUG=1 pm2 reload ~/utopiaintel/ecosystem.config.js --update-env"
 ```
 
-If `INTEL_DB_PATH` is missing, the app falls back to `intel.db` in the current
-working directory. In standalone deploys, `server.js` changes cwd to the app
-directory, so the fallback would be `~/utopiaintel/intel.db`; this is not the
-durable production DB path.
-
 Keep that order strict. Reloading PM2 before both `rsync` steps finish can leave
 production with mismatched server and static assets.
-Keep `--exclude=intel.db` on the standalone sync: Next's standalone output can
-contain a copied SQLite file, and syncing it will overwrite the live DB.

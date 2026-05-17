@@ -1,26 +1,3 @@
-import {
-  createDbApi,
-  getDb,
-  flushMetricsCacheRefreshQueue as sqliteFlushMetricsCacheRefreshQueue,
-  setMetricsCacheRefreshEnabled as sqliteSetMetricsCacheRefreshEnabled,
-} from "./db";
-import {
-  storeSoT as sqliteStoreSoT,
-  storeSoD as sqliteStoreSoD,
-  storeInfiltrate as sqliteStoreInfiltrate,
-  storeSoM as sqliteStoreSoM,
-  storeSoS as sqliteStoreSoS,
-  storeSurvey as sqliteStoreSurvey,
-  storeTrainArmy as sqliteStoreTrainArmy,
-  storeBuild as sqliteStoreBuild,
-  storeRob as sqliteStoreRob,
-  storeIntelOp as sqliteStoreIntelOp,
-  storeSorcery as sqliteStoreSorcery,
-  storeAttack as sqliteStoreAttack,
-  storeKingdom as sqliteStoreKingdom,
-  storeState as sqliteStoreState,
-  storeKingdomNews as sqliteStoreKingdomNews,
-} from "./db";
 import type {
   KingdomRow,
   KingdomSnapshot,
@@ -313,74 +290,6 @@ export interface GameDateStamp {
 
 export type TimeRangeMode = "real" | "utopia";
 
-// ── SQLite shim ──────────────────────────────────────────────────────────────
-
-let _sqliteApi: AsyncDbApi | null = null;
-
-function createSqliteDbApi(): AsyncDbApi {
-  if (!_sqliteApi) {
-    const sync = createDbApi(getDb());
-    const r = <T>(v: T) => Promise.resolve(v);
-    const w = (fn: () => void) => {
-      fn();
-      return Promise.resolve();
-    };
-    _sqliteApi = {
-      getBoundKingdom: (kh) => r(sync.getBoundKingdom(kh)),
-      getKingdoms: (kh) => r(sync.getKingdoms(kh)),
-      getLatestKingdomSnapshot: (loc, kh) =>
-        r(sync.getLatestKingdomSnapshot(loc, kh)),
-      getKingdomSnapshotHistory: (loc, kh) =>
-        r(sync.getKingdomSnapshotHistory(loc, kh)),
-      getRecentOps: (kh, lim, s) => r(sync.getRecentOps(kh, lim, s)),
-      getKingdomProvinces: (kd, kh) => r(sync.getKingdomProvinces(kd, kh)),
-      getKingdomRitual: (kd, kh) => r(sync.getKingdomRitual(kd, kh)),
-      getKingdomDragon: (kd, kh) => r(sync.getKingdomDragon(kd, kh)),
-      getProvinceDetail: (nm, kd, kh) => r(sync.getProvinceDetail(nm, kd, kh)),
-      getKingdomNews: (kd, kh, f, t) => r(sync.getKingdomNews(kd, kh, f, t)),
-      getLatestWarDate: (kd, kh) => r(sync.getLatestWarDate(kd, kh)),
-      getKingdomNewsSummary: (kd, kh, f, t) =>
-        r(sync.getKingdomNewsSummary(kd, kh, f, t)),
-      getProvinceHistory: (nm, kd, kh) =>
-        r(sync.getProvinceHistory(nm, kd, kh)),
-      getProvinceNews: () =>
-        Promise.resolve({ events: [], effectiveFrom: null }),
-      getKingdomOpsStats: () =>
-        Promise.resolve({ breakdowns: [], effectiveFrom: null }),
-      getIncomingDamageStats: () =>
-        Promise.resolve({ provinces: [], effectiveFrom: null }),
-      cleanupExpired: () => w(() => sync.cleanupExpired()),
-      storeSoT: (d, sb, kh, self, ra) =>
-        w(() => sqliteStoreSoT(d, sb, kh, self, ra)),
-      storeSoD: (d, sb, kh, ra) => w(() => sqliteStoreSoD(d, sb, kh, ra)),
-      storeInfiltrate: (d, sb, kh, ra) =>
-        w(() => sqliteStoreInfiltrate(d, sb, kh, ra)),
-      storeSoM: (d, sb, kh, self, ra) =>
-        w(() => sqliteStoreSoM(d, sb, kh, self, ra)),
-      storeSoS: (d, sb, kh, self, ra) =>
-        w(() => sqliteStoreSoS(d, sb, kh, self, ra)),
-      storeSurvey: (d, sb, kh, self, ra) =>
-        w(() => sqliteStoreSurvey(d, sb, kh, self, ra)),
-      storeTrainArmy: (d, sb, kh, ra) =>
-        w(() => sqliteStoreTrainArmy(d, sb, kh, ra)),
-      storeBuild: (d, sb, kh, ra) => w(() => sqliteStoreBuild(d, sb, kh, ra)),
-      storeRob: (d, sb, kh, ra) => w(() => sqliteStoreRob(d, sb, kh, ra)),
-      storeIntelOp: (d, sb, kh, ra) =>
-        w(() => sqliteStoreIntelOp(d, sb, kh, ra)),
-      storeSorcery: (d, sb, kh, ra) =>
-        w(() => sqliteStoreSorcery(d, sb, kh, ra)),
-      storeAttack: (d, sb, kh, ra) => w(() => sqliteStoreAttack(d, sb, kh, ra)),
-      storeKingdom: (d, sb, kh, ra) =>
-        w(() => sqliteStoreKingdom(d, sb, kh, ra)),
-      storeState: (d, sb, kh, ra) => w(() => sqliteStoreState(d, sb, kh, ra)),
-      storeKingdomNews: (d, kh, sn, ra, uk) =>
-        w(() => sqliteStoreKingdomNews(d, kh, sn, ra, uk)),
-      storeProvinceNews: () => Promise.resolve(),
-    };
-  }
-  return _sqliteApi;
-}
-
 // ── MySQL implementation ─────────────────────────────────────────────────────
 
 let _mysqlApi: AsyncDbApi | null = null;
@@ -436,13 +345,14 @@ function createMysqlDbApi(): AsyncDbApi {
 }
 
 // ── Factory ──────────────────────────────────────────────────────────────────
-// DB_DRIVER=mysql  → runtime storage
-// DB_DRIVER=sqlite → legacy SQLite tests only
+// Runtime storage is MySQL-only. Legacy SQLite tests import lib/db.ts directly.
 
 export function getDbApi(): AsyncDbApi {
+  if (process.env.DB_DRIVER && process.env.DB_DRIVER !== "mysql") {
+    throw new Error("DB_DRIVER must be 'mysql'");
+  }
   if (process.env.DB_DRIVER === "mysql") return createMysqlDbApi();
-  if (process.env.DB_DRIVER === "sqlite") return createSqliteDbApi();
-  throw new Error("DB_DRIVER must be set to 'mysql' or 'sqlite' (tests only)");
+  return createMysqlDbApi();
 }
 
 // ── Driver-aware metrics cache utilities ─────────────────────────────────────
@@ -450,13 +360,9 @@ export function getDbApi(): AsyncDbApi {
 // active driver's queue is targeted.
 
 export function setMetricsCacheRefreshEnabled(enabled: boolean): () => void {
-  return process.env.DB_DRIVER === "mysql"
-    ? mysqlSetMetricsCacheRefreshEnabled(enabled)
-    : sqliteSetMetricsCacheRefreshEnabled(enabled);
+  return mysqlSetMetricsCacheRefreshEnabled(enabled);
 }
 
 export async function flushMetricsCacheRefreshQueue(): Promise<void> {
-  return process.env.DB_DRIVER === "mysql"
-    ? mysqlFlushMetricsCacheRefreshQueue()
-    : sqliteFlushMetricsCacheRefreshQueue();
+  return mysqlFlushMetricsCacheRefreshQueue();
 }
