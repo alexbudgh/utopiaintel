@@ -1683,6 +1683,39 @@ test("getKingdomDragon: returns dragon when province has one", async () => {
   assert.equal(dragon.dragonName, "Ignis");
 });
 
+test("getKingdomDragon: ignores newer status from another kingdom", async () => {
+  await truncateAll();
+  await storeSoT(
+    {
+      ...baseSoT,
+      dragonType: "Fire Dragon",
+      dragonName: "Ignis",
+    },
+    "scout1",
+    "keyhash1",
+    false,
+    "2025-06-01 12:00:00",
+  );
+  await storeSoT(
+    {
+      ...baseSoT,
+      name: "OtherStatusProvince",
+      kingdom: "8:6",
+      dragonType: null,
+      dragonName: null,
+    },
+    "scout1",
+    "keyhash1",
+    false,
+    "2025-06-01 13:00:00",
+  );
+
+  const dragon = await getKingdomDragon("7:5", "keyhash1");
+  assert.ok(dragon !== null);
+  assert.equal(dragon.dragonType, "Fire Dragon");
+  assert.equal(dragon.dragonName, "Ignis");
+});
+
 // ── getLatestWarDate ──────────────────────────────────────────────────────────
 
 test("getLatestWarDate: returns null when no news access", async () => {

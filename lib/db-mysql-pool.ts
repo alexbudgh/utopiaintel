@@ -50,6 +50,8 @@ export async function initDb(): Promise<void> {
       UNIQUE KEY uq_provinces_name_kingdom (name, kingdom)
     ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
 
+    `CREATE INDEX IF NOT EXISTS idx_provinces_kingdom_id ON provinces(kingdom, id)`,
+
     `CREATE TABLE IF NOT EXISTS province_overview (
       id INT AUTO_INCREMENT PRIMARY KEY,
       province_id INT NOT NULL,
@@ -68,6 +70,7 @@ export async function initDb(): Promise<void> {
     ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
 
     `CREATE INDEX IF NOT EXISTS idx_overview_prov_time ON province_overview(province_id, received_at DESC)`,
+    `CREATE INDEX IF NOT EXISTS idx_overview_prov_key_time ON province_overview(province_id, key_hash, received_at)`,
 
     `CREATE TABLE IF NOT EXISTS total_military_points (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -148,6 +151,7 @@ export async function initDb(): Promise<void> {
     `CREATE TABLE IF NOT EXISTS province_status (
       id INT AUTO_INCREMENT PRIMARY KEY,
       province_id INT NOT NULL,
+      kingdom VARCHAR(64) NOT NULL,
       key_hash VARCHAR(64),
       plagued TINYINT(1),
       overpopulated TINYINT(1),
@@ -163,6 +167,7 @@ export async function initDb(): Promise<void> {
     ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
 
     `CREATE INDEX IF NOT EXISTS idx_status_prov_time ON province_status(province_id, received_at DESC)`,
+    `CREATE INDEX IF NOT EXISTS idx_status_key_kingdom_time_source ON province_status(key_hash, kingdom, received_at DESC, id DESC, source)`,
 
     `CREATE TABLE IF NOT EXISTS province_effects (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -302,6 +307,7 @@ export async function initDb(): Promise<void> {
     ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
 
     `CREATE INDEX IF NOT EXISTS idx_kingdom_loc_time ON kingdom_intel(location, received_at DESC)`,
+    `CREATE INDEX IF NOT EXISTS idx_kingdom_key_loc_time ON kingdom_intel(key_hash, location, received_at DESC, id DESC)`,
 
     `CREATE TABLE IF NOT EXISTS kingdom_provinces (
       id INT AUTO_INCREMENT PRIMARY KEY,

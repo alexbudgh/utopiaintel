@@ -1233,10 +1233,11 @@ export async function storeSoT(
     // 5. Status
     await conn.execute(
       `INSERT IGNORE INTO province_status
-         (province_id, key_hash, plagued, overpopulated, overpop_deserters, dragon_type, dragon_name, hit_status, war, source, saved_by, received_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+         (province_id, kingdom, key_hash, plagued, overpopulated, overpop_deserters, dragon_type, dragon_name, hit_status, war, source, saved_by, received_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
       [
         provId,
+        data.kingdom,
         keyHash,
         data.plagued ? 1 : 0,
         data.overpopulated ? 1 : 0,
@@ -1703,8 +1704,7 @@ export async function getKingdomRitual(
   const [obsRows] = await pool.execute<ObsRow[]>(
     `SELECT ps.received_at
      FROM province_status ps
-     JOIN provinces p ON p.id = ps.province_id
-     WHERE p.kingdom = ? AND ps.key_hash = ? AND ps.source IN ('sot', 'throne')
+     WHERE ps.kingdom = ? AND ps.key_hash = ? AND ps.source IN ('sot', 'throne')
      ORDER BY ps.received_at DESC, ps.id DESC
      LIMIT 1`,
     [kingdom, keyHash],
@@ -1746,8 +1746,7 @@ export async function getKingdomDragon(
   const [rows] = await pool.execute<DragRow[]>(
     `SELECT ps.dragon_type, ps.dragon_name, ps.received_at
      FROM province_status ps
-     JOIN provinces p ON p.id = ps.province_id
-     WHERE p.kingdom = ? AND ps.key_hash = ? AND ps.source IN ('sot', 'throne')
+     WHERE ps.kingdom = ? AND ps.key_hash = ? AND ps.source IN ('sot', 'throne')
      ORDER BY ps.received_at DESC, ps.id DESC
      LIMIT 1`,
     [kingdom, keyHash],
