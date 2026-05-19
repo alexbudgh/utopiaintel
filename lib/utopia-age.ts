@@ -1,4 +1,4 @@
-import { parseUtopiaDate } from "./ui";
+import { formatUtopiaDate, parseUtc, parseUtopiaDate } from "./ui";
 
 const HOUR_MS = 3_600_000;
 
@@ -9,6 +9,12 @@ export function utopiaDateOrdToUtcMs(gameDateOrd: number): number {
   return (
     Date.parse(CURRENT_AGE_START_UTC.replace(" ", "T") + "Z") +
     gameDateOrd * HOUR_MS
+  );
+}
+
+export function utcMsToUtopiaDateOrd(ms: number): number {
+  return Math.floor(
+    (ms - Date.parse(CURRENT_AGE_START_UTC.replace(" ", "T") + "Z")) / HOUR_MS,
   );
 }
 
@@ -23,4 +29,10 @@ export function utopiaDateToUtcTimestamp(gameDate: string): string | null {
   const ord = parseUtopiaDate(gameDate);
   if (ord < 0) return null;
   return utopiaDateOrdToUtcTimestamp(ord);
+}
+
+export function utcTimestampToUtopiaDate(timestamp: string): string | null {
+  const ms = parseUtc(timestamp);
+  if (!Number.isFinite(ms)) return null;
+  return formatUtopiaDate(utcMsToUtopiaDateOrd(ms));
 }

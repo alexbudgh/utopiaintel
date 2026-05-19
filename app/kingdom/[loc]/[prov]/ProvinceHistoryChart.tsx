@@ -16,14 +16,18 @@ import { HistoryChartControls } from "@/app/components/HistoryChartControls";
 import {
   HistoryEventLegend,
   HistoryEventReferenceLines,
+  historyEventMarkerTime,
   visibleHistoryEventMarkers,
   type VisibleHistoryEventMarker,
 } from "@/app/components/HistoryEventMarkers";
 import {
+  DEFAULT_HISTORY_CHART_RANGE,
+  filterHistoryByRange,
   historyChartLabel,
   historyChartLabelFromMs,
   historyChartTimeMs,
   LOCAL_HISTORY_TZ_LABEL,
+  type HistoryChartRange,
   type HistoryChartTimezone,
 } from "@/app/components/historyChartTime";
 import type { HistoryEventMarker, ProvinceHistoryPoint } from "@/lib/db-types";
@@ -654,6 +658,9 @@ export function ProvinceHistoryChart({
   const [open, setOpen] = useState(false);
   const [hoveredLine, setHoveredLine] = useState<MetricKey | null>(null);
   const [tz, setTz] = useState<HistoryChartTimezone>("local");
+  const [range, setRange] = useState<HistoryChartRange>(
+    DEFAULT_HISTORY_CHART_RANGE,
+  );
   const [containerWidth, setContainerWidth] = useState(800);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -669,9 +676,16 @@ export function ProvinceHistoryChart({
 
   if (history.length < 2) return null;
 
+  const warMarker = eventMarkers.find((marker) => marker.id.startsWith("war:"));
+  const warStartMs = warMarker ? historyEventMarkerTime(warMarker) : undefined;
+  const displayedHistory = useMemo(
+    () => filterHistoryByRange(history, range, warStartMs),
+    [history, range, warStartMs],
+  );
+
   const { rows: data, bucketMs } = useMemo(
-    () => buildRows(history, tz),
-    [history, tz],
+    () => buildRows(displayedHistory, tz),
+    [displayedHistory, tz],
   );
   const visibleMetrics = METRICS.filter((m) => !hidden.has(m.key));
   const hasLarge = visibleMetrics.some((m) => m.axis === "large");
@@ -697,7 +711,7 @@ export function ProvinceHistoryChart({
   const activeEventMarkers = hideEventMarkers ? [] : visibleEventMarkers;
 
   const tzLabel = tz === "UTC" ? "UTC" : LOCAL_HISTORY_TZ_LABEL;
-  const summary = `${history.length} snapshot${history.length === 1 ? "" : "s"} from ${historyChartLabel(history[0].receivedAt, tz)} to ${historyChartLabel(history[history.length - 1].receivedAt, tz)} ${tzLabel}`;
+  const summary = `${displayedHistory.length} snapshot${displayedHistory.length === 1 ? "" : "s"} from ${historyChartLabel(displayedHistory[0].receivedAt, tz)} to ${historyChartLabel(displayedHistory[displayedHistory.length - 1].receivedAt, tz)} ${tzLabel}`;
 
   const narrow = containerWidth < 480;
   const axisWidth = narrow ? 38 : 52;
@@ -729,6 +743,9 @@ export function ProvinceHistoryChart({
           hideEventMarkers={hideEventMarkers}
           onEventMarkersToggle={() => setHideEventMarkers((value) => !value)}
           hasEventMarkers={eventMarkers.length > 0}
+          range={range}
+          onRangeChange={setRange}
+          hasWarRange={!!warMarker}
         >
           <button
             type="button"

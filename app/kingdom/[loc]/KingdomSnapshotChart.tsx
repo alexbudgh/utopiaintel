@@ -16,13 +16,17 @@ import {
 import {
   HistoryEventLegend,
   HistoryEventReferenceLines,
+  historyEventMarkerTime,
   visibleHistoryEventMarkers,
   type VisibleHistoryEventMarker,
 } from "@/app/components/HistoryEventMarkers";
 import {
+  DEFAULT_HISTORY_CHART_RANGE,
+  filterHistoryByRange,
   historyChartLabel,
   historyChartLabelFromMs,
   historyChartTimeMs,
+  type HistoryChartRange,
   type HistoryChartTimezone,
 } from "@/app/components/historyChartTime";
 import type {
@@ -327,6 +331,19 @@ export function KingdomSnapshotChart({
   const [open, setOpen] = useState(initiallyOpen);
   const [tz, setTz] = useState<HistoryChartTimezone>("local");
   const [hideEventMarkers, setHideEventMarkers] = useState(false);
+  const [range, setRange] = useState<HistoryChartRange>(
+    DEFAULT_HISTORY_CHART_RANGE,
+  );
+  const warMarker = eventMarkers.find((marker) => marker.id.startsWith("war:"));
+  const warStartMs = warMarker ? historyEventMarkerTime(warMarker) : undefined;
+  const displayedPrimaryHistory = useMemo(
+    () => filterHistoryByRange(primaryHistory, range, warStartMs),
+    [primaryHistory, range, warStartMs],
+  );
+  const displayedCompareHistory = useMemo(
+    () => filterHistoryByRange(compareHistory, range, warStartMs),
+    [compareHistory, range, warStartMs],
+  );
 
   if (primaryHistory.length === 0) return null;
 
@@ -338,9 +355,9 @@ export function KingdomSnapshotChart({
             Kingdom History
           </h2>
           <div className="text-xs text-gray-500">
-            {historySummary(primaryHistory, tz)}
+            {historySummary(displayedPrimaryHistory, tz)}
           </div>
-          {compareKingdom && compareHistory.length > 0 && (
+          {compareKingdom && displayedCompareHistory.length > 0 && (
             <div className="text-xs text-gray-500">
               Overlaying {compareKingdom}.
             </div>
@@ -354,6 +371,9 @@ export function KingdomSnapshotChart({
           hideEventMarkers={hideEventMarkers}
           onEventMarkersToggle={() => setHideEventMarkers((value) => !value)}
           hasEventMarkers={eventMarkers.length > 0}
+          range={range}
+          onRangeChange={setRange}
+          hasWarRange={!!warMarker}
         >
           <button
             type="button"
@@ -368,9 +388,9 @@ export function KingdomSnapshotChart({
         <div className="mt-3">
           <ChartStack
             primaryKingdom={primaryKingdom}
-            primaryHistory={primaryHistory}
+            primaryHistory={displayedPrimaryHistory}
             compareKingdom={compareKingdom}
-            compareHistory={compareHistory}
+            compareHistory={displayedCompareHistory}
             tz={tz}
             hideEventMarkers={hideEventMarkers}
             eventMarkers={eventMarkers}
@@ -393,7 +413,20 @@ export function KingdomHistoryView({
   const [compareInput, setCompareInput] = useState(compareKingdom ?? "");
   const [tz, setTz] = useState<HistoryChartTimezone>("local");
   const [hideEventMarkers, setHideEventMarkers] = useState(false);
+  const [range, setRange] = useState<HistoryChartRange>(
+    DEFAULT_HISTORY_CHART_RANGE,
+  );
   const kingdomHref = `/kingdom/${encodeURIComponent(primaryKingdom)}`;
+  const warMarker = eventMarkers.find((marker) => marker.id.startsWith("war:"));
+  const warStartMs = warMarker ? historyEventMarkerTime(warMarker) : undefined;
+  const displayedPrimaryHistory = useMemo(
+    () => filterHistoryByRange(primaryHistory, range, warStartMs),
+    [primaryHistory, range, warStartMs],
+  );
+  const displayedCompareHistory = useMemo(
+    () => filterHistoryByRange(compareHistory, range, warStartMs),
+    [compareHistory, range, warStartMs],
+  );
 
   function applyCompare(event: React.FormEvent) {
     event.preventDefault();
@@ -420,18 +453,18 @@ export function KingdomHistoryView({
               Snapshot History
             </h2>
             <div className="text-xs text-gray-500">
-              {historySummary(primaryHistory, tz)}
+              {historySummary(displayedPrimaryHistory, tz)}
             </div>
-            {compareKingdom && compareHistory.length > 0 && (
+            {compareKingdom && displayedCompareHistory.length > 0 && (
               <div className="mt-1 text-xs text-gray-500">
                 Comparing against{" "}
                 <span className="text-gray-300 font-mono">
                   {compareKingdom}
                 </span>{" "}
-                with {historySummary(compareHistory, tz)}.
+                with {historySummary(displayedCompareHistory, tz)}.
               </div>
             )}
-            {compareKingdom && compareHistory.length === 0 && (
+            {compareKingdom && displayedCompareHistory.length === 0 && (
               <div className="mt-1 text-xs text-amber-300">
                 No accessible history found for{" "}
                 <span className="font-mono">{compareKingdom}</span>.
@@ -452,6 +485,9 @@ export function KingdomHistoryView({
                 setHideEventMarkers((value) => !value)
               }
               hasEventMarkers={eventMarkers.length > 0}
+              range={range}
+              onRangeChange={setRange}
+              hasWarRange={!!warMarker}
             />
             <input
               type="text"
@@ -485,9 +521,9 @@ export function KingdomHistoryView({
       {primaryHistory.length > 0 ? (
         <ChartStack
           primaryKingdom={primaryKingdom}
-          primaryHistory={primaryHistory}
+          primaryHistory={displayedPrimaryHistory}
           compareKingdom={compareKingdom}
-          compareHistory={compareHistory}
+          compareHistory={displayedCompareHistory}
           tz={tz}
           hideEventMarkers={hideEventMarkers}
           eventMarkers={eventMarkers}
