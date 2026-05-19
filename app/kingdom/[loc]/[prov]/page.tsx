@@ -149,12 +149,12 @@ export default async function ProvincePage({
   const [
     d,
     history,
-    latestWarEvent,
+    warEventMarkers,
     { events: provinceNews, effectiveFrom: newsEffectiveFrom },
   ] = await Promise.all([
     db.getProvinceDetail(name, kingdom, keyHash),
     db.getProvinceHistory(name, kingdom, keyHash),
-    db.getLatestWarEvent(kingdom, keyHash),
+    db.getWarEventMarkers(kingdom, keyHash),
     db.getProvinceNews(name, kingdom, keyHash, newsFrom, newsTo),
   ]);
   // Use direct council_state values when available (self-intel); otherwise estimate from unit counts + survey
@@ -899,10 +899,7 @@ export default async function ProvincePage({
           )}
         </Card>
       </div>
-      <ProvinceHistoryChart
-        history={history}
-        eventMarkers={latestWarEvent ? [latestWarEvent] : []}
-      />
+      <ProvinceHistoryChart history={history} eventMarkers={warEventMarkers} />
 
       {/* Province News */}
       <div className="mt-4">

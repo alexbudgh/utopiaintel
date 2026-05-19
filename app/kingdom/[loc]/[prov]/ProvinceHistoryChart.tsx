@@ -682,7 +682,9 @@ export function ProvinceHistoryChart({
 
   if (history.length < 2) return null;
 
-  const warMarker = eventMarkers.find((marker) => marker.id.startsWith("war:"));
+  const warMarker = eventMarkers.findLast((marker) =>
+    marker.id.startsWith("war:"),
+  );
   const warStartMs = warMarker ? historyEventMarkerTime(warMarker) : undefined;
   const warDate =
     warStartMs != null

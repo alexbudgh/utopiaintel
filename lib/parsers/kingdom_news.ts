@@ -100,6 +100,12 @@ const WAR_DECLARED_RE = new RegExp(
 const WAR_DECLARED_ON_US_RE = new RegExp(
   `^([^(]+?)\\s*${KDLOC} has declared WAR with our kingdom!`,
 );
+const WAR_ENDED_VICTORY_RE = new RegExp(
+  `^([^(]+?)\\s*${KDLOC} has withdrawn from war\\. Our people rejoice at our victory!`,
+);
+const WAR_ENDED_DEFEAT_RE = new RegExp(
+  `^Unable to achieve victory, our Kingdom has withdrawn from war with ([^(]+?)\\s*${KDLOC}\\. Our failed war has finally ended!`,
+);
 const CEASEFIRE_PROPOSED_RE = new RegExp(
   `^We have proposed a ceasefire offer to ([^(]+?)\\s*${KDLOC}\\.`,
 );
@@ -471,6 +477,40 @@ function classifyEvent(
   if (m)
     return {
       eventType: "war_declared_on_us",
+      attackerName: null,
+      attackerKingdom: null,
+      defenderName: null,
+      defenderKingdom: null,
+      acres: null,
+      books: null,
+      senderName: null,
+      receiverName: null,
+      relationKingdom: m[2],
+      dragonType: null,
+      dragonName: null,
+    };
+
+  m = WAR_ENDED_VICTORY_RE.exec(text);
+  if (m)
+    return {
+      eventType: "war_ended_victory",
+      attackerName: null,
+      attackerKingdom: null,
+      defenderName: null,
+      defenderKingdom: null,
+      acres: null,
+      books: null,
+      senderName: null,
+      receiverName: null,
+      relationKingdom: m[2],
+      dragonType: null,
+      dragonName: null,
+    };
+
+  m = WAR_ENDED_DEFEAT_RE.exec(text);
+  if (m)
+    return {
+      eventType: "war_ended_defeat",
       attackerName: null,
       attackerKingdom: null,
       defenderName: null,

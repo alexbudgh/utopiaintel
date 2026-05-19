@@ -340,7 +340,9 @@ export function KingdomSnapshotChart({
     to: "",
     toLatest: true,
   });
-  const warMarker = eventMarkers.find((marker) => marker.id.startsWith("war:"));
+  const warMarker = eventMarkers.findLast((marker) =>
+    marker.id.startsWith("war:"),
+  );
   const warStartMs = warMarker ? historyEventMarkerTime(warMarker) : undefined;
   const warDate =
     warStartMs != null
@@ -437,7 +439,9 @@ export function KingdomHistoryView({
     toLatest: true,
   });
   const kingdomHref = `/kingdom/${encodeURIComponent(primaryKingdom)}`;
-  const warMarker = eventMarkers.find((marker) => marker.id.startsWith("war:"));
+  const warMarker = eventMarkers.findLast((marker) =>
+    marker.id.startsWith("war:"),
+  );
   const warStartMs = warMarker ? historyEventMarkerTime(warMarker) : undefined;
   const warDate =
     warStartMs != null

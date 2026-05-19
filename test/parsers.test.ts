@@ -1536,6 +1536,28 @@ test("parseKingdomNews — war declared", () => {
   assert.equal(e.relationKingdom, "4:6");
 });
 
+test("parseKingdomNews — war ended (victory)", () => {
+  const e = parseOne(
+    mkLine(
+      "June 3 of YR9",
+      "Iron Fist (4:6) has withdrawn from war. Our people rejoice at our victory!",
+    ),
+  );
+  assert.equal(e.eventType, "war_ended_victory");
+  assert.equal(e.relationKingdom, "4:6");
+});
+
+test("parseKingdomNews — war ended (defeat)", () => {
+  const e = parseOne(
+    mkLine(
+      "June 3 of YR9",
+      "Unable to achieve victory, our Kingdom has withdrawn from war with Iron Fist (4:6). Our failed war has finally ended!",
+    ),
+  );
+  assert.equal(e.eventType, "war_ended_defeat");
+  assert.equal(e.relationKingdom, "4:6");
+});
+
 test("parseKingdomNews — ceasefire accepted", () => {
   const e = parseOne(
     mkLine(

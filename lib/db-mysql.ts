@@ -1790,15 +1790,10 @@ export async function getLatestWarDate(
   return rows[0]?.game_date ?? null;
 }
 
-export async function getLatestWarEvent(
+export async function getWarEventMarkers(
   kingdom: string,
   keyHash: string,
-): Promise<{
-  id: string;
-  label: string;
-  at: string;
-  detail: string | null;
-} | null> {
+): Promise<{ id: string; label: string; at: string; detail: string | null }[]> {
   await ensureReady();
   interface AccessRow extends RowDataPacket {
     n: number;
@@ -1815,27 +1810,37 @@ export async function getLatestWarEvent(
     "SELECT COUNT(*) AS n FROM kingdom_news_sharded WHERE key_hash = ? AND kingdom = ? LIMIT 1",
     [keyHash, kingdom],
   );
-  if (!access.n) return null;
+  if (!access.n) return [];
 
   const [rows] = await pool.execute<EventRow[]>(
     `SELECT id, game_date, game_date_ord, event_type, relation_kingdom
      FROM kingdom_news_sharded
-     WHERE key_hash = ? AND kingdom = ? AND event_type IN ('war_declared', 'war_declared_on_us')
-     ORDER BY game_date_ord DESC, id DESC
-     LIMIT 1`,
+     WHERE key_hash = ? AND kingdom = ?
+       AND event_type IN ('war_declared', 'war_declared_on_us', 'war_ended_victory', 'war_ended_defeat')
+     ORDER BY game_date_ord ASC, id ASC`,
     [keyHash, kingdom],
   );
-  const row = rows[0];
-  if (!row || row.game_date_ord == null) return null;
 
-  return {
-    id: `war:${row.id}`,
-    label: "War",
-    at: utopiaDateOrdToUtcTimestamp(row.game_date_ord),
-    detail: row.relation_kingdom
-      ? `${row.game_date} vs ${row.relation_kingdom}`
-      : row.game_date,
-  };
+  return rows
+    .filter((row) => row.game_date_ord != null)
+    .map((row) => {
+      const isStart =
+        row.event_type === "war_declared" ||
+        row.event_type === "war_declared_on_us";
+      const label = isStart
+        ? "War"
+        : row.event_type === "war_ended_victory"
+          ? "Victory"
+          : "Defeat";
+      return {
+        id: `${isStart ? "war" : "war_end"}:${row.id}`,
+        label,
+        at: utopiaDateOrdToUtcTimestamp(row.game_date_ord!),
+        detail: row.relation_kingdom
+          ? `${row.game_date} vs ${row.relation_kingdom}`
+          : row.game_date,
+      };
+    });
 }
 
 export async function getKingdomNews(

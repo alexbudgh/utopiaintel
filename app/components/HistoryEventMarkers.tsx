@@ -6,6 +6,11 @@ import { parseUtc } from "@/lib/ui";
 
 export type VisibleHistoryEventMarker = HistoryEventMarker & { t: number };
 
+function markerColor(marker: HistoryEventMarker): string {
+  if (marker.id.startsWith("war_end:")) return "#4ade80";
+  return "#fbbf24";
+}
+
 export function historyEventMarkerTime(marker: HistoryEventMarker): number {
   return parseUtc(marker.at);
 }
@@ -34,23 +39,26 @@ export function HistoryEventReferenceLines({
 }) {
   return (
     <>
-      {markers.map((marker) => (
-        <ReferenceLine
-          key={marker.id}
-          x={marker.t}
-          yAxisId={yAxisId}
-          stroke="#fbbf24"
-          strokeDasharray="4 4"
-          strokeWidth={1.5}
-          ifOverflow="visible"
-          label={{
-            value: marker.label,
-            position: "insideTop",
-            fill: "#fbbf24",
-            fontSize: 10,
-          }}
-        />
-      ))}
+      {markers.map((marker) => {
+        const color = markerColor(marker);
+        return (
+          <ReferenceLine
+            key={marker.id}
+            x={marker.t}
+            yAxisId={yAxisId}
+            stroke={color}
+            strokeDasharray="4 4"
+            strokeWidth={1.5}
+            ifOverflow="visible"
+            label={{
+              value: marker.label,
+              position: "insideTop",
+              fill: color,
+              fontSize: 10,
+            }}
+          />
+        );
+      })}
     </>
   );
 }
@@ -72,7 +80,7 @@ export function HistoryEventLegend({
         >
           <span
             className="inline-block h-3 w-0 shrink-0 border-l border-dashed"
-            style={{ borderColor: "#fbbf24" }}
+            style={{ borderColor: markerColor(marker) }}
           />
           <span>
             {marker.label}
