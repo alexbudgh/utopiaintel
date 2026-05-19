@@ -10,8 +10,10 @@ import {
   freshnessColor,
   timeAgo,
   fullValueTooltip,
+  formatLocalTimestamp,
   formatNetworth,
 } from "@/lib/ui";
+import { armyReturnStatus } from "@/lib/army-return";
 import { BAD_SPELL_NAMES } from "@/lib/effects";
 import { computeAmbushRawOff } from "@/lib/ambush";
 import { estimatePop } from "@/lib/population";
@@ -548,7 +550,7 @@ export default async function ProvincePage({
                       Thieves
                     </th>
                     <th className="pb-1 text-right pr-4 font-medium">Land</th>
-                    <th className="pb-1 text-right pr-4 font-medium">ETA</th>
+                    <th className="pb-1 text-right pr-4 font-medium">Return</th>
                     <th className="pb-1 text-right font-medium">Ambush</th>
                   </tr>
                 </thead>
@@ -591,11 +593,28 @@ export default async function ProvincePage({
                       </td>
                       <td className="py-1 pr-4 text-right tabular-nums">
                         {a.returnDays != null
-                          ? maybeRoundedValue(
-                              a.returnDays.toFixed(1) + "d",
-                              a.returnDays,
-                              { suffix: "d" },
-                            )
+                          ? (() => {
+                              const ret = armyReturnStatus(
+                                d.militaryIntel!.receivedAt,
+                                a.returnDays,
+                              );
+                              return (
+                                <div>
+                                  <div
+                                    className={
+                                      ret.returned
+                                        ? "text-emerald-300"
+                                        : "text-gray-200"
+                                    }
+                                  >
+                                    {ret.detailLabel}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    {formatLocalTimestamp(ret.returnAtIso)}
+                                  </div>
+                                </div>
+                              );
+                            })()
                           : "—"}
                       </td>
                       <td className="py-1 text-right tabular-nums text-yellow-300/80">

@@ -8,6 +8,7 @@ import type { ProvinceRow } from "@/lib/db-types";
 import {
   formatAgeWithLocalTimestamp,
   freshnessColor,
+  formatLocalTimestamp,
   formatLand,
   formatNetworth,
   formatNum,
@@ -16,6 +17,7 @@ import {
   fullValueTooltip,
   parseUtc,
 } from "@/lib/ui";
+import { armyReturnStatus } from "@/lib/army-return";
 import { computeWizardCount, NW_PER_WIZARD } from "@/lib/nw";
 import { computeAmbushRawOff } from "@/lib/ambush";
 import {
@@ -878,11 +880,6 @@ function armiesSourceAge(p: ProvinceRow): string | null {
   return throneNewer ? p.throne_age : p.som_age;
 }
 
-// Adjust a stored ETA (Utopia days/ticks = real hours) for elapsed time since capture
-function adjustEta(eta: number, sourceAge: string): number {
-  return Math.max(0, eta - (Date.now() - parseUtc(sourceAge)) / 3_600_000);
-}
-
 function freshnessToTone(age: string): TooltipLine["tone"] {
   const hrs = (Date.now() - parseUtc(age)) / 3_600_000;
   if (hrs < 1) return "good";
@@ -971,7 +968,7 @@ function tipFor(
                 <th className={th}>DefS</th>
                 <th className={th}>Eli</th>
                 <th className={th}>Land</th>
-                <th className={th}>ETA</th>
+                <th className={th}>Return</th>
                 {showAmbush && <th className={th}>Ambush</th>}
               </tr>
             </thead>
@@ -996,10 +993,22 @@ function tipFor(
                   </td>
                   <td className={td}>
                     {srcAge
-                      ? adjustEta(a.eta, srcAge) > 0
-                        ? `${adjustEta(a.eta, srcAge).toFixed(1)}d`
-                        : "ret?"
-                      : `${a.eta.toFixed(1)}d`}
+                      ? (() => {
+                          const ret = armyReturnStatus(srcAge, a.eta);
+                          return (
+                            <div
+                              className={
+                                ret.returned ? "text-emerald-300" : undefined
+                              }
+                            >
+                              <div>{ret.shortLabel}</div>
+                              <div className="text-[10px] text-gray-500">
+                                {formatLocalTimestamp(ret.returnAtIso)}
+                              </div>
+                            </div>
+                          );
+                        })()
+                      : `${a.eta.toFixed(1)}h`}
                   </td>
                   {showAmbush && (
                     <td className={td}>
@@ -1484,12 +1493,14 @@ function cellValue(p: ProvinceRow, key: ColKey): React.ReactNode {
       if (!srcAge) return "—";
       const out = p.armies_out_count ?? 0;
       if (out === 0) return <span className="text-gray-600">home</span>;
-      const eta =
-        p.earliest_return != null ? adjustEta(p.earliest_return, srcAge) : null;
+      const ret =
+        p.earliest_return != null
+          ? armyReturnStatus(srcAge, p.earliest_return)
+          : null;
       return (
         <span className="font-mono text-xs">
           {out}✦{p.land_incoming ? ` +${formatLand(p.land_incoming)}` : ""}
-          {eta != null ? (eta > 0 ? ` ${eta.toFixed(1)}d` : " ret?") : ""}
+          {ret ? ` ${ret.shortLabel}` : ""}
         </span>
       );
     }
