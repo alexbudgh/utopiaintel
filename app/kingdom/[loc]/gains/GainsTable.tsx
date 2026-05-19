@@ -19,7 +19,7 @@ import {
 } from "@/lib/ui";
 
 const ATTACKER_COL_WIDTH = "w-52 min-w-52";
-const TARGET_COL_WIDTH = "w-36 min-w-36";
+const TARGET_COL_WIDTH = "w-36 min-w-36 max-w-36";
 
 function averageNetworth(provinces: { networth: number }[]): number | null {
   if (provinces.length === 0) return null;
@@ -1606,7 +1606,7 @@ export function GainsTable({
                             ? `NW ${(estimate.rpnw * 100).toFixed(0)}%`
                             : "NW —"}
                         </div>
-                        <div className="mt-1 flex items-center justify-end gap-1">
+                        <div className="mt-1 flex max-w-full flex-wrap items-center justify-end gap-1 overflow-hidden">
                           {badges}
                           {!badges.length &&
                             breakMarker(attacker, defenderLatest)}
