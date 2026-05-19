@@ -1833,7 +1833,7 @@ export async function getWarEventMarkers(
           ? "Victory"
           : "Defeat";
       return {
-        id: `${isStart ? "war" : "war_end"}:${row.id}`,
+        id: `${isStart ? "war" : row.event_type === "war_ended_victory" ? "war_victory" : "war_defeat"}:${row.id}`,
         label,
         at: utopiaDateOrdToUtcTimestamp(row.game_date_ord!),
         detail: row.relation_kingdom
