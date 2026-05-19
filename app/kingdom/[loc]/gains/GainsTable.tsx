@@ -1078,6 +1078,14 @@ function gainsTone(
   return { cell: "bg-green-950/30", value: "text-green-200" };
 }
 
+function rpnwTone(
+  estimate: NonNullable<ReturnType<typeof estimateTraditionalMarchAcres>>,
+): string {
+  if (estimate.rpnwFactor === 0) return "text-red-300";
+  if (estimate.rpnwFactor < 1) return "text-amber-300";
+  return "text-green-300";
+}
+
 function stateBadges(
   estimate: NonNullable<
     ReturnType<typeof estimateTraditionalMarchAcres>
@@ -1565,6 +1573,13 @@ export function GainsTable({
                           {estimate
                             ? `${((estimate.rawAcres / defender.land) * 100).toFixed(1)}%`
                             : "—"}
+                        </div>
+                        <div
+                          className={`mt-0.5 text-[10px] ${estimate ? rpnwTone(estimate) : "text-gray-500"}`}
+                        >
+                          {estimate
+                            ? `NW ${(estimate.rpnw * 100).toFixed(0)}%`
+                            : "NW —"}
                         </div>
                         <div className="mt-1 flex items-center justify-end gap-1">
                           {badges}
