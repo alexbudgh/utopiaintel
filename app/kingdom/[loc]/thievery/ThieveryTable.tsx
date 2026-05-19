@@ -20,7 +20,7 @@ import {
 } from "@/lib/ui";
 
 const ATTACKER_COL_WIDTH = "w-52 min-w-52";
-const TARGET_COL_WIDTH = "w-36 min-w-36";
+const TARGET_COL_WIDTH = "w-36 min-w-36 max-w-36";
 
 function cellTone(
   value: number | null,
