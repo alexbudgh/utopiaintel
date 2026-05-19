@@ -425,7 +425,7 @@ function classifyEvent(
   m = RITUAL_ACTIVE_RE.exec(text);
   if (m)
     return {
-      eventType: "ritual_started",
+      eventType: "ritual_active",
       attackerName: null,
       attackerKingdom: null,
       defenderName: null,

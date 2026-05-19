@@ -1790,7 +1790,7 @@ export async function getLatestWarDate(
   return rows[0]?.game_date ?? null;
 }
 
-export async function getWarEventMarkers(
+export async function getHistoryEventMarkers(
   kingdom: string,
   keyHash: string,
 ): Promise<{ id: string; label: string; at: string; detail: string | null }[]> {
@@ -1804,6 +1804,7 @@ export async function getWarEventMarkers(
     game_date_ord: number | null;
     event_type: string;
     relation_kingdom: string | null;
+    dragon_name: string | null;
   }
 
   const [[access]] = await pool.execute<AccessRow[]>(
@@ -1813,10 +1814,10 @@ export async function getWarEventMarkers(
   if (!access.n) return [];
 
   const [rows] = await pool.execute<EventRow[]>(
-    `SELECT id, game_date, game_date_ord, event_type, relation_kingdom
+    `SELECT id, game_date, game_date_ord, event_type, relation_kingdom, dragon_name
      FROM kingdom_news_sharded
      WHERE key_hash = ? AND kingdom = ?
-       AND event_type IN ('war_declared', 'war_declared_on_us', 'war_ended_victory', 'war_ended_defeat')
+       AND event_type IN ('war_declared', 'war_declared_on_us', 'war_ended_victory', 'war_ended_defeat', 'ritual_started', 'ritual_active')
      ORDER BY game_date_ord ASC, id ASC`,
     [keyHash, kingdom],
   );
@@ -1824,6 +1825,20 @@ export async function getWarEventMarkers(
   return rows
     .filter((row) => row.game_date_ord != null)
     .map((row) => {
+      if (
+        row.event_type === "ritual_started" ||
+        row.event_type === "ritual_active"
+      ) {
+        const isActive = row.event_type === "ritual_active";
+        return {
+          id: `${isActive ? "ritual_active" : "ritual"}:${row.id}`,
+          label: `${isActive ? "✓" : "↑"} ${row.dragon_name ?? "Ritual"}`,
+          at: utopiaDateOrdToUtcTimestamp(row.game_date_ord!),
+          detail: row.dragon_name
+            ? `${row.game_date} (${row.dragon_name})`
+            : row.game_date,
+        };
+      }
       const isStart =
         row.event_type === "war_declared" ||
         row.event_type === "war_declared_on_us";

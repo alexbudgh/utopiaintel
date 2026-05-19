@@ -1558,6 +1558,25 @@ test("parseKingdomNews — war ended (defeat)", () => {
   assert.equal(e.relationKingdom, "4:6");
 });
 
+test("parseKingdomNews — ritual started", () => {
+  const e = parseOne(
+    mkLine(
+      "June 3 of YR9",
+      "We have started developing a ritual! (Ascendency)!",
+    ),
+  );
+  assert.equal(e.eventType, "ritual_started");
+  assert.equal(e.dragonName, "Ascendency");
+});
+
+test("parseKingdomNews — ritual active", () => {
+  const e = parseOne(
+    mkLine("June 5 of YR9", "A ritual is covering our lands! (Ascendency)"),
+  );
+  assert.equal(e.eventType, "ritual_active");
+  assert.equal(e.dragonName, "Ascendency");
+});
+
 test("parseKingdomNews — ceasefire accepted", () => {
   const e = parseOne(
     mkLine(

@@ -52,7 +52,7 @@ import {
   getKingdomRitual as mysqlGetKingdomRitual,
   getKingdomDragon as mysqlGetKingdomDragon,
   getLatestWarDate as mysqlGetLatestWarDate,
-  getWarEventMarkers as mysqlGetWarEventMarkers,
+  getHistoryEventMarkers as mysqlGetHistoryEventMarkers,
   getKingdomNews as mysqlGetKingdomNews,
   getRecentOps as mysqlGetRecentOps,
   getKingdoms as mysqlGetKingdoms,
@@ -146,7 +146,7 @@ export interface AsyncDbApi {
     to?: string,
   ): Promise<{ events: KingdomNewsRow[]; effectiveFrom: string | null }>;
   getLatestWarDate(kingdom: string, keyHash: string): Promise<string | null>;
-  getWarEventMarkers(
+  getHistoryEventMarkers(
     kingdom: string,
     keyHash: string,
   ): Promise<HistoryEventMarker[]>;
@@ -311,7 +311,7 @@ function createMysqlDbApi(): AsyncDbApi {
       getKingdomRitual: (kd, kh) => mysqlGetKingdomRitual(kd, kh),
       getKingdomDragon: (kd, kh) => mysqlGetKingdomDragon(kd, kh),
       getLatestWarDate: (kd, kh) => mysqlGetLatestWarDate(kd, kh),
-      getWarEventMarkers: (kd, kh) => mysqlGetWarEventMarkers(kd, kh),
+      getHistoryEventMarkers: (kd, kh) => mysqlGetHistoryEventMarkers(kd, kh),
       getKingdomNews: (kd, kh, f, t) => mysqlGetKingdomNews(kd, kh, f, t),
       getRecentOps: (kh, lim, s) => mysqlGetRecentOps(kh, lim, s),
       getKingdoms: (kh) => mysqlGetKingdoms(kh),

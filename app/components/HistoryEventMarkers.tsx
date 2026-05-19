@@ -9,6 +9,8 @@ export type VisibleHistoryEventMarker = HistoryEventMarker & { t: number };
 function markerColor(marker: HistoryEventMarker): string {
   if (marker.id.startsWith("war_victory:")) return "#4ade80";
   if (marker.id.startsWith("war_defeat:")) return "#f87171";
+  if (marker.id.startsWith("ritual_active:")) return "#22d3ee";
+  if (marker.id.startsWith("ritual:")) return "#c084fc";
   return "#fbbf24";
 }
 
