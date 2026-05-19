@@ -1052,30 +1052,6 @@ function EstimateCell({
   );
 }
 
-function breakMarker(
-  attacker: ProvinceRow,
-  defenderLatest: ProvinceRow | null,
-) {
-  const breakability = estimateBreakability(attacker, defenderLatest);
-  if (breakability.status === "breakable") {
-    return (
-      <span className="text-[10px] uppercase tracking-wide text-green-400">
-        B
-      </span>
-    );
-  }
-  if (breakability.status === "not_breakable") {
-    return (
-      <span className="text-[10px] uppercase tracking-wide text-red-400">
-        X
-      </span>
-    );
-  }
-  return (
-    <span className="text-[10px] uppercase tracking-wide text-gray-500">?</span>
-  );
-}
-
 function gainsTone(
   estimate: NonNullable<
     ReturnType<typeof estimateTraditionalMarchAcres>
@@ -1101,6 +1077,38 @@ function rpnwTone(
   return "text-green-300";
 }
 
+function factorBadge({
+  code,
+  label,
+  tone,
+  lines,
+}: {
+  code: string;
+  label: string;
+  tone: "bad" | "warn" | "good" | "info";
+  lines?: TooltipLine[];
+}) {
+  const toneClass =
+    tone === "bad"
+      ? "border-red-700/60 bg-red-950/50 text-red-300"
+      : tone === "warn"
+        ? "border-amber-700/60 bg-amber-950/40 text-amber-300"
+        : tone === "good"
+          ? "border-emerald-700/60 bg-emerald-950/40 text-emerald-300"
+          : "border-sky-700/60 bg-sky-950/40 text-sky-300";
+  return (
+    <Tooltip content={lines ?? label}>
+      <span
+        aria-label={label}
+        tabIndex={0}
+        className={`inline-flex h-4 w-5 items-center justify-center rounded border text-[9px] font-semibold leading-none ${toneClass}`}
+      >
+        {code}
+      </span>
+    </Tooltip>
+  );
+}
+
 function stateBadges(
   estimate: NonNullable<
     ReturnType<typeof estimateTraditionalMarchAcres>
@@ -1111,109 +1119,163 @@ function stateBadges(
   if (!estimate) return badges;
   if (estimate.rpnwFactor === 0) {
     badges.push(
-      <span
-        key="nw0"
-        className="text-[9px] font-medium uppercase tracking-wide text-red-400"
-      >
-        NW0
+      <span key="nw">
+        {factorBadge({
+          code: "NW",
+          label: "Province networth gives zero gains",
+          tone: "bad",
+          lines: [
+            { text: "Province networth gives zero gains", tone: "bad" },
+            { text: `RPNW factor: ${estimate.rpnwFactor.toFixed(3)}` },
+            { text: `RPNW: ${(estimate.rpnw * 100).toFixed(1)}%` },
+          ],
+        })}
       </span>,
     );
   } else if (estimate.rpnwFactor < 1 || estimate.rknwFactor < 1) {
     badges.push(
-      <span
-        key="reduced"
-        className="text-[9px] font-medium uppercase tracking-wide text-amber-400"
-      >
-        REDUCED
+      <span key="nw">
+        {factorBadge({
+          code: "NW",
+          label: "Networth reduces gains",
+          tone: "warn",
+          lines: [
+            { text: "Networth reduces gains", tone: "warn" },
+            { text: `RPNW factor: ${estimate.rpnwFactor.toFixed(3)}` },
+            { text: `RKNW factor: ${estimate.rknwFactor.toFixed(3)}` },
+          ],
+        })}
       </span>,
     );
   }
   if (estimate.capApplied) {
     badges.push(
-      <span
-        key="cap"
-        className="text-[9px] font-medium uppercase tracking-wide text-amber-300"
-      >
-        CAP
+      <span key="cap">
+        {factorBadge({
+          code: "CP",
+          label: "20% land cap applied",
+          tone: "warn",
+        })}
       </span>,
     );
   }
   if (estimate.warFloorApplied) {
     badges.push(
-      <span
-        key="floor"
-        className="text-[9px] font-medium uppercase tracking-wide text-sky-300"
-      >
-        FLOOR
+      <span key="floor">
+        {factorBadge({
+          code: "FL",
+          label: "War minimum gains floor applied",
+          tone: "info",
+        })}
       </span>,
     );
   }
   if (estimate.mapFactor < 1) {
     badges.push(
-      <span
-        key="map"
-        className="text-[9px] font-medium uppercase tracking-wide text-rose-300"
-      >
-        MAP
+      <span key="map">
+        {factorBadge({
+          code: "MP",
+          label: "MAP reduces gains",
+          tone: "warn",
+          lines: [
+            { text: "MAP reduces gains", tone: "warn" },
+            { text: `MAP factor: ${estimate.mapFactor.toFixed(3)}` },
+            { text: `Status: ${estimate.mapStatus ?? "unknown"}` },
+          ],
+        })}
       </span>,
     );
   }
   if (estimate.castlesFactor < 1) {
     badges.push(
-      <span
-        key="castles"
-        className="text-[9px] font-medium uppercase tracking-wide text-orange-300"
-      >
-        CASTLES
+      <span key="castles">
+        {factorBadge({
+          code: "CS",
+          label: "Castles reduce gains",
+          tone: "warn",
+          lines: [
+            { text: "Castles reduce gains", tone: "warn" },
+            { text: `Castles factor: ${estimate.castlesFactor.toFixed(3)}` },
+          ],
+        })}
       </span>,
     );
   }
   if (estimate.barrierFactor < 1) {
     badges.push(
-      <span
-        key="barrier"
-        className="text-[9px] font-medium uppercase tracking-wide text-purple-300"
-      >
-        BARRIER
+      <span key="barrier">
+        {factorBadge({
+          code: "BA",
+          label: "Barrier ritual reduces gains",
+          tone: "warn",
+          lines: [
+            { text: "Barrier ritual reduces gains", tone: "warn" },
+            { text: `Barrier factor: ${estimate.barrierFactor.toFixed(3)}` },
+          ],
+        })}
       </span>,
     );
   }
   if (estimate.siegeFactor > 1) {
     badges.push(
-      <span
-        key="siege"
-        className="text-[9px] font-medium uppercase tracking-wide text-emerald-300"
-      >
-        SIEGE
+      <span key="siege">
+        {factorBadge({
+          code: "SG",
+          label: "Siege increases gains",
+          tone: "good",
+          lines: [
+            { text: "Siege increases gains", tone: "good" },
+            { text: `Siege factor: ${estimate.siegeFactor.toFixed(3)}` },
+          ],
+        })}
       </span>,
     );
   }
   if (estimate.combinedRelationFactor > 1) {
     badges.push(
-      <span
-        key="rel"
-        className="text-[9px] font-medium uppercase tracking-wide text-violet-300"
-      >
-        REL
+      <span key="rel">
+        {factorBadge({
+          code: "RL",
+          label: "Relations increase gains",
+          tone: "good",
+          lines: [
+            { text: "Relations increase gains", tone: "good" },
+            {
+              text: `Relation factor: ${estimate.combinedRelationFactor.toFixed(3)}`,
+            },
+          ],
+        })}
       </span>,
     );
   }
   if (breakability.status === "not_breakable") {
     badges.push(
-      <span
-        key="x"
-        className="text-[9px] font-medium uppercase tracking-wide text-red-400"
-      >
-        X
+      <span key="x">
+        {factorBadge({
+          code: "X",
+          label: "Target is not breakable",
+          tone: "bad",
+        })}
+      </span>,
+    );
+  } else if (breakability.status === "breakable") {
+    badges.push(
+      <span key="b">
+        {factorBadge({
+          code: "B",
+          label: "Target is breakable",
+          tone: "good",
+        })}
       </span>,
     );
   } else if (breakability.status === "unknown") {
     badges.push(
-      <span
-        key="q"
-        className="text-[9px] font-medium uppercase tracking-wide text-sky-300"
-      >
-        ?
+      <span key="q">
+        {factorBadge({
+          code: "?",
+          label: "Breakability unknown",
+          tone: "info",
+        })}
       </span>,
     );
   }
@@ -1608,8 +1670,6 @@ export function GainsTable({
                         </div>
                         <div className="mt-1 flex max-w-full flex-wrap items-center justify-end gap-1 overflow-hidden">
                           {badges}
-                          {!badges.length &&
-                            breakMarker(attacker, defenderLatest)}
                         </div>
                       </Tooltip>
                     </td>
