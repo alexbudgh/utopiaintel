@@ -83,6 +83,8 @@ export default async function KingdomPage({
     view === "news" || view === "events" || view === "ops"
       ? await db.getLatestWarDate(kingdom, keyHash)
       : null;
+  const latestWarEvent =
+    view === "history" ? await db.getLatestWarEvent(kingdom, keyHash) : null;
   const opsStats =
     view === "ops"
       ? await db.getKingdomOpsStats(kingdom, keyHash, from, to, opsTimeMode)
@@ -142,6 +144,7 @@ export default async function KingdomPage({
         compareKingdom={compareKingdom}
         compareHistory={compareHistory}
         boundKingdom={boundKingdom}
+        eventMarkers={latestWarEvent ? [latestWarEvent] : []}
       />
     );
   }

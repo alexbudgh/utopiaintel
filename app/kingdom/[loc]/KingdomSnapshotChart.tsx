@@ -3,6 +3,7 @@
 import { KingdomViewShell } from "./KingdomTabs";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { HistoryChartControls } from "@/app/components/HistoryChartControls";
 import {
   Legend,
   Line,
@@ -12,8 +13,23 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { KingdomSnapshotHistoryPoint } from "@/lib/db-types";
-import { formatNum, formatTimestamp } from "@/lib/ui";
+import {
+  HistoryEventLegend,
+  HistoryEventReferenceLines,
+  visibleHistoryEventMarkers,
+  type VisibleHistoryEventMarker,
+} from "@/app/components/HistoryEventMarkers";
+import {
+  historyChartLabel,
+  historyChartLabelFromMs,
+  historyChartTimeMs,
+  type HistoryChartTimezone,
+} from "@/app/components/historyChartTime";
+import type {
+  HistoryEventMarker,
+  KingdomSnapshotHistoryPoint,
+} from "@/lib/db-types";
+import { formatNum } from "@/lib/ui";
 
 type MetricKey = "totalNetworth" | "totalLand" | "totalHonor";
 
@@ -29,6 +45,7 @@ interface SharedChartProps {
   primaryHistory: KingdomSnapshotHistoryPoint[];
   compareKingdom?: string | null;
   compareHistory?: KingdomSnapshotHistoryPoint[];
+  eventMarkers?: HistoryEventMarker[];
 }
 
 interface KingdomSnapshotChartProps extends SharedChartProps {
@@ -37,6 +54,11 @@ interface KingdomSnapshotChartProps extends SharedChartProps {
 
 interface KingdomHistoryViewProps extends SharedChartProps {
   boundKingdom?: string | null;
+}
+
+interface ChartStackProps extends SharedChartProps {
+  tz: HistoryChartTimezone;
+  hideEventMarkers: boolean;
 }
 
 const METRICS: {
@@ -54,34 +76,25 @@ const SECONDARY_COLOR = "#f472b6";
 
 type ChartRow = {
   iso: string;
+  t: number;
   label: string;
   primaryValue?: number;
   compareValue?: number;
 };
 
-function chartLabel(iso: string): string {
-  const d = new Date(iso.replace(" ", "T") + "Z");
-  return d.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: "UTC",
-  });
-}
-
 function buildMetricRows(
   primary: KingdomSnapshotHistoryPoint[],
   compare: KingdomSnapshotHistoryPoint[],
   metric: MetricKey,
+  tz: HistoryChartTimezone,
 ): ChartRow[] {
   const byIso = new Map<string, ChartRow>();
 
   for (const point of primary) {
     byIso.set(point.receivedAt, {
       iso: point.receivedAt,
-      label: chartLabel(point.receivedAt),
+      t: historyChartTimeMs(point.receivedAt),
+      label: historyChartLabel(point.receivedAt, tz),
       primaryValue: point[metric] ?? undefined,
     });
   }
@@ -93,13 +106,14 @@ function buildMetricRows(
     } else {
       byIso.set(point.receivedAt, {
         iso: point.receivedAt,
-        label: chartLabel(point.receivedAt),
+        t: historyChartTimeMs(point.receivedAt),
+        label: historyChartLabel(point.receivedAt, tz),
         compareValue: point[metric] ?? undefined,
       });
     }
   }
 
-  return [...byIso.values()].sort((a, b) => a.iso.localeCompare(b.iso));
+  return [...byIso.values()].sort((a, b) => a.t - b.t);
 }
 
 function latestMetricValue(
@@ -117,15 +131,30 @@ function MetricChart({
   primary,
   compare,
   metric,
+  tz,
+  hideEventMarkers,
+  eventMarkers = [],
 }: {
   primary: SeriesConfig;
   compare?: SeriesConfig;
   metric: (typeof METRICS)[number];
+  tz: HistoryChartTimezone;
+  hideEventMarkers: boolean;
+  eventMarkers?: HistoryEventMarker[];
 }) {
   const data = useMemo(
-    () => buildMetricRows(primary.history, compare?.history ?? [], metric.key),
-    [primary.history, compare?.history, metric.key],
+    () =>
+      buildMetricRows(primary.history, compare?.history ?? [], metric.key, tz),
+    [primary.history, compare?.history, metric.key, tz],
   );
+  const domainStart = data[0]?.t ?? 0;
+  const domainEnd = data.at(-1)?.t ?? 0;
+  const visibleEventMarkers = visibleHistoryEventMarkers(
+    eventMarkers,
+    domainStart,
+    domainEnd,
+  );
+  const activeEventMarkers = hideEventMarkers ? [] : visibleEventMarkers;
 
   return (
     <div className="rounded border border-gray-800 bg-gray-950/40 p-3">
@@ -156,11 +185,16 @@ function MetricChart({
           margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
         >
           <XAxis
-            dataKey="label"
+            dataKey="t"
+            type="number"
+            domain={["dataMin", "dataMax"]}
             tick={{ fill: "#6b7280", fontSize: 10 }}
             tickLine={false}
             axisLine={false}
             minTickGap={32}
+            tickFormatter={(value) =>
+              historyChartLabelFromMs(Number(value), tz)
+            }
           />
           <YAxis
             tick={{ fill: "#6b7280", fontSize: 10 }}
@@ -178,7 +212,7 @@ function MetricChart({
             }}
             labelFormatter={(_, payload) => {
               const point = payload?.[0]?.payload as ChartRow | undefined;
-              return point ? formatTimestamp(point.iso) : "";
+              return point ? historyChartLabel(point.iso, tz) : "";
             }}
             formatter={(value, name) => {
               const n = Number(value);
@@ -189,6 +223,7 @@ function MetricChart({
             }}
           />
           <Legend wrapperStyle={{ fontSize: 11, color: "#9ca3af" }} />
+          <HistoryEventReferenceLines markers={activeEventMarkers} />
           <Line
             type="monotone"
             name={primary.kingdom}
@@ -214,12 +249,26 @@ function MetricChart({
           )}
         </LineChart>
       </ResponsiveContainer>
+      {activeEventMarkers.length > 0 && (
+        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+          <HistoryEventLegend
+            markers={activeEventMarkers}
+            formatTime={(marker: VisibleHistoryEventMarker) =>
+              historyChartLabelFromMs(marker.t, tz)
+            }
+          />
+        </div>
+      )}
     </div>
   );
 }
 
-function historySummary(history: KingdomSnapshotHistoryPoint[]): string {
-  return `${history.length} snapshot${history.length === 1 ? "" : "s"} from ${formatTimestamp(history[0]?.receivedAt ?? null)} to ${formatTimestamp(history.at(-1)?.receivedAt ?? null)}`;
+function historySummary(
+  history: KingdomSnapshotHistoryPoint[],
+  tz: HistoryChartTimezone,
+): string {
+  if (history.length === 0) return "0 snapshots";
+  return `${history.length} snapshot${history.length === 1 ? "" : "s"} from ${historyChartLabel(history[0].receivedAt, tz)} to ${historyChartLabel(history[history.length - 1].receivedAt, tz)}`;
 }
 
 function ChartStack({
@@ -227,7 +276,10 @@ function ChartStack({
   primaryHistory,
   compareKingdom,
   compareHistory,
-}: SharedChartProps) {
+  tz,
+  hideEventMarkers,
+  eventMarkers = [],
+}: ChartStackProps) {
   const primarySeries: SeriesConfig = {
     kingdom: primaryKingdom,
     history: primaryHistory,
@@ -255,6 +307,9 @@ function ChartStack({
           }}
           compare={compareSeries}
           metric={metric}
+          tz={tz}
+          hideEventMarkers={hideEventMarkers}
+          eventMarkers={eventMarkers}
         />
       ))}
     </div>
@@ -266,9 +321,12 @@ export function KingdomSnapshotChart({
   primaryHistory,
   compareKingdom,
   compareHistory = [],
+  eventMarkers = [],
   initiallyOpen = false,
 }: KingdomSnapshotChartProps) {
   const [open, setOpen] = useState(initiallyOpen);
+  const [tz, setTz] = useState<HistoryChartTimezone>("local");
+  const [hideEventMarkers, setHideEventMarkers] = useState(false);
 
   if (primaryHistory.length === 0) return null;
 
@@ -280,7 +338,7 @@ export function KingdomSnapshotChart({
             Kingdom History
           </h2>
           <div className="text-xs text-gray-500">
-            {historySummary(primaryHistory)}
+            {historySummary(primaryHistory, tz)}
           </div>
           {compareKingdom && compareHistory.length > 0 && (
             <div className="text-xs text-gray-500">
@@ -288,13 +346,23 @@ export function KingdomSnapshotChart({
             </div>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => setOpen((value) => !value)}
-          className="inline-flex items-center rounded border border-gray-700 bg-gray-900 px-2.5 py-1 text-xs text-gray-300 transition-colors hover:border-gray-500 hover:text-gray-100"
+        <HistoryChartControls
+          tz={tz}
+          onTimezoneToggle={() =>
+            setTz((value) => (value === "UTC" ? "local" : "UTC"))
+          }
+          hideEventMarkers={hideEventMarkers}
+          onEventMarkersToggle={() => setHideEventMarkers((value) => !value)}
+          hasEventMarkers={eventMarkers.length > 0}
         >
-          {open ? "Hide chart" : "Show chart"}
-        </button>
+          <button
+            type="button"
+            onClick={() => setOpen((value) => !value)}
+            className="inline-flex items-center rounded border border-gray-700 bg-gray-900 px-2.5 py-1 text-xs text-gray-300 transition-colors hover:border-gray-500 hover:text-gray-100"
+          >
+            {open ? "Hide chart" : "Show chart"}
+          </button>
+        </HistoryChartControls>
       </div>
       {open && (
         <div className="mt-3">
@@ -303,6 +371,9 @@ export function KingdomSnapshotChart({
             primaryHistory={primaryHistory}
             compareKingdom={compareKingdom}
             compareHistory={compareHistory}
+            tz={tz}
+            hideEventMarkers={hideEventMarkers}
+            eventMarkers={eventMarkers}
           />
         </div>
       )}
@@ -316,9 +387,12 @@ export function KingdomHistoryView({
   compareKingdom,
   compareHistory = [],
   boundKingdom,
+  eventMarkers = [],
 }: KingdomHistoryViewProps) {
   const router = useRouter();
   const [compareInput, setCompareInput] = useState(compareKingdom ?? "");
+  const [tz, setTz] = useState<HistoryChartTimezone>("local");
+  const [hideEventMarkers, setHideEventMarkers] = useState(false);
   const kingdomHref = `/kingdom/${encodeURIComponent(primaryKingdom)}`;
 
   function applyCompare(event: React.FormEvent) {
@@ -346,7 +420,7 @@ export function KingdomHistoryView({
               Snapshot History
             </h2>
             <div className="text-xs text-gray-500">
-              {historySummary(primaryHistory)}
+              {historySummary(primaryHistory, tz)}
             </div>
             {compareKingdom && compareHistory.length > 0 && (
               <div className="mt-1 text-xs text-gray-500">
@@ -354,7 +428,7 @@ export function KingdomHistoryView({
                 <span className="text-gray-300 font-mono">
                   {compareKingdom}
                 </span>{" "}
-                with {historySummary(compareHistory)}.
+                with {historySummary(compareHistory, tz)}.
               </div>
             )}
             {compareKingdom && compareHistory.length === 0 && (
@@ -368,6 +442,17 @@ export function KingdomHistoryView({
             onSubmit={applyCompare}
             className="flex flex-wrap items-center gap-2"
           >
+            <HistoryChartControls
+              tz={tz}
+              onTimezoneToggle={() =>
+                setTz((value) => (value === "UTC" ? "local" : "UTC"))
+              }
+              hideEventMarkers={hideEventMarkers}
+              onEventMarkersToggle={() =>
+                setHideEventMarkers((value) => !value)
+              }
+              hasEventMarkers={eventMarkers.length > 0}
+            />
             <input
               type="text"
               value={compareInput}
@@ -403,6 +488,9 @@ export function KingdomHistoryView({
           primaryHistory={primaryHistory}
           compareKingdom={compareKingdom}
           compareHistory={compareHistory}
+          tz={tz}
+          hideEventMarkers={hideEventMarkers}
+          eventMarkers={eventMarkers}
         />
       ) : (
         <div className="rounded-lg border border-gray-800 bg-gray-900/50 px-5 py-6 text-sm text-gray-400">

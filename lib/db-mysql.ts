@@ -8,6 +8,7 @@ import { pool, ensureReady, initDb } from "./db-mysql-pool";
 export { pool, ensureReady, initDb };
 import { BAD_SPELL_NAMES, COMBAT_EVENT_TYPES } from "./effects";
 import { parseUtopiaDate, formatUtopiaDate, UTOPIA_DAYS_PER_MONTH } from "./ui";
+import { utopiaDateOrdToUtcTimestamp } from "./utopia-age";
 import { computeWizardCount } from "./nw";
 import {
   computeDtpaValue,
@@ -1787,6 +1788,54 @@ export async function getLatestWarDate(
     [keyHash, kingdom],
   );
   return rows[0]?.game_date ?? null;
+}
+
+export async function getLatestWarEvent(
+  kingdom: string,
+  keyHash: string,
+): Promise<{
+  id: string;
+  label: string;
+  at: string;
+  detail: string | null;
+} | null> {
+  await ensureReady();
+  interface AccessRow extends RowDataPacket {
+    n: number;
+  }
+  interface EventRow extends RowDataPacket {
+    id: number;
+    game_date: string;
+    game_date_ord: number | null;
+    event_type: string;
+    relation_kingdom: string | null;
+  }
+
+  const [[access]] = await pool.execute<AccessRow[]>(
+    "SELECT COUNT(*) AS n FROM kingdom_news_sharded WHERE key_hash = ? AND kingdom = ? LIMIT 1",
+    [keyHash, kingdom],
+  );
+  if (!access.n) return null;
+
+  const [rows] = await pool.execute<EventRow[]>(
+    `SELECT id, game_date, game_date_ord, event_type, relation_kingdom
+     FROM kingdom_news_sharded
+     WHERE key_hash = ? AND kingdom = ? AND event_type IN ('war_declared', 'war_declared_on_us')
+     ORDER BY game_date_ord DESC, id DESC
+     LIMIT 1`,
+    [keyHash, kingdom],
+  );
+  const row = rows[0];
+  if (!row || row.game_date_ord == null) return null;
+
+  return {
+    id: `war:${row.id}`,
+    label: "War",
+    at: utopiaDateOrdToUtcTimestamp(row.game_date_ord),
+    detail: row.relation_kingdom
+      ? `${row.game_date} vs ${row.relation_kingdom}`
+      : row.game_date,
+  };
 }
 
 export async function getKingdomNews(

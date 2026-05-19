@@ -320,6 +320,13 @@ export interface KingdomNewsRow {
   receivedAt: string;
 }
 
+export interface HistoryEventMarker {
+  id: string;
+  label: string;
+  at: string;
+  detail: string | null;
+}
+
 export interface NewsProvinceSummary {
   provinceName: string | null;
   slot: number | null;

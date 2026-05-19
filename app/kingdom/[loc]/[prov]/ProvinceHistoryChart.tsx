@@ -12,7 +12,21 @@ import {
 } from "recharts";
 import type { TooltipContentProps } from "recharts/types/component/Tooltip";
 import type { Payload } from "recharts/types/component/DefaultTooltipContent";
-import type { ProvinceHistoryPoint } from "@/lib/db-types";
+import { HistoryChartControls } from "@/app/components/HistoryChartControls";
+import {
+  HistoryEventLegend,
+  HistoryEventReferenceLines,
+  visibleHistoryEventMarkers,
+  type VisibleHistoryEventMarker,
+} from "@/app/components/HistoryEventMarkers";
+import {
+  historyChartLabel,
+  historyChartLabelFromMs,
+  historyChartTimeMs,
+  LOCAL_HISTORY_TZ_LABEL,
+  type HistoryChartTimezone,
+} from "@/app/components/historyChartTime";
+import type { HistoryEventMarker, ProvinceHistoryPoint } from "@/lib/db-types";
 import { formatNum } from "@/lib/ui";
 
 type MetricKey = keyof Omit<
@@ -57,11 +71,6 @@ function truncateList(items: string[], max = 3): string {
   return `${items.slice(0, max).join(", ")} … (${items.length - max} more)`;
 }
 
-const LOCAL_TZ_LABEL =
-  new Intl.DateTimeFormat("en", { timeZoneName: "shortOffset" })
-    .formatToParts(new Date())
-    .find((p) => p.type === "timeZoneName")?.value ?? "Local";
-
 // Target ~60 display points; snap bucket size to a nice interval
 const TARGET_POINTS = 60;
 const NICE_BUCKETS_MS = [
@@ -74,24 +83,13 @@ const NICE_BUCKETS_MS = [
   240 * 60_000,
 ];
 
-function chartLabel(isoStr: string, tz: "UTC" | "local"): string {
-  const d = new Date(isoStr.replace(" ", "T") + "Z");
-  return d.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: tz === "UTC" ? "UTC" : undefined,
-  });
-}
-
 type MetaMap = Partial<
   Record<string, { sources: string[]; savedBy: string[] }>
 >;
 
 type ChartRow = {
   iso: string;
+  t: number;
   label: string;
   meta: MetaMap;
   bucketed: boolean;
@@ -157,15 +155,14 @@ function formatBucketWidth(ms: number): string {
 
 function buildRows(
   history: ProvinceHistoryPoint[],
-  tz: "UTC" | "local",
+  tz: HistoryChartTimezone,
 ): { rows: ChartRow[]; bucketMs: number } {
   if (history.length === 0) return { rows: [], bucketMs: 0 };
 
-  const toMs = (iso: string) => new Date(iso.replace(" ", "T") + "Z").getTime();
-
   // Pick a bucket size: if few points, use raw; otherwise snap up to a nice interval
   const spanMs =
-    toMs(history[history.length - 1].receivedAt) - toMs(history[0].receivedAt);
+    historyChartTimeMs(history[history.length - 1].receivedAt) -
+    historyChartTimeMs(history[0].receivedAt);
   const rawBucketMs = spanMs / TARGET_POINTS;
   const bucketMs =
     history.length <= TARGET_POINTS
@@ -179,7 +176,8 @@ function buildRows(
       rows: history.map((point) => {
         const row: ChartRow = {
           iso: point.receivedAt,
-          label: chartLabel(point.receivedAt, tz),
+          t: historyChartTimeMs(point.receivedAt),
+          label: historyChartLabel(point.receivedAt, tz),
           meta: point.meta,
           bucketed: false,
           attacksTaken: point.attacksTaken,
@@ -208,7 +206,8 @@ function buildRows(
   // Group into buckets, LWW per metric (history is sorted ascending so last wins)
   const groups = new Map<number, ProvinceHistoryPoint[]>();
   for (const point of history) {
-    const bucket = Math.floor(toMs(point.receivedAt) / bucketMs) * bucketMs;
+    const bucket =
+      Math.floor(historyChartTimeMs(point.receivedAt) / bucketMs) * bucketMs;
     (groups.get(bucket) ?? (groups.set(bucket, []), groups.get(bucket)!)).push(
       point,
     );
@@ -237,7 +236,8 @@ function buildRows(
       const sorceryOpsTaken = points.flatMap((p) => p.sorceryOpsTaken);
       const row: ChartRow = {
         iso,
-        label: chartLabel(iso, tz),
+        t: bucketStart,
+        label: historyChartLabel(iso, tz),
         meta,
         bucketed: true,
         attacksTaken,
@@ -274,7 +274,7 @@ function ChartTooltip({
   hideSorcery,
   maxWidth,
 }: TooltipContentProps<number, string> & {
-  tz: "UTC" | "local";
+  tz: HistoryChartTimezone;
   hideAttacks: boolean;
   hideThievery: boolean;
   hideSabotageOps: boolean;
@@ -345,7 +345,7 @@ function ChartTooltip({
       <div className="mb-1 font-medium text-gray-200">
         {point.label}
         <span className="ml-1 text-gray-500">
-          {tz === "UTC" ? "UTC" : LOCAL_TZ_LABEL}
+          {tz === "UTC" ? "UTC" : LOCAL_HISTORY_TZ_LABEL}
         </span>
       </div>
       <div className="space-y-0.5">
@@ -634,8 +634,10 @@ function ChartTooltip({
 
 export function ProvinceHistoryChart({
   history,
+  eventMarkers = [],
 }: {
   history: ProvinceHistoryPoint[];
+  eventMarkers?: HistoryEventMarker[];
 }) {
   const [hidden, setHidden] = useState<Set<MetricKey>>(
     new Set(
@@ -648,9 +650,10 @@ export function ProvinceHistoryChart({
   const [hideThievery, setHideThievery] = useState(false);
   const [hideSabotageOps, setHideOtherOps] = useState(false);
   const [hideSorcery, setHideSorcery] = useState(false);
+  const [hideEventMarkers, setHideEventMarkers] = useState(false);
   const [open, setOpen] = useState(false);
   const [hoveredLine, setHoveredLine] = useState<MetricKey | null>(null);
-  const [tz, setTz] = useState<"UTC" | "local">("local");
+  const [tz, setTz] = useState<HistoryChartTimezone>("local");
   const [containerWidth, setContainerWidth] = useState(800);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -684,9 +687,17 @@ export function ProvinceHistoryChart({
     (hasSabotageOpsMarkers && !hideSabotageOps) ||
     (hasSorceryMarkers && !hideSorcery);
   const bucketed = data.some((r) => r.bucketed);
+  const domainStart = data[0]?.t ?? 0;
+  const domainEnd = data.at(-1)?.t ?? 0;
+  const visibleEventMarkers = visibleHistoryEventMarkers(
+    eventMarkers,
+    domainStart,
+    domainEnd,
+  );
+  const activeEventMarkers = hideEventMarkers ? [] : visibleEventMarkers;
 
-  const tzLabel = tz === "UTC" ? "UTC" : LOCAL_TZ_LABEL;
-  const summary = `${history.length} snapshot${history.length === 1 ? "" : "s"} from ${chartLabel(history[0].receivedAt, tz)} to ${chartLabel(history[history.length - 1].receivedAt, tz)} ${tzLabel}`;
+  const tzLabel = tz === "UTC" ? "UTC" : LOCAL_HISTORY_TZ_LABEL;
+  const summary = `${history.length} snapshot${history.length === 1 ? "" : "s"} from ${historyChartLabel(history[0].receivedAt, tz)} to ${historyChartLabel(history[history.length - 1].receivedAt, tz)} ${tzLabel}`;
 
   const narrow = containerWidth < 480;
   const axisWidth = narrow ? 38 : 52;
@@ -710,15 +721,15 @@ export function ProvinceHistoryChart({
               ` · bucketed into ${data.length} × ${formatBucketWidth(bucketMs)} windows (most recent per window)`}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setTz((v) => (v === "UTC" ? "local" : "UTC"))}
-            className="inline-flex items-center rounded border border-gray-700 bg-gray-900 px-2.5 py-1 text-xs text-gray-400 transition-colors hover:border-gray-500 hover:text-gray-100"
-            title={tz === "UTC" ? "Switch to local time" : "Switch to UTC"}
-          >
-            {tz === "UTC" ? "UTC" : `Local (${LOCAL_TZ_LABEL})`}
-          </button>
+        <HistoryChartControls
+          tz={tz}
+          onTimezoneToggle={() =>
+            setTz((value) => (value === "UTC" ? "local" : "UTC"))
+          }
+          hideEventMarkers={hideEventMarkers}
+          onEventMarkersToggle={() => setHideEventMarkers((value) => !value)}
+          hasEventMarkers={eventMarkers.length > 0}
+        >
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
@@ -726,7 +737,7 @@ export function ProvinceHistoryChart({
           >
             {open ? "Hide chart" : "Show chart"}
           </button>
-        </div>
+        </HistoryChartControls>
       </div>
       {open && (
         <div className="mt-3">
@@ -736,11 +747,14 @@ export function ProvinceHistoryChart({
               margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
             >
               <XAxis
-                dataKey="label"
+                dataKey="t"
+                type="number"
+                domain={["dataMin", "dataMax"]}
                 tick={axisStyle}
                 tickLine={false}
                 axisLine={false}
                 minTickGap={40}
+                tickFormatter={(v) => historyChartLabelFromMs(Number(v), tz)}
               />
               <YAxis
                 yAxisId="large"
@@ -774,6 +788,10 @@ export function ProvinceHistoryChart({
                     maxWidth={tooltipMaxWidth}
                   />
                 )}
+              />
+              <HistoryEventReferenceLines
+                markers={activeEventMarkers}
+                yAxisId={hasLargeAxis ? "large" : "small"}
               />
               {METRICS.map((m) => (
                 <Line
@@ -835,6 +853,12 @@ export function ProvinceHistoryChart({
             </ComposedChart>
           </ResponsiveContainer>
           <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1.5">
+            <HistoryEventLegend
+              markers={activeEventMarkers}
+              formatTime={(marker: VisibleHistoryEventMarker) =>
+                historyChartLabelFromMs(marker.t, tz)
+              }
+            />
             {METRICS.map((m) => {
               const isHidden = hidden.has(m.key);
               return (

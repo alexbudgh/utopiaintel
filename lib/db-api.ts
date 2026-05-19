@@ -19,6 +19,7 @@ import type {
   IncomingProvinceEvent,
   IncomingDamageProvinceStat,
   IncomingDamageStats,
+  HistoryEventMarker,
 } from "./db-types";
 import type {
   SoTData,
@@ -51,6 +52,7 @@ import {
   getKingdomRitual as mysqlGetKingdomRitual,
   getKingdomDragon as mysqlGetKingdomDragon,
   getLatestWarDate as mysqlGetLatestWarDate,
+  getLatestWarEvent as mysqlGetLatestWarEvent,
   getKingdomNews as mysqlGetKingdomNews,
   getRecentOps as mysqlGetRecentOps,
   getKingdoms as mysqlGetKingdoms,
@@ -144,6 +146,10 @@ export interface AsyncDbApi {
     to?: string,
   ): Promise<{ events: KingdomNewsRow[]; effectiveFrom: string | null }>;
   getLatestWarDate(kingdom: string, keyHash: string): Promise<string | null>;
+  getLatestWarEvent(
+    kingdom: string,
+    keyHash: string,
+  ): Promise<HistoryEventMarker | null>;
   getKingdomNewsSummary(
     kingdom: string,
     keyHash: string,
@@ -305,6 +311,7 @@ function createMysqlDbApi(): AsyncDbApi {
       getKingdomRitual: (kd, kh) => mysqlGetKingdomRitual(kd, kh),
       getKingdomDragon: (kd, kh) => mysqlGetKingdomDragon(kd, kh),
       getLatestWarDate: (kd, kh) => mysqlGetLatestWarDate(kd, kh),
+      getLatestWarEvent: (kd, kh) => mysqlGetLatestWarEvent(kd, kh),
       getKingdomNews: (kd, kh, f, t) => mysqlGetKingdomNews(kd, kh, f, t),
       getRecentOps: (kh, lim, s) => mysqlGetRecentOps(kh, lim, s),
       getKingdoms: (kh) => mysqlGetKingdoms(kh),
