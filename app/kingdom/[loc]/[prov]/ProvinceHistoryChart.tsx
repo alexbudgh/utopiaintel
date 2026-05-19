@@ -21,15 +21,18 @@ import {
   type VisibleHistoryEventMarker,
 } from "@/app/components/HistoryEventMarkers";
 import {
-  DEFAULT_HISTORY_CHART_RANGE,
-  filterHistoryByRange,
+  filterHistoryByDateRange,
   historyChartLabel,
   historyChartLabelFromMs,
   historyChartTimeMs,
   LOCAL_HISTORY_TZ_LABEL,
-  type HistoryChartRange,
   type HistoryChartTimezone,
 } from "@/app/components/historyChartTime";
+import {
+  defaultRealFrom,
+  type UtopiaDateRangeValue,
+} from "@/app/components/UtopiaDateRangeControls";
+import { utcTimestampToUtopiaDate } from "@/lib/utopia-age";
 import type { HistoryEventMarker, ProvinceHistoryPoint } from "@/lib/db-types";
 import { formatNum } from "@/lib/ui";
 
@@ -658,9 +661,12 @@ export function ProvinceHistoryChart({
   const [open, setOpen] = useState(false);
   const [hoveredLine, setHoveredLine] = useState<MetricKey | null>(null);
   const [tz, setTz] = useState<HistoryChartTimezone>("local");
-  const [range, setRange] = useState<HistoryChartRange>(
-    DEFAULT_HISTORY_CHART_RANGE,
-  );
+  const [dateRange, setDateRange] = useState<UtopiaDateRangeValue>({
+    mode: "real",
+    from: defaultRealFrom(),
+    to: "",
+    toLatest: true,
+  });
   const [containerWidth, setContainerWidth] = useState(800);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -678,9 +684,20 @@ export function ProvinceHistoryChart({
 
   const warMarker = eventMarkers.find((marker) => marker.id.startsWith("war:"));
   const warStartMs = warMarker ? historyEventMarkerTime(warMarker) : undefined;
+  const warDate =
+    warStartMs != null
+      ? (utcTimestampToUtopiaDate(
+          new Date(warStartMs).toISOString().slice(0, 19).replace("T", " "),
+        ) ?? undefined)
+      : undefined;
+  const fromMs = dateRange.from ? new Date(dateRange.from).getTime() : null;
+  const toMs =
+    !dateRange.toLatest && dateRange.to
+      ? new Date(dateRange.to).getTime()
+      : null;
   const displayedHistory = useMemo(
-    () => filterHistoryByRange(history, range, warStartMs),
-    [history, range, warStartMs],
+    () => filterHistoryByDateRange(history, fromMs, toMs),
+    [history, fromMs, toMs],
   );
 
   const { rows: data, bucketMs } = useMemo(
@@ -743,9 +760,9 @@ export function ProvinceHistoryChart({
           hideEventMarkers={hideEventMarkers}
           onEventMarkersToggle={() => setHideEventMarkers((value) => !value)}
           hasEventMarkers={eventMarkers.length > 0}
-          range={range}
-          onRangeChange={setRange}
-          hasWarRange={!!warMarker}
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+          warDate={warDate}
         >
           <button
             type="button"

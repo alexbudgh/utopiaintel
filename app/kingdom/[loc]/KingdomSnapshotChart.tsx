@@ -21,14 +21,17 @@ import {
   type VisibleHistoryEventMarker,
 } from "@/app/components/HistoryEventMarkers";
 import {
-  DEFAULT_HISTORY_CHART_RANGE,
-  filterHistoryByRange,
+  filterHistoryByDateRange,
   historyChartLabel,
   historyChartLabelFromMs,
   historyChartTimeMs,
-  type HistoryChartRange,
   type HistoryChartTimezone,
 } from "@/app/components/historyChartTime";
+import {
+  defaultRealFrom,
+  type UtopiaDateRangeValue,
+} from "@/app/components/UtopiaDateRangeControls";
+import { utcTimestampToUtopiaDate } from "@/lib/utopia-age";
 import type {
   HistoryEventMarker,
   KingdomSnapshotHistoryPoint,
@@ -331,18 +334,32 @@ export function KingdomSnapshotChart({
   const [open, setOpen] = useState(initiallyOpen);
   const [tz, setTz] = useState<HistoryChartTimezone>("local");
   const [hideEventMarkers, setHideEventMarkers] = useState(false);
-  const [range, setRange] = useState<HistoryChartRange>(
-    DEFAULT_HISTORY_CHART_RANGE,
-  );
+  const [dateRange, setDateRange] = useState<UtopiaDateRangeValue>({
+    mode: "real",
+    from: defaultRealFrom(),
+    to: "",
+    toLatest: true,
+  });
   const warMarker = eventMarkers.find((marker) => marker.id.startsWith("war:"));
   const warStartMs = warMarker ? historyEventMarkerTime(warMarker) : undefined;
+  const warDate =
+    warStartMs != null
+      ? (utcTimestampToUtopiaDate(
+          new Date(warStartMs).toISOString().slice(0, 19).replace("T", " "),
+        ) ?? undefined)
+      : undefined;
+  const fromMs = dateRange.from ? new Date(dateRange.from).getTime() : null;
+  const toMs =
+    !dateRange.toLatest && dateRange.to
+      ? new Date(dateRange.to).getTime()
+      : null;
   const displayedPrimaryHistory = useMemo(
-    () => filterHistoryByRange(primaryHistory, range, warStartMs),
-    [primaryHistory, range, warStartMs],
+    () => filterHistoryByDateRange(primaryHistory, fromMs, toMs),
+    [primaryHistory, fromMs, toMs],
   );
   const displayedCompareHistory = useMemo(
-    () => filterHistoryByRange(compareHistory, range, warStartMs),
-    [compareHistory, range, warStartMs],
+    () => filterHistoryByDateRange(compareHistory, fromMs, toMs),
+    [compareHistory, fromMs, toMs],
   );
 
   if (primaryHistory.length === 0) return null;
@@ -371,9 +388,9 @@ export function KingdomSnapshotChart({
           hideEventMarkers={hideEventMarkers}
           onEventMarkersToggle={() => setHideEventMarkers((value) => !value)}
           hasEventMarkers={eventMarkers.length > 0}
-          range={range}
-          onRangeChange={setRange}
-          hasWarRange={!!warMarker}
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+          warDate={warDate}
         >
           <button
             type="button"
@@ -413,19 +430,33 @@ export function KingdomHistoryView({
   const [compareInput, setCompareInput] = useState(compareKingdom ?? "");
   const [tz, setTz] = useState<HistoryChartTimezone>("local");
   const [hideEventMarkers, setHideEventMarkers] = useState(false);
-  const [range, setRange] = useState<HistoryChartRange>(
-    DEFAULT_HISTORY_CHART_RANGE,
-  );
+  const [dateRange, setDateRange] = useState<UtopiaDateRangeValue>({
+    mode: "real",
+    from: defaultRealFrom(),
+    to: "",
+    toLatest: true,
+  });
   const kingdomHref = `/kingdom/${encodeURIComponent(primaryKingdom)}`;
   const warMarker = eventMarkers.find((marker) => marker.id.startsWith("war:"));
   const warStartMs = warMarker ? historyEventMarkerTime(warMarker) : undefined;
+  const warDate =
+    warStartMs != null
+      ? (utcTimestampToUtopiaDate(
+          new Date(warStartMs).toISOString().slice(0, 19).replace("T", " "),
+        ) ?? undefined)
+      : undefined;
+  const fromMs = dateRange.from ? new Date(dateRange.from).getTime() : null;
+  const toMs =
+    !dateRange.toLatest && dateRange.to
+      ? new Date(dateRange.to).getTime()
+      : null;
   const displayedPrimaryHistory = useMemo(
-    () => filterHistoryByRange(primaryHistory, range, warStartMs),
-    [primaryHistory, range, warStartMs],
+    () => filterHistoryByDateRange(primaryHistory, fromMs, toMs),
+    [primaryHistory, fromMs, toMs],
   );
   const displayedCompareHistory = useMemo(
-    () => filterHistoryByRange(compareHistory, range, warStartMs),
-    [compareHistory, range, warStartMs],
+    () => filterHistoryByDateRange(compareHistory, fromMs, toMs),
+    [compareHistory, fromMs, toMs],
   );
 
   function applyCompare(event: React.FormEvent) {
@@ -485,9 +516,9 @@ export function KingdomHistoryView({
                 setHideEventMarkers((value) => !value)
               }
               hasEventMarkers={eventMarkers.length > 0}
-              range={range}
-              onRangeChange={setRange}
-              hasWarRange={!!warMarker}
+              dateRange={dateRange}
+              onDateRangeChange={setDateRange}
+              warDate={warDate}
             />
             <input
               type="text"

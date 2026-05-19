@@ -122,21 +122,42 @@ export function initialDateRangeValue({
   };
 }
 
-function DateSelector({
+const dateInputClass =
+  "rounded border border-gray-700 bg-gray-900 px-1.5 py-1 text-gray-300 focus:border-gray-500 focus:outline-none";
+
+export function RealDateTimePicker({
   value,
   onChange,
 }: {
-  value: DateParts;
-  onChange: (v: DateParts) => void;
+  value: string;
+  onChange: (value: string) => void;
 }) {
-  const sel =
-    "rounded border border-gray-700 bg-gray-900 px-1.5 py-1 text-gray-300 focus:border-gray-500 focus:outline-none";
+  return (
+    <input
+      type="datetime-local"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={dateInputClass}
+    />
+  );
+}
+
+export function UtopiaDatePicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const parts = parseDateParts(value);
+  const setParts = (next: DateParts) => onChange(formatDateParts(next));
+
   return (
     <span className="inline-flex items-center gap-1">
       <select
-        value={value.month}
-        onChange={(e) => onChange({ ...value, month: e.target.value })}
-        className={sel}
+        value={parts.month}
+        onChange={(e) => setParts({ ...parts, month: e.target.value })}
+        className={dateInputClass}
       >
         <option value="">Month</option>
         {UTOPIA_MONTHS.map((m) => (
@@ -149,21 +170,37 @@ function DateSelector({
         type="number"
         min={1}
         max={24}
-        value={value.day}
-        onChange={(e) => onChange({ ...value, day: e.target.value })}
+        value={parts.day}
+        onChange={(e) => setParts({ ...parts, day: e.target.value })}
         placeholder="Day"
-        className={`${sel} w-14`}
+        className={`${dateInputClass} w-14`}
       />
       <span className="text-[11px] text-gray-600">YR</span>
       <input
         type="number"
         min={0}
-        value={value.year}
-        onChange={(e) => onChange({ ...value, year: e.target.value })}
+        value={parts.year}
+        onChange={(e) => setParts({ ...parts, year: e.target.value })}
         placeholder="Yr"
-        className={`${sel} w-12`}
+        className={`${dateInputClass} w-12`}
       />
     </span>
+  );
+}
+
+function DateRangeEndpointPicker({
+  mode,
+  value,
+  onChange,
+}: {
+  mode: DateRangeMode;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return mode === "real" ? (
+    <RealDateTimePicker value={value} onChange={onChange} />
+  ) : (
+    <UtopiaDatePicker value={value} onChange={onChange} />
   );
 }
 
@@ -238,19 +275,11 @@ export function UtopiaDateRangeControls({
         </span>
       )}
       <span className="text-gray-500">Date range:</span>
-      {value.mode === "real" ? (
-        <input
-          type="datetime-local"
-          value={value.from}
-          onChange={(e) => setFrom(e.target.value)}
-          className="rounded border border-gray-700 bg-gray-900 px-1.5 py-1 text-gray-300 focus:border-gray-500 focus:outline-none"
-        />
-      ) : (
-        <DateSelector
-          value={parseDateParts(value.from)}
-          onChange={(v) => setFrom(formatDateParts(v))}
-        />
-      )}
+      <DateRangeEndpointPicker
+        mode={value.mode}
+        value={value.from}
+        onChange={setFrom}
+      />
       <span className="text-gray-600">-</span>
       {value.toLatest ? (
         <button
@@ -262,19 +291,11 @@ export function UtopiaDateRangeControls({
         </button>
       ) : (
         <>
-          {value.mode === "real" ? (
-            <input
-              type="datetime-local"
-              value={value.to}
-              onChange={(e) => setTo(e.target.value)}
-              className="rounded border border-gray-700 bg-gray-900 px-1.5 py-1 text-gray-300 focus:border-gray-500 focus:outline-none"
-            />
-          ) : (
-            <DateSelector
-              value={parseDateParts(value.to)}
-              onChange={(v) => setTo(formatDateParts(v))}
-            />
-          )}
+          <DateRangeEndpointPicker
+            mode={value.mode}
+            value={value.to}
+            onChange={setTo}
+          />
           <button
             type="button"
             onClick={() => onChange({ ...value, to: "", toLatest: true })}
