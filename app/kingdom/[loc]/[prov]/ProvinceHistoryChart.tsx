@@ -17,6 +17,7 @@ import {
   HistoryEventLegend,
   HistoryEventReferenceLines,
   historyEventMarkerTime,
+  markerCategory,
   visibleHistoryEventMarkers,
   type VisibleHistoryEventMarker,
 } from "@/app/components/HistoryEventMarkers";
@@ -657,7 +658,9 @@ export function ProvinceHistoryChart({
   const [hideThievery, setHideThievery] = useState(false);
   const [hideSabotageOps, setHideOtherOps] = useState(false);
   const [hideSorcery, setHideSorcery] = useState(false);
-  const [hideEventMarkers, setHideEventMarkers] = useState(false);
+  const [hiddenCategories, setHiddenCategories] = useState<Set<string>>(
+    new Set(),
+  );
   const [open, setOpen] = useState(false);
   const [hoveredLine, setHoveredLine] = useState<MetricKey | null>(null);
   const [tz, setTz] = useState<HistoryChartTimezone>("local");
@@ -727,7 +730,9 @@ export function ProvinceHistoryChart({
     domainStart,
     domainEnd,
   );
-  const activeEventMarkers = hideEventMarkers ? [] : visibleEventMarkers;
+  const activeEventMarkers = visibleEventMarkers.filter(
+    (m) => !hiddenCategories.has(markerCategory(m)),
+  );
 
   const tzLabel = tz === "UTC" ? "UTC" : LOCAL_HISTORY_TZ_LABEL;
   const summary = `${displayedHistory.length} snapshot${displayedHistory.length === 1 ? "" : "s"} from ${historyChartLabel(displayedHistory[0].receivedAt, tz)} to ${historyChartLabel(displayedHistory[displayedHistory.length - 1].receivedAt, tz)} ${tzLabel}`;
@@ -759,9 +764,16 @@ export function ProvinceHistoryChart({
           onTimezoneToggle={() =>
             setTz((value) => (value === "UTC" ? "local" : "UTC"))
           }
-          hideEventMarkers={hideEventMarkers}
-          onEventMarkersToggle={() => setHideEventMarkers((value) => !value)}
-          hasEventMarkers={eventMarkers.length > 0}
+          hiddenCategories={hiddenCategories}
+          onCategoryToggle={(cat) =>
+            setHiddenCategories((prev) => {
+              const next = new Set(prev);
+              if (next.has(cat)) next.delete(cat);
+              else next.add(cat);
+              return next;
+            })
+          }
+          eventMarkers={eventMarkers}
           dateRange={dateRange}
           onDateRangeChange={setDateRange}
           warDate={warDate}

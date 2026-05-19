@@ -6,6 +6,18 @@ import { parseUtc } from "@/lib/ui";
 
 export type VisibleHistoryEventMarker = HistoryEventMarker & { t: number };
 
+export const MARKER_CATEGORIES = [
+  { key: "war", label: "War", color: "#fbbf24" },
+  { key: "ritual", label: "Ritual", color: "#c084fc" },
+] as const;
+
+export type MarkerCategory = (typeof MARKER_CATEGORIES)[number]["key"];
+
+export function markerCategory(marker: HistoryEventMarker): MarkerCategory {
+  if (marker.id.startsWith("ritual")) return "ritual";
+  return "war";
+}
+
 function markerColor(marker: HistoryEventMarker): string {
   if (marker.id.startsWith("war_victory:")) return "#4ade80";
   if (marker.id.startsWith("war_defeat:")) return "#f87171";
@@ -95,31 +107,40 @@ export function HistoryEventLegend({
   );
 }
 
-export function HistoryEventToggle({
-  hidden,
+export function HistoryEventToggles({
+  markers,
+  hiddenCategories,
   onToggle,
-  disabled = false,
 }: {
-  hidden: boolean;
-  onToggle: () => void;
-  disabled?: boolean;
+  markers: HistoryEventMarker[];
+  hiddenCategories: Set<string>;
+  onToggle: (category: string) => void;
 }) {
+  const presentCategories = MARKER_CATEGORIES.filter((cat) =>
+    markers.some((m) => markerCategory(m) === cat.key),
+  );
+  if (presentCategories.length === 0) return null;
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      disabled={disabled}
-      className="inline-flex items-center gap-1.5 rounded border border-gray-700 bg-gray-900 px-2.5 py-1 text-xs text-gray-300 transition-colors hover:border-gray-500 hover:text-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
-      style={{ opacity: hidden ? 0.55 : undefined }}
-      title={
-        hidden ? "Show history event markers" : "Hide history event markers"
-      }
-    >
-      <span
-        className="inline-block h-3 w-0 shrink-0 border-l border-dashed"
-        style={{ borderColor: "#fbbf24" }}
-      />
-      Events
-    </button>
+    <>
+      {presentCategories.map((cat) => {
+        const hidden = hiddenCategories.has(cat.key);
+        return (
+          <button
+            key={cat.key}
+            type="button"
+            onClick={() => onToggle(cat.key)}
+            className="inline-flex items-center gap-1.5 rounded border border-gray-700 bg-gray-900 px-2.5 py-1 text-xs text-gray-300 transition-colors hover:border-gray-500 hover:text-gray-100"
+            style={{ opacity: hidden ? 0.55 : undefined }}
+            title={`${hidden ? "Show" : "Hide"} ${cat.label} markers`}
+          >
+            <span
+              className="inline-block h-3 w-0 shrink-0 border-l border-dashed"
+              style={{ borderColor: cat.color }}
+            />
+            {cat.label}
+          </button>
+        );
+      })}
+    </>
   );
 }

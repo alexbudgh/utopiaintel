@@ -17,6 +17,7 @@ import {
   HistoryEventLegend,
   HistoryEventReferenceLines,
   historyEventMarkerTime,
+  markerCategory,
   visibleHistoryEventMarkers,
   type VisibleHistoryEventMarker,
 } from "@/app/components/HistoryEventMarkers";
@@ -65,7 +66,6 @@ interface KingdomHistoryViewProps extends SharedChartProps {
 
 interface ChartStackProps extends SharedChartProps {
   tz: HistoryChartTimezone;
-  hideEventMarkers: boolean;
 }
 
 const METRICS: {
@@ -139,14 +139,12 @@ function MetricChart({
   compare,
   metric,
   tz,
-  hideEventMarkers,
   eventMarkers = [],
 }: {
   primary: SeriesConfig;
   compare?: SeriesConfig;
   metric: (typeof METRICS)[number];
   tz: HistoryChartTimezone;
-  hideEventMarkers: boolean;
   eventMarkers?: HistoryEventMarker[];
 }) {
   const data = useMemo(
@@ -161,7 +159,7 @@ function MetricChart({
     domainStart,
     domainEnd,
   );
-  const activeEventMarkers = hideEventMarkers ? [] : visibleEventMarkers;
+  const activeEventMarkers = visibleEventMarkers;
 
   return (
     <div className="rounded border border-gray-800 bg-gray-950/40 p-3">
@@ -284,7 +282,6 @@ function ChartStack({
   compareKingdom,
   compareHistory,
   tz,
-  hideEventMarkers,
   eventMarkers = [],
 }: ChartStackProps) {
   const primarySeries: SeriesConfig = {
@@ -315,7 +312,6 @@ function ChartStack({
           compare={compareSeries}
           metric={metric}
           tz={tz}
-          hideEventMarkers={hideEventMarkers}
           eventMarkers={eventMarkers}
         />
       ))}
@@ -333,7 +329,9 @@ export function KingdomSnapshotChart({
 }: KingdomSnapshotChartProps) {
   const [open, setOpen] = useState(initiallyOpen);
   const [tz, setTz] = useState<HistoryChartTimezone>("local");
-  const [hideEventMarkers, setHideEventMarkers] = useState(false);
+  const [hiddenCategories, setHiddenCategories] = useState<Set<string>>(
+    new Set(),
+  );
   const [dateRange, setDateRange] = useState<UtopiaDateRangeValue>({
     mode: "real",
     from: defaultRealFrom(),
@@ -387,9 +385,16 @@ export function KingdomSnapshotChart({
           onTimezoneToggle={() =>
             setTz((value) => (value === "UTC" ? "local" : "UTC"))
           }
-          hideEventMarkers={hideEventMarkers}
-          onEventMarkersToggle={() => setHideEventMarkers((value) => !value)}
-          hasEventMarkers={eventMarkers.length > 0}
+          hiddenCategories={hiddenCategories}
+          onCategoryToggle={(cat) =>
+            setHiddenCategories((prev) => {
+              const next = new Set(prev);
+              if (next.has(cat)) next.delete(cat);
+              else next.add(cat);
+              return next;
+            })
+          }
+          eventMarkers={eventMarkers}
           dateRange={dateRange}
           onDateRangeChange={setDateRange}
           warDate={warDate}
@@ -411,8 +416,9 @@ export function KingdomSnapshotChart({
             compareKingdom={compareKingdom}
             compareHistory={displayedCompareHistory}
             tz={tz}
-            hideEventMarkers={hideEventMarkers}
-            eventMarkers={eventMarkers}
+            eventMarkers={eventMarkers.filter(
+              (m) => !hiddenCategories.has(markerCategory(m)),
+            )}
           />
         </div>
       )}
@@ -431,7 +437,9 @@ export function KingdomHistoryView({
   const router = useRouter();
   const [compareInput, setCompareInput] = useState(compareKingdom ?? "");
   const [tz, setTz] = useState<HistoryChartTimezone>("local");
-  const [hideEventMarkers, setHideEventMarkers] = useState(false);
+  const [hiddenCategories, setHiddenCategories] = useState<Set<string>>(
+    new Set(),
+  );
   const [dateRange, setDateRange] = useState<UtopiaDateRangeValue>({
     mode: "real",
     from: defaultRealFrom(),
@@ -515,11 +523,16 @@ export function KingdomHistoryView({
               onTimezoneToggle={() =>
                 setTz((value) => (value === "UTC" ? "local" : "UTC"))
               }
-              hideEventMarkers={hideEventMarkers}
-              onEventMarkersToggle={() =>
-                setHideEventMarkers((value) => !value)
+              hiddenCategories={hiddenCategories}
+              onCategoryToggle={(cat) =>
+                setHiddenCategories((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(cat)) next.delete(cat);
+                  else next.add(cat);
+                  return next;
+                })
               }
-              hasEventMarkers={eventMarkers.length > 0}
+              eventMarkers={eventMarkers}
               dateRange={dateRange}
               onDateRangeChange={setDateRange}
               warDate={warDate}
@@ -560,8 +573,9 @@ export function KingdomHistoryView({
           compareKingdom={compareKingdom}
           compareHistory={displayedCompareHistory}
           tz={tz}
-          hideEventMarkers={hideEventMarkers}
-          eventMarkers={eventMarkers}
+          eventMarkers={eventMarkers.filter(
+            (m) => !hiddenCategories.has(markerCategory(m)),
+          )}
         />
       ) : (
         <div className="rounded-lg border border-gray-800 bg-gray-900/50 px-5 py-6 text-sm text-gray-400">

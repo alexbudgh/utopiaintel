@@ -1,6 +1,7 @@
 "use client";
 
-import { HistoryEventToggle } from "./HistoryEventMarkers";
+import { HistoryEventToggles } from "./HistoryEventMarkers";
+import type { HistoryEventMarker } from "@/lib/db-types";
 import {
   UtopiaDateRangeControls,
   type UtopiaDateRangeValue,
@@ -13,9 +14,9 @@ import {
 export function HistoryChartControls({
   tz,
   onTimezoneToggle,
-  hideEventMarkers,
-  onEventMarkersToggle,
-  hasEventMarkers,
+  hiddenCategories,
+  onCategoryToggle,
+  eventMarkers,
   dateRange,
   onDateRangeChange,
   warDate,
@@ -23,9 +24,9 @@ export function HistoryChartControls({
 }: {
   tz: HistoryChartTimezone;
   onTimezoneToggle: () => void;
-  hideEventMarkers: boolean;
-  onEventMarkersToggle: () => void;
-  hasEventMarkers: boolean;
+  hiddenCategories: Set<string>;
+  onCategoryToggle: (category: string) => void;
+  eventMarkers: HistoryEventMarker[];
   dateRange: UtopiaDateRangeValue;
   onDateRangeChange: (v: UtopiaDateRangeValue) => void;
   warDate?: string;
@@ -46,10 +47,10 @@ export function HistoryChartControls({
       >
         {tz === "UTC" ? "UTC" : `Local (${LOCAL_HISTORY_TZ_LABEL})`}
       </button>
-      <HistoryEventToggle
-        hidden={hideEventMarkers}
-        onToggle={onEventMarkersToggle}
-        disabled={!hasEventMarkers}
+      <HistoryEventToggles
+        markers={eventMarkers}
+        hiddenCategories={hiddenCategories}
+        onToggle={onCategoryToggle}
       />
       {children}
     </div>
