@@ -18,8 +18,10 @@ import {
   formatTimestamp,
 } from "@/lib/ui";
 
-const ATTACKER_COL_WIDTH = "w-52 min-w-52";
-const TARGET_COL_WIDTH = "w-36 min-w-36 max-w-36";
+const ATTACKER_COL_WIDTH =
+  "w-36 min-w-36 max-w-36 sm:w-52 sm:min-w-52 sm:max-w-52";
+const TARGET_COL_WIDTH =
+  "w-20 min-w-20 max-w-20 sm:w-36 sm:min-w-36 sm:max-w-36";
 
 function averageNetworth(provinces: { networth: number }[]): number | null {
   if (provinces.length === 0) return null;
@@ -1485,9 +1487,9 @@ export function GainsTable({
     >
       <Link
         href={`/kingdom/${encodeURIComponent(targetKingdom)}/${encodeURIComponent(defender.name)}`}
-        className="hover:text-blue-300 transition-colors"
+        className="block min-w-0 max-w-full overflow-hidden transition-colors hover:text-blue-300"
       >
-        <div>
+        <div className="min-w-0 truncate">
           {defender.slot != null && (
             <span className="mr-1.5 text-[10px] tabular-nums text-gray-500">
               #{defender.slot}
@@ -1495,7 +1497,7 @@ export function GainsTable({
           )}
           {defender.name}
         </div>
-        <div className="mt-1 text-[10px] font-normal text-gray-500">
+        <div className="mt-1 hidden text-[10px] font-normal text-gray-500 sm:block">
           {formatNetworth(defender.networth)} / {formatLand(defender.land)}
           {defHome != null && (
             <>
@@ -1518,17 +1520,17 @@ export function GainsTable({
           <thead>
             <tr>
               <th
-                className={`${ATTACKER_COL_WIDTH} sticky left-0 z-30 border-r border-gray-800 bg-gray-950 px-3 py-2 text-left font-medium text-gray-300`}
+                className={`${ATTACKER_COL_WIDTH} sticky left-0 z-30 overflow-hidden border-r border-gray-800 bg-gray-950 px-3 py-2 text-left font-medium text-gray-300`}
               >
                 {selfKingdom}
-                <div className="mt-1 text-[10px] font-normal text-gray-500">
+                <div className="mt-1 hidden text-[10px] font-normal text-gray-500 sm:block">
                   avg NW {formatNum(Math.round(selfAvgNetworth))}
                 </div>
               </th>
               {targetSnapshotProvinces.map((defender) => (
                 <th
                   key={defender.name}
-                  className={`${TARGET_COL_WIDTH} border-r border-gray-800 bg-gray-950 px-3 py-2 text-right font-medium text-gray-300`}
+                  className={`${TARGET_COL_WIDTH} overflow-hidden border-r border-gray-800 bg-gray-950 px-3 py-2 text-right font-medium text-gray-300`}
                 >
                   {renderTargetHeader(
                     defender,
@@ -1561,7 +1563,7 @@ export function GainsTable({
                 }`}
               >
                 <th
-                  className={`${ATTACKER_COL_WIDTH} sticky left-0 z-10 border-b border-r border-gray-800 px-3 py-2 text-left font-medium ${
+                  className={`${ATTACKER_COL_WIDTH} sticky left-0 z-10 overflow-hidden border-b border-r border-gray-800 px-3 py-2 text-left font-medium ${
                     selectedRowId === attacker.id
                       ? "bg-blue-950 text-blue-100"
                       : "bg-gray-950 text-gray-200"
@@ -1572,11 +1574,7 @@ export function GainsTable({
                   >
                     <Link
                       href={`/kingdom/${encodeURIComponent(selfKingdom)}/${encodeURIComponent(attacker.name)}`}
-                      className={
-                        selectedRowId === attacker.id
-                          ? "text-blue-100"
-                          : "hover:text-blue-400"
-                      }
+                      className={`block min-w-0 max-w-full overflow-hidden truncate ${selectedRowId === attacker.id ? "text-blue-100" : "hover:text-blue-400"}`}
                     >
                       {attacker.slot != null && (
                         <span className="mr-1.5 text-[10px] tabular-nums text-gray-500">
@@ -1586,7 +1584,7 @@ export function GainsTable({
                       {attacker.name}
                     </Link>
                     <div
-                      className={`mt-1 text-[10px] font-normal ${selectedRowId === attacker.id ? "text-blue-300/80" : "text-gray-500"}`}
+                      className={`mt-1 hidden text-[10px] font-normal sm:block ${selectedRowId === attacker.id ? "text-blue-300/80" : "text-gray-500"}`}
                     >
                       {formatNetworth(attacker.networth)} /{" "}
                       {formatLand(attacker.land)}
@@ -1625,7 +1623,7 @@ export function GainsTable({
                   return (
                     <td
                       key={`${attacker.id}:${defender.name}`}
-                      className={`${TARGET_COL_WIDTH} border-b border-r border-gray-800 px-3 py-2 text-right tabular-nums transition-colors ${
+                      className={`${TARGET_COL_WIDTH} overflow-hidden border-b border-r border-gray-800 px-3 py-2 text-right tabular-nums transition-colors ${
                         selectedRowId === attacker.id
                           ? "shadow-[inset_0_1px_0_rgba(59,130,246,0.45),inset_0_-1px_0_rgba(59,130,246,0.45)]"
                           : ""
@@ -1651,24 +1649,26 @@ export function GainsTable({
                           />
                         }
                       >
-                        <div className={tone.value}>
+                        <div
+                          className={`whitespace-nowrap text-[11px] sm:text-xs ${tone.value}`}
+                        >
                           {estimate
                             ? `${estimate.roundedAcres.toLocaleString()}a`
                             : "—"}
                         </div>
-                        <div className="mt-0.5 text-[10px] text-gray-500">
+                        <div className="mt-0.5 hidden text-[10px] text-gray-500 sm:block">
                           {estimate
                             ? `${((estimate.rawAcres / defender.land) * 100).toFixed(1)}%`
                             : "—"}
                         </div>
                         <div
-                          className={`mt-0.5 text-[10px] ${estimate ? rpnwTone(estimate) : "text-gray-500"}`}
+                          className={`mt-0.5 hidden text-[10px] sm:block ${estimate ? rpnwTone(estimate) : "text-gray-500"}`}
                         >
                           {estimate
                             ? `NW ${(estimate.rpnw * 100).toFixed(0)}%`
                             : "NW —"}
                         </div>
-                        <div className="mt-1 flex max-w-full flex-wrap items-center justify-end gap-1 overflow-hidden">
+                        <div className="mt-1 hidden max-w-full flex-wrap items-center justify-end gap-1 overflow-hidden sm:flex">
                           {badges}
                         </div>
                       </Tooltip>
