@@ -26,6 +26,21 @@ function averageNetworth(provinces: { networth: number }[]): number | null {
   return provinces.reduce((sum, p) => sum + p.networth, 0) / provinces.length;
 }
 
+function withLatestOverview(
+  snapshotProvinces: KingdomSnapshotProvince[],
+  latestByName: Map<string, ProvinceRow>,
+): KingdomSnapshotProvince[] {
+  return snapshotProvinces.map((province) => {
+    const latest = latestByName.get(province.name);
+    if (!latest) return province;
+    return {
+      ...province,
+      land: latest.land ?? province.land,
+      networth: latest.networth ?? province.networth,
+    };
+  });
+}
+
 function zeroAcresReason(
   estimate: NonNullable<ReturnType<typeof estimateTraditionalMarchAcres>>,
 ): string | null {
@@ -1368,8 +1383,22 @@ export function GainsTable({
     );
   }
 
-  const selfAvgNetworth = averageNetworth(selfSnapshot.provinces);
-  const targetAvgNetworth = averageNetworth(targetSnapshot.provinces);
+  const selfLatestByName = new Map(
+    selfProvinces.map((p) => [p.name, p] as const),
+  );
+  const targetLatestByName = new Map(
+    targetLatest.map((p) => [p.name, p] as const),
+  );
+  const selfSnapshotProvinces = withLatestOverview(
+    selfSnapshot.provinces,
+    selfLatestByName,
+  );
+  const targetSnapshotProvinces = withLatestOverview(
+    targetSnapshot.provinces,
+    targetLatestByName,
+  );
+  const selfAvgNetworth = averageNetworth(selfSnapshotProvinces);
+  const targetAvgNetworth = averageNetworth(targetSnapshotProvinces);
   const relationState = relationStateForSnapshots(
     selfKingdom,
     targetKingdom,
@@ -1384,10 +1413,6 @@ export function GainsTable({
       ),
     );
   }
-
-  const targetLatestByName = new Map(
-    targetLatest.map((p) => [p.name, p] as const),
-  );
 
   const renderTargetHeader = (
     defender: KingdomSnapshotProvince,
@@ -1438,7 +1463,7 @@ export function GainsTable({
                   avg NW {formatNum(Math.round(selfAvgNetworth))}
                 </div>
               </th>
-              {targetSnapshot.provinces.map((defender) => (
+              {targetSnapshotProvinces.map((defender) => (
                 <th
                   key={defender.name}
                   className={`${TARGET_COL_WIDTH} border-r border-gray-800 bg-gray-950 px-3 py-2 text-right font-medium text-gray-300`}
@@ -1506,7 +1531,7 @@ export function GainsTable({
                     </div>
                   </Tooltip>
                 </th>
-                {targetSnapshot.provinces.map((defender) => {
+                {targetSnapshotProvinces.map((defender) => {
                   const defenderLatest =
                     targetLatestByName.get(defender.name) ?? null;
                   const estimate = estimateTraditionalMarchAcres({
