@@ -1510,9 +1510,9 @@ export function GainsTable({
     >
       <Link
         href={`/kingdom/${encodeURIComponent(targetKingdom)}/${encodeURIComponent(defender.name)}`}
-        className="block min-w-0 max-w-full overflow-hidden transition-colors hover:text-blue-300"
+        className="block min-w-0 max-w-full transition-colors hover:text-blue-300"
       >
-        <div className="min-w-0 truncate">
+        <div className="min-w-0">
           {defender.slot != null && (
             <span className="mr-1.5 text-[10px] tabular-nums text-gray-500">
               #{defender.slot}
@@ -1601,7 +1601,7 @@ export function GainsTable({
                   >
                     <Link
                       href={`/kingdom/${encodeURIComponent(selfKingdom)}/${encodeURIComponent(attacker.name)}`}
-                      className={`block min-w-0 max-w-full overflow-hidden truncate ${selectedRowId === attacker.id ? "text-blue-100" : "hover:text-blue-400"}`}
+                      className={`block min-w-0 max-w-full ${selectedRowId === attacker.id ? "text-blue-100" : "hover:text-blue-400"}`}
                     >
                       {attacker.slot != null && (
                         <span className="mr-1.5 text-[10px] tabular-nums text-gray-500">
