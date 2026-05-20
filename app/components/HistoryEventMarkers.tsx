@@ -172,82 +172,84 @@ export function HistoryEventLegend({
   if (groups.length === 0) return null;
 
   return (
-    <table className="text-xs border-collapse">
-      <thead>
-        <tr className="text-gray-600 font-normal">
-          <th className="pb-1 pr-1.5 w-3 font-normal text-center" />
-          <th className="pb-1 pr-2 font-normal" />
-          <th className="pb-1 pr-2 font-normal text-left">Type</th>
-          <th className="pb-1 pr-3 font-normal text-left">Event</th>
-          <th className="pb-1 pr-3 font-normal text-left">KD</th>
-          <th className="pb-1 font-normal text-left">Date</th>
-        </tr>
-      </thead>
-      <tbody>
-        {groups.map(({ cat, items }) => (
-          <React.Fragment key={cat.key}>
-            <tr>
-              <td
-                colSpan={6}
-                className="pt-2 pb-0.5 font-medium"
-                style={{ color: cat.color }}
-              >
-                {cat.label}
-              </td>
-            </tr>
-            {items.map((marker) => (
-              <tr key={marker.id} title={marker.date ?? undefined}>
-                <td className="pr-1.5 w-3 text-center text-gray-500">
-                  {marker.direction === "out"
-                    ? "↑"
-                    : marker.direction === "in"
-                      ? "↓"
-                      : ""}
-                </td>
-                <td className="pr-2">
-                  <span
-                    className="inline-block h-3 w-0 border-l border-dashed"
-                    style={{ borderColor: markerColor(marker) }}
-                  />
-                </td>
-                <td className="pr-2 whitespace-nowrap">
-                  {marker.dragonType ? (
-                    <span
-                      className="rounded px-1 py-px text-[10px] font-semibold leading-tight"
-                      style={{
-                        color: dragonTypeColor(marker.dragonType),
-                        background: `${dragonTypeColor(marker.dragonType)}22`,
-                        border: `1px solid ${dragonTypeColor(marker.dragonType)}55`,
-                      }}
-                    >
-                      {marker.dragonType}
-                    </span>
-                  ) : null}
-                </td>
-                <td className="pr-3 whitespace-nowrap text-gray-300">
-                  {marker.dragonName ? (
-                    <span className="italic">
-                      &ldquo;{marker.dragonName}&rdquo;
-                    </span>
-                  ) : (
-                    marker.label
-                  )}
-                  {marker.dragonType && (
-                    <span className="ml-1 text-gray-500">{marker.label}</span>
-                  )}
-                </td>
-                <td className="pr-3 whitespace-nowrap text-gray-500 font-mono text-[11px]">
-                  {marker.kingdom ?? ""}
-                </td>
-                <td className="text-gray-500 whitespace-nowrap">
-                  {formatTime(marker)}
+    <div className="overflow-x-auto">
+      <table className="text-xs border-collapse">
+        <thead>
+          <tr className="text-gray-600 font-normal">
+            <th className="pb-1 pr-1.5 w-3 font-normal text-center" />
+            <th className="pb-1 pr-2 font-normal" />
+            <th className="pb-1 pr-2 font-normal text-left">Type</th>
+            <th className="pb-1 pr-3 font-normal text-left">Event</th>
+            <th className="pb-1 pr-3 font-normal text-left">KD</th>
+            <th className="pb-1 font-normal text-left">Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {groups.map(({ cat, items }) => (
+            <React.Fragment key={cat.key}>
+              <tr>
+                <td
+                  colSpan={6}
+                  className="pt-2 pb-0.5 font-medium"
+                  style={{ color: cat.color }}
+                >
+                  {cat.label}
                 </td>
               </tr>
-            ))}
-          </React.Fragment>
-        ))}
-      </tbody>
-    </table>
+              {items.map((marker) => (
+                <tr key={marker.id} title={marker.date ?? undefined}>
+                  <td className="pr-1.5 w-3 text-center text-gray-500">
+                    {marker.direction === "out"
+                      ? "↑"
+                      : marker.direction === "in"
+                        ? "↓"
+                        : ""}
+                  </td>
+                  <td className="pr-2">
+                    <span
+                      className="inline-block h-3 w-0 border-l border-dashed"
+                      style={{ borderColor: markerColor(marker) }}
+                    />
+                  </td>
+                  <td className="pr-2 whitespace-nowrap">
+                    {marker.dragonType ? (
+                      <span
+                        className="rounded px-1 py-px text-[10px] font-semibold leading-tight"
+                        style={{
+                          color: dragonTypeColor(marker.dragonType),
+                          background: `${dragonTypeColor(marker.dragonType)}22`,
+                          border: `1px solid ${dragonTypeColor(marker.dragonType)}55`,
+                        }}
+                      >
+                        {marker.dragonType}
+                      </span>
+                    ) : null}
+                  </td>
+                  <td className="pr-3 whitespace-nowrap text-gray-300">
+                    {marker.dragonName ? (
+                      <span className="italic">
+                        &ldquo;{marker.dragonName}&rdquo;
+                      </span>
+                    ) : (
+                      marker.label
+                    )}
+                    {marker.dragonType && (
+                      <span className="ml-1 text-gray-500">{marker.label}</span>
+                    )}
+                  </td>
+                  <td className="pr-3 whitespace-nowrap text-gray-500 font-mono text-[11px]">
+                    {marker.kingdom ?? ""}
+                  </td>
+                  <td className="text-gray-500 whitespace-nowrap">
+                    {formatTime(marker)}
+                  </td>
+                </tr>
+              ))}
+            </React.Fragment>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
