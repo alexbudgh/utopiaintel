@@ -9,12 +9,14 @@ export type VisibleHistoryEventMarker = HistoryEventMarker & { t: number };
 export const MARKER_CATEGORIES = [
   { key: "war", label: "War", color: "#fbbf24" },
   { key: "ritual", label: "Ritual", color: "#c084fc" },
+  { key: "dragon", label: "Dragon", color: "#fb923c" },
 ] as const;
 
 export type MarkerCategory = (typeof MARKER_CATEGORIES)[number]["key"];
 
 export function markerCategory(marker: HistoryEventMarker): MarkerCategory {
   if (marker.id.startsWith("ritual")) return "ritual";
+  if (marker.id.startsWith("dragon")) return "dragon";
   return "war";
 }
 
@@ -23,6 +25,9 @@ function markerColor(marker: HistoryEventMarker): string {
   if (marker.id.startsWith("war_defeat:")) return "#f87171";
   if (marker.id.startsWith("ritual_active:")) return "#22d3ee";
   if (marker.id.startsWith("ritual:")) return "#c084fc";
+  if (marker.id.startsWith("dragon_against:")) return "#fb923c";
+  if (marker.id.startsWith("dragon_by:")) return "#38bdf8";
+  if (marker.id.startsWith("dragon_slain:")) return "#86efac";
   return "#fbbf24";
 }
 
@@ -65,12 +70,6 @@ export function HistoryEventReferenceLines({
             strokeDasharray="4 4"
             strokeWidth={1.5}
             ifOverflow="visible"
-            label={{
-              value: marker.label,
-              position: "insideTop",
-              fill: color,
-              fontSize: 10,
-            }}
           />
         );
       })}

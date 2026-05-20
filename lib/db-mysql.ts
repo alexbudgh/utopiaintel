@@ -1795,29 +1795,23 @@ export async function getHistoryEventMarkers(
   keyHash: string,
 ): Promise<{ id: string; label: string; at: string; detail: string | null }[]> {
   await ensureReady();
-  interface AccessRow extends RowDataPacket {
-    n: number;
-  }
   interface EventRow extends RowDataPacket {
     id: number;
     game_date: string;
     game_date_ord: number | null;
     event_type: string;
     relation_kingdom: string | null;
+    dragon_type: string | null;
     dragon_name: string | null;
   }
 
-  const [[access]] = await pool.execute<AccessRow[]>(
-    "SELECT COUNT(*) AS n FROM kingdom_news_sharded WHERE key_hash = ? AND kingdom = ? LIMIT 1",
-    [keyHash, kingdom],
-  );
-  if (!access.n) return [];
-
   const [rows] = await pool.execute<EventRow[]>(
-    `SELECT id, game_date, game_date_ord, event_type, relation_kingdom, dragon_name
+    `SELECT id, game_date, game_date_ord, event_type, relation_kingdom, dragon_type, dragon_name
      FROM kingdom_news_sharded
      WHERE key_hash = ? AND kingdom = ?
-       AND event_type IN ('war_declared', 'war_declared_on_us', 'war_ended_victory', 'war_ended_defeat', 'ritual_started', 'ritual_active')
+       AND event_type IN ('war_declared', 'war_declared_on_us', 'war_ended_victory', 'war_ended_defeat',
+                          'ritual_started', 'ritual_active',
+                          'dragon_against_us', 'dragon_by_us', 'dragon_slain')
      ORDER BY game_date_ord ASC, id ASC`,
     [keyHash, kingdom],
   );
@@ -1836,6 +1830,37 @@ export async function getHistoryEventMarkers(
           at: utopiaDateOrdToUtcTimestamp(row.game_date_ord!),
           detail: row.dragon_name
             ? `${row.game_date} (${row.dragon_name})`
+            : row.game_date,
+        };
+      }
+      if (
+        row.event_type === "dragon_against_us" ||
+        row.event_type === "dragon_by_us" ||
+        row.event_type === "dragon_slain"
+      ) {
+        const label =
+          row.event_type === "dragon_slain"
+            ? "Slain"
+            : row.event_type === "dragon_by_us"
+              ? "Our Dragon"
+              : "Dragon";
+        const idPrefix =
+          row.event_type === "dragon_against_us"
+            ? "dragon_against"
+            : row.event_type === "dragon_by_us"
+              ? "dragon_by"
+              : "dragon_slain";
+        const parts = [
+          row.dragon_type,
+          row.dragon_name,
+          row.relation_kingdom ? `(${row.relation_kingdom})` : null,
+        ].filter(Boolean);
+        return {
+          id: `${idPrefix}:${row.id}`,
+          label,
+          at: utopiaDateOrdToUtcTimestamp(row.game_date_ord!),
+          detail: parts.length
+            ? `${row.game_date} · ${parts.join(" ")}`
             : row.game_date,
         };
       }
