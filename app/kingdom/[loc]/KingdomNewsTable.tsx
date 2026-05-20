@@ -49,7 +49,12 @@ const TYPE_GROUPS: { label: string; types: string[] }[] = [
   },
   {
     label: "Dragon",
-    types: ["dragon_by_us", "dragon_against_us", "dragon_slain"],
+    types: [
+      "dragon_by_us",
+      "dragon_against_us",
+      "dragon_arrived",
+      "dragon_slain",
+    ],
   },
   { label: "Ritual", types: ["ritual_started", "ritual_active"] },
   { label: "Aid", types: ["aid"] },
@@ -74,7 +79,8 @@ const EVENT_LABEL: Record<string, string> = {
   ceasefire_broken: "NAP Broken",
   ceasefire_withdrawn: "NAP Withdrawn",
   dragon_by_us: "Dragon",
-  dragon_against_us: "Dragon",
+  dragon_against_us: "Dragon Project",
+  dragon_arrived: "Dragon!",
   dragon_slain: "Dragon Slain",
   ritual_started: "Ritual",
   ritual_active: "Ritual Active",
@@ -310,10 +316,23 @@ function EventDescription({ event }: { event: KingdomNewsRow }) {
     return (
       <span>
         <KdLink name={null} kingdom={relationKingdom} />{" "}
+        <span className="text-gray-500">started </span>
         <span className="text-rose-300">
           {dragonType} Dragon {dragonName}
         </span>
-        <span className="text-gray-500"> against us</span>
+        <span className="text-gray-500"> project</span>
+      </span>
+    );
+  }
+
+  if (eventType === "dragon_arrived") {
+    return (
+      <span>
+        <span className="text-rose-300">
+          {dragonType} Dragon {dragonName}
+        </span>
+        <span className="text-gray-500"> ravaging! from </span>
+        <KdLink name={null} kingdom={relationKingdom} />
       </span>
     );
   }
@@ -533,6 +552,7 @@ function eventDirection(
       "ceasefire_accepted",
       "ceasefire_broken",
       "dragon_against_us",
+      "dragon_arrived",
       "dragon_slain",
     ].includes(eventType)
   )

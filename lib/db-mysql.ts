@@ -1811,7 +1811,7 @@ export async function getHistoryEventMarkers(
      WHERE key_hash = ? AND kingdom = ?
        AND event_type IN ('war_declared', 'war_declared_on_us', 'war_ended_victory', 'war_ended_defeat',
                           'ritual_started', 'ritual_active',
-                          'dragon_against_us', 'dragon_by_us', 'dragon_slain')
+                          'dragon_against_us', 'dragon_arrived', 'dragon_by_us', 'dragon_slain')
      ORDER BY game_date_ord ASC, id ASC`,
     [keyHash, kingdom],
   );
@@ -1835,6 +1835,7 @@ export async function getHistoryEventMarkers(
       }
       if (
         row.event_type === "dragon_against_us" ||
+        row.event_type === "dragon_arrived" ||
         row.event_type === "dragon_by_us" ||
         row.event_type === "dragon_slain"
       ) {
@@ -1845,13 +1846,17 @@ export async function getHistoryEventMarkers(
               ? row.dragon_type
                 ? "Dragon Project"
                 : "Dragon Sent"
-              : "Dragon";
+              : row.event_type === "dragon_arrived"
+                ? "Dragon!"
+                : "Dragon Project";
         const idPrefix =
-          row.event_type === "dragon_against_us"
-            ? "dragon_against"
-            : row.event_type === "dragon_by_us"
-              ? "dragon_by"
-              : "dragon_slain";
+          row.event_type === "dragon_arrived"
+            ? "dragon_arrived"
+            : row.event_type === "dragon_against_us"
+              ? "dragon_against"
+              : row.event_type === "dragon_by_us"
+                ? "dragon_by"
+                : "dragon_slain";
         const parts = [
           row.dragon_type,
           row.dragon_name,

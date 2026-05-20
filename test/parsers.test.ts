@@ -1588,11 +1588,24 @@ test("parseKingdomNews — ceasefire accepted", () => {
   assert.equal(e.relationKingdom, "2:1");
 });
 
-test("parseKingdomNews — dragon against us", () => {
+test("parseKingdomNews — dragon arrived (ravaging)", () => {
   const e = parseOne(
     mkLine(
       "March 7 of YR9",
       "A Fire Dragon, Ignis, from Flame Kingdom (6:6) has begun ravaging our lands!",
+    ),
+  );
+  assert.equal(e.eventType, "dragon_arrived");
+  assert.equal(e.dragonType, "Fire");
+  assert.equal(e.dragonName, "Ignis");
+  assert.equal(e.relationKingdom, "6:6");
+});
+
+test("parseKingdomNews — dragon project against us", () => {
+  const e = parseOne(
+    mkLine(
+      "March 1 of YR9",
+      "Flame Kingdom (6:6) has begun the Fire Dragon project, Ignis, against us!",
     ),
   );
   assert.equal(e.eventType, "dragon_against_us");

@@ -374,7 +374,7 @@ function classifyEvent(
   m = DRAGON_ARRIVED_RE.exec(text);
   if (m)
     return {
-      eventType: "dragon_against_us",
+      eventType: "dragon_arrived",
       attackerName: null,
       attackerKingdom: null,
       defenderName: null,

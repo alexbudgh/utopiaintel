@@ -26,6 +26,7 @@ function markerColor(marker: HistoryEventMarker): string {
   if (marker.id.startsWith("war_defeat:")) return "#f87171";
   if (marker.id.startsWith("ritual_active:")) return "#22d3ee";
   if (marker.id.startsWith("ritual:")) return "#c084fc";
+  if (marker.id.startsWith("dragon_arrived:")) return "#f87171";
   if (marker.id.startsWith("dragon_against:")) return "#fb923c";
   if (marker.id.startsWith("dragon_by:")) return "#38bdf8";
   if (marker.id.startsWith("dragon_slain:")) return "#86efac";
