@@ -1878,6 +1878,8 @@ export async function getHistoryEventMarkers(
           detail: parts.length
             ? `${row.game_date} · ${parts.join(" ")}`
             : row.game_date,
+          dragonType: row.dragon_type,
+          dragonName: row.dragon_name,
         };
       }
       const isStart =

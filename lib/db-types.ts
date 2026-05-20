@@ -325,6 +325,8 @@ export interface HistoryEventMarker {
   label: string;
   at: string;
   detail: string | null;
+  dragonType?: string | null;
+  dragonName?: string | null;
 }
 
 export interface NewsProvinceSummary {

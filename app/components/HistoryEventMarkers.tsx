@@ -7,6 +7,21 @@ import { parseUtc } from "@/lib/ui";
 
 export type VisibleHistoryEventMarker = HistoryEventMarker & { t: number };
 
+const DRAGON_TYPE_COLORS: Record<string, string> = {
+  topaz: "#fbbf24",
+  sapphire: "#38bdf8",
+  ruby: "#f87171",
+  emerald: "#4ade80",
+  lightning: "#22d3ee",
+  shadow: "#a78bfa",
+  ice: "#bae6fd",
+  fire: "#fb923c",
+};
+
+function dragonTypeColor(type: string): string {
+  return DRAGON_TYPE_COLORS[type.toLowerCase()] ?? "#fb923c";
+}
+
 export const MARKER_CATEGORIES = [
   { key: "war", label: "War", color: "#fbbf24" },
   { key: "ritual", label: "Ritual", color: "#c084fc" },
@@ -173,9 +188,37 @@ export function HistoryEventLegend({
                 className="inline-block h-3 w-0 shrink-0 border-l border-dashed"
                 style={{ borderColor: markerColor(marker) }}
               />
-              <span>
-                {marker.label}
-                <span className="ml-1 text-gray-500">{formatTime(marker)}</span>
+              <span className="flex items-baseline gap-1 flex-wrap">
+                {marker.dragonType ? (
+                  <>
+                    <span
+                      className="rounded px-1 py-px text-[10px] font-semibold leading-tight"
+                      style={{
+                        color: dragonTypeColor(marker.dragonType),
+                        background: `${dragonTypeColor(marker.dragonType)}22`,
+                        border: `1px solid ${dragonTypeColor(marker.dragonType)}55`,
+                      }}
+                    >
+                      {marker.dragonType}
+                    </span>
+                    {marker.dragonName && (
+                      <span className="text-gray-300 italic">
+                        &ldquo;{marker.dragonName}&rdquo;
+                      </span>
+                    )}
+                    <span className="text-gray-500">{marker.label}</span>
+                  </>
+                ) : (
+                  <>
+                    {marker.label}
+                    {marker.dragonName && (
+                      <span className="text-gray-400 italic ml-0.5">
+                        &ldquo;{marker.dragonName}&rdquo;
+                      </span>
+                    )}
+                  </>
+                )}
+                <span className="text-gray-500">{formatTime(marker)}</span>
               </span>
             </div>
           ))}
