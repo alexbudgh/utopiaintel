@@ -43,7 +43,7 @@ function markerColor(marker: HistoryEventMarker): string {
   if (marker.id.startsWith("ritual_ended:")) return "#6b7280";
   if (marker.id.startsWith("ritual:")) return "#c084fc";
   if (marker.id.startsWith("dragon_arrived:")) return "#f87171";
-  if (marker.id.startsWith("dragon_against:")) return "#fb923c";
+  if (marker.id.startsWith("dragon_against:")) return "#f87171";
   if (marker.id.startsWith("dragon_by:")) return "#38bdf8";
   if (marker.id.startsWith("dragon_slain:")) return "#86efac";
   return "#fbbf24";
@@ -155,6 +155,17 @@ export function HistoryEventReferenceLines({
   );
 }
 
+function MarkerLabel({ label }: { label: string }) {
+  if (label.startsWith("Enemy ")) {
+    return (
+      <>
+        <span className="text-red-400">Enemy</span> {label.slice(6)}
+      </>
+    );
+  }
+  return <>{label}</>;
+}
+
 export function HistoryEventLegend({
   markers,
   formatTime,
@@ -227,14 +238,16 @@ export function HistoryEventLegend({
                   </td>
                   <td className="pr-3 whitespace-nowrap text-gray-300">
                     {marker.dragonName ? (
-                      <span className="italic">
-                        &ldquo;{marker.dragonName}&rdquo;
-                      </span>
+                      <>
+                        <span className="italic">
+                          &ldquo;{marker.dragonName}&rdquo;
+                        </span>
+                        <span className="ml-1 text-gray-500">
+                          <MarkerLabel label={marker.label} />
+                        </span>
+                      </>
                     ) : (
-                      marker.label
-                    )}
-                    {marker.dragonType && (
-                      <span className="ml-1 text-gray-500">{marker.label}</span>
+                      <MarkerLabel label={marker.label} />
                     )}
                   </td>
                   <td className="pr-3 whitespace-nowrap text-gray-500 font-mono text-[11px]">

@@ -1851,14 +1851,14 @@ export async function getHistoryEventMarkers(
       ) {
         const label =
           row.event_type === "dragon_slain"
-            ? "Slain"
+            ? "Enemy Dragon Slain"
             : row.event_type === "dragon_by_us"
               ? row.dragon_type
-                ? "Dragon Project"
-                : "Dragon Sent"
+                ? "Dragon Started"
+                : "Dragon Launched"
               : row.event_type === "dragon_arrived"
-                ? "Dragon!"
-                : "Dragon Project";
+                ? "Dragon Against Us!"
+                : "Enemy Dragon Started";
         const direction =
           row.event_type === "dragon_by_us"
             ? ("out" as const)
