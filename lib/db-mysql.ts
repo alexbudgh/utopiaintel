@@ -1827,16 +1827,17 @@ export async function getHistoryEventMarkers(
         if (row.event_type === "ritual_ended") {
           return {
             id: `ritual_ended:${row.id}`,
-            label: "Ritual",
+            label: "Ritual ended",
             at: utopiaDateOrdToUtcTimestamp(row.game_date_ord!),
             date: row.game_date,
             direction: "in" as const,
           };
         }
         const isActive = row.event_type === "ritual_active";
+        const ritualName = row.dragon_name ?? "Ritual";
         return {
           id: `${isActive ? "ritual_active" : "ritual"}:${row.id}`,
-          label: row.dragon_name ?? "Ritual",
+          label: isActive ? `${ritualName} activated` : `${ritualName} started`,
           at: utopiaDateOrdToUtcTimestamp(row.game_date_ord!),
           date: row.game_date,
           direction: isActive ? (null as null) : ("out" as const),
