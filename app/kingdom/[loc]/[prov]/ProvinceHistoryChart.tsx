@@ -900,100 +900,108 @@ export function ProvinceHistoryChart({
               />
             </ComposedChart>
           </ResponsiveContainer>
-          <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
-            <HistoryEventLegend
-              markers={activeEventMarkers}
-              formatTime={(marker: VisibleHistoryEventMarker) =>
-                marker.detail ?? ""
-              }
-            />
-            {METRICS.map((m) => {
-              const isHidden = hidden.has(m.key);
-              return (
-                <button
-                  key={m.key}
-                  type="button"
-                  onClick={() =>
-                    setHidden((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(m.key)) next.delete(m.key);
-                      else next.add(m.key);
-                      return next;
-                    })
+          <div className="mt-2 flex flex-col gap-2">
+            {activeEventMarkers.length > 0 && (
+              <div className="flex flex-wrap gap-x-6 gap-y-2">
+                <HistoryEventLegend
+                  markers={activeEventMarkers}
+                  formatTime={(marker: VisibleHistoryEventMarker) =>
+                    marker.detail ?? ""
                   }
-                  className="flex items-center gap-1.5 text-xs transition-opacity"
-                  style={{ opacity: isHidden ? 0.5 : 1 }}
+                />
+              </div>
+            )}
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+              {METRICS.map((m) => {
+                const isHidden = hidden.has(m.key);
+                return (
+                  <button
+                    key={m.key}
+                    type="button"
+                    onClick={() =>
+                      setHidden((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(m.key)) next.delete(m.key);
+                        else next.add(m.key);
+                        return next;
+                      })
+                    }
+                    className="flex items-center gap-1.5 text-xs transition-opacity"
+                    style={{ opacity: isHidden ? 0.5 : 1 }}
+                  >
+                    <span
+                      className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
+                      style={{ background: m.color }}
+                    />
+                    <span style={{ color: isHidden ? "#6b7280" : "#d1d5db" }}>
+                      {m.label}
+                    </span>
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => setHideAttacks((prev) => !prev)}
+                className="flex items-center gap-1.5 text-xs transition-opacity"
+                style={{ opacity: hideAttacks ? 0.5 : 1 }}
+              >
+                <span
+                  className="inline-block h-2.5 w-2.5 shrink-0 rotate-45 rounded-sm"
+                  style={{ background: "#fb7185" }}
+                />
+                <span style={{ color: hideAttacks ? "#6b7280" : "#d1d5db" }}>
+                  Attacks
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setHideThievery((prev) => !prev)}
+                className="flex items-center gap-1.5 text-xs transition-opacity"
+                style={{ opacity: hideThievery ? 0.5 : 1 }}
+              >
+                <span
+                  className="inline-block h-0 w-0 shrink-0 border-x-[5px] border-b-[9px] border-x-transparent"
+                  style={{ borderBottomColor: "#fbbf24" }}
+                />
+                <span style={{ color: hideThievery ? "#6b7280" : "#d1d5db" }}>
+                  Thievery
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setHideOtherOps((prev) => !prev)}
+                className="flex items-center gap-1.5 text-xs transition-opacity"
+                style={{ opacity: hideSabotageOps ? 0.5 : 1 }}
+              >
+                <span
+                  className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ background: "#a78bfa" }}
+                />
+                <span
+                  style={{ color: hideSabotageOps ? "#6b7280" : "#d1d5db" }}
                 >
-                  <span
-                    className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
-                    style={{ background: m.color }}
-                  />
-                  <span style={{ color: isHidden ? "#6b7280" : "#d1d5db" }}>
-                    {m.label}
-                  </span>
-                </button>
-              );
-            })}
-            <button
-              type="button"
-              onClick={() => setHideAttacks((prev) => !prev)}
-              className="flex items-center gap-1.5 text-xs transition-opacity"
-              style={{ opacity: hideAttacks ? 0.5 : 1 }}
-            >
-              <span
-                className="inline-block h-2.5 w-2.5 shrink-0 rotate-45 rounded-sm"
-                style={{ background: "#fb7185" }}
-              />
-              <span style={{ color: hideAttacks ? "#6b7280" : "#d1d5db" }}>
-                Attacks
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setHideThievery((prev) => !prev)}
-              className="flex items-center gap-1.5 text-xs transition-opacity"
-              style={{ opacity: hideThievery ? 0.5 : 1 }}
-            >
-              <span
-                className="inline-block h-0 w-0 shrink-0 border-x-[5px] border-b-[9px] border-x-transparent"
-                style={{ borderBottomColor: "#fbbf24" }}
-              />
-              <span style={{ color: hideThievery ? "#6b7280" : "#d1d5db" }}>
-                Thievery
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setHideOtherOps((prev) => !prev)}
-              className="flex items-center gap-1.5 text-xs transition-opacity"
-              style={{ opacity: hideSabotageOps ? 0.5 : 1 }}
-            >
-              <span
-                className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
-                style={{ background: "#a78bfa" }}
-              />
-              <span style={{ color: hideSabotageOps ? "#6b7280" : "#d1d5db" }}>
-                Sabotage
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setHideSorcery((prev) => !prev)}
-              className="flex items-center gap-1.5 text-xs transition-opacity"
-              style={{ opacity: hideSorcery ? 0.5 : 1 }}
-            >
-              <span
-                className="inline-block h-2.5 w-2.5 shrink-0"
-                style={{
-                  background: "#2dd4bf",
-                  clipPath:
-                    "polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)",
-                }}
-              />
-              <span style={{ color: hideSorcery ? "#6b7280" : "#d1d5db" }}>
-                Sorcery
-              </span>
-            </button>
+                  Sabotage
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setHideSorcery((prev) => !prev)}
+                className="flex items-center gap-1.5 text-xs transition-opacity"
+                style={{ opacity: hideSorcery ? 0.5 : 1 }}
+              >
+                <span
+                  className="inline-block h-2.5 w-2.5 shrink-0"
+                  style={{
+                    background: "#2dd4bf",
+                    clipPath:
+                      "polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)",
+                  }}
+                />
+                <span style={{ color: hideSorcery ? "#6b7280" : "#d1d5db" }}>
+                  Sorcery
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       )}
