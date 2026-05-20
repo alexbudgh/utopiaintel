@@ -206,6 +206,7 @@ function MetricChart({
             tickLine={false}
             axisLine={false}
             width={56}
+            domain={["auto", "auto"]}
             tickFormatter={(value) => formatNum(Number(value))}
           />
           <Tooltip
