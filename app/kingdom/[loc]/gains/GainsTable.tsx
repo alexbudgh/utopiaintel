@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { KingdomViewShell, btnBase, btnInactive } from "../KingdomTabs";
+import {
+  KingdomViewShell,
+  btnBase,
+  btnActive,
+  btnInactive,
+} from "../KingdomTabs";
 import { Tooltip, type TooltipLine } from "@/app/components/Tooltip";
 import type { KingdomSnapshotProvince, ProvinceRow } from "@/lib/db-types";
 import {
@@ -1302,6 +1307,7 @@ export function GainsTable({
   const [data, setData] = useState(initial);
   const [selectedRowId, setSelectedRowId] = useState<number | null>(null);
   const [attackTimeOffset, setAttackTimeOffset] = useState(0);
+  const [density, setDensity] = useState<"normal" | "compact">("normal");
   const headerScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -1336,6 +1342,11 @@ export function GainsTable({
     targetSnapshot?.warDoctrines.find((d) => d.effect === "Enemy Battle Gains")
       ?.bonusPercent ?? null;
   const baseAttackTime = selfKingdom === targetKingdom ? 7 : 14;
+  const attackerColClass =
+    density === "compact" ? "w-36 min-w-36 max-w-36" : ATTACKER_COL_WIDTH;
+  const targetColClass =
+    density === "compact" ? "w-20 min-w-20 max-w-20" : TARGET_COL_WIDTH;
+
   const tabExtras = (
     <>
       <Tooltip
@@ -1371,6 +1382,18 @@ export function GainsTable({
       >
         <span className={`${btnBase} ${btnInactive}`}>Assumptions</span>
       </Tooltip>
+      <div className="flex rounded border border-gray-700 overflow-hidden">
+        {(["normal", "compact"] as const).map((d) => (
+          <button
+            key={d}
+            type="button"
+            onClick={() => setDensity(d)}
+            className={`${btnBase} rounded-none border-0 capitalize ${d === "compact" ? "border-l border-gray-700" : ""} ${density === d ? btnActive : btnInactive}`}
+          >
+            {d}
+          </button>
+        ))}
+      </div>
       <div className="flex items-center gap-1.5">
         <label className="text-xs text-gray-500">Attack Time</label>
         <select
@@ -1497,7 +1520,9 @@ export function GainsTable({
           )}
           {defender.name}
         </div>
-        <div className="mt-1 hidden text-[10px] font-normal text-gray-500 sm:block">
+        <div
+          className={`mt-1 text-[10px] font-normal text-gray-500 ${density === "normal" ? "hidden sm:block" : "hidden"}`}
+        >
           {formatNetworth(defender.networth)} / {formatLand(defender.land)}
           {defHome != null && (
             <>
@@ -1520,17 +1545,19 @@ export function GainsTable({
           <thead>
             <tr>
               <th
-                className={`${ATTACKER_COL_WIDTH} sticky left-0 z-30 overflow-hidden border-r border-gray-800 bg-gray-950 px-3 py-2 text-left font-medium text-gray-300`}
+                className={`${attackerColClass} sticky left-0 z-30 overflow-hidden border-r border-gray-800 bg-gray-950 px-3 py-2 text-left font-medium text-gray-300`}
               >
                 {selfKingdom}
-                <div className="mt-1 hidden text-[10px] font-normal text-gray-500 sm:block">
+                <div
+                  className={`mt-1 text-[10px] font-normal text-gray-500 ${density === "normal" ? "hidden sm:block" : "hidden"}`}
+                >
                   avg NW {formatNum(Math.round(selfAvgNetworth))}
                 </div>
               </th>
               {targetSnapshotProvinces.map((defender) => (
                 <th
                   key={defender.name}
-                  className={`${TARGET_COL_WIDTH} overflow-hidden border-r border-gray-800 bg-gray-950 px-3 py-2 text-right font-medium text-gray-300`}
+                  className={`${targetColClass} overflow-hidden border-r border-gray-800 bg-gray-950 px-3 py-2 text-right font-medium text-gray-300`}
                 >
                   {renderTargetHeader(
                     defender,
@@ -1563,7 +1590,7 @@ export function GainsTable({
                 }`}
               >
                 <th
-                  className={`${ATTACKER_COL_WIDTH} sticky left-0 z-10 overflow-hidden border-b border-r border-gray-800 px-3 py-2 text-left font-medium ${
+                  className={`${attackerColClass} sticky left-0 z-10 overflow-hidden border-b border-r border-gray-800 px-3 py-2 text-left font-medium ${
                     selectedRowId === attacker.id
                       ? "bg-blue-950 text-blue-100"
                       : "bg-gray-950 text-gray-200"
@@ -1584,7 +1611,7 @@ export function GainsTable({
                       {attacker.name}
                     </Link>
                     <div
-                      className={`mt-1 hidden text-[10px] font-normal sm:block ${selectedRowId === attacker.id ? "text-blue-300/80" : "text-gray-500"}`}
+                      className={`mt-1 text-[10px] font-normal ${density === "normal" ? "hidden sm:block" : "hidden"} ${selectedRowId === attacker.id ? "text-blue-300/80" : "text-gray-500"}`}
                     >
                       {formatNetworth(attacker.networth)} /{" "}
                       {formatLand(attacker.land)}
@@ -1623,7 +1650,7 @@ export function GainsTable({
                   return (
                     <td
                       key={`${attacker.id}:${defender.name}`}
-                      className={`${TARGET_COL_WIDTH} overflow-hidden border-b border-r border-gray-800 px-3 py-2 text-right tabular-nums transition-colors ${
+                      className={`${targetColClass} overflow-hidden border-b border-r border-gray-800 px-3 py-2 text-right tabular-nums transition-colors ${
                         selectedRowId === attacker.id
                           ? "shadow-[inset_0_1px_0_rgba(59,130,246,0.45),inset_0_-1px_0_rgba(59,130,246,0.45)]"
                           : ""
@@ -1650,25 +1677,29 @@ export function GainsTable({
                         }
                       >
                         <div
-                          className={`whitespace-nowrap text-[11px] sm:text-xs ${tone.value}`}
+                          className={`whitespace-nowrap text-xs ${tone.value}`}
                         >
                           {estimate
                             ? `${estimate.roundedAcres.toLocaleString()}a`
                             : "—"}
                         </div>
-                        <div className="mt-0.5 hidden text-[10px] text-gray-500 sm:block">
+                        <div
+                          className={`mt-0.5 text-[10px] text-gray-500 ${density === "normal" ? "hidden sm:block" : "block"}`}
+                        >
                           {estimate
                             ? `${((estimate.rawAcres / defender.land) * 100).toFixed(1)}%`
                             : "—"}
                         </div>
                         <div
-                          className={`mt-0.5 hidden text-[10px] sm:block ${estimate ? rpnwTone(estimate) : "text-gray-500"}`}
+                          className={`mt-0.5 text-[10px] ${density === "normal" ? "hidden sm:block" : "hidden"} ${estimate ? rpnwTone(estimate) : "text-gray-500"}`}
                         >
                           {estimate
                             ? `NW ${(estimate.rpnw * 100).toFixed(0)}%`
                             : "NW —"}
                         </div>
-                        <div className="mt-1 hidden max-w-full flex-wrap items-center justify-end gap-1 overflow-hidden sm:flex">
+                        <div
+                          className={`mt-1 max-w-full flex-wrap items-center justify-end gap-1 overflow-hidden ${density === "normal" ? "hidden sm:flex" : "hidden"}`}
+                        >
                           {badges}
                         </div>
                       </Tooltip>
