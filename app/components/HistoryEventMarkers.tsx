@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { ReferenceLine } from "recharts";
 import type { HistoryEventMarker } from "@/lib/db-types";
 import { parseUtc } from "@/lib/ui";
@@ -57,10 +58,13 @@ export function HistoryEventReferenceLines({
   markers: VisibleHistoryEventMarker[];
   yAxisId?: string;
 }) {
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+
   return (
     <>
       {markers.map((marker) => {
         const color = markerColor(marker);
+        const isHovered = hoveredId === marker.id;
         return (
           <ReferenceLine
             key={marker.id}
@@ -68,8 +72,44 @@ export function HistoryEventReferenceLines({
             yAxisId={yAxisId}
             stroke={color}
             strokeDasharray="4 4"
-            strokeWidth={1.5}
+            strokeWidth={isHovered ? 2.5 : 1.5}
             ifOverflow="visible"
+            label={(props: {
+              viewBox?: { x?: number; y?: number; height?: number };
+            }) => {
+              const vb = props.viewBox;
+              if (!vb) return null;
+              const x = vb.x ?? 0;
+              const y = vb.y ?? 0;
+              const h = vb.height ?? 200;
+              return (
+                <g
+                  onMouseEnter={() => setHoveredId(marker.id)}
+                  onMouseLeave={() => setHoveredId(null)}
+                >
+                  <rect
+                    x={x - 8}
+                    y={y}
+                    width={16}
+                    height={h}
+                    fill="transparent"
+                    style={{ cursor: "default" }}
+                  />
+                  {isHovered && (
+                    <text
+                      x={x}
+                      y={y + 14}
+                      textAnchor="middle"
+                      fill={color}
+                      fontSize={10}
+                      style={{ pointerEvents: "none" }}
+                    >
+                      {marker.label}
+                    </text>
+                  )}
+                </g>
+              );
+            }}
           />
         );
       })}
