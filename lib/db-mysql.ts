@@ -1810,7 +1810,7 @@ export async function getHistoryEventMarkers(
      FROM kingdom_news_sharded
      WHERE key_hash = ? AND kingdom = ?
        AND event_type IN ('war_declared', 'war_declared_on_us', 'war_ended_victory', 'war_ended_defeat',
-                          'ritual_started', 'ritual_active',
+                          'ritual_started', 'ritual_active', 'ritual_ended',
                           'dragon_against_us', 'dragon_arrived', 'dragon_by_us', 'dragon_slain')
      ORDER BY game_date_ord ASC, id ASC`,
     [keyHash, kingdom],
@@ -1821,8 +1821,17 @@ export async function getHistoryEventMarkers(
     .map((row) => {
       if (
         row.event_type === "ritual_started" ||
-        row.event_type === "ritual_active"
+        row.event_type === "ritual_active" ||
+        row.event_type === "ritual_ended"
       ) {
+        if (row.event_type === "ritual_ended") {
+          return {
+            id: `ritual_ended:${row.id}`,
+            label: "↓ Ritual",
+            at: utopiaDateOrdToUtcTimestamp(row.game_date_ord!),
+            detail: row.game_date,
+          };
+        }
         const isActive = row.event_type === "ritual_active";
         return {
           id: `${isActive ? "ritual_active" : "ritual"}:${row.id}`,

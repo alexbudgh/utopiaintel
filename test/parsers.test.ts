@@ -1828,6 +1828,14 @@ test("parseKingdomNews — ritual started", () => {
   assert.equal(e.dragonName, "Barrier of Eternity");
 });
 
+test("parseKingdomNews — ritual ended", () => {
+  const e = parseOne(
+    mkLine("April 10 of YR9", "The ritual covering our lands has been lifted!"),
+  );
+  assert.equal(e.eventType, "ritual_ended");
+  assert.equal(e.dragonName, null);
+});
+
 test("parseKingdomNews — ceasefire proposed", () => {
   const e = parseOne(
     mkLine(

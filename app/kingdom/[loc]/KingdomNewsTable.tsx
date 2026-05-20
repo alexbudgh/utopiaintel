@@ -56,7 +56,10 @@ const TYPE_GROUPS: { label: string; types: string[] }[] = [
       "dragon_slain",
     ],
   },
-  { label: "Ritual", types: ["ritual_started", "ritual_active"] },
+  {
+    label: "Ritual",
+    types: ["ritual_started", "ritual_active", "ritual_ended"],
+  },
   { label: "Aid", types: ["aid"] },
 ];
 const ALL_GROUPS = new Set(TYPE_GROUPS.map((g) => g.label));
@@ -84,6 +87,7 @@ const EVENT_LABEL: Record<string, string> = {
   dragon_slain: "Dragon Slain",
   ritual_started: "Ritual",
   ritual_active: "Ritual Active",
+  ritual_ended: "Ritual Ended",
 };
 
 const DIR_BADGE = {
@@ -360,6 +364,10 @@ function EventDescription({ event }: { event: KingdomNewsRow }) {
     );
   }
 
+  if (eventType === "ritual_ended") {
+    return <span className="text-gray-500">Ritual lifted</span>;
+  }
+
   return <span className="text-gray-400">{event.rawText}</span>;
 }
 
@@ -542,6 +550,7 @@ function eventDirection(
       "dragon_by_us",
       "ritual_started",
       "ritual_active",
+      "ritual_ended",
     ].includes(eventType)
   )
     return "out";

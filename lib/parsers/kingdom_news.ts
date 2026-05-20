@@ -92,6 +92,8 @@ const DRAGON_SLAIN_RE =
 const RITUAL_STARTED_RE = /^We have started developing a ritual! \((.+?)\)!/;
 // Ritual now active
 const RITUAL_ACTIVE_RE = /^A ritual is covering our lands! \((.+?)\)/;
+// Ritual lifted
+const RITUAL_ENDED_RE = /^The ritual covering our lands has been lifted!/;
 
 const AID_RE = /^(.+?) has sent an aid shipment to (.+?)\.$/;
 const WAR_DECLARED_RE = new RegExp(
@@ -437,6 +439,22 @@ function classifyEvent(
       relationKingdom: null,
       dragonType: null,
       dragonName: m[1].trim(),
+    };
+
+  if (RITUAL_ENDED_RE.test(text))
+    return {
+      eventType: "ritual_ended",
+      attackerName: null,
+      attackerKingdom: null,
+      defenderName: null,
+      defenderKingdom: null,
+      acres: null,
+      books: null,
+      senderName: null,
+      receiverName: null,
+      relationKingdom: null,
+      dragonType: null,
+      dragonName: null,
     };
 
   m = AID_RE.exec(text);
