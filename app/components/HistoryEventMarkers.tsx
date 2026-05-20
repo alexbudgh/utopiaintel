@@ -179,7 +179,7 @@ export function HistoryEventLegend({
           <th className="pb-1 pr-2 font-normal" />
           <th className="pb-1 pr-2 font-normal text-left">Type</th>
           <th className="pb-1 pr-3 font-normal text-left">Event</th>
-          <th className="pb-1 pr-3 font-normal text-left">Kingdom</th>
+          <th className="pb-1 pr-3 font-normal text-left">KD</th>
           <th className="pb-1 font-normal text-left">Date</th>
         </tr>
       </thead>
