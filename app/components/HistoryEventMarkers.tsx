@@ -255,11 +255,11 @@ export function HistoryEventLegend({
 
 export function HistoryEventToggles({
   markers,
-  hiddenCategories,
+  visibleCategories,
   onToggle,
 }: {
   markers: HistoryEventMarker[];
-  hiddenCategories: Set<string>;
+  visibleCategories: Set<string>;
   onToggle: (category: string) => void;
 }) {
   const presentCategories = MARKER_CATEGORIES.filter((cat) =>
@@ -269,7 +269,7 @@ export function HistoryEventToggles({
   return (
     <>
       {presentCategories.map((cat) => {
-        const hidden = hiddenCategories.has(cat.key);
+        const hidden = !visibleCategories.has(cat.key);
         return (
           <button
             key={cat.key}

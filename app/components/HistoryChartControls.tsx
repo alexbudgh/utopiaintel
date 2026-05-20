@@ -14,7 +14,7 @@ import {
 export function HistoryChartControls({
   tz,
   onTimezoneToggle,
-  hiddenCategories,
+  visibleCategories,
   onCategoryToggle,
   eventMarkers,
   dateRange,
@@ -24,7 +24,7 @@ export function HistoryChartControls({
 }: {
   tz: HistoryChartTimezone;
   onTimezoneToggle: () => void;
-  hiddenCategories: Set<string>;
+  visibleCategories: Set<string>;
   onCategoryToggle: (category: string) => void;
   eventMarkers: HistoryEventMarker[];
   dateRange: UtopiaDateRangeValue;
@@ -49,7 +49,7 @@ export function HistoryChartControls({
       </button>
       <HistoryEventToggles
         markers={eventMarkers}
-        hiddenCategories={hiddenCategories}
+        visibleCategories={visibleCategories}
         onToggle={onCategoryToggle}
       />
       {children}

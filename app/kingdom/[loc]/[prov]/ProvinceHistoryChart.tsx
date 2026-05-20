@@ -658,8 +658,8 @@ export function ProvinceHistoryChart({
   const [hideThievery, setHideThievery] = useState(false);
   const [hideSabotageOps, setHideOtherOps] = useState(false);
   const [hideSorcery, setHideSorcery] = useState(false);
-  const [hiddenCategories, setHiddenCategories] = useState<Set<string>>(
-    new Set(),
+  const [visibleCategories, setVisibleCategories] = useState<Set<string>>(
+    () => new Set(),
   );
   const [open, setOpen] = useState(false);
   const [hoveredLine, setHoveredLine] = useState<MetricKey | null>(null);
@@ -730,8 +730,8 @@ export function ProvinceHistoryChart({
     domainStart,
     domainEnd,
   );
-  const activeEventMarkers = visibleEventMarkers.filter(
-    (m) => !hiddenCategories.has(markerCategory(m)),
+  const activeEventMarkers = visibleEventMarkers.filter((m) =>
+    visibleCategories.has(markerCategory(m)),
   );
 
   const tzLabel = tz === "UTC" ? "UTC" : LOCAL_HISTORY_TZ_LABEL;
@@ -764,9 +764,9 @@ export function ProvinceHistoryChart({
           onTimezoneToggle={() =>
             setTz((value) => (value === "UTC" ? "local" : "UTC"))
           }
-          hiddenCategories={hiddenCategories}
+          visibleCategories={visibleCategories}
           onCategoryToggle={(cat) =>
-            setHiddenCategories((prev) => {
+            setVisibleCategories((prev) => {
               const next = new Set(prev);
               if (next.has(cat)) next.delete(cat);
               else next.add(cat);

@@ -329,8 +329,8 @@ export function KingdomSnapshotChart({
 }: KingdomSnapshotChartProps) {
   const [open, setOpen] = useState(initiallyOpen);
   const [tz, setTz] = useState<HistoryChartTimezone>("local");
-  const [hiddenCategories, setHiddenCategories] = useState<Set<string>>(
-    new Set(),
+  const [visibleCategories, setVisibleCategories] = useState<Set<string>>(
+    () => new Set(),
   );
   const [dateRange, setDateRange] = useState<UtopiaDateRangeValue>({
     mode: "real",
@@ -385,9 +385,9 @@ export function KingdomSnapshotChart({
           onTimezoneToggle={() =>
             setTz((value) => (value === "UTC" ? "local" : "UTC"))
           }
-          hiddenCategories={hiddenCategories}
+          visibleCategories={visibleCategories}
           onCategoryToggle={(cat) =>
-            setHiddenCategories((prev) => {
+            setVisibleCategories((prev) => {
               const next = new Set(prev);
               if (next.has(cat)) next.delete(cat);
               else next.add(cat);
@@ -416,8 +416,8 @@ export function KingdomSnapshotChart({
             compareKingdom={compareKingdom}
             compareHistory={displayedCompareHistory}
             tz={tz}
-            eventMarkers={eventMarkers.filter(
-              (m) => !hiddenCategories.has(markerCategory(m)),
+            eventMarkers={eventMarkers.filter((m) =>
+              visibleCategories.has(markerCategory(m)),
             )}
           />
         </div>
@@ -437,8 +437,8 @@ export function KingdomHistoryView({
   const router = useRouter();
   const [compareInput, setCompareInput] = useState(compareKingdom ?? "");
   const [tz, setTz] = useState<HistoryChartTimezone>("local");
-  const [hiddenCategories, setHiddenCategories] = useState<Set<string>>(
-    new Set(),
+  const [visibleCategories, setVisibleCategories] = useState<Set<string>>(
+    () => new Set(),
   );
   const [dateRange, setDateRange] = useState<UtopiaDateRangeValue>({
     mode: "real",
@@ -523,9 +523,9 @@ export function KingdomHistoryView({
               onTimezoneToggle={() =>
                 setTz((value) => (value === "UTC" ? "local" : "UTC"))
               }
-              hiddenCategories={hiddenCategories}
+              visibleCategories={visibleCategories}
               onCategoryToggle={(cat) =>
-                setHiddenCategories((prev) => {
+                setVisibleCategories((prev) => {
                   const next = new Set(prev);
                   if (next.has(cat)) next.delete(cat);
                   else next.add(cat);
@@ -573,8 +573,8 @@ export function KingdomHistoryView({
           compareKingdom={compareKingdom}
           compareHistory={displayedCompareHistory}
           tz={tz}
-          eventMarkers={eventMarkers.filter(
-            (m) => !hiddenCategories.has(markerCategory(m)),
+          eventMarkers={eventMarkers.filter((m) =>
+            visibleCategories.has(markerCategory(m)),
           )}
         />
       ) : (
