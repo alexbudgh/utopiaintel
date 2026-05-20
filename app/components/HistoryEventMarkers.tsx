@@ -147,7 +147,9 @@ export function HistoryEventLegend({
 }) {
   const groups = MARKER_CATEGORIES.map((cat) => ({
     cat,
-    items: markers.filter((m) => markerCategory(m) === cat.key),
+    items: markers
+      .filter((m) => markerCategory(m) === cat.key)
+      .sort((a, b) => a.t - b.t),
   })).filter((g) => g.items.length > 0);
 
   if (groups.length === 0) return null;
