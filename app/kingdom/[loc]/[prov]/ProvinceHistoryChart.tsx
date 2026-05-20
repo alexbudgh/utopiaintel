@@ -906,7 +906,7 @@ export function ProvinceHistoryChart({
                 <HistoryEventLegend
                   markers={activeEventMarkers}
                   formatTime={(marker: VisibleHistoryEventMarker) =>
-                    marker.detail ?? ""
+                    marker.date ?? ""
                   }
                 />
               </div>

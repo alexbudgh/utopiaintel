@@ -1793,7 +1793,7 @@ export async function getLatestWarDate(
 export async function getHistoryEventMarkers(
   kingdom: string,
   keyHash: string,
-): Promise<{ id: string; label: string; at: string; detail: string | null }[]> {
+): Promise<{ id: string; label: string; at: string; date: string | null }[]> {
   await ensureReady();
   interface EventRow extends RowDataPacket {
     id: number;
@@ -1829,7 +1829,7 @@ export async function getHistoryEventMarkers(
             id: `ritual_ended:${row.id}`,
             label: "Ritual",
             at: utopiaDateOrdToUtcTimestamp(row.game_date_ord!),
-            detail: row.game_date,
+            date: row.game_date,
             direction: "in" as const,
           };
         }
@@ -1838,9 +1838,7 @@ export async function getHistoryEventMarkers(
           id: `${isActive ? "ritual_active" : "ritual"}:${row.id}`,
           label: row.dragon_name ?? "Ritual",
           at: utopiaDateOrdToUtcTimestamp(row.game_date_ord!),
-          detail: row.dragon_name
-            ? `${row.game_date} (${row.dragon_name})`
-            : row.game_date,
+          date: row.game_date,
           direction: isActive ? (null as null) : ("out" as const),
         };
       }
@@ -1874,17 +1872,13 @@ export async function getHistoryEventMarkers(
               : row.event_type === "dragon_by_us"
                 ? "dragon_by"
                 : "dragon_slain";
-        const parts = [
-          row.relation_kingdom ? `(${row.relation_kingdom})` : null,
-        ].filter(Boolean);
         return {
           id: `${idPrefix}:${row.id}`,
           label,
           at: utopiaDateOrdToUtcTimestamp(row.game_date_ord!),
-          detail: parts.length
-            ? `${row.game_date} · ${parts.join(" ")}`
-            : row.game_date,
+          date: row.game_date,
           direction,
+          kingdom: row.relation_kingdom,
           dragonType: row.dragon_type,
           dragonName: row.dragon_name,
         };
@@ -1907,10 +1901,9 @@ export async function getHistoryEventMarkers(
         id: `${isStart ? "war" : row.event_type === "war_ended_victory" ? "war_victory" : "war_defeat"}:${row.id}`,
         label,
         at: utopiaDateOrdToUtcTimestamp(row.game_date_ord!),
-        detail: row.relation_kingdom
-          ? `${row.game_date} vs ${row.relation_kingdom}`
-          : row.game_date,
+        date: row.game_date,
         direction,
+        kingdom: row.relation_kingdom,
       };
     });
 }

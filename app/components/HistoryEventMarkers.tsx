@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { ReferenceLine } from "recharts";
 import type { HistoryEventMarker } from "@/lib/db-types";
 import { parseUtc } from "@/lib/ui";
@@ -128,7 +128,7 @@ export function HistoryEventReferenceLines({
                       >
                         {marker.label}
                       </text>
-                      {marker.detail && (
+                      {marker.date && (
                         <text
                           x={x}
                           y={y + 26}
@@ -140,7 +140,7 @@ export function HistoryEventReferenceLines({
                           fontSize={9}
                           style={{ pointerEvents: "none" }}
                         >
-                          {marker.detail}
+                          {marker.date}
                         </text>
                       )}
                     </>
@@ -172,31 +172,46 @@ export function HistoryEventLegend({
   if (groups.length === 0) return null;
 
   return (
-    <>
-      {groups.map(({ cat, items }) => (
-        <div key={cat.key} className="flex flex-col gap-0.5">
-          <span className="text-xs font-medium" style={{ color: cat.color }}>
-            {cat.label}
-          </span>
-          {items.map((marker) => (
-            <div
-              key={marker.id}
-              className="flex items-center gap-1.5 pl-2 text-xs text-gray-300"
-              title={marker.detail ?? undefined}
-            >
-              <span
-                className="inline-block h-3 w-0 shrink-0 border-l border-dashed"
-                style={{ borderColor: markerColor(marker) }}
-              />
-              <span className="flex items-baseline gap-1 flex-wrap">
-                {marker.direction === "out" && (
-                  <span className="text-gray-500">↑</span>
-                )}
-                {marker.direction === "in" && (
-                  <span className="text-gray-500">↓</span>
-                )}
-                {marker.dragonType ? (
-                  <>
+    <table className="text-xs border-collapse">
+      <thead>
+        <tr className="text-gray-600 font-normal">
+          <th className="pb-1 pr-1.5 w-3 font-normal text-center" />
+          <th className="pb-1 pr-2 font-normal" />
+          <th className="pb-1 pr-2 font-normal text-left">Type</th>
+          <th className="pb-1 pr-3 font-normal text-left">Event</th>
+          <th className="pb-1 pr-3 font-normal text-left">Kingdom</th>
+          <th className="pb-1 font-normal text-left">Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        {groups.map(({ cat, items }) => (
+          <React.Fragment key={cat.key}>
+            <tr>
+              <td
+                colSpan={6}
+                className="pt-2 pb-0.5 font-medium"
+                style={{ color: cat.color }}
+              >
+                {cat.label}
+              </td>
+            </tr>
+            {items.map((marker) => (
+              <tr key={marker.id} title={marker.date ?? undefined}>
+                <td className="pr-1.5 w-3 text-center text-gray-500">
+                  {marker.direction === "out"
+                    ? "↑"
+                    : marker.direction === "in"
+                      ? "↓"
+                      : ""}
+                </td>
+                <td className="pr-2">
+                  <span
+                    className="inline-block h-3 w-0 border-l border-dashed"
+                    style={{ borderColor: markerColor(marker) }}
+                  />
+                </td>
+                <td className="pr-2 whitespace-nowrap">
+                  {marker.dragonType ? (
                     <span
                       className="rounded px-1 py-px text-[10px] font-semibold leading-tight"
                       style={{
@@ -207,30 +222,32 @@ export function HistoryEventLegend({
                     >
                       {marker.dragonType}
                     </span>
-                    {marker.dragonName && (
-                      <span className="text-gray-300 italic">
-                        &ldquo;{marker.dragonName}&rdquo;
-                      </span>
-                    )}
-                    <span className="text-gray-500">{marker.label}</span>
-                  </>
-                ) : (
-                  <>
-                    {marker.label}
-                    {marker.dragonName && (
-                      <span className="text-gray-400 italic ml-0.5">
-                        &ldquo;{marker.dragonName}&rdquo;
-                      </span>
-                    )}
-                  </>
-                )}
-                <span className="text-gray-500">{formatTime(marker)}</span>
-              </span>
-            </div>
-          ))}
-        </div>
-      ))}
-    </>
+                  ) : null}
+                </td>
+                <td className="pr-3 whitespace-nowrap text-gray-300">
+                  {marker.dragonName ? (
+                    <span className="italic">
+                      &ldquo;{marker.dragonName}&rdquo;
+                    </span>
+                  ) : (
+                    marker.label
+                  )}
+                  {marker.dragonType && (
+                    <span className="ml-1 text-gray-500">{marker.label}</span>
+                  )}
+                </td>
+                <td className="pr-3 whitespace-nowrap text-gray-500 font-mono text-[11px]">
+                  {marker.kingdom ?? ""}
+                </td>
+                <td className="text-gray-500 whitespace-nowrap">
+                  {formatTime(marker)}
+                </td>
+              </tr>
+            ))}
+          </React.Fragment>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
