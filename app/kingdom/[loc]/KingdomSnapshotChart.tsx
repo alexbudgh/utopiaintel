@@ -255,7 +255,7 @@ function MetricChart({
         </LineChart>
       </ResponsiveContainer>
       {activeEventMarkers.length > 0 && (
-        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+        <div className="mt-1 flex flex-wrap gap-x-6 gap-y-2">
           <HistoryEventLegend
             markers={activeEventMarkers}
             formatTime={(marker: VisibleHistoryEventMarker) =>

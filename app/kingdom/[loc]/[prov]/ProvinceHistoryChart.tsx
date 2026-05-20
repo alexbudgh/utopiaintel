@@ -900,7 +900,7 @@ export function ProvinceHistoryChart({
               />
             </ComposedChart>
           </ResponsiveContainer>
-          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1.5">
+          <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
             <HistoryEventLegend
               markers={activeEventMarkers}
               formatTime={(marker: VisibleHistoryEventMarker) =>

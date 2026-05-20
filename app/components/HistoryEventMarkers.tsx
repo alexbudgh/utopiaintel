@@ -145,22 +145,36 @@ export function HistoryEventLegend({
   markers: VisibleHistoryEventMarker[];
   formatTime: (marker: VisibleHistoryEventMarker) => string;
 }) {
+  const groups = MARKER_CATEGORIES.map((cat) => ({
+    cat,
+    items: markers.filter((m) => markerCategory(m) === cat.key),
+  })).filter((g) => g.items.length > 0);
+
+  if (groups.length === 0) return null;
+
   return (
     <>
-      {markers.map((marker) => (
-        <div
-          key={marker.id}
-          className="flex items-center gap-1.5 text-xs text-gray-300"
-          title={marker.detail ?? undefined}
-        >
-          <span
-            className="inline-block h-3 w-0 shrink-0 border-l border-dashed"
-            style={{ borderColor: markerColor(marker) }}
-          />
-          <span>
-            {marker.label}
-            <span className="ml-1 text-gray-500">{formatTime(marker)}</span>
+      {groups.map(({ cat, items }) => (
+        <div key={cat.key} className="flex flex-col gap-0.5">
+          <span className="text-xs font-medium" style={{ color: cat.color }}>
+            {cat.label}
           </span>
+          {items.map((marker) => (
+            <div
+              key={marker.id}
+              className="flex items-center gap-1.5 pl-2 text-xs text-gray-300"
+              title={marker.detail ?? undefined}
+            >
+              <span
+                className="inline-block h-3 w-0 shrink-0 border-l border-dashed"
+                style={{ borderColor: markerColor(marker) }}
+              />
+              <span>
+                {marker.label}
+                <span className="ml-1 text-gray-500">{formatTime(marker)}</span>
+              </span>
+            </div>
+          ))}
         </div>
       ))}
     </>
