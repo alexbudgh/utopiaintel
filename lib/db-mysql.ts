@@ -1842,7 +1842,9 @@ export async function getHistoryEventMarkers(
           row.event_type === "dragon_slain"
             ? "Slain"
             : row.event_type === "dragon_by_us"
-              ? "Our Dragon"
+              ? row.dragon_type
+                ? "Dragon Project"
+                : "Dragon Sent"
               : "Dragon";
         const idPrefix =
           row.event_type === "dragon_against_us"
