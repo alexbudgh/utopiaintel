@@ -1513,15 +1513,23 @@ export function GainsTable({
         className="block min-w-0 max-w-full transition-colors hover:text-blue-300"
       >
         <div className="min-w-0">
-          {defender.slot != null && (
-            <span className="mr-1.5 text-[10px] tabular-nums text-gray-500">
-              #{defender.slot}
+          {density === "compact" ? (
+            <span className="text-[10px] tabular-nums text-gray-400">
+              {defender.slot != null ? `#${defender.slot}` : "—"}
             </span>
+          ) : (
+            <>
+              {defender.slot != null && (
+                <span className="mr-1.5 text-[10px] tabular-nums text-gray-500">
+                  #{defender.slot}
+                </span>
+              )}
+              {defender.name}
+            </>
           )}
-          {defender.name}
         </div>
         <div
-          className={`mt-1 text-[10px] font-normal text-gray-500 ${density === "normal" ? "hidden sm:block" : "hidden"}`}
+          className={`mt-1 text-[10px] font-normal text-gray-500 ${density === "normal" ? "hidden sm:block" : "block"}`}
         >
           {formatNetworth(defender.networth)} / {formatLand(defender.land)}
           {defHome != null && (
@@ -1611,7 +1619,7 @@ export function GainsTable({
                       {attacker.name}
                     </Link>
                     <div
-                      className={`mt-1 text-[10px] font-normal ${density === "normal" ? "hidden sm:block" : "hidden"} ${selectedRowId === attacker.id ? "text-blue-300/80" : "text-gray-500"}`}
+                      className={`mt-1 text-[10px] font-normal ${density === "normal" ? "hidden sm:block" : "block"} ${selectedRowId === attacker.id ? "text-blue-300/80" : "text-gray-500"}`}
                     >
                       {formatNetworth(attacker.networth)} /{" "}
                       {formatLand(attacker.land)}
