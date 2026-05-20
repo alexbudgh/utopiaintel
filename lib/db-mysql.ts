@@ -1870,8 +1870,8 @@ export async function getHistoryEventMarkers(
       const label = isStart
         ? "War"
         : row.event_type === "war_ended_victory"
-          ? "Victory"
-          : "Defeat";
+          ? "War Victory"
+          : "War Defeat";
       return {
         id: `${isStart ? "war" : row.event_type === "war_ended_victory" ? "war_victory" : "war_defeat"}:${row.id}`,
         label,

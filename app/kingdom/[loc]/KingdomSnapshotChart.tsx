@@ -259,7 +259,7 @@ function MetricChart({
           <HistoryEventLegend
             markers={activeEventMarkers}
             formatTime={(marker: VisibleHistoryEventMarker) =>
-              historyChartLabelFromMs(marker.t, tz)
+              marker.detail ?? ""
             }
           />
         </div>

@@ -904,7 +904,7 @@ export function ProvinceHistoryChart({
             <HistoryEventLegend
               markers={activeEventMarkers}
               formatTime={(marker: VisibleHistoryEventMarker) =>
-                historyChartLabelFromMs(marker.t, tz)
+                marker.detail ?? ""
               }
             />
             {METRICS.map((m) => {

@@ -96,16 +96,37 @@ export function HistoryEventReferenceLines({
                     style={{ cursor: "default" }}
                   />
                   {isHovered && (
-                    <text
-                      x={x}
-                      y={y + 14}
-                      textAnchor="middle"
-                      fill={color}
-                      fontSize={10}
-                      style={{ pointerEvents: "none" }}
-                    >
-                      {marker.label}
-                    </text>
+                    <>
+                      <text
+                        x={x}
+                        y={y + 14}
+                        textAnchor="middle"
+                        fill={color}
+                        stroke="rgba(17,24,39,0.85)"
+                        strokeWidth={3}
+                        paintOrder="stroke fill"
+                        fontSize={10}
+                        fontWeight={600}
+                        style={{ pointerEvents: "none" }}
+                      >
+                        {marker.label}
+                      </text>
+                      {marker.detail && (
+                        <text
+                          x={x}
+                          y={y + 26}
+                          textAnchor="middle"
+                          fill="#d1d5db"
+                          stroke="rgba(17,24,39,0.85)"
+                          strokeWidth={3}
+                          paintOrder="stroke fill"
+                          fontSize={9}
+                          style={{ pointerEvents: "none" }}
+                        >
+                          {marker.detail}
+                        </text>
+                      )}
+                    </>
                   )}
                 </g>
               );
