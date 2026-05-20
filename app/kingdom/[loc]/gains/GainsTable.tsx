@@ -1520,17 +1520,15 @@ export function GainsTable({
           ) : (
             <>
               {defender.slot != null && (
-                <span className="mr-1.5 text-[10px] tabular-nums text-gray-500">
+                <span className="sm:mr-1.5 text-[10px] tabular-nums text-gray-400">
                   #{defender.slot}
                 </span>
               )}
-              {defender.name}
+              <span className="hidden sm:inline">{defender.name}</span>
             </>
           )}
         </div>
-        <div
-          className={`mt-1 text-[10px] font-normal text-gray-500 ${density === "normal" ? "hidden sm:block" : "block"}`}
-        >
+        <div className="mt-1 text-[10px] font-normal text-gray-500">
           {formatNetworth(defender.networth)} / {formatLand(defender.land)}
           {defHome != null && (
             <>
@@ -1556,9 +1554,7 @@ export function GainsTable({
                 className={`${attackerColClass} sticky left-0 z-30 overflow-hidden border-r border-gray-800 bg-gray-950 px-3 py-2 text-left font-medium text-gray-300`}
               >
                 {selfKingdom}
-                <div
-                  className={`mt-1 text-[10px] font-normal text-gray-500 ${density === "normal" ? "hidden sm:block" : "hidden"}`}
-                >
+                <div className="mt-1 text-[10px] font-normal text-gray-500">
                   avg NW {formatNum(Math.round(selfAvgNetworth))}
                 </div>
               </th>
@@ -1619,7 +1615,7 @@ export function GainsTable({
                       {attacker.name}
                     </Link>
                     <div
-                      className={`mt-1 text-[10px] font-normal ${density === "normal" ? "hidden sm:block" : "block"} ${selectedRowId === attacker.id ? "text-blue-300/80" : "text-gray-500"}`}
+                      className={`mt-1 text-[10px] font-normal ${selectedRowId === attacker.id ? "text-blue-300/80" : "text-gray-500"}`}
                     >
                       {formatNetworth(attacker.networth)} /{" "}
                       {formatLand(attacker.land)}
@@ -1691,9 +1687,7 @@ export function GainsTable({
                             ? `${estimate.roundedAcres.toLocaleString()}a`
                             : "—"}
                         </div>
-                        <div
-                          className={`mt-0.5 text-[10px] text-gray-500 ${density === "normal" ? "hidden sm:block" : "block"}`}
-                        >
+                        <div className="mt-0.5 text-[10px] text-gray-500">
                           {estimate
                             ? `${((estimate.rawAcres / defender.land) * 100).toFixed(1)}%`
                             : "—"}
