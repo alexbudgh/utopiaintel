@@ -1827,19 +1827,21 @@ export async function getHistoryEventMarkers(
         if (row.event_type === "ritual_ended") {
           return {
             id: `ritual_ended:${row.id}`,
-            label: "↓ Ritual",
+            label: "Ritual",
             at: utopiaDateOrdToUtcTimestamp(row.game_date_ord!),
             detail: row.game_date,
+            direction: "in" as const,
           };
         }
         const isActive = row.event_type === "ritual_active";
         return {
           id: `${isActive ? "ritual_active" : "ritual"}:${row.id}`,
-          label: `${isActive ? "✓" : "↑"} ${row.dragon_name ?? "Ritual"}`,
+          label: row.dragon_name ?? "Ritual",
           at: utopiaDateOrdToUtcTimestamp(row.game_date_ord!),
           detail: row.dragon_name
             ? `${row.game_date} (${row.dragon_name})`
             : row.game_date,
+          direction: isActive ? (null as null) : ("out" as const),
         };
       }
       if (
@@ -1858,6 +1860,12 @@ export async function getHistoryEventMarkers(
               : row.event_type === "dragon_arrived"
                 ? "Dragon!"
                 : "Dragon Project";
+        const direction =
+          row.event_type === "dragon_by_us"
+            ? ("out" as const)
+            : row.event_type === "dragon_slain"
+              ? null
+              : ("in" as const);
         const idPrefix =
           row.event_type === "dragon_arrived"
             ? "dragon_arrived"
@@ -1867,8 +1875,6 @@ export async function getHistoryEventMarkers(
                 ? "dragon_by"
                 : "dragon_slain";
         const parts = [
-          row.dragon_type,
-          row.dragon_name,
           row.relation_kingdom ? `(${row.relation_kingdom})` : null,
         ].filter(Boolean);
         return {
@@ -1878,6 +1884,7 @@ export async function getHistoryEventMarkers(
           detail: parts.length
             ? `${row.game_date} · ${parts.join(" ")}`
             : row.game_date,
+          direction,
           dragonType: row.dragon_type,
           dragonName: row.dragon_name,
         };
@@ -1890,6 +1897,12 @@ export async function getHistoryEventMarkers(
         : row.event_type === "war_ended_victory"
           ? "War Victory"
           : "War Defeat";
+      const direction = (
+        row.event_type === "war_declared" ||
+        row.event_type === "war_ended_victory"
+          ? "out"
+          : "in"
+      ) as "in" | "out";
       return {
         id: `${isStart ? "war" : row.event_type === "war_ended_victory" ? "war_victory" : "war_defeat"}:${row.id}`,
         label,
@@ -1897,6 +1910,7 @@ export async function getHistoryEventMarkers(
         detail: row.relation_kingdom
           ? `${row.game_date} vs ${row.relation_kingdom}`
           : row.game_date,
+        direction,
       };
     });
 }

@@ -189,6 +189,12 @@ export function HistoryEventLegend({
                 style={{ borderColor: markerColor(marker) }}
               />
               <span className="flex items-baseline gap-1 flex-wrap">
+                {marker.direction === "out" && (
+                  <span className="text-gray-500">↑</span>
+                )}
+                {marker.direction === "in" && (
+                  <span className="text-gray-500">↓</span>
+                )}
                 {marker.dragonType ? (
                   <>
                     <span

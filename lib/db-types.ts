@@ -325,6 +325,7 @@ export interface HistoryEventMarker {
   label: string;
   at: string;
   detail: string | null;
+  direction?: "in" | "out" | null;
   dragonType?: string | null;
   dragonName?: string | null;
 }
