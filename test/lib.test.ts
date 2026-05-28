@@ -6,7 +6,7 @@ import {
   computeMtpaValue,
   computeRwpa,
 } from "../lib/metrics";
-import { computeAmbushRawOff } from "../lib/ambush";
+import { ambushLandReturnFactor, computeAmbushRawOff } from "../lib/ambush";
 import { formatNum, fullValueTooltip, parseUtopiaDate } from "../lib/ui";
 import { getRaceByName, normalizeScienceName } from "../lib/game";
 import {
@@ -408,6 +408,12 @@ test("computeAmbushRawOff — all nine races are covered", () => {
       `${race} should return a positive value`,
     );
   }
+});
+
+test("ambushLandReturnFactor — Tactician returns 25% land, others 50%", () => {
+  assert.equal(ambushLandReturnFactor("Tactician"), 0.25);
+  assert.equal(ambushLandReturnFactor("Warrior"), 0.5);
+  assert.equal(ambushLandReturnFactor(null), 0.5);
 });
 
 // ---------------------------------------------------------------------------

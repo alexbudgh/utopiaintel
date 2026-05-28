@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import { AmbushLandReturnMarker } from "@/app/components/AmbushLandReturnMarker";
 import { Tooltip, toneClass, type TooltipLine } from "@/app/components/Tooltip";
 import type { ProvinceRow } from "@/lib/db-types";
 import {
@@ -1012,9 +1013,16 @@ function tipFor(
                   </td>
                   {showAmbush && (
                     <td className={td}>
-                      {ambushes[i] != null
-                        ? Math.ceil(ambushes[i]!).toLocaleString()
-                        : "—"}
+                      {ambushes[i] != null ? (
+                        <>
+                          {Math.ceil(ambushes[i]!).toLocaleString()}
+                          <AmbushLandReturnMarker
+                            targetPersonality={p.personality}
+                          />
+                        </>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                   )}
                 </tr>

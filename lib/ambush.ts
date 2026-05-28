@@ -5,6 +5,17 @@
 
 import { getRaceByName } from "./game";
 
+export const DEFAULT_AMBUSH_LAND_RETURN_FACTOR = 0.5;
+export const TACTICIAN_AMBUSH_LAND_RETURN_FACTOR = 0.25;
+
+export function ambushLandReturnFactor(
+  targetPersonality: string | null | undefined,
+): number {
+  return targetPersonality === "Tactician"
+    ? TACTICIAN_AMBUSH_LAND_RETURN_FACTOR
+    : DEFAULT_AMBUSH_LAND_RETURN_FACTOR;
+}
+
 export function computeAmbushRawOff(
   race: string | null | undefined,
   army: { elites: number; offSpecs: number; soldiers: number },

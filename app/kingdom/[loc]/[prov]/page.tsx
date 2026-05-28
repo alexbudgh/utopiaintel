@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { hashKey } from "@/lib/keys";
+import { AmbushLandReturnMarker } from "@/app/components/AmbushLandReturnMarker";
 import { Tooltip, type TooltipLine } from "@/app/components/Tooltip";
 import { getDbApi } from "@/lib/db-api";
 import { ProvinceHistoryChart } from "./ProvinceHistoryChart";
@@ -635,9 +636,16 @@ export default async function ProvincePage({
                                   },
                                 )
                               : null;
-                          return v != null
-                            ? Math.ceil(v).toLocaleString()
-                            : "—";
+                          return v != null ? (
+                            <>
+                              {Math.ceil(v).toLocaleString()}
+                              <AmbushLandReturnMarker
+                                targetPersonality={d.overview?.personality}
+                              />
+                            </>
+                          ) : (
+                            "—"
+                          );
                         })()}
                       </td>
                     </tr>
