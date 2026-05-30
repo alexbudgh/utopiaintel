@@ -116,7 +116,10 @@ function inferRobOp(text: string): string | null {
   if (/steal [\d,]+ runes/.test(text)) return "ROB_THE_TOWERS";
   if (/returned with [\d,]+ bushels/.test(text)) return "ROB_THE_GRANARIES";
   if (/assassinated [\d,]+ enemy troops/.test(text)) return "NIGHT_STRIKE";
+  if (/assassinated [\d,]+ wizards/.test(text)) return "ASSASSINATE_WIZARDS";
   if (/return with [\d,]+ of them/.test(text)) return "KIDNAP";
+  if (/freed [\d,]+ prisoners from enemy dungeons/.test(text))
+    return "FREE_PRISONERS";
   if (/building efficiency will be reduced for \d+ ticks?/.test(text))
     return "DESTABILIZE_GUILDS";
   if (/expected to last \d+ days?/.test(text)) return "INCITE_RIOTS";

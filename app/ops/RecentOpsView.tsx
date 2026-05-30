@@ -28,7 +28,14 @@ const PAGE_SIZE = 50;
 const POLL_MS = 10_000;
 const ALL_FILTER = "__all__";
 const UNKNOWN_FILTER = "__unknown__";
-const OP_ORDER = [...Object.keys(OP_COLORS), "granaries", "towers", "vaults"];
+const OP_ORDER = [
+  ...Object.keys(OP_COLORS),
+  "granaries",
+  "towers",
+  "vaults",
+  "assassinate_wizards",
+  "free_prisoners",
+];
 
 const OP_LABELS: Record<string, string> = {
   sot: "SoT",
@@ -41,6 +48,8 @@ const OP_LABELS: Record<string, string> = {
   granaries: "Rob Granaries",
   towers: "Rob Towers",
   vaults: "Rob Vaults",
+  assassinate_wizards: "Assassinate Wizards",
+  free_prisoners: "Free Prisoners",
 };
 
 function opTypeKey(type: string): string {
@@ -76,8 +85,14 @@ function formatDetail(op: RecentOp): string {
       return `${value} stolen`;
     case "troops_assassinated":
       return `${value} troops`;
+    case "wizards_assassinated":
+      return `${value} wizards`;
     case "kidnapped":
       return `${value} kidnapped`;
+    case "prisoners_freed":
+      return `${value} prisoners freed`;
+    case "prisoners_captured":
+      return `${value} prisoners captured`;
     case "acres_burned":
     case "acres_taken":
       return `${value} acres`;

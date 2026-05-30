@@ -214,7 +214,9 @@ export type RobOp =
   | "greater_arson"
   | "destabilize_guilds"
   | "bribe_thieves"
-  | "propaganda";
+  | "propaganda"
+  | "assassinate_wizards"
+  | "free_prisoners";
 
 export interface RobData extends ProvinceId {
   op: RobOp;
@@ -232,6 +234,9 @@ export interface RobData extends ProvinceId {
   effectDuration: number | null; // incite_riots, sabotage_wizards, destabilize_guilds
   deserters: number | null; // propaganda
   deserterType: string | null; // propaganda — unit type (wizards, soldiers, etc.)
+  wizardsAssassinated: number | null; // assassinate_wizards
+  prisonersFreed: number | null; // free_prisoners — freed from target
+  prisonersCaptured: number | null; // free_prisoners — brought home
 }
 
 export type AttackType =

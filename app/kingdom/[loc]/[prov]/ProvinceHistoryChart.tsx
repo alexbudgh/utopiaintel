@@ -488,11 +488,27 @@ function ChartTooltip({
                           ? `Assassinated ${formatNum(op.troopsAssassinated)} troops`
                           : "Night Strike";
                       break;
+                    case "assassinate_wizards":
+                      result =
+                        op.wizardsAssassinated != null
+                          ? `Assassinated ${formatNum(op.wizardsAssassinated)} wizards`
+                          : "Assassinate Wizards";
+                      break;
                     case "kidnap":
                       result =
                         op.kidnapped != null
                           ? `Kidnapped ${formatNum(op.kidnapped)}`
                           : "Kidnap";
+                      break;
+                    case "free_prisoners":
+                      result =
+                        op.prisonersFreed != null
+                          ? `Freed ${formatNum(op.prisonersFreed)} prisoners${
+                              op.prisonersCaptured != null
+                                ? `, captured ${formatNum(op.prisonersCaptured)}`
+                                : ""
+                            }`
+                          : "Free Prisoners";
                       break;
                     case "bribe_generals":
                       result = "Bribed a general";

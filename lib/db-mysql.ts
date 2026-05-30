@@ -708,9 +708,10 @@ export async function storeRob(
          (province_id, key_hash, op, target_name, target_slot, target_kingdom,
           outcome, amount_stolen, thieves_lost, thieves, stealth,
           troops_assassinated, kidnapped, acres_burned, effect_duration,
-          deserters, deserter_type, game_date, game_date_ord,
+          deserters, deserter_type, wizards_assassinated, prisoners_freed,
+          prisoners_captured, game_date, game_date_ord,
           saved_by, received_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
       [
         provId,
         keyHash,
@@ -729,6 +730,9 @@ export async function storeRob(
         data.effectDuration,
         data.deserters,
         data.deserterType,
+        data.wizardsAssassinated,
+        data.prisonersFreed,
+        data.prisonersCaptured,
         gameDate?.gameDate ?? null,
         gameDate?.gameDateOrd ?? null,
         savedBy,
@@ -2087,6 +2091,8 @@ export async function getRecentOps(
                WHEN ro.kidnapped        IS NOT NULL THEN ro.kidnapped
                WHEN ro.acres_burned     IS NOT NULL THEN ro.acres_burned
                WHEN ro.effect_duration  IS NOT NULL THEN ro.effect_duration
+               WHEN ro.wizards_assassinated IS NOT NULL THEN ro.wizards_assassinated
+               WHEN ro.prisoners_captured IS NOT NULL THEN ro.prisoners_captured
                WHEN ro.thieves_lost > 0             THEN ro.thieves_lost
                ELSE NULL
              END,
@@ -2096,6 +2102,8 @@ export async function getRecentOps(
                WHEN ro.kidnapped        IS NOT NULL THEN 'kidnapped'
                WHEN ro.acres_burned     IS NOT NULL THEN 'acres_burned'
                WHEN ro.effect_duration  IS NOT NULL THEN 'effect_duration'
+               WHEN ro.wizards_assassinated IS NOT NULL THEN 'wizards_assassinated'
+               WHEN ro.prisoners_captured IS NOT NULL THEN 'prisoners_captured'
                WHEN ro.thieves_lost > 0             THEN 'thieves_lost'
                ELSE NULL
              END
@@ -2685,6 +2693,9 @@ export async function getProvinceHistory(
     kidnapped: number | null;
     acres_burned: number | null;
     effect_duration: number | null;
+    wizards_assassinated: number | null;
+    prisoners_freed: number | null;
+    prisoners_captured: number | null;
   }
   interface SorceryRaw extends RowDataPacket {
     received_at: string;
@@ -2739,7 +2750,8 @@ export async function getProvinceHistory(
       .execute<RobRaw[]>(
         `SELECT ro.received_at, ro.op, ro.outcome, ro.amount_stolen, ro.thieves_lost,
               p.name AS attacker_name, p.kingdom AS attacker_kingdom,
-              ro.troops_assassinated, ro.kidnapped, ro.acres_burned, ro.effect_duration
+              ro.troops_assassinated, ro.kidnapped, ro.acres_burned, ro.effect_duration,
+              ro.wizards_assassinated, ro.prisoners_freed, ro.prisoners_captured
        FROM rob_ops ro JOIN provinces p ON p.id = ro.province_id
        WHERE ro.key_hash = ? AND ro.target_name = ? AND ro.target_kingdom = ?
        ORDER BY ro.received_at ASC`,
@@ -2907,6 +2919,9 @@ export async function getProvinceHistory(
       kidnapped: row.kidnapped,
       acresBurned: row.acres_burned,
       effectDuration: row.effect_duration,
+      wizardsAssassinated: row.wizards_assassinated,
+      prisonersFreed: row.prisoners_freed,
+      prisonersCaptured: row.prisoners_captured,
     });
   }
   for (const row of sorceryOpsTaken) {
@@ -4153,6 +4168,8 @@ export async function getKingdomOpsStats(
          WHEN r.op='kidnap'        AND r.outcome='success' THEN COALESCE(r.kidnapped, 0)
          WHEN r.op IN ('arson','greater_arson') AND r.outcome='success' THEN COALESCE(r.acres_burned, 0)
          WHEN r.op='propaganda'    AND r.outcome='success' THEN COALESCE(r.deserters, 0)
+         WHEN r.op='assassinate_wizards' AND r.outcome='success' THEN COALESCE(r.wizards_assassinated, 0)
+         WHEN r.op='free_prisoners' AND r.outcome='success' THEN COALESCE(r.prisoners_captured, 0)
          WHEN r.outcome='success' THEN 1
          ELSE 0
        END) AS amount,

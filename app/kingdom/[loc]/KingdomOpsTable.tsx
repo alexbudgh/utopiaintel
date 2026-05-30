@@ -24,6 +24,8 @@ const OP_LABELS: Record<string, string> = {
   arson: "Arson",
   greater_arson: "Greater Arson",
   propaganda: "Propaganda",
+  assassinate_wizards: "Assassinate Wizards",
+  free_prisoners: "Free Prisoners",
   detected: "Detected",
 };
 
@@ -36,6 +38,8 @@ const OP_AMOUNT_LABEL: Record<string, string> = {
   arson: "Acres",
   greater_arson: "Acres",
   propaganda: "Stolen",
+  assassinate_wizards: "Wizards",
+  free_prisoners: "Prisoners",
   detected: "Caught",
 };
 

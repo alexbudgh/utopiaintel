@@ -510,6 +510,9 @@ const baseRob = {
   effectDuration: null,
   deserters: null,
   deserterType: null,
+  wizardsAssassinated: null,
+  prisonersFreed: null,
+  prisonersCaptured: null,
 };
 
 test("storeRob: inserts a rob_ops row with correct fields", async () => {
@@ -1930,6 +1933,9 @@ test("getRecentOps: thievery op appears with correct category", async () => {
       stealth: null,
       deserters: null,
       deserterType: null,
+      wizardsAssassinated: null,
+      prisonersFreed: null,
+      prisonersCaptured: null,
     },
     "thief1",
     "keyhash1",

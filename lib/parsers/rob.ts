@@ -15,7 +15,14 @@ const THIEVES_LOST_FAILURE_RE = new RegExp(
 const TARGET_KD_RE = new RegExp(`Target kingdom is [^(]+${KDLOC}`);
 const TARGET_PROV_RE = /Select province:\t(\d+) (.+?) ---/;
 const ASSASSINATED_RE = new RegExp(`assassinated (${INT}) enemy troops`);
+const WIZARDS_ASSASSINATED_RE = new RegExp(`assassinated (${INT}) wizards`);
 const KIDNAPPED_RE = new RegExp(`return with (${INT}) of them`);
+const PRISONERS_FREED_RE = new RegExp(
+  `freed (${INT}) prisoners from enemy dungeons`,
+);
+const PRISONERS_CAPTURED_RE = new RegExp(
+  `freedom was brief for (${INT}) prisoners as we forced them into our own dungeons`,
+);
 const EFFECT_DAYS_RE = /expected to last (\d+) days?/;
 const ACRES_BURNED_RE = new RegExp(`burned down (${INT}) acres? of buildings`);
 const PROPAGANDA_RE = new RegExp(
@@ -46,6 +53,8 @@ export function getRobOp(url: string): RobOp | null {
     if (o === "DESTABILIZE_GUILDS") return "destabilize_guilds";
     if (o === "BRIBE_THIEVES") return "bribe_thieves";
     if (o === "PROPAGANDA") return "propaganda";
+    if (o === "ASSASSINATE_WIZARDS") return "assassinate_wizards";
+    if (o === "FREE_PRISONERS") return "free_prisoners";
     return null;
   } catch {
     return null;
@@ -79,6 +88,9 @@ export function parseRob(
   let effectDuration: number | null = null;
   let deserters: number | null = null;
   let deserterType: string | null = null;
+  let wizardsAssassinated: number | null = null;
+  let prisonersFreed: number | null = null;
+  let prisonersCaptured: number | null = null;
 
   if (isSuccess) {
     if (op === "towers" || op === "vaults" || op === "granaries") {
@@ -125,6 +137,14 @@ export function parseRob(
           deserterType = normUnit(z[1]);
         }
       }
+    } else if (op === "assassinate_wizards") {
+      const m = WIZARDS_ASSASSINATED_RE.exec(text);
+      if (m) wizardsAssassinated = parseNum(m[1]);
+    } else if (op === "free_prisoners") {
+      const freed = PRISONERS_FREED_RE.exec(text);
+      const captured = PRISONERS_CAPTURED_RE.exec(text);
+      if (freed) prisonersFreed = parseNum(freed[1]);
+      if (captured) prisonersCaptured = parseNum(captured[1]);
     }
     const lostMatch = THIEVES_LOST_SUCCESS_RE.exec(text);
     if (lostMatch) thievesLost = parseNum(lostMatch[1]);
@@ -151,5 +171,8 @@ export function parseRob(
     effectDuration,
     deserters,
     deserterType,
+    wizardsAssassinated,
+    prisonersFreed,
+    prisonersCaptured,
   };
 }

@@ -335,3 +335,40 @@ test("parseRob — bribe_thieves failure", () => {
   assert.equal(r.outcome, "failure");
   assert.equal(r.thievesLost, 1);
 });
+
+test("parseRob — assassinate_wizards success", () => {
+  const url =
+    "https://utopia-game.com/wol/game/thievery?p=320&o=ASSASSINATE_WIZARDS&q=7000&c=2892";
+  const text = `${PREAMBLE}\n\n${STATS}\n\nWe lost 3 thieves in the operation.\nEarly indications show that our operation was a success. Our thieves assassinated 54 wizards of the enemy's guilds!\n${KD_FOOTER}`;
+  const r = parseRob(text, url, "TestProvince");
+  assert.ok(r);
+  assert.equal(r.op, "assassinate_wizards");
+  assert.equal(r.outcome, "success");
+  assert.equal(r.wizardsAssassinated, 54);
+  assert.equal(r.thievesLost, 3);
+});
+
+test("parseRob — assassinate_wizards failure", () => {
+  const url =
+    "https://utopia-game.com/wol/game/thievery?p=320&o=ASSASSINATE_WIZARDS&q=7000&c=5616";
+  const text = `${PREAMBLE}\n\n${STATS}\n\n${FOILED}`;
+  const r = parseRob(text, url, "TestProvince");
+  assert.ok(r);
+  assert.equal(r.op, "assassinate_wizards");
+  assert.equal(r.outcome, "failure");
+  assert.equal(r.wizardsAssassinated, null);
+  assert.equal(r.thievesLost, 1);
+});
+
+test("parseRob — free_prisoners success", () => {
+  const url =
+    "https://utopia-game.com/wol/game/thievery?p=320&o=FREE_PRISONERS&q=1200&c=486";
+  const text = `${PREAMBLE}\n\n${STATS}\n\nWe lost 3 thieves in the operation.\nEarly indications show that our operation was a success. Our thieves freed 59 prisoners from enemy dungeons and yet freedom was brief for 29 prisoners as we forced them into our own dungeons.\n${KD_FOOTER}`;
+  const r = parseRob(text, url, "TestProvince");
+  assert.ok(r);
+  assert.equal(r.op, "free_prisoners");
+  assert.equal(r.outcome, "success");
+  assert.equal(r.prisonersFreed, 59);
+  assert.equal(r.prisonersCaptured, 29);
+  assert.equal(r.thievesLost, 3);
+});

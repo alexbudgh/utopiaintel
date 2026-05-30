@@ -742,6 +742,21 @@ test("detectIntelType — unsupported thievery ops return null", () => {
   );
 });
 
+test("detectIntelType — missing thievery result ops detected as rob", () => {
+  assert.equal(
+    detectIntelType(
+      "https://utopia-game.com/wol/game/thievery?p=1842&o=ASSASSINATE_WIZARDS&q=387&c=236",
+    ),
+    "rob",
+  );
+  assert.equal(
+    detectIntelType(
+      "https://utopia-game.com/wol/game/thievery?p=1842&o=FREE_PRISONERS&q=387&c=236",
+    ),
+    "rob",
+  );
+});
+
 test("detectIntelType — kingdom_details with coordinates detected as kingdom", () => {
   assert.equal(
     detectIntelType("https://utopia-game.com/wol/game/kingdom_details/2/8"),

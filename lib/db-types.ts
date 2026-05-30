@@ -491,6 +491,9 @@ export interface ProvinceHistoryThieveryOp {
   kidnapped: number | null;
   acresBurned: number | null;
   effectDuration: number | null;
+  wizardsAssassinated: number | null;
+  prisonersFreed: number | null;
+  prisonersCaptured: number | null;
 }
 
 export interface ProvinceHistorySorceryOp {
