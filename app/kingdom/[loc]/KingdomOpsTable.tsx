@@ -47,6 +47,46 @@ function amountLabel(op: string): string {
   return OP_AMOUNT_LABEL[op] ?? "Count";
 }
 
+function plural(value: number, singular: string, pluralForm = `${singular}s`) {
+  return value === 1 ? singular : pluralForm;
+}
+
+function opSummary(
+  op: string,
+  value: number,
+  successes: number,
+  actor: string,
+) {
+  const n = value.toLocaleString();
+  switch (op) {
+    case "vaults":
+      return `${n} gc stolen ${actor}`;
+    case "granaries":
+      return `${n} bushels stolen ${actor}`;
+    case "towers":
+      return `${n} runes stolen ${actor}`;
+    case "night_strike":
+      return `${n} ${plural(value, "troop")} killed ${actor}`;
+    case "kidnap":
+      return `${n} ${plural(value, "peasant")} kidnapped ${actor}`;
+    case "arson":
+    case "greater_arson":
+      return `${n} ${plural(value, "acre")} burned ${actor}`;
+    case "propaganda":
+      return `${n} ${plural(value, "unit")} converted ${actor}`;
+    case "assassinate_wizards":
+      return `${n} ${plural(value, "wizard")} killed ${actor}`;
+    case "free_prisoners":
+      return `${n} ${plural(value, "prisoner")} captured ${actor}`;
+    case "detected":
+      return `${n} caught ${actor}`;
+    default: {
+      const successCount = successes.toLocaleString();
+      return `${successCount} ${plural(successes, "success", "successes")} ${actor}`;
+    }
+  }
+}
+
 function Num({ n, color }: { n: number; color?: string }) {
   if (!n) return <span className="text-gray-700">—</span>;
   return <span className={color ?? "text-gray-300"}>{n.toLocaleString()}</span>;
@@ -245,8 +285,8 @@ function OpSection({ bd, kingdom }: { bd: OpTypeBreakdown; kingdom: string }) {
   const label = OP_LABELS[bd.op] ?? bd.op;
   const totalOut = bd.outgoing.reduce((s, e) => s + e.amount, 0);
   const totalIn = bd.incoming.reduce((s, e) => s + e.amount, 0);
-  const isEffect = !OP_AMOUNT_LABEL[bd.op];
-  const amtLbl = amountLabel(bd.op);
+  const successesOut = bd.outgoing.reduce((s, e) => s + e.successes, 0);
+  const successesIn = bd.incoming.reduce((s, e) => s + e.successes, 0);
 
   return (
     <div className="border border-gray-800 rounded-lg overflow-hidden">
@@ -259,9 +299,7 @@ function OpSection({ bd, kingdom }: { bd: OpTypeBreakdown; kingdom: string }) {
         <span className="flex items-center gap-3 text-xs">
           {bd.outgoing.length > 0 && (
             <span className="text-green-500">
-              {isEffect
-                ? `${bd.outgoing.reduce((s, e) => s + e.successes, 0)} out`
-                : `${totalOut.toLocaleString()} ${amtLbl.toLowerCase()} out`}
+              {opSummary(bd.op, totalOut, successesOut, "by us")}
             </span>
           )}
           {bd.incoming.length > 0 && (
@@ -270,9 +308,7 @@ function OpSection({ bd, kingdom }: { bd: OpTypeBreakdown; kingdom: string }) {
                 bd.op === "detected" ? "text-orange-400" : "text-red-400"
               }
             >
-              {isEffect
-                ? `${bd.incoming.reduce((s, e) => s + e.successes, 0)} in`
-                : `${totalIn.toLocaleString()} ${amtLbl.toLowerCase()} in`}
+              {opSummary(bd.op, totalIn, successesIn, "by them")}
             </span>
           )}
           <span className="text-gray-600">{open ? "▲" : "▼"}</span>
