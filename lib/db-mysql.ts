@@ -636,6 +636,19 @@ export async function storeSorcery(
   await withTransaction(async (conn) => {
     const provId = await ensureProvince(conn, data.name, "");
     await recordSubmission(conn, keyHash, provId);
+    let resolvedTargetName = data.targetName;
+    let resolvedTargetKingdom = data.targetKingdom;
+    if (resolvedTargetName == null && data.targetGameId != null) {
+      const [rows] = await conn.execute<RowDataPacket[]>(
+        "SELECT name, kingdom FROM provinces WHERE external_id = ? LIMIT 1",
+        [data.targetGameId],
+      );
+      if (rows.length > 0) {
+        resolvedTargetName = rows[0].name as string;
+        resolvedTargetKingdom = rows[0].kingdom as string;
+      }
+    }
+
     const [result] = (await conn.execute(
       `INSERT IGNORE INTO sorcery_ops
          (province_id, key_hash, spell, outcome, runes_spent, wizards_lost,
@@ -651,9 +664,9 @@ export async function storeSorcery(
         data.runesSpent,
         data.wizardsLost,
         data.durationDays,
-        data.targetName,
+        resolvedTargetName,
         data.targetSlot,
-        data.targetKingdom,
+        resolvedTargetKingdom,
         data.targetGameId,
         data.wizards,
         data.runes,
@@ -703,6 +716,14 @@ export async function storeSorcery(
         "UPDATE IGNORE provinces SET external_id = ? WHERE name = ? AND kingdom = ? AND external_id IS NULL",
         [data.targetGameId, data.targetName, data.targetKingdom],
       );
+      await conn.execute(
+        "UPDATE rob_ops SET target_name = ?, target_kingdom = ? WHERE target_game_id = ? AND target_name IS NULL",
+        [data.targetName, data.targetKingdom, data.targetGameId],
+      );
+      await conn.execute(
+        "UPDATE sorcery_ops SET target_name = ?, target_kingdom = ? WHERE target_game_id = ? AND target_name IS NULL",
+        [data.targetName, data.targetKingdom, data.targetGameId],
+      );
     }
   });
 }
@@ -719,6 +740,20 @@ export async function storeRob(
   await withTransaction(async (conn) => {
     const provId = await ensureProvince(conn, data.name, "");
     await recordSubmission(conn, keyHash, provId);
+
+    let resolvedTargetName = data.targetName;
+    let resolvedTargetKingdom = data.targetKingdom;
+    if (resolvedTargetName == null && data.targetGameId != null) {
+      const [rows] = await conn.execute<RowDataPacket[]>(
+        "SELECT name, kingdom FROM provinces WHERE external_id = ? LIMIT 1",
+        [data.targetGameId],
+      );
+      if (rows.length > 0) {
+        resolvedTargetName = rows[0].name as string;
+        resolvedTargetKingdom = rows[0].kingdom as string;
+      }
+    }
+
     const [result] = (await conn.execute(
       `INSERT INTO rob_ops
          (province_id, key_hash, op, target_name, target_slot, target_kingdom,
@@ -732,15 +767,17 @@ export async function storeRob(
          acres_burned   = COALESCE(acres_burned,   VALUES(acres_burned)),
          arson_building = COALESCE(arson_building, VALUES(arson_building)),
          target_game_id = COALESCE(target_game_id, VALUES(target_game_id)),
+         target_name    = COALESCE(target_name,    VALUES(target_name)),
+         target_kingdom = COALESCE(target_kingdom, VALUES(target_kingdom)),
          thieves_sent   = COALESCE(thieves_sent,   VALUES(thieves_sent)),
          source         = COALESCE(source,         VALUES(source))`,
       [
         provId,
         keyHash,
         data.op,
-        data.targetName,
+        resolvedTargetName,
         data.targetSlot,
-        data.targetKingdom,
+        resolvedTargetKingdom,
         data.outcome,
         data.amountStolen,
         data.thievesLost,
@@ -794,6 +831,14 @@ export async function storeRob(
       await conn.execute(
         "UPDATE IGNORE provinces SET external_id = ? WHERE name = ? AND kingdom = ? AND external_id IS NULL",
         [data.targetGameId, data.targetName, data.targetKingdom],
+      );
+      await conn.execute(
+        "UPDATE rob_ops SET target_name = ?, target_kingdom = ? WHERE target_game_id = ? AND target_name IS NULL",
+        [data.targetName, data.targetKingdom, data.targetGameId],
+      );
+      await conn.execute(
+        "UPDATE sorcery_ops SET target_name = ?, target_kingdom = ? WHERE target_game_id = ? AND target_name IS NULL",
+        [data.targetName, data.targetKingdom, data.targetGameId],
       );
     }
   });
