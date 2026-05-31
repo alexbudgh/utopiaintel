@@ -143,10 +143,6 @@ function outcomeClass(outcome: string): string {
   return outcome === "success" ? "text-emerald-300" : "text-red-300";
 }
 
-function isUnknownProvinceName(name: string): boolean {
-  return name === "Unknown" || name === "Unknown province";
-}
-
 function formatProvinceWithSlot(name: string, slot: number | null): string {
   return slot == null ? name : `#${slot} ${name}`;
 }
@@ -177,11 +173,15 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
   }, [ops]);
 
   const kingdoms = useMemo(
-    () => [...new Set(ops.map((op) => op.kingdom))].sort(),
+    () =>
+      [...new Set(ops.map((op) => op.kingdom).filter((k) => k != null))].sort(),
     [ops],
   );
   const targets = useMemo(
-    () => [...new Set(ops.map((op) => op.province_name))].sort(),
+    () =>
+      [
+        ...new Set(ops.map((op) => op.province_name).filter((n) => n != null)),
+      ].sort(),
     [ops],
   );
   const senders = useMemo(() => {
@@ -230,8 +230,8 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
         op.op_type,
         formatOpType(op.op_type),
         op.op_category,
-        op.province_name,
-        op.kingdom,
+        op.province_name ?? "",
+        op.kingdom ?? "",
         op.actor_name ?? "",
         op.actor_kingdom ?? "",
         op.outcome ?? "",
@@ -336,7 +336,7 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
           (op) =>
             op.received_at +
             op.op_type +
-            op.province_name +
+            (op.province_name ?? "") +
             (op.actor_name ?? ""),
         ),
       );
@@ -470,9 +470,9 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
                 op.op_type +
                 op.province_name +
                 (op.actor_name ?? "");
-              const kdHref = `/kingdom/${encodeURIComponent(op.kingdom)}`;
-              const provHref = `${kdHref}/${encodeURIComponent(op.province_name)}`;
-              const unknownProvince = isUnknownProvinceName(op.province_name);
+              const kdHref = op.kingdom
+                ? `/kingdom/${encodeURIComponent(op.kingdom)}`
+                : null;
               const typeKey = opTypeKey(op.op_type);
               const color =
                 OP_COLORS[typeKey] ??
@@ -499,12 +499,12 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
                     </button>
                   </td>
                   <td className="py-2 pr-4">
-                    {unknownProvince ? (
+                    {op.province_name == null ? (
                       <span>
                         <span className="text-gray-500 italic">
                           Unknown province
                         </span>
-                        {op.kingdom && (
+                        {kdHref && (
                           <>
                             {" "}
                             <Link
@@ -520,7 +520,7 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
                       <>
                         <button
                           type="button"
-                          onClick={() => filterToTarget(op.province_name)}
+                          onClick={() => filterToTarget(op.province_name!)}
                           aria-pressed={targetFilter === op.province_name}
                           className="text-left text-gray-200 transition-colors hover:text-white"
                           title={`Filter to ${op.province_name}`}
@@ -532,9 +532,9 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
                           )}
                           {op.province_name}
                         </button>
-                        {op.kingdom && (
+                        {kdHref && (
                           <Link
-                            href={provHref}
+                            href={`${kdHref}/${encodeURIComponent(op.province_name)}`}
                             className="ml-1.5 text-[10px] text-gray-600 transition-colors hover:text-gray-400"
                             title="Province detail"
                           >
@@ -545,12 +545,18 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
                     )}
                   </td>
                   <td className="py-2 pr-4">
-                    <Link
-                      href={kdHref}
-                      className="font-mono text-[11px] text-gray-400 hover:text-gray-200 transition-colors"
-                    >
-                      {op.kingdom || "—"}
-                    </Link>
+                    {kdHref ? (
+                      <Link
+                        href={kdHref}
+                        className="font-mono text-[11px] text-gray-400 hover:text-gray-200 transition-colors"
+                      >
+                        {op.kingdom}
+                      </Link>
+                    ) : (
+                      <span className="font-mono text-[11px] text-gray-600">
+                        —
+                      </span>
+                    )}
                   </td>
                   <td className="py-2 pr-4 text-[12px] text-gray-400">
                     {op.outcome ? (

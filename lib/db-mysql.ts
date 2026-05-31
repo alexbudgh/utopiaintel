@@ -2100,8 +2100,8 @@ export async function getRecentOps(
     op_category: string;
     received_at: string;
     saved_by: string | null;
-    province_name: string;
-    kingdom: string;
+    province_name: string | null;
+    kingdom: string | null;
     actor_name: string | null;
     actor_kingdom: string | null;
     outcome: string | null;
@@ -2160,7 +2160,7 @@ export async function getRecentOps(
       WHERE pr.key_hash = :keyHash AND pr.source = 'infiltrate'
       UNION ALL
       SELECT io.intel_type, 'intel', io.received_at, io.saved_by,
-             COALESCE(io.target_name, 'Unknown'), COALESCE(io.target_kingdom, ''),
+             io.target_name, io.target_kingdom,
              p.name, p.kingdom,
              io.outcome, NULL,
              CASE WHEN io.thieves_lost > 0 THEN io.thieves_lost ELSE NULL END,
@@ -2170,7 +2170,7 @@ export async function getRecentOps(
       WHERE io.key_hash = :keyHash AND io.outcome = 'failure'
       UNION ALL
       SELECT ro.op, 'thievery', ro.received_at, ro.saved_by,
-             COALESCE(ro.target_name, pt.name, 'Unknown'), COALESCE(ro.target_kingdom, pt.kingdom, ''),
+             COALESCE(ro.target_name, pt.name), COALESCE(ro.target_kingdom, pt.kingdom),
              p.name, p.kingdom,
              ro.outcome, NULL,
              CASE
@@ -2201,7 +2201,7 @@ export async function getRecentOps(
       WHERE ro.key_hash = :keyHash AND COALESCE(ro.source, '') != 'province_logs'
       UNION ALL
       SELECT so.spell, 'sorcery', so.received_at, so.saved_by,
-             COALESCE(so.target_name, 'Unknown'), COALESCE(so.target_kingdom, ''),
+             so.target_name, so.target_kingdom,
              p.name, p.kingdom,
              so.outcome, NULL,
              CASE
@@ -2221,7 +2221,7 @@ export async function getRecentOps(
       WHERE so.key_hash = :keyHash AND COALESCE(so.source, '') != 'province_logs'
       UNION ALL
       SELECT ao.attack_type, 'attack', ao.received_at, ao.saved_by,
-             COALESCE(ao.target_name, 'Unknown'), COALESCE(ao.target_kingdom, ''),
+             ao.target_name, ao.target_kingdom,
              p.name, p.kingdom,
              ao.outcome, NULL,
              CASE

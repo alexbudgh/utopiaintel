@@ -61,8 +61,8 @@ export interface RecentOp {
   op_category: string;
   received_at: string;
   saved_by: string | null;
-  province_name: string;
-  kingdom: string;
+  province_name: string | null;
+  kingdom: string | null;
   actor_name: string | null;
   actor_kingdom: string | null;
   outcome: string | null;
