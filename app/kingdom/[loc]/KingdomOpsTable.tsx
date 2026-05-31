@@ -168,65 +168,67 @@ function ProvTable({
     const thievesWord = totalThievesLost === 1 ? "thief" : "thieves";
 
     return (
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="text-gray-600 border-b border-gray-800">
-            <th className="text-left py-1 pr-2 font-normal">Province</th>
-            <th className="text-left py-1 px-1 font-normal">Unit</th>
-            <th className="text-right py-1 px-1 font-normal">Attempts</th>
-            <th className="text-right py-1 pl-1 font-normal">{amtLabel}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {successRows.map((e) => (
-            <tr
-              key={`${e.provinceName}|${e.unitType}`}
-              className="border-b border-gray-800/30"
-            >
-              <td className="py-1 pr-2 whitespace-nowrap">
-                <ProvName e={e} kingdom={kingdom} linkable={linkable} />
-              </td>
-              <td className="py-1 px-1 whitespace-nowrap text-yellow-600">
-                {e.unitType}
-              </td>
-              <td className="text-right font-mono py-1 px-1 text-gray-500">
-                <Num n={e.successes} />
-              </td>
-              <td className="text-right font-mono py-1 pl-1">
-                <Num n={e.amount} color={amtColor} />
-              </td>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-gray-600 border-b border-gray-800">
+              <th className="text-left py-1 pr-2 font-normal">Province</th>
+              <th className="text-left py-1 px-1 font-normal">Unit</th>
+              <th className="text-right py-1 px-1 font-normal">Attempts</th>
+              <th className="text-right py-1 pl-1 font-normal">{amtLabel}</th>
             </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          {successRows.length > 1 && (
-            <tr className="border-t border-gray-700 text-gray-300 font-medium bg-gray-800/50">
-              <td className="py-1 pr-2">Total</td>
-              <td />
-              <td className="text-right font-mono py-1 px-1">
-                <Num n={successRows.reduce((s, e) => s + e.successes, 0)} />
-              </td>
-              <td className="text-right font-mono py-1 pl-1">
-                <Num n={totalStolen} color={amtColorTotal} />
-              </td>
-            </tr>
-          )}
-          {totalFailures > 0 && (
-            <tr className="border-t border-gray-800/40 text-red-400">
-              <td className="py-1 pr-2">—</td>
-              <td className="py-1 px-1">failed</td>
-              <td className="text-right font-mono py-1 px-1">
-                {totalFailures}
-              </td>
-              <td className="py-1 pl-1">
-                {totalThievesLost > 0
-                  ? `${totalThievesLost} ${thievesWord} lost`
-                  : ""}
-              </td>
-            </tr>
-          )}
-        </tfoot>
-      </table>
+          </thead>
+          <tbody>
+            {successRows.map((e) => (
+              <tr
+                key={`${e.provinceName}|${e.unitType}`}
+                className="border-b border-gray-800/30"
+              >
+                <td className="py-1 pr-2 whitespace-nowrap">
+                  <ProvName e={e} kingdom={kingdom} linkable={linkable} />
+                </td>
+                <td className="py-1 px-1 whitespace-nowrap text-yellow-600">
+                  {e.unitType}
+                </td>
+                <td className="text-right font-mono py-1 px-1 text-gray-500">
+                  <Num n={e.successes} />
+                </td>
+                <td className="text-right font-mono py-1 pl-1">
+                  <Num n={e.amount} color={amtColor} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            {successRows.length > 1 && (
+              <tr className="border-t border-gray-700 text-gray-300 font-medium bg-gray-800/50">
+                <td className="py-1 pr-2">Total</td>
+                <td />
+                <td className="text-right font-mono py-1 px-1">
+                  <Num n={successRows.reduce((s, e) => s + e.successes, 0)} />
+                </td>
+                <td className="text-right font-mono py-1 pl-1">
+                  <Num n={totalStolen} color={amtColorTotal} />
+                </td>
+              </tr>
+            )}
+            {totalFailures > 0 && (
+              <tr className="border-t border-gray-800/40 text-red-400">
+                <td className="py-1 pr-2">—</td>
+                <td className="py-1 px-1">failed</td>
+                <td className="text-right font-mono py-1 px-1">
+                  {totalFailures}
+                </td>
+                <td className="py-1 pl-1">
+                  {totalThievesLost > 0
+                    ? `${totalThievesLost} ${thievesWord} lost`
+                    : ""}
+                </td>
+              </tr>
+            )}
+          </tfoot>
+        </table>
+      </div>
     );
   }
 
@@ -240,83 +242,85 @@ function ProvTable({
   );
 
   return (
-    <table className="w-full text-xs">
-      <thead>
-        <tr className="text-gray-600 border-b border-gray-800">
-          <th className="text-left py-1 pr-2 font-normal">Province</th>
-          {showBuilding && (
-            <th className="text-left py-1 px-1 font-normal">Building</th>
-          )}
-          <th className="text-right py-1 px-1 font-normal">Attempts</th>
-          <th className="text-right py-1 px-1 font-normal">Successes</th>
-          {!isEffect && (
-            <th className="text-right py-1 px-1 font-normal">{amtLabel}</th>
-          )}
-          {showLost && (
-            <th className="text-right py-1 pl-1 font-normal text-red-700/70">
-              Lost
-            </th>
-          )}
-        </tr>
-      </thead>
-      <tbody>
-        {entries.map((e) => (
-          <tr
-            key={`${e.provinceName}|${e.unitType ?? ""}|${e.arsonBuilding ?? ""}`}
-            className="border-b border-gray-800/30"
-          >
-            <td className="py-1 pr-2 whitespace-nowrap">
-              <ProvName e={e} kingdom={kingdom} linkable={linkable} />
-            </td>
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="text-gray-600 border-b border-gray-800">
+            <th className="text-left py-1 pr-2 font-normal">Province</th>
             {showBuilding && (
-              <td className="py-1 px-1 whitespace-nowrap text-yellow-600">
-                {e.arsonBuilding ? formatBuildingLabel(e.arsonBuilding) : "—"}
-              </td>
+              <th className="text-left py-1 px-1 font-normal">Building</th>
             )}
-            <td className="text-right font-mono py-1 px-1 text-gray-500">
-              <Num n={e.attempts} />
-            </td>
-            <td className="text-right font-mono py-1 px-1">
-              <Num n={e.successes} color="text-gray-300" />
-            </td>
+            <th className="text-right py-1 px-1 font-normal">Attempts</th>
+            <th className="text-right py-1 px-1 font-normal">Successes</th>
             {!isEffect && (
-              <td className="text-right font-mono py-1 px-1">
-                <Num n={e.amount} color={amtColor} />
-              </td>
+              <th className="text-right py-1 px-1 font-normal">{amtLabel}</th>
             )}
             {showLost && (
-              <td className="text-right font-mono py-1 pl-1">
-                <Num n={e.thievesLost} color="text-red-400/70" />
-              </td>
+              <th className="text-right py-1 pl-1 font-normal text-red-700/70">
+                Lost
+              </th>
             )}
           </tr>
-        ))}
-      </tbody>
-      {entries.length > 1 && (
-        <tfoot>
-          <tr className="border-t border-gray-700 text-gray-300 font-medium bg-gray-800/50">
-            <td className="py-1 pr-2">Total</td>
-            {showBuilding && <td />}
-            <td className="text-right font-mono py-1 px-1">
-              <Num n={total.attempts} />
-            </td>
-            <td className="text-right font-mono py-1 px-1">
-              <Num n={total.successes} color="text-gray-400" />
-            </td>
-            {!isEffect && (
+        </thead>
+        <tbody>
+          {entries.map((e) => (
+            <tr
+              key={`${e.provinceName}|${e.unitType ?? ""}|${e.arsonBuilding ?? ""}`}
+              className="border-b border-gray-800/30"
+            >
+              <td className="py-1 pr-2 whitespace-nowrap">
+                <ProvName e={e} kingdom={kingdom} linkable={linkable} />
+              </td>
+              {showBuilding && (
+                <td className="py-1 px-1 whitespace-nowrap text-yellow-600">
+                  {e.arsonBuilding ? formatBuildingLabel(e.arsonBuilding) : "—"}
+                </td>
+              )}
+              <td className="text-right font-mono py-1 px-1 text-gray-500">
+                <Num n={e.attempts} />
+              </td>
               <td className="text-right font-mono py-1 px-1">
-                <Num n={total.amount} color={amtColorTotal} />
+                <Num n={e.successes} color="text-gray-300" />
               </td>
-            )}
-            {showLost && (
-              <td className="text-right font-mono py-1 pl-1">
-                <Num n={totalThievesLost} color="text-red-400" />
+              {!isEffect && (
+                <td className="text-right font-mono py-1 px-1">
+                  <Num n={e.amount} color={amtColor} />
+                </td>
+              )}
+              {showLost && (
+                <td className="text-right font-mono py-1 pl-1">
+                  <Num n={e.thievesLost} color="text-red-400/70" />
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+        {entries.length > 1 && (
+          <tfoot>
+            <tr className="border-t border-gray-700 text-gray-300 font-medium bg-gray-800/50">
+              <td className="py-1 pr-2">Total</td>
+              {showBuilding && <td />}
+              <td className="text-right font-mono py-1 px-1">
+                <Num n={total.attempts} />
               </td>
-            )}
-          </tr>
-        </tfoot>
-      )}
-    </table>
+              <td className="text-right font-mono py-1 px-1">
+                <Num n={total.successes} color="text-gray-400" />
+              </td>
+              {!isEffect && (
+                <td className="text-right font-mono py-1 px-1">
+                  <Num n={total.amount} color={amtColorTotal} />
+                </td>
+              )}
+              {showLost && (
+                <td className="text-right font-mono py-1 pl-1">
+                  <Num n={totalThievesLost} color="text-red-400" />
+                </td>
+              )}
+            </tr>
+          </tfoot>
+        )}
+      </table>
+    </div>
   );
 }
 
