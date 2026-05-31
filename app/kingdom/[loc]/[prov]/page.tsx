@@ -587,7 +587,9 @@ export default async function ProvincePage({
                           : "—"}
                       </td>
                       <td className="py-1 pr-4 text-right tabular-nums">
-                        {a.thieves != null ? a.thieves.toLocaleString() : "—"}
+                        {a.armyType === "training" && a.thieves != null
+                          ? a.thieves.toLocaleString()
+                          : "—"}
                       </td>
                       <td className="py-1 pr-4 text-right tabular-nums">
                         {a.landGained != null && a.landGained > 0
