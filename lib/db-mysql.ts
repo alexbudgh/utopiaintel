@@ -2125,7 +2125,7 @@ export async function getRecentOps(
       WHERE io.key_hash = :keyHash AND io.outcome = 'failure'
       UNION ALL
       SELECT ro.op, 'thievery', ro.received_at, ro.saved_by,
-             COALESCE(ro.target_name, 'Unknown'), COALESCE(ro.target_kingdom, ''),
+             COALESCE(ro.target_name, pt.name, 'Unknown'), COALESCE(ro.target_kingdom, pt.kingdom, ''),
              p.name, p.kingdom,
              ro.outcome, NULL,
              CASE
@@ -2152,6 +2152,7 @@ export async function getRecentOps(
              END,
              ro.arson_building, ro.thieves_sent
       FROM rob_ops ro JOIN provinces p ON p.id = ro.province_id
+           LEFT JOIN provinces pt ON pt.external_id = ro.target_game_id
       WHERE ro.key_hash = :keyHash AND COALESCE(ro.source, '') != 'province_logs'
       UNION ALL
       SELECT so.spell, 'sorcery', so.received_at, so.saved_by,
