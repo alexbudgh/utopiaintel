@@ -259,10 +259,24 @@ export const POST = withAxiom(async (request: AxiomRequest) => {
       await db.storeBuild(result.data, savedBy, keyHash);
       break;
     case "rob":
-      await db.storeRob(result.data, savedBy, keyHash);
+      await db.storeRob(
+        result.data,
+        savedBy,
+        keyHash,
+        undefined,
+        undefined,
+        "direct",
+      );
       break;
     case "sorcery":
-      await db.storeSorcery(result.data, savedBy, keyHash);
+      await db.storeSorcery(
+        result.data,
+        savedBy,
+        keyHash,
+        undefined,
+        undefined,
+        "direct",
+      );
       if (result.data.spell === "CRYSTAL_EYE") {
         const newsData = parseKingdomNews(fields.data_simple);
         if (newsData) {
@@ -283,7 +297,14 @@ export const POST = withAxiom(async (request: AxiomRequest) => {
       }
       break;
     case "attack":
-      await db.storeAttack(result.data, savedBy, keyHash);
+      await db.storeAttack(
+        result.data,
+        savedBy,
+        keyHash,
+        undefined,
+        undefined,
+        "direct",
+      );
       break;
   }
 

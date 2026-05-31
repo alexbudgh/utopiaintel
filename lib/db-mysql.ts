@@ -630,6 +630,7 @@ export async function storeSorcery(
   keyHash: string,
   receivedAt?: string,
   gameDate?: GameDateStamp,
+  source?: string,
 ): Promise<void> {
   await ensureReady();
   await withTransaction(async (conn) => {
@@ -640,8 +641,8 @@ export async function storeSorcery(
          (province_id, key_hash, spell, outcome, runes_spent, wizards_lost,
           duration_days, target_name, target_slot, target_kingdom,
           target_game_id, wizards, runes, mana,
-          game_date, game_date_ord, saved_by, received_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+          game_date, game_date_ord, saved_by, source, received_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
       [
         provId,
         keyHash,
@@ -660,6 +661,7 @@ export async function storeSorcery(
         gameDate?.gameDate ?? null,
         gameDate?.gameDateOrd ?? null,
         savedBy,
+        source ?? null,
         receivedAt ?? null,
       ],
     )) as [ResultSetHeader, unknown];
@@ -711,6 +713,7 @@ export async function storeRob(
   keyHash: string,
   receivedAt?: string,
   gameDate?: GameDateStamp,
+  source?: string,
 ): Promise<void> {
   await ensureReady();
   await withTransaction(async (conn) => {
@@ -723,13 +726,14 @@ export async function storeRob(
           troops_assassinated, kidnapped, acres_burned, arson_building,
           effect_duration, deserters, deserter_type, wizards_assassinated,
           prisoners_freed, prisoners_captured, target_game_id, thieves_sent,
-          game_date, game_date_ord, saved_by, received_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))
+          game_date, game_date_ord, saved_by, source, received_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))
        ON DUPLICATE KEY UPDATE
          acres_burned   = COALESCE(acres_burned,   VALUES(acres_burned)),
          arson_building = COALESCE(arson_building, VALUES(arson_building)),
          target_game_id = COALESCE(target_game_id, VALUES(target_game_id)),
-         thieves_sent   = COALESCE(thieves_sent,   VALUES(thieves_sent))`,
+         thieves_sent   = COALESCE(thieves_sent,   VALUES(thieves_sent)),
+         source         = COALESCE(source,         VALUES(source))`,
       [
         provId,
         keyHash,
@@ -757,6 +761,7 @@ export async function storeRob(
         gameDate?.gameDate ?? null,
         gameDate?.gameDateOrd ?? null,
         savedBy,
+        source ?? null,
         receivedAt ?? null,
       ],
     )) as [ResultSetHeader, unknown];
@@ -800,6 +805,7 @@ export async function storeAttack(
   keyHash: string,
   receivedAt?: string,
   gameDate?: GameDateStamp,
+  source?: string,
 ): Promise<void> {
   await ensureReady();
   await withTransaction(async (conn) => {
@@ -810,8 +816,8 @@ export async function storeAttack(
          (province_id, key_hash, attack_type, outcome, target_name, target_kingdom,
           acres_taken, buildings_survived, specialist_credits, peasants_settled,
           massacred, enemy_killed, enemy_imprisoned, return_days,
-          game_date, game_date_ord, saved_by, received_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+          game_date, game_date_ord, saved_by, source, received_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
       [
         provId,
         keyHash,
@@ -830,6 +836,7 @@ export async function storeAttack(
         gameDate?.gameDate ?? null,
         gameDate?.gameDateOrd ?? null,
         savedBy,
+        source ?? null,
         receivedAt ?? null,
       ],
     )) as [ResultSetHeader, unknown];
@@ -2145,7 +2152,7 @@ export async function getRecentOps(
              END,
              ro.arson_building, ro.thieves_sent
       FROM rob_ops ro JOIN provinces p ON p.id = ro.province_id
-      WHERE ro.key_hash = :keyHash
+      WHERE ro.key_hash = :keyHash AND COALESCE(ro.source, '') != 'province_logs'
       UNION ALL
       SELECT so.spell, 'sorcery', so.received_at, so.saved_by,
              COALESCE(so.target_name, 'Unknown'), COALESCE(so.target_kingdom, ''),
@@ -2165,7 +2172,7 @@ export async function getRecentOps(
              END,
              NULL, NULL
       FROM sorcery_ops so JOIN provinces p ON p.id = so.province_id
-      WHERE so.key_hash = :keyHash
+      WHERE so.key_hash = :keyHash AND COALESCE(so.source, '') != 'province_logs'
       UNION ALL
       SELECT ao.attack_type, 'attack', ao.received_at, ao.saved_by,
              COALESCE(ao.target_name, 'Unknown'), COALESCE(ao.target_kingdom, ''),
@@ -2189,7 +2196,7 @@ export async function getRecentOps(
              END,
              NULL, NULL
       FROM attack_ops ao JOIN provinces p ON p.id = ao.province_id
-      WHERE ao.key_hash = :keyHash
+      WHERE ao.key_hash = :keyHash AND COALESCE(ao.source, '') != 'province_logs'
     )
     SELECT op_type, op_category, received_at, saved_by, province_name, kingdom,
            actor_name, actor_kingdom, outcome, summary, detail_value, detail_kind,
@@ -2794,6 +2801,7 @@ export async function getProvinceHistory(
               ro.wizards_assassinated, ro.prisoners_freed, ro.prisoners_captured
        FROM rob_ops ro JOIN provinces p ON p.id = ro.province_id
        WHERE ro.key_hash = ? AND ro.target_name = ? AND ro.target_kingdom = ?
+         AND COALESCE(ro.source, '') != 'province_logs'
        ORDER BY ro.received_at ASC`,
         [keyHash, name, kingdom],
       )
@@ -2804,6 +2812,7 @@ export async function getProvinceHistory(
               p.name AS caster_name, p.kingdom AS caster_kingdom
        FROM sorcery_ops so JOIN provinces p ON p.id = so.province_id
        WHERE so.key_hash = ? AND so.target_name = ? AND so.target_kingdom = ?
+         AND COALESCE(so.source, '') != 'province_logs'
        ORDER BY so.received_at ASC`,
         [keyHash, name, kingdom],
       )
@@ -4219,6 +4228,7 @@ export async function getKingdomOpsStats(
      FROM rob_ops r
      JOIN provinces p ON p.id = r.province_id
      WHERE r.key_hash = ? AND r.target_kingdom = ?
+       AND COALESCE(r.source, '') != 'province_logs'
        ${robDateClause}
      GROUP BY r.op, r.province_id, p.name, r.deserter_type,
               CASE WHEN r.op = 'greater_arson' THEN r.arson_building ELSE NULL END`,

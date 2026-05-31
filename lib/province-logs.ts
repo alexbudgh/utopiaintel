@@ -1,4 +1,5 @@
 import { buildIntelOpAttempt } from "./intel-ops";
+import { utopiaDateOrdToUtcTimestamp } from "./utopia-age";
 import type { AsyncDbApi, GameDateStamp } from "./db-api";
 import { parseAttack } from "./parsers/attack";
 import { parseInfiltrate } from "./parsers/infiltrate";
@@ -97,12 +98,12 @@ function timestampForLogLine(
 } | null {
   const ord = parseUtopiaDate(gameDate);
   if (ord < 0) return null;
-  const date = new Date(Date.UTC(2000, 0, 1, 0, 0, 0));
-  date.setUTCHours(date.getUTCHours() + ord);
-  date.setUTCSeconds(index);
-  const pad = (n: number) => String(n).padStart(2, "0");
+  // Map game tick to the start of the corresponding real-world hour, then use
+  // index as seconds to keep multiple ops in the same tick distinct.
+  const base = utopiaDateOrdToUtcTimestamp(ord);
+  const receivedAt = base.slice(0, 17) + String(index).padStart(2, "0");
   return {
-    receivedAt: `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`,
+    receivedAt,
     gameDate: { gameDate, gameDateOrd: ord },
   };
 }
@@ -348,6 +349,7 @@ export async function storeProvinceLogResult(
       keyHash,
       result.receivedAt,
       result.gameDate,
+      "province_logs",
     );
   } else if (result.type === "rob") {
     await db.storeRob(
@@ -356,6 +358,7 @@ export async function storeProvinceLogResult(
       keyHash,
       result.receivedAt,
       result.gameDate,
+      "province_logs",
     );
   } else if (result.type === "sorcery") {
     await db.storeSorcery(
@@ -364,6 +367,7 @@ export async function storeProvinceLogResult(
       keyHash,
       result.receivedAt,
       result.gameDate,
+      "province_logs",
     );
   } else if (result.type === "som") {
     await db.storeSoM(result.data, savedBy, keyHash, false, result.receivedAt);

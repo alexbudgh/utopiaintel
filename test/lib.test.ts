@@ -598,8 +598,8 @@ April 1 of YR1\tYour wizards gather 745 runes and begin casting, and the spell s
     rows.map((row) => row.type),
     ["sod", "som", "attack", "sorcery"],
   );
-  assert.equal(rows[0].receivedAt, "2000-01-11 00:00:00");
-  assert.equal(rows[1].receivedAt, "2000-01-11 00:00:01");
+  assert.equal(rows[0].receivedAt, "2026-05-08 18:00:00");
+  assert.equal(rows[1].receivedAt, "2026-05-08 18:00:01");
 
   const sod = rows[0];
   assert.equal(sod.type, "sod");

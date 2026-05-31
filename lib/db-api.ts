@@ -240,6 +240,7 @@ export interface AsyncDbApi {
     keyHash: string,
     receivedAt?: string,
     gameDate?: GameDateStamp,
+    source?: string,
   ): Promise<void>;
   storeIntelOp(
     data: IntelOpAttempt,
@@ -254,6 +255,7 @@ export interface AsyncDbApi {
     keyHash: string,
     receivedAt?: string,
     gameDate?: GameDateStamp,
+    source?: string,
   ): Promise<void>;
   storeAttack(
     data: AttackData,
@@ -261,6 +263,7 @@ export interface AsyncDbApi {
     keyHash: string,
     receivedAt?: string,
     gameDate?: GameDateStamp,
+    source?: string,
   ): Promise<void>;
   storeKingdom(
     data: KingdomData,
@@ -336,10 +339,13 @@ function createMysqlDbApi(): AsyncDbApi {
         mysqlStoreSurvey(d, sb, kh, self, ra),
       storeTrainArmy: (d, sb, kh, ra) => mysqlStoreTrainArmy(d, sb, kh, ra),
       storeBuild: (d, sb, kh, ra) => mysqlStoreBuild(d, sb, kh, ra),
-      storeRob: (d, sb, kh, ra, gd) => mysqlStoreRob(d, sb, kh, ra, gd),
+      storeRob: (d, sb, kh, ra, gd, src) =>
+        mysqlStoreRob(d, sb, kh, ra, gd, src),
       storeIntelOp: (d, sb, kh, ra, gd) => mysqlStoreIntelOp(d, sb, kh, ra, gd),
-      storeSorcery: (d, sb, kh, ra, gd) => mysqlStoreSorcery(d, sb, kh, ra, gd),
-      storeAttack: (d, sb, kh, ra, gd) => mysqlStoreAttack(d, sb, kh, ra, gd),
+      storeSorcery: (d, sb, kh, ra, gd, src) =>
+        mysqlStoreSorcery(d, sb, kh, ra, gd, src),
+      storeAttack: (d, sb, kh, ra, gd, src) =>
+        mysqlStoreAttack(d, sb, kh, ra, gd, src),
       storeKingdom: (d, sb, kh, ra) => mysqlStoreKingdom(d, sb, kh, ra),
       storeState: (d, sb, kh, ra) => mysqlStoreState(d, sb, kh, ra),
       storeKingdomNews: (d, kh, sn, ra, uk) =>
