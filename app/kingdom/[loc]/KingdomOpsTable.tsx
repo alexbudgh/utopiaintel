@@ -153,6 +153,8 @@ function ProvTable({
   const isEffect = !OP_AMOUNT_LABEL[op];
   const amtColor = linkable ? "text-red-300" : "text-green-300";
   const amtColorTotal = linkable ? "text-red-400" : "text-green-400";
+  const totalThievesLost = entries.reduce((s, e) => s + e.thievesLost, 0);
+  const showLost = totalThievesLost > 0;
 
   if (showUnitType) {
     // Propaganda layout: Province | Unit | Stolen, plus failures footer.
@@ -248,7 +250,12 @@ function ProvTable({
           <th className="text-right py-1 px-1 font-normal">Attempts</th>
           <th className="text-right py-1 px-1 font-normal">Successes</th>
           {!isEffect && (
-            <th className="text-right py-1 pl-1 font-normal">{amtLabel}</th>
+            <th className="text-right py-1 px-1 font-normal">{amtLabel}</th>
+          )}
+          {showLost && (
+            <th className="text-right py-1 pl-1 font-normal text-red-700/70">
+              Lost
+            </th>
           )}
         </tr>
       </thead>
@@ -273,8 +280,13 @@ function ProvTable({
               <Num n={e.successes} color="text-gray-300" />
             </td>
             {!isEffect && (
-              <td className="text-right font-mono py-1 pl-1">
+              <td className="text-right font-mono py-1 px-1">
                 <Num n={e.amount} color={amtColor} />
+              </td>
+            )}
+            {showLost && (
+              <td className="text-right font-mono py-1 pl-1">
+                <Num n={e.thievesLost} color="text-red-400/70" />
               </td>
             )}
           </tr>
@@ -292,8 +304,13 @@ function ProvTable({
               <Num n={total.successes} color="text-gray-400" />
             </td>
             {!isEffect && (
-              <td className="text-right font-mono py-1 pl-1">
+              <td className="text-right font-mono py-1 px-1">
                 <Num n={total.amount} color={amtColorTotal} />
+              </td>
+            )}
+            {showLost && (
+              <td className="text-right font-mono py-1 pl-1">
+                <Num n={totalThievesLost} color="text-red-400" />
               </td>
             )}
           </tr>
