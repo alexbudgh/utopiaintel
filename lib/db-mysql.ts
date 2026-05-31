@@ -639,8 +639,9 @@ export async function storeSorcery(
       `INSERT IGNORE INTO sorcery_ops
          (province_id, key_hash, spell, outcome, runes_spent, wizards_lost,
           duration_days, target_name, target_slot, target_kingdom,
-          wizards, runes, mana, game_date, game_date_ord, saved_by, received_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+          target_game_id, wizards, runes, mana,
+          game_date, game_date_ord, saved_by, received_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
       [
         provId,
         keyHash,
@@ -652,6 +653,7 @@ export async function storeSorcery(
         data.targetName,
         data.targetSlot,
         data.targetKingdom,
+        data.targetGameId,
         data.wizards,
         data.runes,
         data.mana,
@@ -689,6 +691,17 @@ export async function storeSorcery(
         ],
       );
     }
+
+    if (
+      data.targetGameId != null &&
+      data.targetName != null &&
+      data.targetKingdom != null
+    ) {
+      await conn.execute(
+        "UPDATE IGNORE provinces SET external_id = ? WHERE name = ? AND kingdom = ? AND external_id IS NULL",
+        [data.targetGameId, data.targetName, data.targetKingdom],
+      );
+    }
   });
 }
 
@@ -707,11 +720,11 @@ export async function storeRob(
       `INSERT IGNORE INTO rob_ops
          (province_id, key_hash, op, target_name, target_slot, target_kingdom,
           outcome, amount_stolen, thieves_lost, thieves, stealth,
-          troops_assassinated, kidnapped, acres_burned, effect_duration,
-          deserters, deserter_type, wizards_assassinated, prisoners_freed,
-          prisoners_captured, game_date, game_date_ord,
-          saved_by, received_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+          troops_assassinated, kidnapped, acres_burned, arson_building,
+          effect_duration, deserters, deserter_type, wizards_assassinated,
+          prisoners_freed, prisoners_captured, target_game_id, thieves_sent,
+          game_date, game_date_ord, saved_by, received_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
       [
         provId,
         keyHash,
@@ -727,12 +740,15 @@ export async function storeRob(
         data.troopsAssassinated,
         data.kidnapped,
         data.acresBurned,
+        data.arsonBuilding,
         data.effectDuration,
         data.deserters,
         data.deserterType,
         data.wizardsAssassinated,
         data.prisonersFreed,
         data.prisonersCaptured,
+        data.targetGameId,
+        data.thievesSent,
         gameDate?.gameDate ?? null,
         gameDate?.gameDateOrd ?? null,
         savedBy,
@@ -757,6 +773,17 @@ export async function storeRob(
            (province_id, key_hash, thieves, source, saved_by, accuracy, received_at)
          VALUES (?, ?, ?, 'rob', ?, 100, COALESCE(?, NOW()))`,
         [provId, keyHash, data.thieves, savedBy, receivedAt ?? null],
+      );
+    }
+
+    if (
+      data.targetGameId != null &&
+      data.targetName != null &&
+      data.targetKingdom != null
+    ) {
+      await conn.execute(
+        "UPDATE IGNORE provinces SET external_id = ? WHERE name = ? AND kingdom = ? AND external_id IS NULL",
+        [data.targetGameId, data.targetName, data.targetKingdom],
       );
     }
   });
@@ -2026,6 +2053,8 @@ export async function getRecentOps(
     detail_kind: string | null;
     slot: number | null;
     submitter_slot: number | null;
+    arson_building: string | null;
+    thieves_sent: number | null;
   }
 
   const sinceClause = since ? "WHERE received_at > :since" : "";
@@ -2038,37 +2067,38 @@ export async function getRecentOps(
              p.name AS province_name, p.kingdom,
              NULL AS actor_name, NULL AS actor_kingdom,
              'success' AS outcome, NULL AS summary,
-             NULL AS detail_value, NULL AS detail_kind
+             NULL AS detail_value, NULL AS detail_kind,
+             NULL AS arson_building, NULL AS thieves_sent
       FROM province_overview po JOIN provinces p ON p.id = po.province_id
       WHERE po.key_hash = :keyHash AND po.source = 'sot'
       UNION ALL
       SELECT 'SoM', 'intel', mi.received_at, mi.saved_by,
              p.name, p.kingdom,
-             NULL, NULL, 'success', NULL, NULL, NULL
+             NULL, NULL, 'success', NULL, NULL, NULL, NULL, NULL
       FROM military_intel mi JOIN provinces p ON p.id = mi.province_id
       WHERE mi.key_hash = :keyHash AND mi.source = 'som'
       UNION ALL
       SELECT 'SoD', 'intel', hmp.received_at, hmp.saved_by,
              p.name, p.kingdom,
-             NULL, NULL, 'success', NULL, NULL, NULL
+             NULL, NULL, 'success', NULL, NULL, NULL, NULL, NULL
       FROM home_military_points hmp JOIN provinces p ON p.id = hmp.province_id
       WHERE hmp.key_hash = :keyHash AND hmp.source = 'sod'
       UNION ALL
       SELECT 'SoS', 'intel', si.received_at, si.saved_by,
              p.name, p.kingdom,
-             NULL, NULL, 'success', NULL, NULL, NULL
+             NULL, NULL, 'success', NULL, NULL, NULL, NULL, NULL
       FROM sos_intel si JOIN provinces p ON p.id = si.province_id
       WHERE si.key_hash = :keyHash AND si.source = 'sos'
       UNION ALL
       SELECT 'Survey', 'intel', sv.received_at, sv.saved_by,
              p.name, p.kingdom,
-             NULL, NULL, 'success', NULL, NULL, NULL
+             NULL, NULL, 'success', NULL, NULL, NULL, NULL, NULL
       FROM survey_intel sv JOIN provinces p ON p.id = sv.province_id
       WHERE sv.key_hash = :keyHash AND sv.source = 'survey'
       UNION ALL
       SELECT 'Infiltrate', 'intel', pr.received_at, pr.saved_by,
              p.name, p.kingdom,
-             NULL, NULL, 'success', NULL, NULL, NULL
+             NULL, NULL, 'success', NULL, NULL, NULL, NULL, NULL
       FROM province_resources pr JOIN provinces p ON p.id = pr.province_id
       WHERE pr.key_hash = :keyHash AND pr.source = 'infiltrate'
       UNION ALL
@@ -2077,7 +2107,8 @@ export async function getRecentOps(
              p.name, p.kingdom,
              io.outcome, NULL,
              CASE WHEN io.thieves_lost > 0 THEN io.thieves_lost ELSE NULL END,
-             CASE WHEN io.thieves_lost > 0 THEN 'thieves_lost' ELSE NULL END
+             CASE WHEN io.thieves_lost > 0 THEN 'thieves_lost' ELSE NULL END,
+             NULL, NULL
       FROM intel_ops io JOIN provinces p ON p.id = io.province_id
       WHERE io.key_hash = :keyHash AND io.outcome = 'failure'
       UNION ALL
@@ -2106,7 +2137,8 @@ export async function getRecentOps(
                WHEN ro.prisoners_captured IS NOT NULL THEN 'prisoners_captured'
                WHEN ro.thieves_lost > 0             THEN 'thieves_lost'
                ELSE NULL
-             END
+             END,
+             ro.arson_building, ro.thieves_sent
       FROM rob_ops ro JOIN provinces p ON p.id = ro.province_id
       WHERE ro.key_hash = :keyHash
       UNION ALL
@@ -2125,7 +2157,8 @@ export async function getRecentOps(
                WHEN so.wizards_lost > 0          THEN 'wizards_lost'
                WHEN so.runes_spent  IS NOT NULL  THEN 'runes_spent'
                ELSE NULL
-             END
+             END,
+             NULL, NULL
       FROM sorcery_ops so JOIN provinces p ON p.id = so.province_id
       WHERE so.key_hash = :keyHash
       UNION ALL
@@ -2148,12 +2181,14 @@ export async function getRecentOps(
                WHEN ao.enemy_imprisoned IS NOT NULL THEN 'enemy_imprisoned'
                WHEN ao.return_days      IS NOT NULL THEN 'return_days'
                ELSE NULL
-             END
+             END,
+             NULL, NULL
       FROM attack_ops ao JOIN provinces p ON p.id = ao.province_id
       WHERE ao.key_hash = :keyHash
     )
     SELECT op_type, op_category, received_at, saved_by, province_name, kingdom,
            actor_name, actor_kingdom, outcome, summary, detail_value, detail_kind,
+           arson_building, thieves_sent,
            (SELECT ls.slot FROM latest_slot ls WHERE ls.kingdom = ops.kingdom AND ls.name = ops.province_name) AS slot,
            (
              SELECT CASE WHEN COUNT(DISTINCT ls.slot) = 1 THEN MIN(ls.slot) ELSE NULL END
@@ -4174,12 +4209,14 @@ export async function getKingdomOpsStats(
          ELSE 0
        END) AS amount,
        r.deserter_type AS unit_type,
-       SUM(r.thieves_lost) AS thieves_lost
+       SUM(r.thieves_lost) AS thieves_lost,
+       CASE WHEN r.op = 'greater_arson' THEN r.arson_building ELSE NULL END AS arson_building
      FROM rob_ops r
      JOIN provinces p ON p.id = r.province_id
      WHERE r.key_hash = ? AND r.target_kingdom = ?
        ${robDateClause}
-     GROUP BY r.op, r.province_id, p.name, r.deserter_type`,
+     GROUP BY r.op, r.province_id, p.name, r.deserter_type,
+              CASE WHEN r.op = 'greater_arson' THEN r.arson_building ELSE NULL END`,
     outParams,
   );
 
@@ -4267,7 +4304,8 @@ export async function getKingdomOpsStats(
     if (!r.province_name) continue;
     if (!outByOp.has(r.op)) outByOp.set(r.op, new Map());
     const unitType = normUnit((r.unit_type as string | null) ?? null);
-    const key = `${r.province_name}|${unitType ?? ""}`;
+    const arsonBuilding = (r.arson_building as string | null) ?? null;
+    const key = `${r.province_name}|${unitType ?? ""}|${arsonBuilding ?? ""}`;
     outByOp.get(r.op)!.set(key, {
       provinceName: r.province_name,
       slot: null,
@@ -4276,6 +4314,7 @@ export async function getKingdomOpsStats(
       amount: Number(r.amount),
       unitType,
       thievesLost: Number(r.thieves_lost ?? 0),
+      arsonBuilding,
     });
   }
 
@@ -4308,6 +4347,7 @@ export async function getKingdomOpsStats(
         amount: amt,
         unitType,
         thievesLost: 0,
+        arsonBuilding: null,
       });
     }
   }

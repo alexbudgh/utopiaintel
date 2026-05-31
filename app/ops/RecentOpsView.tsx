@@ -67,6 +67,10 @@ function formatOpType(type: string): string {
     .join(" ");
 }
 
+function formatBuildingName(b: string): string {
+  return b.charAt(0) + b.slice(1).toLowerCase();
+}
+
 function formatDetailValue(value: number): string {
   return Number.isInteger(value)
     ? value.toLocaleString()
@@ -94,6 +98,9 @@ function formatDetail(op: RecentOp): string {
     case "prisoners_captured":
       return `${value} prisoners captured`;
     case "acres_burned":
+      if (op.op_type === "greater_arson" && op.arson_building)
+        return `${value} ${formatBuildingName(op.arson_building)}`;
+      return `${value} acres`;
     case "acres_taken":
       return `${value} acres`;
     case "effect_duration":
@@ -115,6 +122,10 @@ function formatDetail(op: RecentOp): string {
     default:
       return value;
   }
+}
+
+function formatThievesSent(n: number): string {
+  return `${n.toLocaleString()} sent`;
 }
 
 function formatResult(op: RecentOp): string {
@@ -555,6 +566,11 @@ export function RecentOpsView({ initialOps }: { initialOps: RecentOp[] }) {
                         </button>
                         {detail && (
                           <span className="text-gray-500"> · {detail}</span>
+                        )}
+                        {op.thieves_sent != null && (
+                          <span className="ml-1.5 text-gray-600 text-[11px]">
+                            ({formatThievesSent(op.thieves_sent)})
+                          </span>
                         )}
                       </>
                     ) : (

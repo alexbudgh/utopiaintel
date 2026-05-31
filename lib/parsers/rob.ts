@@ -25,6 +25,7 @@ const PRISONERS_CAPTURED_RE = new RegExp(
 );
 const EFFECT_DAYS_RE = /expected to last (\d+) days?/;
 const ACRES_BURNED_RE = new RegExp(`burned down (${INT}) acres? of buildings`);
+const BUILDINGS_BURNED_RE = new RegExp(`burned down (${INT}) [\\w ]+\\.`);
 const PROPAGANDA_RE = new RegExp(
   `We have converted (${INT}) (?:of the enemy's )?(\\w+) (?:troops to our army|from the enemy)`,
 );
@@ -69,6 +70,17 @@ export function parseRob(
   const op = getRobOp(url);
   if (!op) return null;
 
+  let params: URLSearchParams;
+  try {
+    params = new URL(url).searchParams;
+  } catch {
+    params = new URLSearchParams();
+  }
+  const targetGameId = params.has("p") ? parseInt(params.get("p")!, 10) : null;
+  const thievesSent = params.has("q") ? parseInt(params.get("q")!, 10) : null;
+  const arsonBuilding =
+    op === "greater_arson" ? (params.get("b") ?? null) : null;
+
   // Must have a result line — skip form-only page loads
   const isSuccess =
     /Early indications show that our operation was a success/.test(text);
@@ -111,6 +123,9 @@ export function parseRob(
     } else if (op === "arson" || op === "greater_arson") {
       if (/too few in number to find any buildings to burn/.test(text)) {
         acresBurned = 0;
+      } else if (op === "greater_arson") {
+        const m = BUILDINGS_BURNED_RE.exec(text);
+        if (m) acresBurned = parseNum(m[1]);
       } else {
         const m = ACRES_BURNED_RE.exec(text);
         if (m) acresBurned = parseNum(m[1]);
@@ -160,6 +175,7 @@ export function parseRob(
     targetName: targetProvMatch ? targetProvMatch[2].trim() : null,
     targetSlot: targetProvMatch ? parseInt(targetProvMatch[1], 10) : null,
     targetKingdom: targetKdMatch ? targetKdMatch[1] : null,
+    targetGameId,
     outcome: isSuccess ? "success" : "failure",
     amountStolen,
     thievesLost,
@@ -168,11 +184,13 @@ export function parseRob(
     troopsAssassinated,
     kidnapped,
     acresBurned,
+    arsonBuilding,
     effectDuration,
     deserters,
     deserterType,
     wizardsAssassinated,
     prisonersFreed,
     prisonersCaptured,
+    thievesSent,
   };
 }

@@ -278,26 +278,46 @@ test("parseRob — arson failure", () => {
 });
 
 // Greater Arson
+test("parseRob — greater_arson success", () => {
+  const url =
+    "https://utopia-game.com/wol/game/thievery?p=885&o=GREATER_ARSON&q=8000&b=WATCHTOWER&c=8206";
+  const text = `${PREAMBLE}\n\n${STATS}\n\nWe lost 15 thieves in the operation.\nEarly indications show that our operation was a success. Our thieves burned down 10 watch towers.\n${KD_FOOTER}`;
+  const r = parseRob(text, url, "TestProvince");
+  assert.ok(r);
+  assert.equal(r.op, "greater_arson");
+  assert.equal(r.outcome, "success");
+  assert.equal(r.acresBurned, 10);
+  assert.equal(r.arsonBuilding, "WATCHTOWER");
+  assert.equal(r.thievesLost, 15);
+  assert.equal(r.thievesSent, 8000);
+  assert.equal(r.targetGameId, 885);
+});
+
 test("parseRob — greater_arson success (too few to burn)", () => {
   const url =
-    "https://utopia-game.com/wol/game/thievery?p=364&o=GREATER_ARSON&q=300&c=4986";
+    "https://utopia-game.com/wol/game/thievery?p=364&o=GREATER_ARSON&q=300&b=WATCHTOWER&c=4986";
   const text = `${PREAMBLE}\n\n${STATS}\n\nEarly indications show that our operation was a success. Unfortunately, our thieves were too few in number to find any buildings to burn.\n${KD_FOOTER}`;
   const r = parseRob(text, url, "TestProvince");
   assert.ok(r);
   assert.equal(r.op, "greater_arson");
   assert.equal(r.outcome, "success");
   assert.equal(r.acresBurned, 0);
+  assert.equal(r.arsonBuilding, "WATCHTOWER");
+  assert.equal(r.targetGameId, 364);
 });
 
 test("parseRob — greater_arson failure", () => {
   const url =
-    "https://utopia-game.com/wol/game/thievery?p=364&o=GREATER_ARSON&q=800&c=7389";
+    "https://utopia-game.com/wol/game/thievery?p=364&o=GREATER_ARSON&q=800&b=WATCHTOWER&c=7389";
   const text = `${PREAMBLE}\n\n${STATS}\n\nSources have indicated the mission was foiled. We lost 6 thieves. If we are lucky, they will not rat on who sent them. I am sorry, we will train harder for the next mission.\n${KD_FOOTER}`;
   const r = parseRob(text, url, "TestProvince");
   assert.ok(r);
   assert.equal(r.op, "greater_arson");
   assert.equal(r.outcome, "failure");
   assert.equal(r.thievesLost, 6);
+  assert.equal(r.arsonBuilding, "WATCHTOWER");
+  assert.equal(r.targetGameId, 364);
+  assert.equal(r.thievesSent, 800);
 });
 
 // Destabilize Guilds

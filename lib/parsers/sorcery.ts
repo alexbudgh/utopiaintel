@@ -36,6 +36,15 @@ export function getSpell(url: string): string | null {
   }
 }
 
+function getTargetGameId(url: string): number | null {
+  try {
+    const p = new URL(url).searchParams.get("p");
+    return p ? parseInt(p, 10) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function parseSorcery(
   text: string,
   url: string,
@@ -84,6 +93,7 @@ export function parseSorcery(
     targetKingdom: targetKdMatch
       ? targetKdMatch[1]
       : (targetInlineMatch?.[2] ?? null),
+    targetGameId: getTargetGameId(url),
     wizards: wizardsMatch ? parseNum(wizardsMatch[1]) : null,
     runes: runesSelfMatch ? parseNum(runesSelfMatch[1]) : null,
     mana: manaMatch ? parseInt(manaMatch[1], 10) : null,

@@ -71,6 +71,8 @@ export interface RecentOp {
   detail_kind: string | null;
   slot: number | null;
   submitter_slot: number | null;
+  arson_building: string | null;
+  thieves_sent: number | null;
 }
 
 export interface ProvinceRow {
@@ -414,6 +416,7 @@ export interface OpProvEntry {
   amount: number;
   unitType: string | null;
   thievesLost: number;
+  arsonBuilding: string | null;
 }
 
 export interface OpTypeBreakdown {

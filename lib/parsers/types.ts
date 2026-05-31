@@ -196,6 +196,7 @@ export interface SorceryData extends ProvinceId {
   targetName: string | null;
   targetSlot: number | null;
   targetKingdom: string | null;
+  targetGameId: number | null;
   wizards: number | null;
   runes: number | null;
   mana: number | null;
@@ -231,12 +232,15 @@ export interface RobData extends ProvinceId {
   troopsAssassinated: number | null; // night_strike
   kidnapped: number | null; // kidnap
   acresBurned: number | null; // arson, greater_arson
+  arsonBuilding: string | null; // greater_arson — building type from b= URL param
   effectDuration: number | null; // incite_riots, sabotage_wizards, destabilize_guilds
   deserters: number | null; // propaganda
   deserterType: string | null; // propaganda — unit type (wizards, soldiers, etc.)
   wizardsAssassinated: number | null; // assassinate_wizards
   prisonersFreed: number | null; // free_prisoners — freed from target
   prisonersCaptured: number | null; // free_prisoners — brought home
+  targetGameId: number | null;
+  thievesSent: number | null;
 }
 
 export type AttackType =

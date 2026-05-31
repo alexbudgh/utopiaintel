@@ -36,14 +36,20 @@ const OP_AMOUNT_LABEL: Record<string, string> = {
   night_strike: "Troops",
   kidnap: "Peasants",
   arson: "Acres",
-  greater_arson: "Acres",
+  greater_arson: "Buildings",
   propaganda: "Stolen",
   assassinate_wizards: "Wizards",
   free_prisoners: "Prisoners",
   detected: "Caught",
 };
 
-function amountLabel(op: string): string {
+function formatBuildingLabel(b: string): string {
+  return b.charAt(0) + b.slice(1).toLowerCase();
+}
+
+function amountLabel(op: string, arsonBuilding?: string | null): string {
+  if (op === "greater_arson" && arsonBuilding)
+    return formatBuildingLabel(arsonBuilding);
   return OP_AMOUNT_LABEL[op] ?? "Count";
 }
 
@@ -70,8 +76,9 @@ function opSummary(
     case "kidnap":
       return `${n} ${plural(value, "peasant")} kidnapped ${actor}`;
     case "arson":
-    case "greater_arson":
       return `${n} ${plural(value, "acre")} burned ${actor}`;
+    case "greater_arson":
+      return `${n} ${plural(value, "building")} burned ${actor}`;
     case "propaganda":
       return `${n} ${plural(value, "unit")} converted ${actor}`;
     case "assassinate_wizards":
@@ -135,7 +142,14 @@ function ProvTable({
   linkable: boolean;
   showUnitType?: boolean;
 }) {
-  const amtLabel = amountLabel(op);
+  const arsonBuildings = new Set(
+    entries.map((e) => e.arsonBuilding).filter(Boolean),
+  );
+  const arsonBuilding =
+    arsonBuildings.size === 1 ? [...arsonBuildings][0]! : null;
+  const showBuilding =
+    op === "greater_arson" && arsonBuilding === null && arsonBuildings.size > 1;
+  const amtLabel = amountLabel(op, arsonBuilding);
   const isEffect = !OP_AMOUNT_LABEL[op];
   const amtColor = linkable ? "text-red-300" : "text-green-300";
   const amtColorTotal = linkable ? "text-red-400" : "text-green-400";
@@ -228,6 +242,9 @@ function ProvTable({
       <thead>
         <tr className="text-gray-600 border-b border-gray-800">
           <th className="text-left py-1 pr-2 font-normal">Province</th>
+          {showBuilding && (
+            <th className="text-left py-1 px-1 font-normal">Building</th>
+          )}
           <th className="text-right py-1 px-1 font-normal">Attempts</th>
           <th className="text-right py-1 px-1 font-normal">Successes</th>
           {!isEffect && (
@@ -238,12 +255,17 @@ function ProvTable({
       <tbody>
         {entries.map((e) => (
           <tr
-            key={`${e.provinceName}|${e.unitType ?? ""}`}
+            key={`${e.provinceName}|${e.unitType ?? ""}|${e.arsonBuilding ?? ""}`}
             className="border-b border-gray-800/30"
           >
             <td className="py-1 pr-2 whitespace-nowrap">
               <ProvName e={e} kingdom={kingdom} linkable={linkable} />
             </td>
+            {showBuilding && (
+              <td className="py-1 px-1 whitespace-nowrap text-yellow-600">
+                {e.arsonBuilding ? formatBuildingLabel(e.arsonBuilding) : "—"}
+              </td>
+            )}
             <td className="text-right font-mono py-1 px-1 text-gray-500">
               <Num n={e.attempts} />
             </td>
@@ -262,6 +284,7 @@ function ProvTable({
         <tfoot>
           <tr className="border-t border-gray-700 text-gray-300 font-medium bg-gray-800/50">
             <td className="py-1 pr-2">Total</td>
+            {showBuilding && <td />}
             <td className="text-right font-mono py-1 px-1">
               <Num n={total.attempts} />
             </td>
