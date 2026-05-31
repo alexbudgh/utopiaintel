@@ -1,3 +1,4 @@
+import { basename } from "node:path";
 import {
   getReplayTypes,
   hashReplayKey,
@@ -40,6 +41,7 @@ async function main() {
     ? hashReplayKey(assumeRawKeyArg.slice("--assume-key=".length))
     : assumeKeyHashArg?.slice("--assume-key-hash=".length);
 
+  const startMs = Date.now();
   const summary = await replayDebugLogs({
     files,
     replayTypes,
@@ -47,7 +49,15 @@ async function main() {
     assumeKeyHash,
     dryRun,
     refreshMetrics,
+    onProgress(seen, replayed, file) {
+      const elapsed = ((Date.now() - startMs) / 1000).toFixed(1);
+      const base = basename(file);
+      process.stderr.write(
+        `\r  ${base}  lines=${seen}  replayed=${replayed}  ${elapsed}s  `,
+      );
+    },
   });
+  if (process.stderr.isTTY) process.stderr.write("\r\x1b[K");
 
   const byType = [...summary.byType.entries()]
     .sort(([a], [b]) => a.localeCompare(b))

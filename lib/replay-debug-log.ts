@@ -56,6 +56,8 @@ export interface ReplayOptions {
   assumeKeyHash?: string;
   dryRun?: boolean;
   refreshMetrics?: boolean;
+  onProgress?: (seen: number, replayed: number, file: string) => void;
+  progressInterval?: number;
 }
 
 export interface ReplaySummary {
@@ -331,6 +333,8 @@ export async function replayDebugLogs({
   assumeKeyHash,
   dryRun = false,
   refreshMetrics = false,
+  onProgress,
+  progressInterval = 500,
 }: ReplayOptions): Promise<ReplaySummary> {
   const restoreMetricsCacheRefresh =
     setMetricsCacheRefreshEnabled(refreshMetrics);
@@ -350,6 +354,9 @@ export async function replayDebugLogs({
       for await (const line of rl) {
         if (!line.trim()) continue;
         linesSeen += 1;
+        if (onProgress && linesSeen % progressInterval === 0) {
+          onProgress(linesSeen, replayed, file);
+        }
         const entry = JSON.parse(line) as DebugEntry;
         const type = await replayEntry(entry, replayTypes, {
           keyHash,
