@@ -53,7 +53,7 @@ async function main() {
       const elapsed = ((Date.now() - startMs) / 1000).toFixed(1);
       const base = basename(file);
       process.stderr.write(
-        `\r  ${base}  lines=${seen}  replayed=${replayed}  ${elapsed}s  `,
+        `\r  ${base}  scanned=${seen}  replayed=${replayed}  ${elapsed}s  `,
       );
     },
   });
@@ -65,7 +65,7 @@ async function main() {
     .join(" ");
 
   console.log(
-    `lines=${summary.linesSeen} replayed=${summary.replayed} ${byType}`.trim(),
+    `scanned=${summary.linesSeen} replayed=${summary.replayed} ${byType}`.trim(),
   );
   await pool.end();
 }
