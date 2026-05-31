@@ -257,7 +257,7 @@ function ProvTable({
             )}
             {showLost && (
               <th className="text-right py-1 pl-1 font-normal text-red-700/70">
-                Lost
+                Thieves Lost
               </th>
             )}
           </tr>
