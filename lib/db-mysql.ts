@@ -717,14 +717,19 @@ export async function storeRob(
     const provId = await ensureProvince(conn, data.name, "");
     await recordSubmission(conn, keyHash, provId);
     const [result] = (await conn.execute(
-      `INSERT IGNORE INTO rob_ops
+      `INSERT INTO rob_ops
          (province_id, key_hash, op, target_name, target_slot, target_kingdom,
           outcome, amount_stolen, thieves_lost, thieves, stealth,
           troops_assassinated, kidnapped, acres_burned, arson_building,
           effect_duration, deserters, deserter_type, wizards_assassinated,
           prisoners_freed, prisoners_captured, target_game_id, thieves_sent,
           game_date, game_date_ord, saved_by, received_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))
+       ON DUPLICATE KEY UPDATE
+         acres_burned   = COALESCE(acres_burned,   VALUES(acres_burned)),
+         arson_building = COALESCE(arson_building, VALUES(arson_building)),
+         target_game_id = COALESCE(target_game_id, VALUES(target_game_id)),
+         thieves_sent   = COALESCE(thieves_sent,   VALUES(thieves_sent))`,
       [
         provId,
         keyHash,
@@ -755,7 +760,7 @@ export async function storeRob(
         receivedAt ?? null,
       ],
     )) as [ResultSetHeader, unknown];
-    if (result.affectedRows === 0) {
+    if (result.affectedRows !== 1) {
       await backfillOpGameDate(
         conn,
         "rob_ops",
