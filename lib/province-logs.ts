@@ -68,17 +68,17 @@ function getTargetSuffix(text: string): {
 
 function splitProvinceLogLines(text: string): ProvinceLogLine[] {
   const results: ProvinceLogLine[] = [];
+  const countPerDate = new Map<string, number>();
   let current: ProvinceLogLine | null = null;
 
   for (const line of text.split(/\r?\n/)) {
     const match = LOG_LINE_RE.exec(line);
     if (match) {
       if (current) results.push(current);
-      current = {
-        gameDate: match[1],
-        text: match[2],
-        index: results.length,
-      };
+      const gameDate = match[1];
+      const idx = countPerDate.get(gameDate) ?? 0;
+      countPerDate.set(gameDate, idx + 1);
+      current = { gameDate, text: match[2], index: idx };
       continue;
     }
 
@@ -99,9 +99,16 @@ function timestampForLogLine(
   const ord = parseUtopiaDate(gameDate);
   if (ord < 0) return null;
   // Map game tick to the start of the corresponding real-world hour, then use
-  // index as seconds to keep multiple ops in the same tick distinct.
+  // a per-date index as a seconds offset to keep multiple ops in the same tick
+  // distinct. Stays within the tick for up to 3599 entries per game date —
+  // well beyond what a single province can produce in one hour.
   const base = utopiaDateOrdToUtcTimestamp(ord);
-  const receivedAt = base.slice(0, 17) + String(index).padStart(2, "0");
+  const offsetMs =
+    new Date(base.replace(" ", "T") + "Z").getTime() + index * 1000;
+  const receivedAt = new Date(offsetMs)
+    .toISOString()
+    .replace("T", " ")
+    .slice(0, 19);
   return {
     receivedAt,
     gameDate: { gameDate, gameDateOrd: ord },

@@ -626,6 +626,47 @@ April 1 of YR1\tYour wizards gather 745 runes and begin casting, and the spell s
   assert.equal(sorcery.data.durationDays, 23);
 });
 
+test("parseProvinceLogs — per-date index resets so entries stay in their tick", () => {
+  // Two game dates with 3 entries each. With a global index the second date's
+  // entries would get offsets 3, 4, 5 rather than 0, 1, 2.
+  const vaults = (n: number) =>
+    `Early indications show that our operation was a success. Our thieves returned with ${n},000 gold coins from ProvA (1:1). (ProvA (1:1), sent 100)`;
+  const log = [
+    `April 1 of YR1\t${vaults(1)}`,
+    `April 1 of YR1\t${vaults(2)}`,
+    `April 1 of YR1\t${vaults(3)}`,
+    `April 2 of YR1\t${vaults(4)}`,
+    `April 2 of YR1\t${vaults(5)}`,
+    `April 2 of YR1\t${vaults(6)}`,
+  ].join("\n");
+  const rows = parseProvinceLogs(log, "TestProv");
+  assert.equal(rows.length, 6);
+  // April 1 of YR1 → 2026-05-08 18:00:00
+  assert.equal(rows[0].receivedAt, "2026-05-08 18:00:00");
+  assert.equal(rows[1].receivedAt, "2026-05-08 18:00:01");
+  assert.equal(rows[2].receivedAt, "2026-05-08 18:00:02");
+  // April 2 of YR1 → 2026-05-08 19:00:00; index resets to 0
+  assert.equal(rows[3].receivedAt, "2026-05-08 19:00:00");
+  assert.equal(rows[4].receivedAt, "2026-05-08 19:00:01");
+  assert.equal(rows[5].receivedAt, "2026-05-08 19:00:02");
+});
+
+test("parseProvinceLogs — 60+ entries in one tick produce valid timestamps", () => {
+  const vaults = (n: number) =>
+    `April 1 of YR1\tEarly indications show that our operation was a success. Our thieves returned with ${n},000 gold coins from ProvA (1:1). (ProvA (1:1), sent 100)`;
+  const log = Array.from({ length: 62 }, (_, i) => vaults(i + 1)).join("\n");
+  const rows = parseProvinceLogs(log, "TestProv");
+  assert.equal(rows.length, 62);
+  // Entry at index 60 should be :01:00, not the invalid :00:60
+  assert.equal(rows[60].receivedAt, "2026-05-08 18:01:00");
+  assert.equal(rows[61].receivedAt, "2026-05-08 18:01:01");
+  // All seconds values must be 0–59
+  for (const row of rows) {
+    const secs = parseInt(row.receivedAt.slice(17, 19), 10);
+    assert.ok(secs >= 0 && secs <= 59, `invalid seconds in ${row.receivedAt}`);
+  }
+});
+
 test("resolveReplayKeyHash prefers entry key_hash, then assumed key", () => {
   assert.equal(
     resolveReplayKeyHash(
