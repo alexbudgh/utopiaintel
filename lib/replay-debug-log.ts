@@ -358,11 +358,19 @@ export async function replayDebugLogs({
           onProgress(linesSeen, replayed, file);
         }
         const entry = JSON.parse(line) as DebugEntry;
-        const type = await replayEntry(entry, replayTypes, {
-          keyHash,
-          assumeKeyHash,
-          dryRun,
-        });
+        let type: Awaited<ReturnType<typeof replayEntry>>;
+        try {
+          type = await replayEntry(entry, replayTypes, {
+            keyHash,
+            assumeKeyHash,
+            dryRun,
+          });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          throw new Error(`${msg}\n  line ${linesSeen}: ${line}`, {
+            cause: err,
+          });
+        }
         if (!type) continue;
         const types = Array.isArray(type) ? type : [type];
         replayed += types.length;
