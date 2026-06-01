@@ -146,7 +146,6 @@ export const BUILDINGS = [
   "Armouries",
   "Military Barracks",
   "Forts",
-  "Guard Stations",
   "Hospitals",
   "Guilds",
   "Towers",
@@ -154,9 +153,9 @@ export const BUILDINGS = [
   "Watch Towers",
   "Universities",
   "Libraries",
-  "Schools",
   "Stables",
   "Dungeons",
+  "Castles",
   "Unknown",
 ];
 export const BUILDING_GROUP = BUILDINGS.join("|");
