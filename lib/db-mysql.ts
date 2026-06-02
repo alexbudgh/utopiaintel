@@ -2198,7 +2198,7 @@ export async function getRecentOps(
              ro.arson_building, ro.thieves_sent
       FROM rob_ops ro JOIN provinces p ON p.id = ro.province_id
            LEFT JOIN provinces pt ON pt.external_id = ro.target_game_id
-      WHERE ro.key_hash = :keyHash AND COALESCE(ro.source, '') != 'province_logs'
+      WHERE ro.key_hash = :keyHash AND ro.source = 'direct'
       UNION ALL
       SELECT so.spell, 'sorcery', so.received_at, so.saved_by,
              so.target_name, so.target_kingdom,
@@ -2218,7 +2218,7 @@ export async function getRecentOps(
              END,
              NULL, NULL
       FROM sorcery_ops so JOIN provinces p ON p.id = so.province_id
-      WHERE so.key_hash = :keyHash AND COALESCE(so.source, '') != 'province_logs'
+      WHERE so.key_hash = :keyHash AND so.source = 'direct'
       UNION ALL
       SELECT ao.attack_type, 'attack', ao.received_at, ao.saved_by,
              ao.target_name, ao.target_kingdom,
@@ -2242,7 +2242,7 @@ export async function getRecentOps(
              END,
              NULL, NULL
       FROM attack_ops ao JOIN provinces p ON p.id = ao.province_id
-      WHERE ao.key_hash = :keyHash AND COALESCE(ao.source, '') != 'province_logs'
+      WHERE ao.key_hash = :keyHash AND ao.source = 'direct'
     )
     SELECT op_type, op_category, received_at, saved_by, province_name, kingdom,
            actor_name, actor_kingdom, outcome, summary, detail_value, detail_kind,
@@ -2847,7 +2847,7 @@ export async function getProvinceHistory(
               ro.wizards_assassinated, ro.prisoners_freed, ro.prisoners_captured
        FROM rob_ops ro JOIN provinces p ON p.id = ro.province_id
        WHERE ro.key_hash = ? AND ro.target_name = ? AND ro.target_kingdom = ?
-         AND COALESCE(ro.source, '') != 'province_logs'
+         AND ro.source = 'direct'
        ORDER BY ro.received_at ASC`,
         [keyHash, name, kingdom],
       )
@@ -2858,7 +2858,7 @@ export async function getProvinceHistory(
               p.name AS caster_name, p.kingdom AS caster_kingdom
        FROM sorcery_ops so JOIN provinces p ON p.id = so.province_id
        WHERE so.key_hash = ? AND so.target_name = ? AND so.target_kingdom = ?
-         AND COALESCE(so.source, '') != 'province_logs'
+         AND so.source = 'direct'
        ORDER BY so.received_at ASC`,
         [keyHash, name, kingdom],
       )
@@ -4274,7 +4274,7 @@ export async function getKingdomOpsStats(
      FROM rob_ops r
      JOIN provinces p ON p.id = r.province_id
      WHERE r.key_hash = ? AND r.target_kingdom = ?
-       AND COALESCE(r.source, '') != 'province_logs'
+       AND r.source = 'direct'
        ${robDateClause}
      GROUP BY r.op, r.province_id, p.name, r.deserter_type,
               CASE WHEN r.op = 'greater_arson' THEN r.arson_building ELSE NULL END`,
