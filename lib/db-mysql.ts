@@ -1855,22 +1855,17 @@ export async function getLatestWarDate(
   keyHash: string,
 ): Promise<string | null> {
   await ensureReady();
-  interface AccessRow extends RowDataPacket {
-    n: number;
-  }
   interface DateRow extends RowDataPacket {
     game_date: string;
   }
 
-  const [[access]] = await pool.execute<AccessRow[]>(
-    "SELECT COUNT(*) AS n FROM kingdom_news_sharded WHERE key_hash = ? AND kingdom = ? LIMIT 1",
-    [keyHash, kingdom],
-  );
-  if (!access.n) return null;
-
+  // War events are recorded in the user's own kingdom news, not the target
+  // kingdom's news. Match on relation_kingdom so the button reflects the
+  // most recent war specifically with the kingdom being viewed.
   const [rows] = await pool.execute<DateRow[]>(
     `SELECT game_date FROM kingdom_news_sharded
-     WHERE key_hash = ? AND kingdom = ? AND event_type IN ('war_declared', 'war_declared_on_us')
+     WHERE key_hash = ? AND relation_kingdom = ?
+       AND event_type IN ('war_declared', 'war_declared_on_us')
      ORDER BY game_date_ord DESC, id DESC
      LIMIT 1`,
     [keyHash, kingdom],
