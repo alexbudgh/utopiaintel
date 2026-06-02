@@ -4219,19 +4219,11 @@ export async function getKingdomOpsStats(
       effectiveFrom = fromOrd > 0 ? formatUtopiaDate(fromOrd) : null;
     }
 
-    // Approximate wall-clock cutoff for rows that lack game_date_ord.
-    // 1 Utopia tick = 1 real hour, so fromOrd ticks before maxOrd ≈
-    // (maxOrd - fromOrd) hours ago. This keeps live ops without game dates
-    // visible while province-log rows use their exact Utopia date.
-    const ordDelta =
-      maxOrd > 0 && fromOrd > 0 ? Math.max(0, maxOrd - fromOrd) : null;
-    robFromTime =
-      ordDelta !== null
-        ? new Date(Date.now() - ordDelta * 3_600_000)
-            .toISOString()
-            .slice(0, 19)
-            .replace("T", " ")
-        : null;
+    // Wall-clock cutoff for rows that lack game_date_ord (direct ops).
+    // Derive directly from fromOrd so the window is anchored to the game
+    // calendar rather than to now, which would slide as wall-clock time
+    // advances past the latest province_news entry.
+    robFromTime = fromOrd > 0 ? utopiaDateOrdToUtcTimestamp(fromOrd) : null;
   }
 
   const robDateClause =
