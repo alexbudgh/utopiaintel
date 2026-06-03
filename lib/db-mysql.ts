@@ -4536,9 +4536,14 @@ export async function getKingdomOpsStats(
     }
   }
 
-  // Merge op types and sort each list by amount desc, then successes desc
+  // Merge op types and sort each list by amount desc, then successes desc, then attempts desc
   const sortEntries = (entries: OpProvEntry[]) =>
-    entries.sort((a, b) => b.amount - a.amount || b.successes - a.successes);
+    entries.sort(
+      (a, b) =>
+        b.amount - a.amount ||
+        b.successes - a.successes ||
+        b.attempts - a.attempts,
+    );
 
   const stripInternal = (e: EntryWithTargets): OpProvEntry => ({
     provinceName: e.provinceName,

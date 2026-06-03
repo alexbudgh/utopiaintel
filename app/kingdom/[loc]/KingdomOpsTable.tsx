@@ -41,7 +41,6 @@ const OP_AMOUNT_LABEL: Record<string, string> = {
   propaganda: "Stolen",
   assassinate_wizards: "Wizards",
   free_prisoners: "Prisoners",
-  detected: "Caught",
 };
 
 function formatBuildingLabel(b: string): string {
@@ -226,7 +225,8 @@ function ProvTable({
   const showBuilding =
     op === "greater_arson" && arsonBuilding === null && arsonBuildings.size > 1;
   const amtLabel = amountLabel(op, arsonBuilding);
-  const isEffect = !OP_AMOUNT_LABEL[op];
+  const isEffect = !OP_AMOUNT_LABEL[op] || op === "detected";
+  const showSuccesses = op !== "detected";
   const amtColor = linkable ? "text-red-300" : "text-green-300";
   const amtColorTotal = linkable ? "text-red-400" : "text-green-400";
   const totalThievesLost = entries.reduce((s, e) => s + e.thievesLost, 0);
@@ -341,7 +341,9 @@ function ProvTable({
               <th className="text-left py-1 px-1 font-normal">Building</th>
             )}
             <th className="text-right py-1 px-1 font-normal">Attempts</th>
-            <th className="text-right py-1 px-1 font-normal">Successes</th>
+            {showSuccesses && (
+              <th className="text-right py-1 px-1 font-normal">Successes</th>
+            )}
             {!isEffect && (
               <th className="text-right py-1 px-1 font-normal">{amtLabel}</th>
             )}
@@ -376,16 +378,18 @@ function ProvTable({
                   <Num n={e.attempts} />
                 </TargetTooltip>
               </td>
-              <td className="text-right font-mono py-1 px-1">
-                <TargetTooltip
-                  targets={e.targets}
-                  label="Successes"
-                  getValue={(t) => t.successes}
-                  color="text-gray-400"
-                >
-                  <Num n={e.successes} color="text-gray-300" />
-                </TargetTooltip>
-              </td>
+              {showSuccesses && (
+                <td className="text-right font-mono py-1 px-1">
+                  <TargetTooltip
+                    targets={e.targets}
+                    label="Successes"
+                    getValue={(t) => t.successes}
+                    color="text-gray-400"
+                  >
+                    <Num n={e.successes} color="text-gray-300" />
+                  </TargetTooltip>
+                </td>
+              )}
               {!isEffect && (
                 <td className="text-right font-mono py-1 px-1">
                   <TargetTooltip
@@ -414,9 +418,11 @@ function ProvTable({
               <td className="text-right font-mono py-1 px-1">
                 <Num n={total.attempts} />
               </td>
-              <td className="text-right font-mono py-1 px-1">
-                <Num n={total.successes} color="text-gray-400" />
-              </td>
+              {showSuccesses && (
+                <td className="text-right font-mono py-1 px-1">
+                  <Num n={total.successes} color="text-gray-400" />
+                </td>
+              )}
               {!isEffect && (
                 <td className="text-right font-mono py-1 px-1">
                   <Num n={total.amount} color={amtColorTotal} />
@@ -438,8 +444,15 @@ function ProvTable({
 function OpSection({ bd, kingdom }: { bd: OpTypeBreakdown; kingdom: string }) {
   const [open, setOpen] = useState(false);
   const label = OP_LABELS[bd.op] ?? bd.op;
-  const totalOut = bd.outgoing.reduce((s, e) => s + e.amount, 0);
-  const totalIn = bd.incoming.reduce((s, e) => s + e.amount, 0);
+  const isDetected = bd.op === "detected";
+  const totalOut = bd.outgoing.reduce(
+    (s, e) => s + (isDetected ? e.attempts : e.amount),
+    0,
+  );
+  const totalIn = bd.incoming.reduce(
+    (s, e) => s + (isDetected ? e.attempts : e.amount),
+    0,
+  );
   const successesOut = bd.outgoing.reduce((s, e) => s + e.successes, 0);
   const successesIn = bd.incoming.reduce((s, e) => s + e.successes, 0);
 
@@ -458,12 +471,13 @@ function OpSection({ bd, kingdom }: { bd: OpTypeBreakdown; kingdom: string }) {
             </span>
           )}
           {bd.incoming.length > 0 && (
-            <span
-              className={
-                bd.op === "detected" ? "text-orange-400" : "text-red-400"
-              }
-            >
-              {opSummary(bd.op, totalIn, successesIn, "by them")}
+            <span className={isDetected ? "text-green-400" : "text-red-400"}>
+              {opSummary(
+                bd.op,
+                totalIn,
+                successesIn,
+                isDetected ? "by us" : "by them",
+              )}
             </span>
           )}
           <span className="text-gray-600">{open ? "▲" : "▼"}</span>
