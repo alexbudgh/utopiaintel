@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import {
   utcTimestampToUtopiaDate,
   utopiaDateToUtcTimestamp,
@@ -149,14 +150,30 @@ export function UtopiaDatePicker({
   value: string;
   onChange: (value: string) => void;
 }) {
-  const parts = parseDateParts(value);
-  const setParts = (next: DateParts) => onChange(formatDateParts(next));
+  const [parts, setParts] = useState<DateParts>(() => parseDateParts(value));
+  // Track the last value we emitted so we can distinguish external changes
+  // (e.g. "Since war" button) from round-trips of our own onChange calls.
+  const emittedRef = useRef(formatDateParts(parseDateParts(value)));
+
+  useEffect(() => {
+    if (value !== emittedRef.current) {
+      setParts(parseDateParts(value));
+      emittedRef.current = value;
+    }
+  }, [value]);
+
+  function update(next: DateParts) {
+    setParts(next);
+    const formatted = formatDateParts(next);
+    emittedRef.current = formatted;
+    onChange(formatted);
+  }
 
   return (
     <span className="inline-flex items-center gap-1">
       <select
         value={parts.month}
-        onChange={(e) => setParts({ ...parts, month: e.target.value })}
+        onChange={(e) => update({ ...parts, month: e.target.value })}
         className={dateInputClass}
       >
         <option value="">Month</option>
@@ -171,7 +188,7 @@ export function UtopiaDatePicker({
         min={1}
         max={24}
         value={parts.day}
-        onChange={(e) => setParts({ ...parts, day: e.target.value })}
+        onChange={(e) => update({ ...parts, day: e.target.value })}
         placeholder="Day"
         className={`${dateInputClass} w-14`}
       />
@@ -180,7 +197,7 @@ export function UtopiaDatePicker({
         type="number"
         min={0}
         value={parts.year}
-        onChange={(e) => setParts({ ...parts, year: e.target.value })}
+        onChange={(e) => update({ ...parts, year: e.target.value })}
         placeholder="Yr"
         className={`${dateInputClass} w-12`}
       />
