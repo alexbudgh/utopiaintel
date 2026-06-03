@@ -1,4 +1,5 @@
 import type {
+  ExecuteValues,
   PoolConnection,
   ResultSetHeader,
   RowDataPacket,
@@ -262,8 +263,6 @@ async function mysqlUpdateMetricsCache(
     return `(${alias}.received_at >= DATE_SUB(?, INTERVAL 1 HOUR) AND ${alias}.received_at <= ?)`;
   };
 
-  type EV = import("mysql2").ExecuteValues;
-
   // ── PPA ──────────────────────────────────────────────────────────────────
   interface PpaRow extends RowDataPacket {
     peasants: number;
@@ -283,7 +282,7 @@ async function mysqlUpdateMetricsCache(
       AND ${wc("pt", ppaP)} AND ${wc("po", ppaP)}
     ORDER BY pt.received_at DESC LIMIT 1
   `,
-    ppaP as EV,
+    ppaP as ExecuteValues,
   );
 
   let cached_ppa: number | null = null,
@@ -311,7 +310,7 @@ async function mysqlUpdateMetricsCache(
       AND ${wc("pr", rtpaP)} AND ${wc("po", rtpaP)}
     ORDER BY pr.received_at DESC LIMIT 1
   `,
-    rtpaP as EV,
+    rtpaP as ExecuteValues,
   );
 
   let cached_rtpa: number | null = null,
@@ -366,7 +365,7 @@ async function mysqlUpdateMetricsCache(
       AND ${wc("pr", odtpaP)} AND ${wc("po", odtpaP)} AND ${wc("si", odtpaP)} AND ${wc("srv", odtpaP)}
     ORDER BY pr.received_at DESC LIMIT 1
   `,
-    odtpaP as EV,
+    odtpaP as ExecuteValues,
   );
 
   let cached_otpa: number | null = null,
@@ -420,7 +419,7 @@ async function mysqlUpdateMetricsCache(
       AND ${wc("pr", rwpaDirP)} AND ${wc("po", rwpaDirP)}
     ORDER BY pr.received_at DESC LIMIT 1
   `,
-    rwpaDirP as EV,
+    rwpaDirP as ExecuteValues,
   );
 
   // ── mWPA direct ──────────────────────────────────────────────────────────
@@ -449,7 +448,7 @@ async function mysqlUpdateMetricsCache(
       AND ${wc("pr", mwpaDirP)} AND ${wc("po", mwpaDirP)} AND ${wc("si", mwpaDirP)}
     ORDER BY pr.received_at DESC LIMIT 1
   `,
-    mwpaDirP as EV,
+    mwpaDirP as ExecuteValues,
   );
 
   // ── rWPA / mWPA back-calc ─────────────────────────────────────────────────
@@ -516,7 +515,7 @@ async function mysqlUpdateMetricsCache(
       AND ${wc("srv", rwpaBkP)} AND ${wc("pt", rwpaBkP)} AND ${wc("pr_sot", rwpaBkP)}
     ORDER BY pr.received_at DESC LIMIT 1
   `,
-    rwpaBkP as EV,
+    rwpaBkP as ExecuteValues,
   );
 
   // ── Compute rWPA / mWPA ───────────────────────────────────────────────────
@@ -2259,10 +2258,7 @@ export async function getRecentOps(
     { keyHash, since: since ?? null, limit },
   );
 
-  const [rows] = await pool.execute<OpRow[]>(
-    sql,
-    vals as import("mysql2").ExecuteValues,
-  );
+  const [rows] = await pool.execute<OpRow[]>(sql, vals as ExecuteValues);
   return rows as RecentOp[];
 }
 
@@ -2296,10 +2292,7 @@ export async function getKingdoms(keyHash: string): Promise<KingdomRow[]> {
   `,
     { keyHash },
   );
-  const [rows] = await pool.execute<KRow[]>(
-    sql,
-    vals as import("mysql2").ExecuteValues,
-  );
+  const [rows] = await pool.execute<KRow[]>(sql, vals as ExecuteValues);
   return rows as KingdomRow[];
 }
 
@@ -3607,10 +3600,7 @@ export async function getKingdomProvinces(
     { keyHash, kingdom },
   );
 
-  const [baseRows] = await pool.execute<any[]>(
-    sql,
-    vals as import("mysql2").ExecuteValues,
-  );
+  const [baseRows] = await pool.execute<any[]>(sql, vals as ExecuteValues);
 
   const rows = (baseRows as any[]).map((base) => ({
     ...base,
@@ -3790,9 +3780,7 @@ export async function getProvinceDetail(
     surveyRows,
     sosRows,
   ] = await Promise.all([
-    pool
-      .execute<any[]>(slotSql, slotVals as import("mysql2").ExecuteValues)
-      .then(([r]) => r),
+    pool.execute<any[]>(slotSql, slotVals as ExecuteValues).then(([r]) => r),
     pool
       .execute<any[]>(
         `SELECT land, networth, source, saved_by, received_at,
@@ -4267,6 +4255,7 @@ export async function getKingdomOpsStats(
      SELECT
        r.op,
        p.name AS province_name,
+       r.target_name,
        COUNT(*) AS attempts,
        SUM(IF(r.outcome='success', 1, 0)) AS successes,
        SUM(CASE
@@ -4285,7 +4274,7 @@ export async function getKingdomOpsStats(
        CASE WHEN r.op = 'greater_arson' THEN r.arson_building ELSE NULL END AS arson_building
      FROM filtered r
      JOIN provinces p ON p.id = r.province_id
-     GROUP BY r.op, r.province_id, p.name, r.deserter_type,
+     GROUP BY r.op, r.province_id, p.name, r.target_name, r.deserter_type,
               CASE WHEN r.op = 'greater_arson' THEN r.arson_building ELSE NULL END`,
     outParams,
   );
@@ -4307,12 +4296,14 @@ export async function getKingdomOpsStats(
        pn.event_type,
        NULLIF(pn.resource_type, '') AS resource_type,
        pn.actor_name AS province_name,
+       p.name AS target_province,
        COUNT(*) AS cnt,
        SUM(COALESCE(pn.amount, 0)) AS amount
      FROM province_news pn
+     JOIN provinces p ON p.id = pn.province_id
      WHERE pn.key_hash = ? AND pn.actor_kingdom = ?
        ${inDateClause}
-     GROUP BY pn.event_type, pn.resource_type, pn.actor_name`,
+     GROUP BY pn.event_type, pn.resource_type, pn.actor_name, p.name`,
     inParams,
   );
 
@@ -4324,10 +4315,30 @@ export async function getKingdomOpsStats(
   );
   const [slotRows] = await pool.execute<any[]>(
     slotSql,
-    slotVals as import("mysql2").ExecuteValues,
+    slotVals as ExecuteValues,
   );
   const slotMap = new Map<string, number | null>();
   for (const r of slotRows as any[]) slotMap.set(r.name, r.slot ?? null);
+
+  // Slot lookup for our own provinces (bound kingdom)
+  const [[boundRow]] = await pool.execute<any[]>(
+    "SELECT kingdom FROM key_kingdom_bindings WHERE key_hash = ? LIMIT 1",
+    [keyHash],
+  );
+  const selfSlotMap = new Map<string, number | null>();
+  if (boundRow?.kingdom) {
+    const [selfSlotSql, selfSlotVals] = n(
+      `WITH ${latestSlotCte("AND ki.location = :kingdom")}
+       SELECT name, slot FROM latest_slot WHERE kingdom = :kingdom`,
+      { keyHash, kingdom: boundRow.kingdom },
+    );
+    const [selfSlotRows] = await pool.execute<any[]>(
+      selfSlotSql,
+      selfSlotVals as ExecuteValues,
+    );
+    for (const r of selfSlotRows as any[])
+      selfSlotMap.set(r.name, r.slot ?? null);
+  }
 
   // Map province_news event_type + resource_type → op name
   function eventToOp(
@@ -4368,29 +4379,91 @@ export async function getKingdomOpsStats(
   }
 
   // Build outgoing: Map<op, Map<key, OpProvEntry>>
-  // Key is "province_name|unit_type" so propaganda entries split per unit type.
-  const outByOp = new Map<string, Map<string, OpProvEntry>>();
+  // Key is "province_name|unit_type|arson_building" so entries split appropriately.
+  // SQL now returns one row per (province, target_name, unit_type, arson_building);
+  // we merge into per-province entries and accumulate a targets breakdown.
+  type TargetAccum = {
+    slot: number | null;
+    attempts: number;
+    successes: number;
+    amount: number;
+  };
+  type EntryWithTargets = OpProvEntry & {
+    _targetsMap: Map<string, TargetAccum>;
+  };
+  const outByOp = new Map<string, Map<string, EntryWithTargets>>();
   for (const r of outRows as any[]) {
     if (!r.province_name) continue;
     if (!outByOp.has(r.op)) outByOp.set(r.op, new Map());
     const unitType = normUnit((r.unit_type as string | null) ?? null);
     const arsonBuilding = (r.arson_building as string | null) ?? null;
     const key = `${r.province_name}|${unitType ?? ""}|${arsonBuilding ?? ""}`;
-    outByOp.get(r.op)!.set(key, {
-      provinceName: r.province_name,
-      slot: null,
-      attempts: Number(r.attempts),
-      successes: Number(r.successes),
-      amount: Number(r.amount),
-      unitType,
-      thievesLost: Number(r.thieves_lost ?? 0),
-      arsonBuilding,
-    });
+    const amt = Number(r.amount);
+    const succ = Number(r.successes);
+    const existing = outByOp.get(r.op)!.get(key);
+    if (existing) {
+      existing.attempts += Number(r.attempts);
+      existing.successes += succ;
+      existing.amount += amt;
+      existing.thievesLost += Number(r.thieves_lost ?? 0);
+      if (r.target_name) {
+        const t = existing._targetsMap.get(r.target_name);
+        if (t) {
+          t.attempts += Number(r.attempts);
+          t.successes += succ;
+          t.amount += amt;
+        } else {
+          existing._targetsMap.set(r.target_name, {
+            slot: slotMap.get(r.target_name) ?? null,
+            attempts: Number(r.attempts),
+            successes: succ,
+            amount: amt,
+          });
+        }
+      }
+    } else {
+      const _targetsMap = new Map<string, TargetAccum>();
+      if (r.target_name)
+        _targetsMap.set(r.target_name, {
+          slot: slotMap.get(r.target_name) ?? null,
+          attempts: Number(r.attempts),
+          successes: succ,
+          amount: amt,
+        });
+      outByOp.get(r.op)!.set(key, {
+        provinceName: r.province_name,
+        slot: selfSlotMap.get(r.province_name) ?? null,
+        attempts: Number(r.attempts),
+        successes: succ,
+        amount: amt,
+        unitType,
+        thievesLost: Number(r.thieves_lost ?? 0),
+        arsonBuilding,
+        targets: [],
+        _targetsMap,
+      });
+    }
+  }
+  // Materialise _targetsMap → targets[] sorted by amount desc
+  for (const provMap of outByOp.values()) {
+    for (const entry of provMap.values()) {
+      entry.targets = [...entry._targetsMap.entries()]
+        .sort((a, b) => b[1].amount - a[1].amount)
+        .map(([name, { slot, attempts, successes, amount }]) => ({
+          name,
+          slot,
+          attempts,
+          successes,
+          amount,
+        }));
+    }
   }
 
   // Build incoming: Map<op, Map<key, OpProvEntry>>
   // Key is "province_name|unit_type" so propaganda entries split per unit type.
-  const inByOp = new Map<string, Map<string, OpProvEntry>>();
+  // SQL now returns one row per (actor, target_province, unit_type); we merge
+  // into per-actor entries and accumulate a targets breakdown.
+  const inByOp = new Map<string, Map<string, EntryWithTargets>>();
   for (const r of inRows as any[]) {
     if (!r.province_name) continue;
     const op = eventToOp(r.event_type, r.resource_type as string | null);
@@ -4399,6 +4472,7 @@ export async function getKingdomOpsStats(
     const provMap = inByOp.get(op)!;
     const isDetection = op === "detected";
     const amt = Number(r.amount);
+    const cnt = Number(r.cnt);
     const unitType =
       r.event_type === "thief_propaganda"
         ? normUnit((r.resource_type as string | null) ?? null)
@@ -4406,19 +4480,59 @@ export async function getKingdomOpsStats(
     const key = `${r.province_name}|${unitType ?? ""}`;
     const existing = provMap.get(key);
     if (existing) {
-      existing.attempts += Number(r.cnt);
+      existing.attempts += cnt;
       existing.amount += amt;
+      if (!isDetection) existing.successes += cnt;
+      if (r.target_province) {
+        const t = existing._targetsMap.get(r.target_province);
+        if (t) {
+          t.attempts += cnt;
+          t.successes += isDetection ? 0 : cnt;
+          t.amount += amt;
+        } else {
+          existing._targetsMap.set(r.target_province, {
+            slot: null,
+            attempts: cnt,
+            successes: isDetection ? 0 : cnt,
+            amount: amt,
+          });
+        }
+      }
     } else {
+      const _targetsMap = new Map<string, TargetAccum>();
+      if (r.target_province)
+        _targetsMap.set(r.target_province, {
+          slot: null,
+          attempts: cnt,
+          successes: isDetection ? 0 : cnt,
+          amount: amt,
+        });
       provMap.set(key, {
         provinceName: r.province_name,
         slot: slotMap.get(r.province_name) ?? null,
-        attempts: Number(r.cnt),
-        successes: isDetection ? 0 : Number(r.cnt),
+        attempts: cnt,
+        successes: isDetection ? 0 : cnt,
         amount: amt,
         unitType,
         thievesLost: 0,
         arsonBuilding: null,
+        targets: [],
+        _targetsMap,
       });
+    }
+  }
+  // Materialise _targetsMap → targets[] sorted by amount desc
+  for (const provMap of inByOp.values()) {
+    for (const entry of provMap.values()) {
+      entry.targets = [...entry._targetsMap.entries()]
+        .sort((a, b) => b[1].amount - a[1].amount)
+        .map(([name, { slot, attempts, successes, amount }]) => ({
+          name,
+          slot,
+          attempts,
+          successes,
+          amount,
+        }));
     }
   }
 
@@ -4426,11 +4540,26 @@ export async function getKingdomOpsStats(
   const sortEntries = (entries: OpProvEntry[]) =>
     entries.sort((a, b) => b.amount - a.amount || b.successes - a.successes);
 
+  const stripInternal = (e: EntryWithTargets): OpProvEntry => ({
+    provinceName: e.provinceName,
+    slot: e.slot,
+    attempts: e.attempts,
+    successes: e.successes,
+    amount: e.amount,
+    unitType: e.unitType,
+    thievesLost: e.thievesLost,
+    arsonBuilding: e.arsonBuilding,
+    targets: e.targets,
+  });
   const allOps = new Set([...outByOp.keys(), ...inByOp.keys()]);
   const breakdowns: OpTypeBreakdown[] = [];
   for (const op of allOps) {
-    const outgoing = sortEntries([...(outByOp.get(op)?.values() ?? [])]);
-    const incoming = sortEntries([...(inByOp.get(op)?.values() ?? [])]);
+    const outgoing = sortEntries(
+      [...(outByOp.get(op)?.values() ?? [])].map(stripInternal),
+    );
+    const incoming = sortEntries(
+      [...(inByOp.get(op)?.values() ?? [])].map(stripInternal),
+    );
     breakdowns.push({ op, outgoing, incoming });
   }
 

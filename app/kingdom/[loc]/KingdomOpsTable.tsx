@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { KingdomViewShell } from "./KingdomTabs";
 import { UtopiaDateRangeFilter } from "./UtopiaDateRangeFilter";
 import type {
@@ -99,6 +100,81 @@ function Num({ n, color }: { n: number; color?: string }) {
   return <span className={color ?? "text-gray-300"}>{n.toLocaleString()}</span>;
 }
 
+type TargetEntry = {
+  name: string;
+  slot: number | null;
+  attempts: number;
+  successes: number;
+  amount: number;
+};
+
+function TargetTooltip({
+  targets,
+  label,
+  getValue,
+  color,
+  children,
+}: {
+  targets: TargetEntry[];
+  label: string;
+  getValue: (t: TargetEntry) => number;
+  color: string;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  if (!targets.length) return <>{children}</>;
+  return (
+    <span
+      ref={ref}
+      onMouseEnter={() => setRect(ref.current?.getBoundingClientRect() ?? null)}
+      onMouseLeave={() => setRect(null)}
+    >
+      <span className="cursor-help underline decoration-dotted decoration-gray-600">
+        {children}
+      </span>
+      {rect &&
+        createPortal(
+          <div
+            style={{
+              position: "fixed",
+              bottom: window.innerHeight - rect.top + 4,
+              right: window.innerWidth - rect.right,
+            }}
+            className="z-50 bg-gray-900 border border-gray-700 rounded shadow-lg p-2 whitespace-nowrap"
+          >
+            <table className="text-xs">
+              <thead>
+                <tr className="text-gray-600 border-b border-gray-800">
+                  <th className="text-left pr-4 pb-1 font-normal">Target</th>
+                  <th className="text-right pb-1 font-normal">{label}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {targets.map((t) => (
+                  <tr key={t.name}>
+                    <td className="py-0.5 pr-4">
+                      {t.slot != null && (
+                        <span className="text-gray-600 font-mono mr-1 text-[10px]">
+                          {t.slot}
+                        </span>
+                      )}
+                      <span className="text-gray-400">{t.name || "—"}</span>
+                    </td>
+                    <td className={`text-right font-mono py-0.5 ${color}`}>
+                      {getValue(t).toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>,
+          document.body,
+        )}
+    </span>
+  );
+}
+
 function ProvName({
   e,
   kingdom,
@@ -191,10 +267,24 @@ function ProvTable({
                   {e.unitType}
                 </td>
                 <td className="text-right font-mono py-1 px-1 text-gray-500">
-                  <Num n={e.successes} />
+                  <TargetTooltip
+                    targets={e.targets}
+                    label="Successes"
+                    getValue={(t) => t.successes}
+                    color="text-gray-400"
+                  >
+                    <Num n={e.successes} />
+                  </TargetTooltip>
                 </td>
                 <td className="text-right font-mono py-1 pl-1">
-                  <Num n={e.amount} color={amtColor} />
+                  <TargetTooltip
+                    targets={e.targets}
+                    label={amtLabel}
+                    getValue={(t) => t.amount}
+                    color={amtColor}
+                  >
+                    <Num n={e.amount} color={amtColor} />
+                  </TargetTooltip>
                 </td>
               </tr>
             ))}
@@ -277,14 +367,35 @@ function ProvTable({
                 </td>
               )}
               <td className="text-right font-mono py-1 px-1 text-gray-500">
-                <Num n={e.attempts} />
+                <TargetTooltip
+                  targets={e.targets}
+                  label="Attempts"
+                  getValue={(t) => t.attempts}
+                  color="text-gray-500"
+                >
+                  <Num n={e.attempts} />
+                </TargetTooltip>
               </td>
               <td className="text-right font-mono py-1 px-1">
-                <Num n={e.successes} color="text-gray-300" />
+                <TargetTooltip
+                  targets={e.targets}
+                  label="Successes"
+                  getValue={(t) => t.successes}
+                  color="text-gray-400"
+                >
+                  <Num n={e.successes} color="text-gray-300" />
+                </TargetTooltip>
               </td>
               {!isEffect && (
                 <td className="text-right font-mono py-1 px-1">
-                  <Num n={e.amount} color={amtColor} />
+                  <TargetTooltip
+                    targets={e.targets}
+                    label={amtLabel}
+                    getValue={(t) => t.amount}
+                    color={amtColor}
+                  >
+                    <Num n={e.amount} color={amtColor} />
+                  </TargetTooltip>
                 </td>
               )}
               {showLost && (

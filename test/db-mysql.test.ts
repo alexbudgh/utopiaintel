@@ -22,7 +22,10 @@ import {
   storeSoD,
   storeIntelOp,
   storeSurvey,
+  getKingdomOpsStats,
+  storeProvinceNews,
 } from "../lib/db-mysql";
+import type { ProvinceNewsData } from "../lib/parsers/province_news";
 
 const mysqlTestDbName = process.env.DB_NAME ?? "";
 if (!/(^|[_-])test($|[_-])/.test(mysqlTestDbName)) {
@@ -128,6 +131,7 @@ async function truncateAll(): Promise<void> {
       "home_military_points",
       "total_military_points",
       "province_overview",
+      "province_news",
       "provinces",
     ]) {
       await conn.query(`TRUNCATE TABLE \`${t}\``);
@@ -2060,4 +2064,207 @@ test("replayEntry inserts original received_at directly", async () => {
     assert.equal(rows[0]?.received_at, expected, table);
   }
   await flushMetricsCacheRefreshQueue();
+});
+
+// ── getKingdomOpsStats ────────────────────────────────────────────────────────
+
+test("getKingdomOpsStats: outgoing entry has targets breakdown by target_name", async () => {
+  await truncateAll();
+  await withTransaction((conn) =>
+    bindKeyToKingdom(conn, "keyhash1", "1:1", "throne"),
+  );
+
+  const rob = {
+    name: "OurThief",
+    kingdom: "1:1",
+    op: "towers" as const,
+    targetName: "EnemyA",
+    targetSlot: 3,
+    targetKingdom: "2:2",
+    outcome: "success" as const,
+    amountStolen: 1000,
+    thievesLost: 0,
+    thieves: null,
+    stealth: null,
+    troopsAssassinated: null,
+    kidnapped: null,
+    acresBurned: null,
+    arsonBuilding: null,
+    effectDuration: null,
+    deserters: null,
+    deserterType: null,
+    wizardsAssassinated: null,
+    prisonersFreed: null,
+    prisonersCaptured: null,
+    targetGameId: null,
+    thievesSent: null,
+  };
+  await storeRob(
+    rob,
+    "OurThief",
+    "keyhash1",
+    "2026-05-01 10:00:00",
+    { gameDate: "April 1 of YR4", gameDateOrd: 100 },
+    "direct",
+  );
+  await storeRob(
+    { ...rob, targetName: "EnemyB", amountStolen: 500 },
+    "OurThief",
+    "keyhash1",
+    "2026-05-01 11:00:00",
+    { gameDate: "April 2 of YR4", gameDateOrd: 101 },
+    "direct",
+  );
+
+  const stats = await getKingdomOpsStats("2:2", "keyhash1");
+  const towers = stats.breakdowns.find((b) => b.op === "towers");
+  assert.ok(towers, "towers breakdown present");
+  const entry = towers!.outgoing.find((e) => e.provinceName === "OurThief");
+  assert.ok(entry, "OurThief outgoing entry present");
+  assert.equal(entry!.amount, 1500);
+  assert.equal(entry!.targets.length, 2);
+  const tA = entry!.targets.find((t) => t.name === "EnemyA");
+  const tB = entry!.targets.find((t) => t.name === "EnemyB");
+  assert.ok(tA, "EnemyA in targets");
+  assert.ok(tB, "EnemyB in targets");
+  assert.equal(tA!.amount, 1000);
+  assert.equal(tB!.amount, 500);
+});
+
+test("getKingdomOpsStats: outgoing entry slot comes from self-kingdom lookup", async () => {
+  await truncateAll();
+  await withTransaction((conn) =>
+    bindKeyToKingdom(conn, "keyhash1", "1:1", "throne"),
+  );
+
+  // Store our own kingdom with OurThief at slot 4
+  await storeKingdom(
+    {
+      name: "Us",
+      location: "1:1",
+      kingdomTitle: "",
+      totalNetworth: 0,
+      totalLand: 0,
+      totalHonor: 0,
+      warsWon: 0,
+      warLosses: 0,
+      networthRank: 0,
+      landRank: 0,
+      honorRank: 0,
+      warTarget: null,
+      theirAttitudeToUs: null,
+      theirAttitudePoints: null,
+      ourAttitudeToThem: null,
+      ourAttitudePoints: null,
+      hostilityMeterVisibleUntil: null,
+      openRelations: [],
+      warDoctrines: [],
+      provinces: [
+        {
+          slot: 4,
+          name: "OurThief",
+          race: "Elf",
+          land: 500,
+          networth: 50000,
+          honorTitle: "",
+        },
+      ],
+    },
+    "OurThief",
+    "keyhash1",
+    "2026-05-01 09:00:00",
+  );
+
+  const rob = {
+    name: "OurThief",
+    kingdom: "1:1",
+    op: "towers" as const,
+    targetName: "EnemyA",
+    targetSlot: 1,
+    targetKingdom: "2:2",
+    outcome: "success" as const,
+    amountStolen: 300,
+    thievesLost: 0,
+    thieves: null,
+    stealth: null,
+    troopsAssassinated: null,
+    kidnapped: null,
+    acresBurned: null,
+    arsonBuilding: null,
+    effectDuration: null,
+    deserters: null,
+    deserterType: null,
+    wizardsAssassinated: null,
+    prisonersFreed: null,
+    prisonersCaptured: null,
+    targetGameId: null,
+    thievesSent: null,
+  };
+  await storeRob(
+    rob,
+    "OurThief",
+    "keyhash1",
+    "2026-05-01 10:00:00",
+    { gameDate: "April 1 of YR4", gameDateOrd: 100 },
+    "direct",
+  );
+
+  const stats = await getKingdomOpsStats("2:2", "keyhash1");
+  const towers = stats.breakdowns.find((b) => b.op === "towers");
+  const entry = towers!.outgoing.find((e) => e.provinceName === "OurThief");
+  assert.ok(entry, "OurThief outgoing entry present");
+  assert.equal(entry!.slot, 4, "slot from self-kingdom lookup");
+});
+
+test("getKingdomOpsStats: incoming entry has targets breakdown by our province", async () => {
+  await truncateAll();
+  await withTransaction((conn) =>
+    bindKeyToKingdom(conn, "keyhash1", "1:1", "throne"),
+  );
+
+  const newsA: ProvinceNewsData = {
+    events: [
+      {
+        gameDate: "April 1 of YR4",
+        eventType: "resource_stolen",
+        rawText: "EnemyThief stole gold from ProvA",
+        actorName: "EnemyThief",
+        actorKingdom: "2:2",
+        amount: 800,
+        resourceType: "gold",
+      },
+    ],
+  };
+  const newsB: ProvinceNewsData = {
+    events: [
+      {
+        gameDate: "April 1 of YR4",
+        eventType: "resource_stolen",
+        rawText: "EnemyThief stole gold from ProvB",
+        actorName: "EnemyThief",
+        actorKingdom: "2:2",
+        amount: 200,
+        resourceType: "gold",
+      },
+    ],
+  };
+  await withTransaction((conn) =>
+    bindKeyToKingdom(conn, "keyhash1", "1:1", "throne"),
+  );
+  await storeProvinceNews(newsA, "ProvA", "keyhash1");
+  await storeProvinceNews(newsB, "ProvB", "keyhash1");
+
+  const stats = await getKingdomOpsStats("2:2", "keyhash1");
+  const vaults = stats.breakdowns.find((b) => b.op === "vaults");
+  assert.ok(vaults, "vaults breakdown present");
+  const entry = vaults!.incoming.find((e) => e.provinceName === "EnemyThief");
+  assert.ok(entry, "EnemyThief incoming entry present");
+  assert.equal(entry!.amount, 1000);
+  assert.equal(entry!.targets.length, 2);
+  const tA = entry!.targets.find((t) => t.name === "ProvA");
+  const tB = entry!.targets.find((t) => t.name === "ProvB");
+  assert.ok(tA, "ProvA in targets");
+  assert.ok(tB, "ProvB in targets");
+  assert.equal(tA!.amount, 800);
+  assert.equal(tB!.amount, 200);
 });

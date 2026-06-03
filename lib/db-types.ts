@@ -417,6 +417,13 @@ export interface OpProvEntry {
   unitType: string | null;
   thievesLost: number;
   arsonBuilding: string | null;
+  targets: {
+    name: string;
+    slot: number | null;
+    attempts: number;
+    successes: number;
+    amount: number;
+  }[];
 }
 
 export interface OpTypeBreakdown {
