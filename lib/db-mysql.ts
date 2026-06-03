@@ -8,7 +8,10 @@ import { pool, ensureReady, initDb } from "./db-mysql-pool";
 export { pool, ensureReady, initDb };
 import { BAD_SPELL_NAMES, COMBAT_EVENT_TYPES } from "./effects";
 import { parseUtopiaDate, formatUtopiaDate, UTOPIA_DAYS_PER_MONTH } from "./ui";
-import { utopiaDateOrdToUtcTimestamp } from "./utopia-age";
+import {
+  utopiaDateOrdToUtcTimestamp,
+  CURRENT_AGE_START_UTC,
+} from "./utopia-age";
 import { computeWizardCount } from "./nw";
 import {
   computeDtpaValue,
@@ -4239,7 +4242,29 @@ export async function getKingdomOpsStats(
     if (robFromTime) outParams.push(robFromTime);
   }
   const [outRows] = await pool.execute<any[]>(
-    `SELECT
+    `WITH ticked AS (
+       SELECT r.*,
+         CASE WHEN r.source = 'province_logs' THEN r.game_date_ord
+              ELSE (UNIX_TIMESTAMP(r.received_at) - UNIX_TIMESTAMP('${CURRENT_AGE_START_UTC}')) DIV 3600
+         END AS tick_ord
+       FROM rob_ops r
+       WHERE r.key_hash = ? AND r.target_kingdom = ?
+         ${robDateClause}
+     ),
+     filtered AS (
+       SELECT t.*
+       FROM ticked t
+       WHERE t.source = 'direct'
+          OR NOT EXISTS (
+            SELECT 1 FROM ticked d
+            WHERE d.source = 'direct'
+              AND d.province_id = t.province_id
+              AND d.op = t.op
+              AND d.outcome = 'success'
+              AND d.tick_ord = t.tick_ord
+          )
+     )
+     SELECT
        r.op,
        p.name AS province_name,
        COUNT(*) AS attempts,
@@ -4258,11 +4283,8 @@ export async function getKingdomOpsStats(
        r.deserter_type AS unit_type,
        SUM(r.thieves_lost) AS thieves_lost,
        CASE WHEN r.op = 'greater_arson' THEN r.arson_building ELSE NULL END AS arson_building
-     FROM rob_ops r
+     FROM filtered r
      JOIN provinces p ON p.id = r.province_id
-     WHERE r.key_hash = ? AND r.target_kingdom = ?
-       AND r.source = 'direct'
-       ${robDateClause}
      GROUP BY r.op, r.province_id, p.name, r.deserter_type,
               CASE WHEN r.op = 'greater_arson' THEN r.arson_building ELSE NULL END`,
     outParams,
