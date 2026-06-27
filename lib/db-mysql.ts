@@ -1861,16 +1861,18 @@ export async function getLatestWarDate(
     game_date: string;
   }
 
-  // War events are recorded in the user's own kingdom news, not the target
-  // kingdom's news. Match on relation_kingdom so the button reflects the
-  // most recent war specifically with the kingdom being viewed.
+  // War events are stored with kingdom = the news page it appeared on and
+  // relation_kingdom = the other party. When viewing an enemy kingdom the
+  // match is relation_kingdom = enemy (our news about them). When viewing
+  // our own kingdom the match is kingdom = own (our news, relation = enemy).
+  // Both cases are covered by the OR.
   const [rows] = await pool.execute<DateRow[]>(
     `SELECT game_date FROM kingdom_news_sharded
-     WHERE key_hash = ? AND relation_kingdom = ?
+     WHERE key_hash = ? AND (relation_kingdom = ? OR kingdom = ?)
        AND event_type IN ('war_declared', 'war_declared_on_us')
      ORDER BY game_date_ord DESC, id DESC
      LIMIT 1`,
-    [keyHash, kingdom],
+    [keyHash, kingdom, kingdom],
   );
   return rows[0]?.game_date ?? null;
 }
