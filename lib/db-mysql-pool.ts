@@ -521,29 +521,56 @@ export async function initDb(): Promise<void> {
   }
 }
 
-export async function runMigrations(): Promise<void> {
+async function ensureMigrationsTable(): Promise<void> {
   await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (
     id VARCHAR(128) NOT NULL PRIMARY KEY,
     applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
   ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+}
 
-  const [rows] = await pool.query<any[]>("SELECT id FROM schema_migrations");
-  const applied = new Set((rows as any[]).map((r) => r.id as string));
-
+function getMigrationFiles(): string[] {
   const migrationsDir = path.join(process.cwd(), "migrations");
-  let files: string[];
   try {
-    files = fs
+    return fs
       .readdirSync(migrationsDir)
       .filter((f) => f.endsWith(".sql"))
       .sort();
   } catch {
-    return;
+    console.error(
+      `[migrations] No migrations directory found at ${migrationsDir}`,
+    );
+    return [];
   }
+}
 
+// Stamps all known migrations as applied without running their SQL.
+// Call this after initDb() on a fresh DB so that run-migrations
+// only runs genuinely new migrations going forward.
+export async function baselineMigrations(): Promise<void> {
+  await ensureMigrationsTable();
+  const files = getMigrationFiles();
+  for (const file of files) {
+    await pool.query("INSERT IGNORE INTO schema_migrations (id) VALUES (?)", [
+      file,
+    ]);
+  }
+  console.log(`[migrations] Baselined ${files.length} migration(s)`);
+}
+
+export async function runMigrations(): Promise<void> {
+  await ensureMigrationsTable();
+
+  const [rows] = await pool.query<any[]>("SELECT id FROM schema_migrations");
+  const applied = new Set((rows as any[]).map((r) => r.id as string));
+
+  const files = getMigrationFiles();
+  let count = 0;
   for (const file of files) {
     if (applied.has(file)) continue;
-    const sql = fs.readFileSync(path.join(migrationsDir, file), "utf8");
+    const sql = fs.readFileSync(
+      path.join(process.cwd(), "migrations", file),
+      "utf8",
+    );
     const stmts = sql
       .split(";")
       .map((s) => s.trim())
@@ -553,5 +580,9 @@ export async function runMigrations(): Promise<void> {
     }
     await pool.query("INSERT INTO schema_migrations (id) VALUES (?)", [file]);
     console.log(`[migrations] Applied ${file}`);
+    count++;
   }
+  console.log(
+    `[migrations] Done — ${count} migration(s) applied, ${applied.size} already applied`,
+  );
 }
