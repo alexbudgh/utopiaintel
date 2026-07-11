@@ -12,6 +12,7 @@
     "test:mysql": "DB_NAME=utopiaintel_test tsc --noEmit && DB_NAME=utopiaintel_test MYSQL_DROP_TEST_DB_AFTER=1 tsx scripts/reset-mysql-test-db.ts && DB_NAME=utopiaintel_test MYSQL_DROP_TEST_DB_AFTER=1 tsx --test test/db-mysql.test.ts",
     "replay-debug-log": "tsx scripts/replay-debug-log.ts",
     "run-migrations": "tsx scripts/run-migrations.ts",
+    "reset-age-db": "tsx scripts/reset-age-db.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky"
