@@ -18,6 +18,16 @@ import {
   shouldReplayEntry,
 } from "../lib/replay-debug-log";
 import { isProvinceLogsUrl, parseProvinceLogs } from "../lib/province-logs";
+import { utopiaDateOrdToUtcTimestamp } from "../lib/utopia-age";
+
+// Mirrors timestampForLogLine's tick-start + per-index-second scheme, derived
+// from the live age-start constant so these tests don't need hand-editing
+// every age.
+function expectedLogTimestamp(gameDate: string, index: number): string {
+  const base = utopiaDateOrdToUtcTimestamp(parseUtopiaDate(gameDate));
+  const ms = new Date(base.replace(" ", "T") + "Z").getTime() + index * 1000;
+  return new Date(ms).toISOString().replace("T", " ").slice(0, 19);
+}
 
 // ---------------------------------------------------------------------------
 // computeWizardCount
@@ -268,23 +278,6 @@ test("computeWizardCount — buildings_in_progress add 10 NW over barren land", 
   assert.ok(Math.abs(result - 100) < 1, `expected ~100 wizards, got ${result}`);
 });
 
-test("computeWizardCount — Paladin horses have 0 NW in residual estimate", () => {
-  const land = 100;
-  const freeHorses = 8 * land;
-  const paidHorses = 200;
-  const nw = land * 40 + 700;
-  const result = computeWizardCount({
-    ...baseInputs(),
-    race: "Human",
-    personality: "Paladin",
-    networth: nw,
-    land,
-    war_horses: freeHorses + paidHorses,
-  });
-  assert.ok(result != null);
-  assert.ok(Math.abs(result - 100) < 1, `expected ~100 wizards, got ${result}`);
-});
-
 test("computeWizardCount — War Hero off-specs cost 0.8 more NW each", () => {
   const land = 100;
   const offSpecs = 500;
@@ -385,10 +378,11 @@ test("computeAmbushRawOff — zero army gives 1 (minimum)", () => {
   assert.equal(result, 1);
 });
 
-test("computeAmbushRawOff — all nine races are covered", () => {
+test("computeAmbushRawOff — all ten races are covered", () => {
   const races = [
     "Avian",
     "Dark Elf",
+    "Dryad",
     "Dwarf",
     "Elf",
     "Faery",
@@ -598,8 +592,8 @@ April 1 of YR1\tYour wizards gather 745 runes and begin casting, and the spell s
     rows.map((row) => row.type),
     ["sod", "som", "attack", "sorcery"],
   );
-  assert.equal(rows[0].receivedAt, "2026-05-08 18:00:00");
-  assert.equal(rows[1].receivedAt, "2026-05-08 18:00:01");
+  assert.equal(rows[0].receivedAt, expectedLogTimestamp("April 1 of YR1", 0));
+  assert.equal(rows[1].receivedAt, expectedLogTimestamp("April 1 of YR1", 1));
 
   const sod = rows[0];
   assert.equal(sod.type, "sod");
@@ -641,14 +635,13 @@ test("parseProvinceLogs — per-date index resets so entries stay in their tick"
   ].join("\n");
   const rows = parseProvinceLogs(log, "TestProv");
   assert.equal(rows.length, 6);
-  // April 1 of YR1 → 2026-05-08 18:00:00
-  assert.equal(rows[0].receivedAt, "2026-05-08 18:00:00");
-  assert.equal(rows[1].receivedAt, "2026-05-08 18:00:01");
-  assert.equal(rows[2].receivedAt, "2026-05-08 18:00:02");
-  // April 2 of YR1 → 2026-05-08 19:00:00; index resets to 0
-  assert.equal(rows[3].receivedAt, "2026-05-08 19:00:00");
-  assert.equal(rows[4].receivedAt, "2026-05-08 19:00:01");
-  assert.equal(rows[5].receivedAt, "2026-05-08 19:00:02");
+  assert.equal(rows[0].receivedAt, expectedLogTimestamp("April 1 of YR1", 0));
+  assert.equal(rows[1].receivedAt, expectedLogTimestamp("April 1 of YR1", 1));
+  assert.equal(rows[2].receivedAt, expectedLogTimestamp("April 1 of YR1", 2));
+  // April 2 of YR1 is the next game tick; index resets to 0
+  assert.equal(rows[3].receivedAt, expectedLogTimestamp("April 2 of YR1", 0));
+  assert.equal(rows[4].receivedAt, expectedLogTimestamp("April 2 of YR1", 1));
+  assert.equal(rows[5].receivedAt, expectedLogTimestamp("April 2 of YR1", 2));
 });
 
 test("parseProvinceLogs — 60+ entries in one tick produce valid timestamps", () => {
@@ -658,8 +651,8 @@ test("parseProvinceLogs — 60+ entries in one tick produce valid timestamps", (
   const rows = parseProvinceLogs(log, "TestProv");
   assert.equal(rows.length, 62);
   // Entry at index 60 should be :01:00, not the invalid :00:60
-  assert.equal(rows[60].receivedAt, "2026-05-08 18:01:00");
-  assert.equal(rows[61].receivedAt, "2026-05-08 18:01:01");
+  assert.equal(rows[60].receivedAt, expectedLogTimestamp("April 1 of YR1", 60));
+  assert.equal(rows[61].receivedAt, expectedLogTimestamp("April 1 of YR1", 61));
   // All seconds values must be 0–59
   for (const row of rows) {
     const secs = parseInt(row.receivedAt.slice(17, 19), 10);

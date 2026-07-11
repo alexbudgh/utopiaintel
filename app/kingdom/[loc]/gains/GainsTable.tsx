@@ -329,6 +329,7 @@ function EstimateCell({
   const estimate = estimateTraditionalMarchAcres({
     attackerLand: attacker.land,
     attackerNetworth: attacker.networth,
+    attackerRace: attacker.race,
     defenderLand: defender.land,
     defenderNetworth: defender.networth,
     selfKingdomAvgNetworth: selfAvgNetworth,
@@ -1375,7 +1376,7 @@ export function GainsTable({
             text: "Barrier ritual uses effectivenessPercent × 10% as the battle loss reduction applied to defender.",
           },
           {
-            text: "Still assumes neutral race/personality gains mods, dragons, anonymity, and mist.",
+            text: "Orc's +10%/+15% (OOW/War) gains bonus is modeled from the attacker's race; other race/personality gains mods, dragons, anonymity, and mist are still assumed neutral.",
             tone: "muted",
           },
         ]}
@@ -1628,6 +1629,7 @@ export function GainsTable({
                   const estimate = estimateTraditionalMarchAcres({
                     attackerLand: attacker.land,
                     attackerNetworth: attacker.networth,
+                    attackerRace: attacker.race,
                     defenderLand: defender.land,
                     defenderNetworth: defender.networth,
                     selfKingdomAvgNetworth: selfAvgNetworth,

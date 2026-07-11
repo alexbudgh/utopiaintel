@@ -8,13 +8,14 @@ export const RACE_NW: Record<
   string,
   { offSpecs: number; defSpecs: number; elites: number; warHorses: number }
 > = {
-  Avian: { offSpecs: 4.8, defSpecs: 5.0, elites: 7.0, warHorses: 0 },
-  "Dark Elf": { offSpecs: 6.0, defSpecs: 5.5, elites: 7.0, warHorses: 0.6 },
+  Avian: { offSpecs: 4.8, defSpecs: 5.0, elites: 6.5, warHorses: 0 },
+  "Dark Elf": { offSpecs: 5.6, defSpecs: 6.0, elites: 6.5, warHorses: 0.6 },
+  Dryad: { offSpecs: 4.0, defSpecs: 5.5, elites: 7.0, warHorses: 0.6 },
   Dwarf: { offSpecs: 4.0, defSpecs: 5.0, elites: 7.0, warHorses: 0.6 },
-  Elf: { offSpecs: 4.0, defSpecs: 6.5, elites: 6.0, warHorses: 0.6 },
+  Elf: { offSpecs: 4.0, defSpecs: 6.5, elites: 7.0, warHorses: 0.6 },
   Faery: { offSpecs: 4.0, defSpecs: 5.0, elites: 8.5, warHorses: 0.6 },
-  Halfling: { offSpecs: 4.0, defSpecs: 5.0, elites: 7.5, warHorses: 0.6 },
-  Human: { offSpecs: 4.8, defSpecs: 5.0, elites: 6.5, warHorses: 0.6 },
+  Halfling: { offSpecs: 4.4, defSpecs: 5.0, elites: 7.5, warHorses: 0.6 },
+  Human: { offSpecs: 6.0, defSpecs: 6.0, elites: 7.0, warHorses: 0.9 },
   Orc: { offSpecs: 5.2, defSpecs: 5.0, elites: 7.0, warHorses: 0.6 },
   Undead: { offSpecs: 4.4, defSpecs: 5.0, elites: 7.0, warHorses: 0.6 },
 };
@@ -51,17 +52,7 @@ export function computeWizardCount(p: NwInputs): number | null {
 
   const offSpecNw =
     raceNw.offSpecs + (p.personality === "War Hero" ? 2 * 0.4 : 0);
-  // Paladin horse NW is empirically treated as 0 for the wizard residual.
-  //
-  // The guide says Paladin gets "+2 War Horse Strength (affects NW)"
-  // and "All lands hold and produce Horses (8 per acre)", which could
-  // be read as: first 8/acre are free, but horses above that cap count
-  // at boosted horse NW. Real same-tick intel from two redacted Paladin
-  // provinces did not match that interpretation: charging horses above
-  // 8/acre made the residual negative, while excluding all Paladin horse
-  // NW matched the official intel site's rWPA within normal drift.
-  // Keep this exception until we can confirm the exact official formula.
-  const warHorseNw = p.personality === "Paladin" ? 0 : raceNw.warHorses;
+  const warHorseNw = raceNw.warHorses;
   const prisonerNw = (p.personality === "Warrior" ? 8 + 5 : 8) * 0.2;
 
   const troopNw =

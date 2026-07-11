@@ -2,7 +2,7 @@ import { sameTick } from "./ui";
 import { computeWizardCount } from "./nw";
 
 const RACE_POP_FACTOR: Record<string, number> = {
-  Halfling: 1.1,
+  Halfling: 1.125,
   Faery: 0.95,
 };
 
@@ -29,7 +29,7 @@ const HONOR_POP_BONUS: Record<string, number> = {
 
 // Personality modifiers to honor effects (only War Hero has one)
 const PERSONALITY_HONOR_EFFECT_MOD: Record<string, number> = {
-  "War Hero": 1.7,
+  "War Hero": 2.0,
 };
 
 export interface PopInputs {

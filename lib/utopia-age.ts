@@ -2,13 +2,17 @@ import { formatUtopiaDate, parseUtc, parseUtopiaDate } from "./ui";
 
 const HOUR_MS = 3_600_000;
 
-// Age 115 start. Update this alongside other age-specific constants.
-export const CURRENT_AGE_START_UTC = "2026-04-28 18:00:00";
+// Age 116 start. Update this alongside other age-specific constants.
+export const CURRENT_AGE_START_UTC = "2026-07-15 18:00:00";
 // Unix seconds at age start — used in SQL to convert received_at to game_date_ord:
 //   (UNIX_TIMESTAMP(received_at) - AGE_START_UNIX_SECS) DIV 3600
 export const AGE_START_UNIX_SECS = Math.floor(
   Date.parse(CURRENT_AGE_START_UTC.replace(" ", "T") + "Z") / 1000,
 );
+
+// utopiaguide's per-age mechanics history page. Update alongside the constants above.
+export const AGE_GUIDE_URL =
+  "https://utopiaguide.chaos-intel.com/history/Age_116/";
 
 export function utopiaDateOrdToUtcMs(gameDateOrd: number): number {
   return (

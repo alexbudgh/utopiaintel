@@ -19,6 +19,8 @@ export interface TraditionalMarchEstimate {
   barrierFactor: number;
   siegeEffect: number | null;
   siegeFactor: number;
+  attackerRace: string | null;
+  orcGainsFactor: number;
   relationState: "war" | "oow";
   ourAttitudeToThem: string | null;
   theirAttitudeToUs: string | null;
@@ -63,6 +65,10 @@ export function kingdomNetworthFactor(rknw: number): number {
   return 1;
 }
 
+// TODO Age 116: doc says "Out of War Attack Penalty lifted from 10% to 15%"
+// (Relations & Hostility). Couldn't confidently map this to an existing
+// modeled constant here — the hit-status-keyed factors below don't fit a
+// flat OOW baseline. Investigate before changing anything.
 export function mapGainsFactor(
   hitStatus: string | null,
   relationState: "war" | "oow",
@@ -122,10 +128,18 @@ export function incomingRelationGainsFactor(attitude: string | null): number {
   return 1;
 }
 
-// TODO Age 115: Orc gets +5% gains OOW / +15% in War. Add an orcGainsFactor param (1.05/1.15) here.
+export function orcGainsFactor(
+  race: string | null,
+  relationState: "war" | "oow",
+): number {
+  if (race !== "Orc") return 1;
+  return relationState === "war" ? 1.15 : 1.1;
+}
+
 export function estimateTraditionalMarchAcres(input: {
   attackerLand: number | null;
   attackerNetworth: number | null;
+  attackerRace?: string | null;
   defenderLand: number | null;
   defenderNetworth: number | null;
   selfKingdomAvgNetworth: number | null;
@@ -144,6 +158,7 @@ export function estimateTraditionalMarchAcres(input: {
   const {
     attackerLand,
     attackerNetworth,
+    attackerRace = null,
     defenderLand,
     defenderNetworth,
     selfKingdomAvgNetworth,
@@ -179,6 +194,7 @@ export function estimateTraditionalMarchAcres(input: {
   const castlesFactor = castlesProtectionFactor(defenderCastlesEffect);
   const barrierFactor = barrierProtectionFactor(defenderBarrierEffect);
   const siegeFactor = siegeScienceFactor(attackerSiegeEffect);
+  const orcFactor = orcGainsFactor(attackerRace, relationState);
   const ourRelationFactor = outgoingRelationGainsFactor(ourAttitudeToThem);
   const theirRelationFactor = incomingRelationGainsFactor(theirAttitudeToUs);
   const combinedRelationFactor = ourRelationFactor * theirRelationFactor;
@@ -201,6 +217,7 @@ export function estimateTraditionalMarchAcres(input: {
     castlesFactor *
     barrierFactor *
     siegeFactor *
+    orcFactor *
     combinedRelationFactor *
     enemyBattleGainsFactor *
     attackTimeFactor;
@@ -228,6 +245,8 @@ export function estimateTraditionalMarchAcres(input: {
     barrierFactor,
     siegeEffect: attackerSiegeEffect,
     siegeFactor,
+    attackerRace,
+    orcGainsFactor: orcFactor,
     relationState,
     ourAttitudeToThem,
     theirAttitudeToUs,

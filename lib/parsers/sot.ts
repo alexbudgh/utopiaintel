@@ -55,6 +55,8 @@ const PREFIX_PERSONALITY_MAP: Record<string, string> = {
   Brave: "Warrior",
   Great: "General",
 };
+// TODO Age 116: Cleric and Sage have no known ruler-title word yet; leave
+// them unmapped until real intel reveals the suffix/prefix text.
 const SUFFIX_PERSONALITY_MAP: Record<string, string> = {
   Hero: "War Hero",
   Warrior: "Warrior",
@@ -64,7 +66,6 @@ const SUFFIX_PERSONALITY_MAP: Record<string, string> = {
   Craftsman: "Artisan",
   Craftswoman: "Artisan",
   Skeptic: "Heretic",
-  Chivalrous: "Paladin",
   Reanimator: "Necromancer",
   Commandant: "General",
 };

@@ -13,13 +13,13 @@ export function rawPerAcreValue(
 }
 
 export function tpaPersonalityEffectValue(personality: string | null): number {
-  if (personality === "Rogue") return 20;
-  if (personality === "Heretic") return 15;
+  if (personality === "Rogue") return 25;
+  if (personality === "Heretic") return 35;
   return 0;
 }
 
 export function tpaRaceEffectValue(race: string | null): number {
-  if (race === "Halfling") return 20;
+  if (race === "Halfling") return 30;
   if (race === "Elf") return -20;
   return 0;
 }
@@ -28,9 +28,15 @@ export function wpaPersonalityEffectValue(
   personality: string | null,
   mana: number | null,
 ): number {
-  if (personality === "Necromancer") return 35;
-  if (personality === "Heretic") return 15;
-  if (personality === "Mystic" && mana != null && mana > 40) return 20;
+  if (personality === "Necromancer") return 25;
+  if (personality === "Heretic") return 35;
+  if (personality === "Mystic") {
+    // Doc-literal (Age 116): flat +25% WPA, plus +20% more ("Focused Channelling")
+    // above 60% mana — replaces the old single mana>40 branch. Verify against real intel.
+    let bonus = 25;
+    if (mana != null && mana > 60) bonus += 20;
+    return bonus;
+  }
   return 0;
 }
 
@@ -71,7 +77,7 @@ export function wpaHonorEffectValue(
   personality: string | null,
 ): number {
   const baseEffect = honorTitle ? (HONOR_WPA_EFFECT[honorTitle] ?? 0) : 0;
-  const honorEffectMod = personality === "War Hero" ? 1.7 : 1;
+  const honorEffectMod = personality === "War Hero" ? 2.0 : 1;
   return baseEffect * honorEffectMod;
 }
 
@@ -80,7 +86,7 @@ export function tpaHonorEffectValue(
   personality: string | null,
 ): number {
   const baseEffect = honorTitle ? (HONOR_TPA_EFFECT[honorTitle] ?? 0) : 0;
-  const honorEffectMod = personality === "War Hero" ? 1.7 : 1;
+  const honorEffectMod = personality === "War Hero" ? 2.0 : 1;
   return baseEffect * honorEffectMod;
 }
 

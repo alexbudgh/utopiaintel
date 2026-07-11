@@ -964,11 +964,6 @@ for (const { ruler, personality, honorTitle } of [
     honorTitle: "Lord",
   },
   {
-    ruler: "Lady Valor the Chivalrous",
-    personality: "Paladin",
-    honorTitle: "Lady",
-  },
-  {
     ruler: "Lord Graveborn the Reanimator",
     personality: "Necromancer",
     honorTitle: "Lord",

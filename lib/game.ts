@@ -13,7 +13,7 @@ export interface RaceData {
   eliteDefStr: number;
 }
 
-// Age 115 unit stats.
+// Age 116 unit stats.
 export const RACES: RaceData[] = [
   {
     name: "Avian",
@@ -25,7 +25,7 @@ export const RACES: RaceData[] = [
     offSpecStr: 12,
     defSpecStr: 10,
     eliteOffStr: 16,
-    eliteDefStr: 3,
+    eliteDefStr: 2,
   },
   {
     name: "Dark Elf",
@@ -34,10 +34,23 @@ export const RACES: RaceData[] = [
     defSpec: "Druids",
     elite: "Drows",
     soldierStr: 3,
-    offSpecStr: 15,
+    offSpecStr: 14,
+    defSpecStr: 12,
+    eliteOffStr: 16,
+    eliteDefStr: 2,
+  },
+  // TODO Age 116: fill in real Dryad unit names once seen in intel_debug.jsonl
+  {
+    name: "Dryad",
+    shortName: "DY",
+    offSpec: "Dryad Off Spec TODO",
+    defSpec: "Dryad Def Spec TODO",
+    elite: "Dryad Elite TODO",
+    soldierStr: 3,
+    offSpecStr: 10,
     defSpecStr: 11,
-    eliteOffStr: 4,
-    eliteDefStr: 12,
+    eliteOffStr: 16,
+    eliteDefStr: 3,
   },
   {
     name: "Dwarf",
@@ -49,7 +62,7 @@ export const RACES: RaceData[] = [
     offSpecStr: 10,
     defSpecStr: 10,
     eliteOffStr: 15,
-    eliteDefStr: 5,
+    eliteDefStr: 7,
   },
   {
     name: "Elf",
@@ -60,7 +73,7 @@ export const RACES: RaceData[] = [
     soldierStr: 3,
     offSpecStr: 10,
     defSpecStr: 13,
-    eliteOffStr: 15,
+    eliteOffStr: 14,
     eliteDefStr: 4,
   },
   {
@@ -82,10 +95,10 @@ export const RACES: RaceData[] = [
     defSpec: "Slingers",
     elite: "Brutes",
     soldierStr: 3,
-    offSpecStr: 10,
+    offSpecStr: 11,
     defSpecStr: 10,
-    eliteOffStr: 6,
-    eliteDefStr: 12,
+    eliteOffStr: 10,
+    eliteDefStr: 13,
   },
   {
     name: "Human",
@@ -94,10 +107,10 @@ export const RACES: RaceData[] = [
     defSpec: "Archers",
     elite: "Knights",
     soldierStr: 3,
-    offSpecStr: 12,
-    defSpecStr: 10,
-    eliteOffStr: 16,
-    eliteDefStr: 3,
+    offSpecStr: 15,
+    defSpecStr: 12,
+    eliteOffStr: 15,
+    eliteDefStr: 5,
   },
   {
     name: "Orc",
@@ -109,7 +122,7 @@ export const RACES: RaceData[] = [
     offSpecStr: 13,
     defSpecStr: 10,
     eliteOffStr: 18,
-    eliteDefStr: 2,
+    eliteDefStr: 3,
   },
   {
     name: "Undead",
@@ -120,7 +133,7 @@ export const RACES: RaceData[] = [
     soldierStr: 3,
     offSpecStr: 11,
     defSpecStr: 10,
-    eliteOffStr: 17,
+    eliteOffStr: 16,
     eliteDefStr: 4,
   },
 ];
@@ -200,14 +213,15 @@ export const SCIENCE_GROUP = [...SCIENCES, ...Object.keys(SCIENCE_ALTS)].join(
   "|",
 );
 
-// Age 114 personalities. "Hero" is what appears after "the " in SoT ruler text
+// Age 116 personalities. "Hero" is what appears after "the " in SoT ruler text
 // (the full design name is "War Hero" but the game displays just "Hero").
 export const PERSONALITIES = [
   "Artisan",
-  "Paladin",
+  "Cleric",
   "Heretic",
   "Mystic",
   "Rogue",
+  "Sage",
   "Tactician",
   "Warrior",
   "Necromancer",
